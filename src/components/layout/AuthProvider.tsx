@@ -74,9 +74,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f0f11]">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--c-bg-0)]">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
+          <Loader2 className="w-8 h-8 animate-spin text-[var(--c-accent)] mx-auto mb-3" />
           <p className="text-sm text-gray-500">Caricamento redazione...</p>
         </div>
       </div>

@@ -1,15 +1,11 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
+import ThemeInit from "@/components/layout/ThemeInit";
 import "./globals.css";
 
 const inter = Inter({
   variable: "--font-sans",
-  subsets: ["latin"],
-});
-
-const playfair = Playfair_Display({
-  variable: "--font-serif",
   subsets: ["latin"],
 });
 
@@ -24,10 +20,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="it">
-      <body className={`${inter.variable} ${playfair.variable} antialiased`}>
+    <html lang="it" data-theme="dark" suppressHydrationWarning>
+      <body className={`${inter.variable} antialiased`}>
+        <ThemeInit />
         {children}
-        <Toaster position="bottom-right" />
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: "var(--c-bg-2)",
+              color: "var(--c-text-0)",
+              border: "1px solid var(--c-border)",
+              fontSize: "0.875rem",
+            },
+          }}
+        />
       </body>
     </html>
   );
