@@ -1,0 +1,87 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuthStore } from "@/lib/store";
+import { Loader2 } from "lucide-react";
+import type { UserRole } from "@/types/database";
+
+export default function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [loading, setLoading] = useState(true);
+  const { setUser, setProfile, setTenants, setCurrentTenant, currentTenant } = useAuthStore();
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      setUser({ id: user.id, email: user.email ?? "" });
+
+      // Fetch profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (profile) setProfile(profile);
+
+      // Fetch tenants with roles
+      const { data: userTenants } = await supabase
+        .from("user_tenants")
+        .select("role, tenants(*)")
+        .eq("user_id", user.id);
+
+      if (userTenants && userTenants.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mapped = userTenants.map((ut: any) => ({
+          ...ut.tenants,
+          role: ut.role as UserRole,
+        }));
+
+        setTenants(mapped as unknown as ReturnType<typeof useAuthStore.getState>["tenants"]);
+
+        // Restore last tenant or use first
+        const savedTenantId = localStorage.getItem("editoria_current_tenant");
+        const saved = mapped.find((t: { id: string }) => t.id === savedTenantId);
+        const selected = saved || mapped[0];
+        setCurrentTenant(
+          selected as unknown as ReturnType<typeof useAuthStore.getState>["currentTenant"],
+          selected.role
+        );
+      }
+
+      setLoading(false);
+    }
+
+    init();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!session) {
+          useAuthStore.getState().reset();
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, [setUser, setProfile, setTenants, setCurrentTenant, currentTenant]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0f0f11]">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
+          <p className="text-sm text-gray-500">Caricamento redazione...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}

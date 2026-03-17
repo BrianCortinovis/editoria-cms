@@ -1,0 +1,122 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuthStore } from "@/lib/store";
+import slugify from "slugify";
+import toast from "react-hot-toast";
+import { Plus, X, Tag as TagIcon, Trash2 } from "lucide-react";
+
+interface TagItem {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export default function TagPage() {
+  const { currentTenant, currentRole } = useAuthStore();
+  const [tags, setTags] = useState<TagItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newTag, setNewTag] = useState("");
+
+  const loadTags = useCallback(async () => {
+    if (!currentTenant) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("tags")
+      .select("*")
+      .eq("tenant_id", currentTenant.id)
+      .order("name");
+    if (data) setTags(data);
+    setLoading(false);
+  }, [currentTenant]);
+
+  useEffect(() => {
+    loadTags();
+  }, [loadTags]);
+
+  const handleAdd = async () => {
+    if (!currentTenant || !newTag.trim()) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("tags").insert({
+      tenant_id: currentTenant.id,
+      name: newTag.trim(),
+      slug: slugify(newTag.trim(), { lower: true, strict: true, locale: "it" }),
+    });
+
+    if (error) {
+      toast.error(error.message.includes("duplicate") ? "Tag già esistente" : error.message);
+    } else {
+      toast.success("Tag creato");
+      setNewTag("");
+      loadTags();
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const supabase = createClient();
+    const { error } = await supabase.from("tags").delete().eq("id", id);
+    if (error) {
+      toast.error("Errore");
+    } else {
+      setTags((prev) => prev.filter((t) => t.id !== id));
+    }
+  };
+
+  const canEdit = ["super_admin", "chief_editor", "editor"].includes(currentRole ?? "");
+
+  return (
+    <div className="max-w-2xl">
+      {/* Add tag */}
+      {canEdit && (
+        <div className="flex gap-2 mb-6">
+          <input
+            type="text"
+            value={newTag}
+            onChange={(e) => setNewTag(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+            placeholder="Nuovo tag..."
+            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B0000]"
+          />
+          <button
+            onClick={handleAdd}
+            disabled={!newTag.trim()}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#8B0000] text-white text-sm font-semibold rounded-lg hover:bg-[#6d0000] transition disabled:opacity-50"
+          >
+            <Plus className="w-4 h-4" /> Aggiungi
+          </button>
+        </div>
+      )}
+
+      {/* Tags */}
+      {loading ? (
+        <p className="text-sm text-gray-400 text-center py-12">Caricamento...</p>
+      ) : tags.length === 0 ? (
+        <div className="text-center py-12">
+          <TagIcon className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">Nessun tag</p>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {tags.map((tag) => (
+            <span
+              key={tag.id}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-700 group hover:border-gray-300 transition"
+            >
+              <TagIcon className="w-3.5 h-3.5 text-gray-400" />
+              {tag.name}
+              {canEdit && (
+                <button
+                  onClick={() => handleDelete(tag.id)}
+                  className="w-4 h-4 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-500 transition"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -56,13 +56,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#8B0000] rounded-2xl mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg shadow-blue-500/20 mb-4">
             <Newspaper className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 font-serif">
+          <h1 className="text-3xl font-bold text-white">
             Editoria CMS
           </h1>
           <p className="text-gray-500 mt-2">
@@ -70,7 +70,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
+        <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-8">
           {sent ? (
             <div className="text-center">
               <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-4">
@@ -85,7 +85,7 @@ export default function LoginPage() {
               </p>
               <button
                 onClick={() => setSent(false)}
-                className="mt-4 text-sm text-[#8B0000] hover:underline"
+                className="mt-4 text-sm text-blue-400 hover:underline"
               >
                 Usa un&apos;altra email
               </button>
@@ -93,7 +93,7 @@ export default function LoginPage() {
           ) : mode === "password" ? (
             <form onSubmit={handlePasswordLogin}>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-zinc-400 mb-2">
                   Email
                 </label>
                 <input
@@ -102,12 +102,12 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="redattore@testata.it"
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#8B0000] focus:border-transparent transition"
+                  className="w-full px-4 py-3 border border-[#3f3f46] rounded-lg bg-[#27272a] text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 />
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-zinc-400 mb-2">
                   Password
                 </label>
                 <input
@@ -116,7 +116,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#8B0000] focus:border-transparent transition"
+                  className="w-full px-4 py-3 border border-[#3f3f46] rounded-lg bg-[#27272a] text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 />
               </div>
 
@@ -127,7 +127,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full px-4 py-3 bg-[#8B0000] text-white font-semibold rounded-lg hover:bg-[#6d0000] disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -141,7 +141,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => { setMode("magic"); setError(""); }}
-                  className="text-sm text-gray-500 hover:text-[#8B0000] transition"
+                  className="text-sm text-gray-500 hover:text-blue-400 transition"
                 >
                   Accedi con Magic Link
                 </button>
@@ -149,7 +149,7 @@ export default function LoginPage() {
             </form>
           ) : (
             <form onSubmit={handleMagicLink}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-zinc-400 mb-2">
                 Email
               </label>
               <input
@@ -158,7 +158,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="redattore@testata.it"
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#8B0000] focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-[#3f3f46] rounded-lg bg-[#27272a] text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
               />
 
               {error && (
@@ -168,7 +168,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full mt-4 px-4 py-3 bg-[#8B0000] text-white font-semibold rounded-lg hover:bg-[#6d0000] disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                className="w-full mt-4 px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -182,7 +182,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => { setMode("password"); setError(""); }}
-                  className="text-sm text-gray-500 hover:text-[#8B0000] transition"
+                  className="text-sm text-gray-500 hover:text-blue-400 transition"
                 >
                   Accedi con password
                 </button>
