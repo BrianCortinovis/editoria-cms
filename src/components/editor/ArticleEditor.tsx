@@ -394,43 +394,49 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           </div>
 
           {/* Cover Image */}
-          <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-1)" }}>
+          <div className="rounded-lg overflow-hidden group" style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-1)" }}>
             {coverImageUrl ? (
               <div className="relative">
-                <img
-                  src={coverImageUrl}
-                  alt="Copertina"
-                  className="w-full h-48 object-cover"
-                />
-                <button
-                  onClick={() => setCoverImageUrl("")}
-                  className="absolute top-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition"
-                >
+                <img src={coverImageUrl} alt="Copertina" className="w-full h-48 object-cover" />
+                <button onClick={() => setCoverImageUrl("")}
+                  className="absolute top-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition">
                   <X className="w-4 h-4" />
                 </button>
+                <div className="absolute top-2 right-12 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <AIFieldHelper fieldLabel="URL immagine copertina" currentValue={coverImageUrl} context={title} onApply={setCoverImageUrl} />
+                </div>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center py-8 cursor-pointer transition"
-                onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
-                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                <ImageIcon className="w-8 h-8 mb-2" style={{ color: "var(--c-text-3)" }} />
-                <span className="text-sm" style={{ color: "var(--c-text-3)" }}>
-                  Aggiungi immagine di copertina
-                </span>
-                <input
-                  type="text"
-                  placeholder="URL immagine..."
-                  value={coverImageUrl}
-                  onChange={(e) => setCoverImageUrl(e.target.value)}
-                  className="mt-2 px-3 py-1.5 rounded text-xs w-64 focus:outline-none focus:ring-1"
-                  style={{ border: "1px solid var(--c-border)" }}
-                />
-              </label>
+              <div className="relative">
+                <div className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <AIFieldHelper fieldLabel="URL immagine copertina" currentValue="" context={`Titolo: ${title}. Suggerisci un URL di immagine Unsplash o Pexels gratuita pertinente.`} onApply={setCoverImageUrl} />
+                </div>
+                <label className="flex flex-col items-center justify-center py-8 cursor-pointer transition"
+                  onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                  <ImageIcon className="w-8 h-8 mb-2" style={{ color: "var(--c-text-3)" }} />
+                  <span className="text-sm" style={{ color: "var(--c-text-3)" }}>Aggiungi immagine di copertina</span>
+                  <input type="text" placeholder="URL immagine..." value={coverImageUrl}
+                    onChange={(e) => setCoverImageUrl(e.target.value)}
+                    className="mt-2 px-3 py-1.5 rounded text-xs w-64 focus:outline-none focus:ring-1"
+                    style={{ border: "1px solid var(--c-border)" }} />
+                </label>
+              </div>
             )}
           </div>
 
           {/* Body Editor */}
-          <TiptapEditor content={body} onChange={setBody} />
+          <div className="relative group">
+            <div className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+              <AIFieldHelper
+                fieldLabel="Corpo dell'articolo"
+                currentValue={body?.slice(0, 200) || ""}
+                context={`Titolo: ${title}\nSottotitolo: ${subtitle}\nSommario: ${summary}`}
+                onApply={(v) => setBody(body + "\n" + v)}
+              />
+            </div>
+            <TiptapEditor content={body} onChange={setBody} />
+          </div>
         </div>
 
         {/* Sidebar */}
@@ -463,23 +469,39 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           </div>
 
           {/* Slug */}
-          <div className="rounded-lg p-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-            <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>Slug URL</h3>
+          <div className="rounded-lg p-4 group" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Slug URL</h3>
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <AIFieldHelper fieldLabel="Slug URL" currentValue={slug} context={title} onApply={(v) => { setSlugManual(true); setSlug(v); }} />
+              </div>
+            </div>
             <input
               type="text"
               value={slug}
-              onChange={(e) => {
-                setSlugManual(true);
-                setSlug(e.target.value);
-              }}
+              onChange={(e) => { setSlugManual(true); setSlug(e.target.value); }}
               className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
               style={{ border: "1px solid var(--c-border)" }}
             />
           </div>
 
           {/* Category */}
-          <div className="rounded-lg p-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-            <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>Categoria</h3>
+          <div className="rounded-lg p-4 group" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Categoria</h3>
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <AIFieldHelper
+                  fieldLabel="Categoria articolo"
+                  currentValue={categories.find(c => c.id === categoryId)?.name || "nessuna"}
+                  context={`Titolo: ${title}\nSommario: ${summary}\nCategorie disponibili: ${categories.map(c => c.name).join(", ")}`}
+                  onApply={(suggestion) => {
+                    const match = categories.find(c => c.name.toLowerCase() === suggestion.toLowerCase().trim());
+                    if (match) setCategoryId(match.id);
+                    else toast.success(`Suggerimento IA: "${suggestion}" — selezionala manualmente se esiste`);
+                  }}
+                />
+              </div>
+            </div>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
@@ -488,34 +510,34 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             >
               <option value="">Nessuna categoria</option>
               {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
           </div>
 
           {/* Tags */}
-          <div className="rounded-lg p-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-            <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>Tag</h3>
+          <div className="rounded-lg p-4 group" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Tag</h3>
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <AIFieldHelper
+                  fieldLabel="Tag articolo"
+                  currentValue={selectedTags.map(id => tags.find(t => t.id === id)?.name).filter(Boolean).join(", ")}
+                  context={`Titolo: ${title}\nSommario: ${summary}\nTag disponibili: ${tags.map(t => t.name).join(", ")}`}
+                  onApply={(suggestion) => {
+                    toast.success(`Tag suggeriti dall'IA: ${suggestion}`);
+                  }}
+                />
+              </div>
+            </div>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {selectedTags.map((tagId) => {
                 const tag = tags.find((t) => t.id === tagId);
                 return tag ? (
-                  <span
-                    key={tagId}
-                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full"
-                    style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}
-                  >
+                  <span key={tagId} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full"
+                    style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}>
                     {tag.name}
-                    <button
-                      onClick={() =>
-                        setSelectedTags((prev) =>
-                          prev.filter((id) => id !== tagId)
-                        )
-                      }
-                      className="hover:text-red-500"
-                    >
+                    <button onClick={() => setSelectedTags((prev) => prev.filter((id) => id !== tagId))} className="hover:text-red-500">
                       <X className="w-3 h-3" />
                     </button>
                   </span>
@@ -523,24 +545,14 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
               })}
             </div>
             <select
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val && !selectedTags.includes(val)) {
-                  setSelectedTags((prev) => [...prev, val]);
-                }
-                e.target.value = "";
-              }}
+              onChange={(e) => { const val = e.target.value; if (val && !selectedTags.includes(val)) setSelectedTags((prev) => [...prev, val]); e.target.value = ""; }}
               className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
               style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}
             >
               <option value="">Aggiungi tag...</option>
-              {tags
-                .filter((t) => !selectedTags.includes(t.id))
-                .map((tag) => (
-                  <option key={tag.id} value={tag.id}>
-                    {tag.name}
-                  </option>
-                ))}
+              {tags.filter((t) => !selectedTags.includes(t.id)).map((tag) => (
+                <option key={tag.id} value={tag.id}>{tag.name}</option>
+              ))}
             </select>
           </div>
 
