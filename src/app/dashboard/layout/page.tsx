@@ -81,6 +81,14 @@ const SITE_PAGES: SitePage[] = [
   { id: "about", page_type: "about", label: "Chi Siamo", icon: Info },
   { id: "contact", page_type: "contact", label: "Contatti", icon: Phone },
   { id: "events", page_type: "events", label: "Pagina Eventi", icon: Calendar },
+  { id: "meteo", page_type: "meteo", label: "Meteo", icon: FileText },
+  { id: "webcam", page_type: "webcam", label: "Webcam", icon: FileText },
+  { id: "ski", page_type: "ski", label: "Sci", icon: FileText },
+  { id: "trekking", page_type: "trekking", label: "Trekking", icon: FileText },
+  { id: "accommodation", page_type: "accommodation", label: "Dove Alloggiare", icon: Home },
+  { id: "restaurant", page_type: "restaurant", label: "Dove Mangiare", icon: FileText },
+  { id: "activities", page_type: "activities", label: "Attività", icon: FileText },
+  { id: "alpine", page_type: "alpine", label: "Alpini", icon: FileText },
   { id: "map", page_type: "map", label: "Mappa", icon: Map },
   { id: "other", page_type: "other", label: "Altra Pagina", icon: FileQuestion },
 ];
@@ -237,24 +245,40 @@ export default function LayoutPage() {
       const res = await fetch("/api/layout/parse", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files: filesToParse }) });
       const data = await res.json();
       if (data.slots?.length > 0) {
-        const tmpl = templates.find(t => t.page_type === selectedPage);
-        if (!tmpl) { setParsing(false); return; }
         const supabase = createClient();
-        let added = 0;
-        for (const s of data.slots) {
-          if (slots.find(ex => ex.slot_key === s.slot_key)) continue;
-          const cat = categories.find(c => s.slot_key.includes(c.slug));
-          await supabase.from("layout_slots").insert({
-            template_id: tmpl.id, slot_key: s.slot_key, label: s.label, description: s.description,
-            content_type: s.content_type, category_id: cat?.id ?? null, max_items: s.max_items,
-            sort_by: "published_at", sort_order: "desc", sort_index: slots.length + added,
-            layout_tag: s.layout?.tag || "div", layout_display: s.layout?.display || "block",
-            layout_width: s.layout?.width || "full", layout_height: s.layout?.height || "auto",
-            layout_grid_cols: s.layout?.grid_cols || 1, layout_classes: s.layout?.classes || "",
-          });
-          added++;
+        let totalAdded = 0;
+        // Get or create templates for each detected page
+        const detectedPages: string[] = data.detected_pages || [selectedPage];
+        for (const page of detectedPages) {
+          let tmpl = templates.find(t => t.page_type === page);
+          if (!tmpl) {
+            const { data: newTmpl } = await supabase.from("layout_templates").insert({
+              tenant_id: currentTenant!.id,
+              name: `${currentTenant!.name} — ${SITE_PAGES.find(p => p.page_type === page)?.label || page}`,
+              page_type: page,
+            }).select("*").single();
+            if (newTmpl) { tmpl = newTmpl as LayoutTemplate; setTemplates(prev => [...prev, newTmpl as LayoutTemplate]); }
+          }
+          if (!tmpl) continue;
+          const pageSlots = (data.pages?.[page] || data.slots.filter((s: { page?: string }) => (s.page || selectedPage) === page));
+          let pageOrder = 0;
+          for (const s of pageSlots) {
+            const existingSlots = await supabase.from("layout_slots").select("id").eq("template_id", tmpl.id).eq("slot_key", s.slot_key);
+            if (existingSlots.data && existingSlots.data.length > 0) continue;
+            const cat = categories.find(c => s.slot_key.includes(c.slug));
+            await supabase.from("layout_slots").insert({
+              template_id: tmpl.id, slot_key: s.slot_key, label: s.label, description: s.description,
+              content_type: s.content_type || "articles", category_id: cat?.id ?? null, max_items: s.max_items || 6,
+              sort_by: "published_at", sort_order: "desc", sort_index: pageOrder++,
+              layout_tag: s.layout?.tag || "div", layout_display: s.layout?.display || "block",
+              layout_width: s.layout?.width || "full", layout_height: s.layout?.height || "auto",
+              layout_grid_cols: s.layout?.grid_cols || 1, layout_classes: s.layout?.classes || "",
+            });
+            totalAdded++;
+          }
         }
-        toast.success(`${added} slot importati`); load();
+        toast.success(`${totalAdded} slot importati in ${detectedPages.length} pagine: ${detectedPages.join(", ")}`);
+        load();
       } else { toast.error("Nessun slot trovato. Aggiungi data-cms-slot al codice."); }
     } catch { toast.error("Errore nel parsing"); }
     setParsing(false);
@@ -276,24 +300,51 @@ export default function LayoutPage() {
     try {
       const res = await fetch("/api/ai/analyze-layout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenant_id: currentTenant.id, files }) });
       const data = await res.json();
-      if (data.slots?.length > 0) {
-        const tmpl = templates.find(t => t.page_type === selectedPage);
-        if (!tmpl) { setAiAnalyzing(false); return; }
+      // New format: data.pages is a dict of page_type -> slots[]
+      const aiPages = data.pages || (data.slots ? { [selectedPage]: data.slots } : null);
+      if (aiPages && Object.keys(aiPages).length > 0) {
         const supabase = createClient();
-        let added = 0;
-        for (const s of data.slots) {
-          if (slots.find(ex => ex.slot_key === s.slot_key)) continue;
-          const cat = categories.find(c => s.slot_key.includes(c.slug));
-          await supabase.from("layout_slots").insert({
-            template_id: tmpl.id, slot_key: s.slot_key, label: s.label, description: s.description || null,
-            content_type: s.content_type || "articles", category_id: cat?.id ?? null, max_items: s.max_items || 6,
-            sort_by: "published_at", sort_order: "desc", sort_index: slots.length + added,
-            layout_width: s.style_hint?.includes("sidebar") ? "1/4" : "full",
-            layout_height: s.style_hint?.includes("hero") ? "hero" : "auto",
-          });
-          added++;
+        let totalAdded = 0;
+        const pageNames: string[] = [];
+
+        for (const [page, pageSlots] of Object.entries(aiPages)) {
+          if (!Array.isArray(pageSlots) || pageSlots.length === 0) continue;
+          pageNames.push(page);
+
+          // Get or create template for this page
+          let tmpl = templates.find(t => t.page_type === page);
+          if (!tmpl) {
+            const { data: newTmpl } = await supabase.from("layout_templates").insert({
+              tenant_id: currentTenant!.id,
+              name: `${currentTenant!.name} — ${page}`,
+              page_type: page,
+            }).select("*").single();
+            if (newTmpl) { tmpl = newTmpl as LayoutTemplate; setTemplates(prev => [...prev, newTmpl as LayoutTemplate]); }
+          }
+          if (!tmpl) continue;
+
+          let order = 0;
+          for (const s of pageSlots as Array<Record<string, unknown>>) {
+            const slotKey = s.slot_key as string;
+            const existing = await supabase.from("layout_slots").select("id").eq("template_id", tmpl.id).eq("slot_key", slotKey);
+            if (existing.data && existing.data.length > 0) continue;
+            const cat = categories.find(c => slotKey.includes(c.slug));
+            await supabase.from("layout_slots").insert({
+              template_id: tmpl.id, slot_key: slotKey, label: (s.label as string) || slotKey,
+              description: (s.description as string) || null,
+              content_type: (s.content_type as string) || "articles",
+              category_id: cat?.id ?? null, max_items: (s.max_items as number) || 6,
+              sort_by: "published_at", sort_order: "desc", sort_index: order++,
+              layout_width: (s.layout_width as string) || "full",
+              layout_height: (s.layout_height as string) || "auto",
+              layout_grid_cols: (s.grid_cols as number) || 1,
+            });
+            totalAdded++;
+          }
         }
-        toast.success(`IA: ${added} slot creati (${data.provider})`); load();
+        toast.success(`IA: ${totalAdded} slot in ${pageNames.length} pagine (${data.provider})`);
+        if (data.analysis) toast.success(data.analysis, { duration: 5000 });
+        load();
       }
     } catch { toast.error("Errore IA"); }
     setAiAnalyzing(false);

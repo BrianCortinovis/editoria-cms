@@ -41,30 +41,36 @@ export async function POST(request: Request) {
     const result = await callAI(resolved.provider, [
       {
         role: "system",
-        content: `Sei un esperto di web development e CMS. Analizza il codice sorgente di un sito web e identifica le zone/sezioni dove andrebbero posizionati contenuti editoriali (articoli, eventi, banner, ecc.).
+        content: `Sei un esperto di web development e CMS. Analizza il codice sorgente di un INTERO sito web (più pagine HTML) e identifica TUTTE le zone editabili in OGNI pagina.
 
-Per ogni zona trovata, determina:
-1. Un identificativo univoco (slot_key) in kebab-case
-2. Un nome leggibile (label)
-3. Il tipo di contenuto ideale (articles, events, breaking_news, banners)
-4. Quanti elementi mostrare (max_items)
-5. Una descrizione di dove si trova nel layout
+IMPORTANTE: analizza OGNI file separatamente. Ogni file è una pagina diversa del sito.
 
-Cerca: sezioni hero, griglie di articoli, sidebar, aree eventi, spazi per banner, footer con link, ecc.
+Per ogni zona trovata indica:
+1. slot_key: identificativo univoco in kebab-case
+2. label: nome leggibile italiano
+3. page: tipo di pagina (homepage, article, category, about, contact, events, meteo, webcam, ski, trekking, accommodation, restaurant, activities, alpine, map, other)
+4. content_type: articles, events, breaking_news, banners, o "static" per contenuto fisso
+5. max_items: quanti elementi (1 per hero, 3-6 per griglie, ecc.)
+6. layout_width: "full", "2/3", "1/2", "1/3", "1/4" — basato sul CSS reale
+7. layout_height: "hero" (grande), "large", "medium", "small" — basato sulle dimensioni CSS
+8. grid_cols: numero colonne se è una griglia
+9. description: dove si trova nel layout
+
+Cerca in ogni pagina: header, hero, griglie articoli, sidebar, due colonne affiancate, spazi banner, ticker, meteo, eventi, footer, form, ecc.
+
+ATTENZIONE alle sezioni two-col/flex: se ci sono due div affiancati, sono slot separati con width 2/3 + 1/3.
 
 Rispondi SEMPRE in JSON valido senza markdown:
 {
-  "slots": [
-    {
-      "slot_key": "hero",
-      "label": "Articolo Principale",
-      "content_type": "articles",
-      "max_items": 1,
-      "description": "Sezione hero in cima alla homepage",
-      "style_hint": "full-width, large image"
-    }
-  ],
-  "analysis": "breve descrizione del layout generale del sito"
+  "pages": {
+    "homepage": [
+      {"slot_key": "hero", "label": "Hero Slideshow", "content_type": "articles", "max_items": 3, "layout_width": "full", "layout_height": "hero", "grid_cols": 1, "description": "Slideshow principale"}
+    ],
+    "meteo": [
+      {"slot_key": "meteo-forecast", "label": "Previsioni Meteo", "content_type": "static", "max_items": 1, "layout_width": "full", "layout_height": "medium", "grid_cols": 3, "description": "Widget previsioni"}
+    ]
+  },
+  "analysis": "descrizione del layout del sito"
 }`
       },
       {

@@ -7,17 +7,48 @@ interface ParsedSlot {
   content_type: string;
   max_items: number;
   style_hint: string;
-  // Layout info for visual representation
+  page: string; // detected page type
   layout: {
-    tag: string;            // html tag (section, div, aside, etc.)
-    display: string;        // flex, grid, block
-    width: string;          // css width or "full", "1/2", "1/3", etc.
-    height: string;         // estimated height hint
-    grid_cols: number;      // if grid, how many columns
-    order: number;          // source order in page
-    parent_slot: string;    // if nested inside another slot
-    classes: string;        // original CSS classes for reference
+    tag: string;
+    display: string;
+    width: string;
+    height: string;
+    grid_cols: number;
+    order: number;
+    classes: string;
   };
+}
+
+// Detect page type from filename
+function detectPageType(filePath: string): string {
+  const name = filePath.toLowerCase().replace(/\\/g, "/");
+  const file = name.split("/").pop() || "";
+
+  // Direct page mapping
+  if (file.match(/^index\.|^home\.|^homepage\./)) return "homepage";
+  if (file.match(/^about|^chi-siamo|^chi_siamo/)) return "about";
+  if (file.match(/^contact|^contatt/)) return "contact";
+  if (file.match(/^event|^eventi/)) return "events";
+  if (file.match(/^news|^notizie|^articol/)) return "article";
+  if (file.match(/^categ|^sezione|^rubrica/)) return "category";
+  if (file.match(/^map|^mappa/)) return "map";
+  if (file.match(/^meteo|^weather/)) return "meteo";
+  if (file.match(/^webcam/)) return "webcam";
+  if (file.match(/^sci|^ski/)) return "ski";
+  if (file.match(/^trek/)) return "trekking";
+  if (file.match(/^dove-alloggiare|^alloggi|^hotel|^accomod/)) return "accommodation";
+  if (file.match(/^dove-mangiare|^ristoranti|^restaurant/)) return "restaurant";
+  if (file.match(/^attivit|^activit/)) return "activities";
+  if (file.match(/^alpini|^alpine/)) return "alpine";
+
+  // Next.js / React patterns
+  if (name.includes("/page.") || name.includes("/index.")) {
+    const dir = name.split("/").slice(-2, -1)[0] || "";
+    if (dir === "app" || dir === "src" || dir === "pages") return "homepage";
+    return dir.replace(/[[\]()]/g, "").replace(/\.\.\./g, "") || "other";
+  }
+
+  return "other";
 }
 
 export async function POST(request: Request) {
@@ -28,98 +59,64 @@ export async function POST(request: Request) {
     }
 
     const slots: ParsedSlot[] = [];
-    let sourceOrder = 0;
+    let globalOrder = 0;
 
+    // Group files by detected page
+    const pageFiles: Record<string, typeof files> = {};
+
+    for (const file of files) {
+      const page = detectPageType(file.path || file.name || "");
+      if (!pageFiles[page]) pageFiles[page] = [];
+      pageFiles[page].push(file);
+    }
+
+    // Parse each file
     for (const file of files) {
       const content = file.content as string;
       if (!content) continue;
 
-      // Parse data-cms-slot attributes
+      const page = detectPageType(file.path || "");
+
+      // Parse data-cms-slot
       const slotRegex = /data-cms-slot=["']([^"']+)["']/g;
       let match;
 
       while ((match = slotRegex.exec(content)) !== null) {
         const slotKey = match[1];
-        if (slots.find(s => s.slot_key === slotKey)) continue;
+        if (slots.find(s => s.slot_key === slotKey && s.page === page)) continue;
 
-        // Get surrounding context (the opening tag + nearby attributes)
         const tagStart = content.lastIndexOf("<", match.index);
         const tagEnd = content.indexOf(">", match.index);
         const fullTag = content.slice(tagStart, tagEnd + 1);
+        const context = content.slice(Math.max(0, match.index - 400), Math.min(content.length, match.index + 800));
 
-        // Extract from nearby lines (up to 800 chars around)
-        const start = Math.max(0, match.index - 400);
-        const end = Math.min(content.length, match.index + 800);
-        const context = content.slice(start, end);
-
-        // Extract attributes
         const labelMatch = context.match(/data-cms-label=["']([^"']+)["']/);
         const countMatch = context.match(/data-cms-count=["'](\d+)["']/);
         const typeMatch = context.match(/data-cms-type=["']([^"']+)["']/);
-        const styleMatch = context.match(/data-cms-style=["']([^"']+)["']/);
-        const descMatch = context.match(/data-cms-description=["']([^"']+)["']/);
-        // Layout-specific attributes
         const widthMatch = context.match(/data-cms-width=["']([^"']+)["']/);
         const heightMatch = context.match(/data-cms-height=["']([^"']+)["']/);
         const colsMatch = context.match(/data-cms-cols=["'](\d+)["']/);
-
-        // Detect tag type
-        const tagMatch = fullTag.match(/^<(\w+)/);
-        const tagName = tagMatch?.[1] || "div";
-
-        // Extract CSS classes
+        const tagNameMatch = fullTag.match(/^<(\w+)/);
         const classMatch = fullTag.match(/class(?:Name)?=["']([^"']+)["']/);
-        const classes = classMatch?.[1] || "";
 
-        // Infer layout from classes
-        const layout = inferLayout(classes, tagName, context);
+        const layout = inferLayout(classMatch?.[1] || "", tagNameMatch?.[1] || "div");
 
         slots.push({
           slot_key: slotKey,
           label: labelMatch?.[1] || slotKey.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
-          description: descMatch?.[1] || `${tagName} — ${file.path || "unknown"}`,
+          description: `${tagNameMatch?.[1] || "div"} — ${file.path || "unknown"}`,
           content_type: typeMatch?.[1] || "articles",
           max_items: countMatch ? parseInt(countMatch[1]) : 6,
-          style_hint: styleMatch?.[1] || "",
+          style_hint: "",
+          page,
           layout: {
-            tag: tagName,
+            tag: tagNameMatch?.[1] || "div",
             display: layout.display,
             width: widthMatch?.[1] || layout.width,
             height: heightMatch?.[1] || layout.height,
             grid_cols: colsMatch ? parseInt(colsMatch[1]) : layout.gridCols,
-            order: sourceOrder++,
-            parent_slot: "",
-            classes,
-          },
-        });
-      }
-
-      // Also parse CmsSlot components
-      const componentRegex = /<CmsSlot[^>]+slot=["']([^"']+)["']/g;
-      while ((match = componentRegex.exec(content)) !== null) {
-        const slotKey = match[1];
-        if (slots.find(s => s.slot_key === slotKey)) continue;
-        const ctx = content.slice(Math.max(0, match.index - 100), Math.min(content.length, match.index + 300));
-        const labelMatch = ctx.match(/label=["']([^"']+)["']/);
-        const countMatch = ctx.match(/count=["']?(\d+)["']?/);
-        const widthMatch = ctx.match(/width=["']([^"']+)["']/);
-
-        slots.push({
-          slot_key: slotKey,
-          label: labelMatch?.[1] || slotKey.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
-          description: `CmsSlot component — ${file.path || "unknown"}`,
-          content_type: "articles",
-          max_items: countMatch ? parseInt(countMatch[1]) : 6,
-          style_hint: "",
-          layout: {
-            tag: "div",
-            display: "block",
-            width: widthMatch?.[1] || "full",
-            height: "auto",
-            grid_cols: 1,
-            order: sourceOrder++,
-            parent_slot: "",
-            classes: "",
+            order: globalOrder++,
+            classes: classMatch?.[1] || "",
           },
         });
       }
@@ -128,64 +125,53 @@ export async function POST(request: Request) {
       const commentRegex = /<!--\s*CMS:([^:]+):([^:]*):?(\d*)\s*-->/g;
       while ((match = commentRegex.exec(content)) !== null) {
         const slotKey = match[1];
-        if (slots.find(s => s.slot_key === slotKey)) continue;
+        if (slots.find(s => s.slot_key === slotKey && s.page === page)) continue;
         slots.push({
-          slot_key: slotKey,
-          label: match[2] || slotKey,
-          description: `HTML comment — ${file.path || "unknown"}`,
-          content_type: "articles",
-          max_items: match[3] ? parseInt(match[3]) : 6,
-          style_hint: "",
-          layout: {
-            tag: "div", display: "block", width: "full", height: "auto",
-            grid_cols: 1, order: sourceOrder++, parent_slot: "", classes: "",
-          },
+          slot_key: slotKey, label: match[2] || slotKey, description: `Comment — ${file.path}`,
+          content_type: "articles", max_items: match[3] ? parseInt(match[3]) : 6, style_hint: "", page,
+          layout: { tag: "div", display: "block", width: "full", height: "auto", grid_cols: 1, order: globalOrder++, classes: "" },
         });
       }
     }
 
-    return NextResponse.json({ slots, count: slots.length });
+    // Group by page for the response
+    const pages: Record<string, ParsedSlot[]> = {};
+    for (const slot of slots) {
+      if (!pages[slot.page]) pages[slot.page] = [];
+      pages[slot.page].push(slot);
+    }
+
+    return NextResponse.json({
+      slots,
+      pages,
+      detected_pages: Object.keys(pages),
+      count: slots.length,
+    });
   } catch {
     return NextResponse.json({ error: "Parse error" }, { status: 500 });
   }
 }
 
-function inferLayout(classes: string, tag: string, context: string): {
-  display: string; width: string; height: string; gridCols: number;
-} {
+function inferLayout(classes: string, tag: string) {
   const cl = classes.toLowerCase();
-
-  // Display type
   let display = "block";
   if (cl.includes("grid")) display = "grid";
   else if (cl.includes("flex")) display = "flex";
 
-  // Width
   let width = "full";
-  if (tag === "aside" || cl.includes("sidebar") || cl.includes("side-bar")) width = "1/4";
-  else if (cl.includes("w-1/2") || cl.includes("col-span-6") || cl.includes("md:w-1/2")) width = "1/2";
-  else if (cl.includes("w-1/3") || cl.includes("col-span-4") || cl.includes("md:w-1/3")) width = "1/3";
-  else if (cl.includes("w-2/3") || cl.includes("col-span-8") || cl.includes("md:w-2/3")) width = "2/3";
-  else if (cl.includes("w-1/4") || cl.includes("col-span-3") || cl.includes("md:w-1/4")) width = "1/4";
-  else if (cl.includes("w-3/4") || cl.includes("col-span-9") || cl.includes("md:w-3/4")) width = "3/4";
-  else if (cl.includes("max-w-") || cl.includes("container")) width = "full";
+  if (tag === "aside" || cl.includes("sidebar")) width = "1/3";
+  else if (cl.includes("w-1/2") || cl.includes("col-span-6")) width = "1/2";
+  else if (cl.includes("w-1/3") || cl.includes("col-span-4")) width = "1/3";
+  else if (cl.includes("w-2/3") || cl.includes("col-span-8")) width = "2/3";
 
-  // Height hints
   let height = "auto";
-  if (cl.includes("hero") || cl.includes("h-screen") || cl.includes("min-h-screen")) height = "hero";
-  else if (cl.includes("h-96") || cl.includes("h-80") || cl.includes("aspect-video")) height = "large";
-  else if (cl.includes("h-64") || cl.includes("h-48")) height = "medium";
-  else if (cl.includes("h-32") || cl.includes("h-24") || cl.includes("h-16")) height = "small";
-  else if (tag === "header" || tag === "nav") height = "small";
-  else if (tag === "footer") height = "medium";
+  if (cl.includes("hero") || cl.includes("h-screen")) height = "hero";
+  else if (cl.includes("h-96") || cl.includes("h-80")) height = "large";
+  else if (tag === "header" || tag === "nav" || tag === "footer") height = "small";
 
-  // Grid columns
   let gridCols = 1;
-  const colsMatch = cl.match(/grid-cols-(\d+)/);
-  if (colsMatch) gridCols = parseInt(colsMatch[1]);
-  else if (cl.includes("sm:grid-cols-2") || cl.includes("md:grid-cols-2")) gridCols = 2;
-  else if (cl.includes("sm:grid-cols-3") || cl.includes("md:grid-cols-3") || cl.includes("lg:grid-cols-3")) gridCols = 3;
-  else if (cl.includes("md:grid-cols-4") || cl.includes("lg:grid-cols-4")) gridCols = 4;
+  const colMatch = cl.match(/grid-cols-(\d+)/);
+  if (colMatch) gridCols = parseInt(colMatch[1]);
 
   return { display, width, height, gridCols };
 }
