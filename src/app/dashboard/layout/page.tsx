@@ -574,31 +574,30 @@ export default function LayoutPage() {
           </div>
         )}
 
-        {/* PREVIEW TAB: Split wireframe + iframe */}
+        {/* PREVIEW TAB: Split wireframe + iframe — same size panels */}
         {activeTab === "preview" && (
           <div>
-            {/* Split controls */}
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-[10px] font-medium" style={{ color: "var(--c-text-3)" }}>Split:</span>
-              {[30, 50, 70].map(v => (
-                <button key={v} onClick={() => setPreviewSplit(v)}
-                  className="text-[10px] px-2 py-1 rounded-md font-medium transition"
-                  style={{ background: previewSplit === v ? "var(--c-accent-soft)" : "var(--c-bg-2)", color: previewSplit === v ? "var(--c-accent)" : "var(--c-text-2)" }}>
-                  {v === 30 ? "Sito" : v === 50 ? "50/50" : "Zone"}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex gap-3" style={{ height: "70vh" }}>
-              {/* Wireframe side */}
-              <div className="overflow-auto rounded-xl" style={{ width: `${previewSplit}%`, border: "1px solid var(--c-border)" }}>
-                <div className="p-1 scale-[0.65] origin-top-left" style={{ width: "154%" }}>
+            <div className="grid grid-cols-2 gap-3" style={{ height: "72vh" }}>
+              {/* LEFT: Wireframe */}
+              <div className="rounded-xl overflow-hidden flex flex-col" style={{ border: "1px solid var(--c-border)" }}>
+                <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ background: "var(--c-bg-2)", borderBottom: "1px solid var(--c-border)" }}>
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 rounded-full" style={{ background: "var(--c-accent)" }} />
+                    <div className="w-2 h-2 rounded-full" style={{ background: "var(--c-accent)" }} />
+                    <div className="w-2 h-2 rounded-full" style={{ background: "var(--c-accent)" }} />
+                  </div>
+                  <div className="flex-1 rounded-md px-2 py-0.5 text-[9px] font-mono text-center"
+                    style={{ background: "var(--c-bg-3)", color: "var(--c-text-2)" }}>
+                    Zone CMS
+                  </div>
+                </div>
+                <div className="flex-1 overflow-auto p-2" style={{ background: "var(--c-bg-0)" }}>
                   <ZoneRenderer slots={slots} onSlotClick={handleZoneClick} />
                 </div>
               </div>
 
-              {/* Iframe side */}
-              <div className="rounded-xl overflow-hidden flex flex-col" style={{ width: `${100 - previewSplit}%`, border: "1px solid var(--c-border)" }}>
+              {/* RIGHT: Live site iframe */}
+              <div className="rounded-xl overflow-hidden flex flex-col" style={{ border: "1px solid var(--c-border)" }}>
                 <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ background: "var(--c-bg-2)", borderBottom: "1px solid var(--c-border)" }}>
                   <div className="flex gap-1">
                     <div className="w-2 h-2 rounded-full" style={{ background: "#ef4444" }} />
@@ -606,7 +605,7 @@ export default function LayoutPage() {
                     <div className="w-2 h-2 rounded-full" style={{ background: "#22c55e" }} />
                   </div>
                   <div className="flex-1 rounded-md px-2 py-0.5 text-[9px] font-mono text-center"
-                    style={{ background: "var(--c-bg-3)", color: "var(--c-text-3)" }}>
+                    style={{ background: "var(--c-bg-3)", color: "var(--c-text-2)" }}>
                     {currentTenant?.domain || "sito-preview"}
                   </div>
                 </div>
@@ -623,7 +622,7 @@ export default function LayoutPage() {
                     <div className="text-center px-6">
                       <p className="text-sm font-medium mb-1" style={{ color: "var(--c-text-2)" }}>Nessun dominio configurato</p>
                       <p className="text-xs" style={{ color: "var(--c-text-3)" }}>
-                        Configura il dominio del sito in Impostazioni per vedere l&apos;anteprima live
+                        Configura il dominio in Impostazioni
                       </p>
                     </div>
                   </div>
