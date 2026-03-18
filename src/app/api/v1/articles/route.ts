@@ -27,14 +27,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
-  const includeContent = searchParams.get("content") === "true";
-  const fields = includeContent
-    ? "id, title, subtitle, slug, summary, body, cover_image_url, status, is_featured, is_premium, is_breaking, reading_time_minutes, view_count, published_at, created_at, profiles!articles_author_id_fkey(full_name, avatar_url), categories(name, slug, color)"
-    : "id, title, subtitle, slug, summary, cover_image_url, status, is_featured, is_premium, is_breaking, reading_time_minutes, view_count, published_at, created_at, profiles!articles_author_id_fkey(full_name, avatar_url), categories(name, slug, color)";
-
   let query = supabase
     .from("articles")
-    .select(fields)
+    .select("id, title, subtitle, slug, summary, body, cover_image_url, status, is_featured, is_premium, is_breaking, reading_time_minutes, view_count, published_at, created_at, profiles!articles_author_id_fkey(full_name, avatar_url), categories(name, slug, color)")
     .eq("tenant_id", tenant.id)
     .eq("status", "published")
     .order("published_at", { ascending: false })
