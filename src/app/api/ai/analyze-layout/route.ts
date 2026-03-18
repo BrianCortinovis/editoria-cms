@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { callAI, type AIProvider } from "@/lib/ai/providers";
+import { callAI } from "@/lib/ai/providers";
 import { isModuleActive, getModuleConfig } from "@/lib/modules";
+import { resolveProvider } from "@/lib/ai/resolver";
 
 export async function POST(request: Request) {
   try {
@@ -10,12 +11,10 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { tenant_id, files } = await request.json();
-
     if (!tenant_id || !files || !Array.isArray(files)) {
       return NextResponse.json({ error: "tenant_id and files array required" }, { status: 400 });
     }
 
-    // Get tenant settings
     const { data: tenant } = await supabase.from("tenants").select("settings").eq("id", tenant_id).single();
     if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 
@@ -24,12 +23,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "AI module not active" }, { status: 403 });
     }
 
+    // Resolve best provider for layout analysis (Claude is best at code)
     const aiConfig = getModuleConfig(settings, "ai_assistant");
-    const provider = (aiConfig.ai_provider || "claude") as AIProvider;
-    const apiKey = aiConfig.ai_api_key;
-    if (!apiKey) return NextResponse.json({ error: "AI API key not configured" }, { status: 400 });
+    const resolved = resolveProvider(aiConfig, "layout");
 
-    // Prepare file content for analysis (limit size)
     const filesSummary = files
       .filter((f: { path: string; content: string }) => {
         const ext = f.path.split(".").pop()?.toLowerCase();
@@ -39,11 +36,9 @@ export async function POST(request: Request) {
       .map((f: { path: string; content: string }) => `--- FILE: ${f.path} ---\n${f.content.slice(0, 2000)}`)
       .join("\n\n");
 
-    if (!filesSummary) {
-      return NextResponse.json({ error: "No valid files found" }, { status: 400 });
-    }
+    if (!filesSummary) return NextResponse.json({ error: "No valid files found" }, { status: 400 });
 
-    const result = await callAI(provider, [
+    const result = await callAI(resolved.provider, [
       {
         role: "system",
         content: `Sei un esperto di web development e CMS. Analizza il codice sorgente di un sito web e identifica le zone/sezioni dove andrebbero posizionati contenuti editoriali (articoli, eventi, banner, ecc.).
@@ -76,14 +71,12 @@ Rispondi SEMPRE in JSON valido senza markdown:
         role: "user",
         content: `Analizza questi file del sito web e identifica tutte le zone dove posizionare contenuti editoriali:\n\n${filesSummary}`
       }
-    ], { apiKey, model: aiConfig.ai_model || undefined });
+    ], { apiKey: resolved.apiKey, model: resolved.model });
 
     let parsed;
     try {
       let cleanText = result.text.trim();
-      if (cleanText.startsWith("```")) {
-        cleanText = cleanText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-      }
+      if (cleanText.startsWith("```")) cleanText = cleanText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
       parsed = JSON.parse(cleanText);
     } catch {
       parsed = { slots: [], analysis: result.text };
