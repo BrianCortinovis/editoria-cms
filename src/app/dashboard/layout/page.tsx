@@ -302,7 +302,7 @@ export default function LayoutPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--c-accent)" }} />
       </div>
     );
   }
@@ -312,7 +312,7 @@ export default function LayoutPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm" style={{ color: "var(--c-text-2)" }}>
             Definisci le zone del sito dove appariranno i contenuti
           </p>
         </div>
@@ -320,7 +320,10 @@ export default function LayoutPage() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={parsing}
-            className="flex items-center gap-2 px-3 py-2 bg-[#27272a] text-zinc-300 text-sm font-medium rounded-lg hover:bg-[#3f3f46] transition disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition disabled:opacity-50"
+            style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-3)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
           >
             {parsing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanLine className="w-4 h-4" />}
             Importa da sito
@@ -337,7 +340,10 @@ export default function LayoutPage() {
           />
           <button
             onClick={() => { resetSlotForm(); setShowNewSlot(true); }}
-            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition"
+            className="flex items-center gap-2 px-3 py-2 text-white text-sm font-semibold rounded-lg transition"
+            style={{ background: "var(--c-accent)" }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
           >
             <Plus className="w-4 h-4" /> Nuovo Slot
           </button>
@@ -346,22 +352,22 @@ export default function LayoutPage() {
 
       {/* How it works banner */}
       {slots.length === 0 && !showNewSlot && (
-        <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-6 mb-6">
+        <div className="rounded-xl p-6 mb-6" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
           <div className="flex items-start gap-4">
-            <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center shrink-0">
-              <LayoutTemplate className="w-5 h-5 text-blue-400" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "var(--c-accent-soft)" }}>
+              <LayoutTemplate className="w-5 h-5" style={{ color: "var(--c-accent)" }} />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white mb-2">Come funziona il Layout Mapping</h3>
-              <div className="space-y-2 text-sm text-zinc-400">
-                <p>1. <strong className="text-zinc-200">Costruisci il sito frontend</strong> con i tuoi componenti custom</p>
-                <p>2. <strong className="text-zinc-200">Aggiungi</strong> <code className="px-1.5 py-0.5 bg-[#27272a] rounded text-blue-400 text-xs">data-cms-slot=&quot;nome-zona&quot;</code> ai tag HTML delle zone</p>
-                <p>3. <strong className="text-zinc-200">Importa</strong> la cartella del sito con &quot;Importa da sito&quot; — il parser troverà gli slot automaticamente</p>
-                <p>4. <strong className="text-zinc-200">Il cliente</strong> clicca sulle zone per gestire i contenuti</p>
+              <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>Come funziona il Layout Mapping</h3>
+              <div className="space-y-2 text-sm" style={{ color: "var(--c-text-2)" }}>
+                <p>1. <strong style={{ color: "var(--c-text-0)" }}>Costruisci il sito frontend</strong> con i tuoi componenti custom</p>
+                <p>2. <strong style={{ color: "var(--c-text-0)" }}>Aggiungi</strong> <code className="px-1.5 py-0.5 rounded text-xs" style={{ background: "var(--c-bg-2)", color: "var(--c-accent)" }}>data-cms-slot=&quot;nome-zona&quot;</code> ai tag HTML delle zone</p>
+                <p>3. <strong style={{ color: "var(--c-text-0)" }}>Importa</strong> la cartella del sito con &quot;Importa da sito&quot; — il parser troverà gli slot automaticamente</p>
+                <p>4. <strong style={{ color: "var(--c-text-0)" }}>Il cliente</strong> clicca sulle zone per gestire i contenuti</p>
               </div>
-              <div className="mt-4 p-3 bg-[#0f0f11] rounded-lg">
-                <p className="text-[11px] text-zinc-600 mb-1.5 font-medium">Esempio nel tuo HTML/JSX:</p>
-                <pre className="text-xs text-blue-400 font-mono leading-relaxed overflow-x-auto">{`<section data-cms-slot="hero" data-cms-label="Articolo Principale" data-cms-count="1">
+              <div className="mt-4 p-3 rounded-lg" style={{ background: "var(--c-bg-0)" }}>
+                <p className="text-[11px] mb-1.5 font-medium" style={{ color: "var(--c-text-3)" }}>Esempio nel tuo HTML/JSX:</p>
+                <pre className="text-xs font-mono leading-relaxed overflow-x-auto" style={{ color: "var(--c-accent)" }}>{`<section data-cms-slot="hero" data-cms-label="Articolo Principale" data-cms-count="1">
 <div data-cms-slot="cronaca-grid" data-cms-label="Ultimi Cronaca" data-cms-count="6">
 <aside data-cms-slot="sidebar-sport" data-cms-label="Sport" data-cms-count="3">
 <!-- CMS:eventi-home:Prossimi Eventi:4 -->`}</pre>
@@ -373,30 +379,33 @@ export default function LayoutPage() {
 
       {/* Slot Form */}
       {showNewSlot && (
-        <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-5 mb-6">
+        <div className="rounded-xl p-5 mb-6" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-white">
+            <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>
               {editingSlot ? "Modifica Slot" : "Nuovo Slot"}
             </h3>
-            <button onClick={resetSlotForm}><X className="w-4 h-4 text-zinc-500" /></button>
+            <button onClick={resetSlotForm}><X className="w-4 h-4" style={{ color: "var(--c-text-2)" }} /></button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
-              <label className="text-xs text-zinc-500 font-medium">Chiave slot *</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Chiave slot *</label>
               <input type="text" value={slotKey} onChange={e => setSlotKey(e.target.value)}
                 placeholder="es: hero, cronaca-grid, sidebar-sport"
-                className="w-full mt-1 px-3 py-2 bg-[#27272a] border border-[#3f3f46] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-2)", border: "1px solid var(--c-border-light)", color: "var(--c-text-0)", "--tw-ring-color": "var(--c-accent)" } as React.CSSProperties} />
             </div>
             <div>
-              <label className="text-xs text-zinc-500 font-medium">Nome visualizzato *</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Nome visualizzato *</label>
               <input type="text" value={slotLabel} onChange={e => setSlotLabel(e.target.value)}
                 placeholder="es: Articolo Principale"
-                className="w-full mt-1 px-3 py-2 bg-[#27272a] border border-[#3f3f46] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-2)", border: "1px solid var(--c-border-light)", color: "var(--c-text-0)", "--tw-ring-color": "var(--c-accent)" } as React.CSSProperties} />
             </div>
             <div>
-              <label className="text-xs text-zinc-500 font-medium">Tipo contenuto</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Tipo contenuto</label>
               <select value={slotContentType} onChange={e => setSlotContentType(e.target.value)}
-                className="w-full mt-1 px-3 py-2 bg-[#27272a] border border-[#3f3f46] rounded-lg text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-2)", border: "1px solid var(--c-border-light)", color: "var(--c-text-0)", "--tw-ring-color": "var(--c-accent)" } as React.CSSProperties}>
                 <option value="articles">Articoli</option>
                 <option value="events">Eventi</option>
                 <option value="breaking_news">Breaking News</option>
@@ -404,39 +413,48 @@ export default function LayoutPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs text-zinc-500 font-medium">Categoria (opzionale)</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Categoria (opzionale)</label>
               <select value={slotCategoryId} onChange={e => setSlotCategoryId(e.target.value)}
-                className="w-full mt-1 px-3 py-2 bg-[#27272a] border border-[#3f3f46] rounded-lg text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-2)", border: "1px solid var(--c-border-light)", color: "var(--c-text-0)", "--tw-ring-color": "var(--c-accent)" } as React.CSSProperties}>
                 <option value="">Tutte le categorie</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-zinc-500 font-medium">Max articoli</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Max articoli</label>
               <input type="number" value={slotMaxItems} onChange={e => setSlotMaxItems(Number(e.target.value))}
                 min={1} max={50}
-                className="w-full mt-1 px-3 py-2 bg-[#27272a] border border-[#3f3f46] rounded-lg text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-2)", border: "1px solid var(--c-border-light)", color: "var(--c-text-0)", "--tw-ring-color": "var(--c-accent)" } as React.CSSProperties} />
             </div>
             <div>
-              <label className="text-xs text-zinc-500 font-medium">Ordinamento</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Ordinamento</label>
               <select value={slotSortBy} onChange={e => setSlotSortBy(e.target.value)}
-                className="w-full mt-1 px-3 py-2 bg-[#27272a] border border-[#3f3f46] rounded-lg text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-2)", border: "1px solid var(--c-border-light)", color: "var(--c-text-0)", "--tw-ring-color": "var(--c-accent)" } as React.CSSProperties}>
                 <option value="published_at">Più recente</option>
                 <option value="view_count">Più letto</option>
                 <option value="homepage_position">Posizione manuale</option>
               </select>
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
-              <label className="text-xs text-zinc-500 font-medium">Descrizione</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Descrizione</label>
               <input type="text" value={slotDescription} onChange={e => setSlotDescription(e.target.value)}
                 placeholder="Dove si trova questa zona nel sito..."
-                className="w-full mt-1 px-3 py-2 bg-[#27272a] border border-[#3f3f46] rounded-lg text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-2)", border: "1px solid var(--c-border-light)", color: "var(--c-text-0)", "--tw-ring-color": "var(--c-accent)" } as React.CSSProperties} />
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-4">
-            <button onClick={resetSlotForm} className="px-4 py-2 text-sm font-medium text-zinc-400 hover:bg-[#27272a] rounded-lg transition">Annulla</button>
+            <button onClick={resetSlotForm} className="px-4 py-2 text-sm font-medium rounded-lg transition" style={{ color: "var(--c-text-2)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>Annulla</button>
             <button onClick={handleSaveSlot}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition">
+              className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-lg transition"
+              style={{ background: "var(--c-accent)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}>
               <Check className="w-4 h-4" /> Salva
             </button>
           </div>
@@ -452,21 +470,26 @@ export default function LayoutPage() {
             return (
               <div
                 key={slot.id}
-                className="bg-[#18181b] border border-[#27272a] rounded-xl overflow-hidden hover:border-[#3f3f46] transition group"
+                className="rounded-xl overflow-hidden transition group"
+                style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--c-border-light)"}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = "var(--c-border)"}
               >
                 {/* Slot header */}
-                <div className="px-4 py-3 border-b border-[#27272a] flex items-center gap-3">
-                  <div className="w-9 h-9 bg-blue-600/10 rounded-lg flex items-center justify-center shrink-0">
-                    <Icon className="w-4 h-4 text-blue-400" />
+                <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid var(--c-border)" }}>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: "var(--c-accent-soft)" }}>
+                    <Icon className="w-4 h-4" style={{ color: "var(--c-accent)" }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{slot.label}</p>
-                    <p className="text-[10px] text-zinc-600 font-mono">{slot.slot_key}</p>
+                    <p className="text-sm font-semibold truncate" style={{ color: "var(--c-text-0)" }}>{slot.label}</p>
+                    <p className="text-[10px] font-mono" style={{ color: "var(--c-text-3)" }}>{slot.slot_key}</p>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                     <button onClick={() => startEditSlot(slot)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#27272a]">
-                      <Pencil className="w-3.5 h-3.5 text-zinc-500" />
+                      className="w-7 h-7 flex items-center justify-center rounded-lg transition"
+                      onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                      <Pencil className="w-3.5 h-3.5" style={{ color: "var(--c-text-2)" }} />
                     </button>
                     <button onClick={() => handleDeleteSlot(slot.id)}
                       className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-950">
@@ -478,25 +501,25 @@ export default function LayoutPage() {
                 {/* Slot body */}
                 <div className="px-4 py-3 space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-500">Tipo</span>
-                    <span className="text-zinc-300">{contentTypeLabels[slot.content_type]}</span>
+                    <span style={{ color: "var(--c-text-2)" }}>Tipo</span>
+                    <span style={{ color: "var(--c-text-0)" }}>{contentTypeLabels[slot.content_type]}</span>
                   </div>
                   {cat && (
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-zinc-500">Categoria</span>
+                      <span style={{ color: "var(--c-text-2)" }}>Categoria</span>
                       <span className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
-                        <span className="text-zinc-300">{cat.name}</span>
+                        <span style={{ color: "var(--c-text-0)" }}>{cat.name}</span>
                       </span>
                     </div>
                   )}
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-500">Mostra</span>
-                    <span className="text-zinc-300">{slot.max_items} elementi</span>
+                    <span style={{ color: "var(--c-text-2)" }}>Mostra</span>
+                    <span style={{ color: "var(--c-text-0)" }}>{slot.max_items} elementi</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-zinc-500">Ordine</span>
-                    <span className="text-zinc-300">
+                    <span style={{ color: "var(--c-text-2)" }}>Ordine</span>
+                    <span style={{ color: "var(--c-text-0)" }}>
                       {slot.sort_by === "published_at" ? "Più recente" :
                        slot.sort_by === "view_count" ? "Più letto" : "Manuale"}
                     </span>
@@ -506,7 +529,10 @@ export default function LayoutPage() {
                 {/* Slot footer: go to articles */}
                 <Link
                   href={`/dashboard/articoli${cat ? `?category=${cat.slug}` : ""}`}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 border-t border-[#27272a] text-xs font-medium text-blue-400 hover:bg-blue-600/10 transition"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium transition"
+                  style={{ borderTop: "1px solid var(--c-border)", color: "var(--c-accent)" }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-soft)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                 >
                   Gestisci contenuti <ArrowRight className="w-3 h-3" />
                 </Link>

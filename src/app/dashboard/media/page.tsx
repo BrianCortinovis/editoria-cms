@@ -175,79 +175,58 @@ export default function MediaPage() {
 
   return (
     <div className="flex gap-6">
-      {/* Main content */}
       <div className="flex-1">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <p className="text-sm text-gray-500">{media.length} file</p>
+          <p className="text-sm" style={{ color: "var(--c-text-2)" }}>{media.length} file</p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
-              className="w-9 h-9 border border-gray-200 flex items-center justify-center rounded-lg hover:bg-gray-50 transition"
+              className="w-9 h-9 flex items-center justify-center rounded-lg transition"
+              style={{ border: "1px solid var(--c-border)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
             >
               {viewMode === "grid" ? (
-                <List className="w-4 h-4 text-gray-500" />
+                <List className="w-4 h-4" style={{ color: "var(--c-text-2)" }} />
               ) : (
-                <Grid3X3 className="w-4 h-4 text-gray-500" />
+                <Grid3X3 className="w-4 h-4" style={{ color: "var(--c-text-2)" }} />
               )}
             </button>
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#8B0000] text-white text-sm font-semibold rounded-lg hover:bg-[#6d0000] transition disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50"
+              style={{ background: "var(--c-accent)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
             >
-              {uploading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Upload className="w-4 h-4" />
-              )}
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
               Carica file
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*,video/*,.pdf"
-              className="hidden"
-              onChange={(e) => handleUpload(e.target.files)}
-            />
+            <input ref={fileInputRef} type="file" multiple accept="image/*,video/*,.pdf" className="hidden" onChange={(e) => handleUpload(e.target.files)} />
           </div>
         </div>
 
-        {/* Search */}
         <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cerca file..."
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B0000]"
-          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--c-text-3)" }} />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca file..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
+            style={{ border: "1px solid var(--c-border)" }} />
         </div>
 
-        {/* Drop zone */}
         <div
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleUpload(e.dataTransfer.files);
-          }}
+          onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleUpload(e.dataTransfer.files); }}
         >
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 animate-spin text-[#8B0000]" />
+              <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--c-accent)" }} />
             </div>
           ) : media.length === 0 ? (
-            <div className="border-2 border-dashed border-gray-200 rounded-xl py-16 text-center">
-              <Upload className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-sm text-gray-400 mb-1">
-                Trascina i file qui o clicca &quot;Carica file&quot;
-              </p>
-              <p className="text-xs text-gray-300">
-                JPG, PNG, WebP, PDF, MP4 — max 50MB
-              </p>
+            <div className="border-2 border-dashed rounded-xl py-16 text-center" style={{ borderColor: "var(--c-border)" }}>
+              <Upload className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
+              <p className="text-sm mb-1" style={{ color: "var(--c-text-3)" }}>Trascina i file qui o clicca &quot;Carica file&quot;</p>
+              <p className="text-xs" style={{ color: "var(--c-text-3)" }}>JPG, PNG, WebP, PDF, MP4 — max 50MB</p>
             </div>
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -255,72 +234,49 @@ export default function MediaPage() {
                 const Icon = getMediaIcon(item.mime_type);
                 const isImage = item.mime_type.startsWith("image/");
                 return (
-                  <div
-                    key={item.id}
-                    onClick={() => setSelected(item)}
-                    className={`group relative bg-white border rounded-lg overflow-hidden cursor-pointer transition hover:shadow-md ${
-                      selected?.id === item.id
-                        ? "ring-2 ring-[#8B0000] border-[#8B0000]"
-                        : "border-gray-200"
-                    }`}
-                  >
-                    <div className="aspect-square bg-gray-50 flex items-center justify-center">
-                      {isImage ? (
-                        <img
-                          src={item.thumbnail_url || item.url}
-                          alt={item.alt_text || item.original_filename}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <Icon className="w-10 h-10 text-gray-300" />
-                      )}
+                  <div key={item.id} onClick={() => setSelected(item)}
+                    className="group relative rounded-lg overflow-hidden cursor-pointer transition hover:shadow-md"
+                    style={{
+                      background: "var(--c-bg-1)",
+                      border: selected?.id === item.id ? "2px solid var(--c-accent)" : "1px solid var(--c-border)",
+                    }}>
+                    <div className="aspect-square flex items-center justify-center" style={{ background: "var(--c-bg-2)" }}>
+                      {isImage ? <img src={item.thumbnail_url || item.url} alt={item.alt_text || item.original_filename} className="w-full h-full object-cover" />
+                        : <Icon className="w-10 h-10" style={{ color: "var(--c-text-3)" }} />}
                     </div>
                     <div className="px-2 py-1.5">
-                      <p className="text-xs text-gray-700 truncate">
-                        {item.original_filename}
-                      </p>
-                      <p className="text-[10px] text-gray-400">
-                        {formatBytes(item.size_bytes)}
-                      </p>
+                      <p className="text-xs truncate" style={{ color: "var(--c-text-1)" }}>{item.original_filename}</p>
+                      <p className="text-[10px]" style={{ color: "var(--c-text-3)" }}>{formatBytes(item.size_bytes)}</p>
                     </div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
+            <div className="rounded-lg divide-y" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)", borderColor: "var(--c-border)" }}>
               {media.map((item) => {
                 const Icon = getMediaIcon(item.mime_type);
                 return (
-                  <div
-                    key={item.id}
-                    onClick={() => setSelected(item)}
-                    className={`flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-gray-50 transition ${
-                      selected?.id === item.id ? "bg-red-50" : ""
-                    }`}
-                  >
-                    <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center shrink-0 overflow-hidden">
-                      {item.mime_type.startsWith("image/") ? (
-                        <img src={item.thumbnail_url || item.url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <Icon className="w-5 h-5 text-gray-400" />
-                      )}
+                  <div key={item.id} onClick={() => setSelected(item)}
+                    className="flex items-center gap-4 px-4 py-3 cursor-pointer transition"
+                    style={selected?.id === item.id ? { background: "var(--c-bg-2)" } : undefined}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                    onMouseLeave={(e) => { if (selected?.id !== item.id) e.currentTarget.style.background = "transparent"; }}>
+                    <div className="w-10 h-10 rounded flex items-center justify-center shrink-0 overflow-hidden" style={{ background: "var(--c-bg-2)" }}>
+                      {item.mime_type.startsWith("image/") ? <img src={item.thumbnail_url || item.url} alt="" className="w-full h-full object-cover" />
+                        : <Icon className="w-5 h-5" style={{ color: "var(--c-text-3)" }} />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {item.original_filename}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {formatBytes(item.size_bytes)}
-                        {item.width && ` · ${item.width}×${item.height}`}
-                        {` · ${new Date(item.created_at).toLocaleDateString("it-IT")}`}
+                      <p className="text-sm font-medium truncate" style={{ color: "var(--c-text-0)" }}>{item.original_filename}</p>
+                      <p className="text-xs" style={{ color: "var(--c-text-3)" }}>
+                        {formatBytes(item.size_bytes)}{item.width && ` · ${item.width}×${item.height}`}{` · ${new Date(item.created_at).toLocaleDateString("it-IT")}`}
                       </p>
                     </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); copyUrl(item.url); }}
-                      className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100"
-                    >
-                      <Copy className="w-4 h-4 text-gray-400" />
+                    <button onClick={(e) => { e.stopPropagation(); copyUrl(item.url); }}
+                      className="w-8 h-8 flex items-center justify-center rounded transition"
+                      onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-3)"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                      <Copy className="w-4 h-4" style={{ color: "var(--c-text-3)" }} />
                     </button>
                   </div>
                 );
@@ -330,63 +286,51 @@ export default function MediaPage() {
         </div>
       </div>
 
-      {/* Detail panel */}
       {selected && (
         <div className="w-72 shrink-0 hidden xl:block">
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden sticky top-[84px]">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-              <span className="text-sm font-semibold">Dettagli</span>
-              <button onClick={() => setSelected(null)}>
-                <X className="w-4 h-4 text-gray-400" />
-              </button>
+          <div className="rounded-lg overflow-hidden sticky top-[84px]" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--c-border)" }}>
+              <span className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Dettagli</span>
+              <button onClick={() => setSelected(null)}><X className="w-4 h-4" style={{ color: "var(--c-text-3)" }} /></button>
             </div>
-
-            {selected.mime_type.startsWith("image/") && (
-              <img
-                src={selected.url}
-                alt=""
-                className="w-full aspect-video object-cover"
-              />
-            )}
-
+            {selected.mime_type.startsWith("image/") && <img src={selected.url} alt="" className="w-full aspect-video object-cover" />}
             <div className="p-4 space-y-3 text-sm">
               <div>
-                <p className="text-xs text-gray-400 font-medium">Nome file</p>
-                <p className="text-gray-900 truncate">{selected.original_filename}</p>
+                <p className="text-xs font-medium" style={{ color: "var(--c-text-3)" }}>Nome file</p>
+                <p className="truncate" style={{ color: "var(--c-text-0)" }}>{selected.original_filename}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 font-medium">Tipo</p>
-                <p className="text-gray-700">{selected.mime_type}</p>
+                <p className="text-xs font-medium" style={{ color: "var(--c-text-3)" }}>Tipo</p>
+                <p style={{ color: "var(--c-text-1)" }}>{selected.mime_type}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 font-medium">Dimensione</p>
-                <p className="text-gray-700">{formatBytes(selected.size_bytes)}</p>
+                <p className="text-xs font-medium" style={{ color: "var(--c-text-3)" }}>Dimensione</p>
+                <p style={{ color: "var(--c-text-1)" }}>{formatBytes(selected.size_bytes)}</p>
               </div>
               {selected.width && (
                 <div>
-                  <p className="text-xs text-gray-400 font-medium">Risoluzione</p>
-                  <p className="text-gray-700">{selected.width} × {selected.height}px</p>
+                  <p className="text-xs font-medium" style={{ color: "var(--c-text-3)" }}>Risoluzione</p>
+                  <p style={{ color: "var(--c-text-1)" }}>{selected.width} x {selected.height}px</p>
                 </div>
               )}
               <div>
-                <p className="text-xs text-gray-400 font-medium">Data</p>
-                <p className="text-gray-700">
-                  {new Date(selected.created_at).toLocaleString("it-IT")}
-                </p>
+                <p className="text-xs font-medium" style={{ color: "var(--c-text-3)" }}>Data</p>
+                <p style={{ color: "var(--c-text-1)" }}>{new Date(selected.created_at).toLocaleString("it-IT")}</p>
               </div>
-
               <div className="pt-2 space-y-2">
-                <button
-                  onClick={() => copyUrl(selected.url)}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
-                >
+                <button onClick={() => copyUrl(selected.url)}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition"
+                  style={{ border: "1px solid var(--c-border)" }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                   <Copy className="w-4 h-4" /> Copia URL
                 </button>
                 {(currentRole === "super_admin" || currentRole === "chief_editor") && (
-                  <button
-                    onClick={() => handleDelete(selected)}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition"
-                  >
+                  <button onClick={() => handleDelete(selected)}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-red-600 rounded-lg text-sm font-medium transition"
+                    style={{ border: "1px solid var(--c-danger)" }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                     <Trash2 className="w-4 h-4" /> Elimina
                   </button>
                 )}

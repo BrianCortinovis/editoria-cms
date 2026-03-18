@@ -56,36 +56,40 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f0f11] flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "var(--c-bg-0)" }}>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg shadow-blue-500/20 mb-4">
+          <div
+            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl shadow-lg mb-4"
+            style={{ background: "var(--c-accent)" }}
+          >
             <Newspaper className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-3xl font-bold" style={{ color: "var(--c-text-0)" }}>
             Editoria CMS
           </h1>
-          <p className="text-gray-500 mt-2">
+          <p className="mt-2" style={{ color: "var(--c-text-2)" }}>
             Accedi alla redazione
           </p>
         </div>
 
-        <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-8">
+        <div className="rounded-xl p-8" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
           {sent ? (
             <div className="text-center">
               <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-4">
                 <Mail className="w-6 h-6 text-green-600" />
               </div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">
+              <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>
                 Controlla la tua email
               </h2>
-              <p className="text-gray-500 text-sm">
+              <p className="text-sm" style={{ color: "var(--c-text-2)" }}>
                 Abbiamo inviato un link di accesso a{" "}
-                <strong className="text-gray-700">{email}</strong>
+                <strong style={{ color: "var(--c-text-1)" }}>{email}</strong>
               </p>
               <button
                 onClick={() => setSent(false)}
-                className="mt-4 text-sm text-blue-400 hover:underline"
+                className="mt-4 text-sm hover:underline"
+                style={{ color: "var(--c-accent)" }}
               >
                 Usa un&apos;altra email
               </button>
@@ -93,7 +97,7 @@ export default function LoginPage() {
           ) : mode === "password" ? (
             <form onSubmit={handlePasswordLogin}>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-zinc-400 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: "var(--c-text-2)" }}>
                   Email
                 </label>
                 <input
@@ -102,12 +106,15 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="redattore@testata.it"
                   required
-                  className="w-full px-4 py-3 border border-[#3f3f46] rounded-lg bg-[#27272a] text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  className="w-full px-4 py-3 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:border-transparent transition"
+                  style={{ background: "var(--c-bg-2)", border: "1px solid var(--c-border)", boxShadow: "var(--c-accent) 0 0 0 0px" }}
+                  onFocus={(e) => e.currentTarget.style.boxShadow = `var(--c-accent) 0 0 0 2px`}
+                  onBlur={(e) => e.currentTarget.style.boxShadow = `var(--c-accent) 0 0 0 0px`}
                 />
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-zinc-400 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: "var(--c-text-2)" }}>
                   Password
                 </label>
                 <input
@@ -116,7 +123,10 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full px-4 py-3 border border-[#3f3f46] rounded-lg bg-[#27272a] text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  className="w-full px-4 py-3 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:border-transparent transition"
+                  style={{ background: "var(--c-bg-2)", border: "1px solid var(--c-border)", boxShadow: "var(--c-accent) 0 0 0 0px" }}
+                  onFocus={(e) => e.currentTarget.style.boxShadow = `var(--c-accent) 0 0 0 2px`}
+                  onBlur={(e) => e.currentTarget.style.boxShadow = `var(--c-accent) 0 0 0 0px`}
                 />
               </div>
 
@@ -127,7 +137,10 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 text-white font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                style={{ background: "var(--c-accent)" }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
               >
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -141,7 +154,10 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => { setMode("magic"); setError(""); }}
-                  className="text-sm text-gray-500 hover:text-blue-400 transition"
+                  className="text-sm transition"
+                  style={{ color: "var(--c-text-2)" }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = "var(--c-accent)"}
+                  onMouseLeave={(e) => e.currentTarget.style.color = "var(--c-text-2)"}
                 >
                   Accedi con Magic Link
                 </button>
@@ -149,7 +165,7 @@ export default function LoginPage() {
             </form>
           ) : (
             <form onSubmit={handleMagicLink}>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: "var(--c-text-2)" }}>
                 Email
               </label>
               <input
@@ -158,7 +174,10 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="redattore@testata.it"
                 required
-                className="w-full px-4 py-3 border border-[#3f3f46] rounded-lg bg-[#27272a] text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:border-transparent transition"
+                style={{ background: "var(--c-bg-2)", border: "1px solid var(--c-border)", boxShadow: "var(--c-accent) 0 0 0 0px" }}
+                onFocus={(e) => e.currentTarget.style.boxShadow = `var(--c-accent) 0 0 0 2px`}
+                onBlur={(e) => e.currentTarget.style.boxShadow = `var(--c-accent) 0 0 0 0px`}
               />
 
               {error && (
@@ -168,7 +187,10 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full mt-4 px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                className="w-full mt-4 px-4 py-3 text-white font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                style={{ background: "var(--c-accent)" }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
               >
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -182,7 +204,10 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => { setMode("password"); setError(""); }}
-                  className="text-sm text-gray-500 hover:text-blue-400 transition"
+                  className="text-sm transition"
+                  style={{ color: "var(--c-text-2)" }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = "var(--c-accent)"}
+                  onMouseLeave={(e) => e.currentTarget.style.color = "var(--c-text-2)"}
                 >
                   Accedi con password
                 </button>
@@ -191,7 +216,7 @@ export default function LoginPage() {
           )}
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
+        <p className="text-center text-xs mt-6" style={{ color: "var(--c-text-3)" }}>
           Editoria CMS — Sistema editoriale multi-testata
         </p>
       </div>

@@ -92,12 +92,12 @@ export default function DashboardPage() {
     loadDashboard();
   }, [currentTenant]);
 
-  const statusColors: Record<string, string> = {
-    draft: "bg-zinc-700 text-zinc-300",
-    in_review: "bg-yellow-900/50 text-yellow-400",
-    approved: "bg-blue-900/50 text-blue-400",
-    published: "bg-emerald-900/50 text-emerald-400",
-    archived: "bg-red-900/50 text-red-400",
+  const statusColors: Record<string, { background: string; color: string }> = {
+    draft: { background: "var(--c-bg-2)", color: "var(--c-text-2)" },
+    in_review: { background: "rgba(var(--c-warning-rgb, 234,179,8), 0.15)", color: "var(--c-warning)" },
+    approved: { background: "var(--c-accent-soft)", color: "var(--c-accent)" },
+    published: { background: "rgba(var(--c-success-rgb, 16,185,129), 0.15)", color: "var(--c-success)" },
+    archived: { background: "rgba(var(--c-danger-rgb, 239,68,68), 0.15)", color: "var(--c-danger)" },
   };
 
   const statusLabels: Record<string, string> = {
@@ -109,7 +109,7 @@ export default function DashboardPage() {
   };
 
   const statCards = [
-    { label: "Articoli", value: stats.articles, icon: FileText, accent: "text-blue-400" },
+    { label: "Articoli", value: stats.articles, icon: FileText, accent: "accent" },
     { label: "Pubblicati", value: stats.published, icon: TrendingUp, accent: "text-emerald-400" },
     { label: "Bozze", value: stats.drafts, icon: FileText, accent: "text-yellow-400" },
     { label: "Media", value: stats.media, icon: Image, accent: "text-purple-400" },
@@ -121,10 +121,10 @@ export default function DashboardPage() {
     <div>
       {/* Welcome */}
       <div className="mb-6">
-        <h2 className="text-xl font-semibold text-white">
+        <h2 className="text-xl font-semibold" style={{ color: "var(--c-text-0)" }}>
           {profile?.full_name?.split(" ")[0] || "Ciao"}
         </h2>
-        <p className="text-sm text-zinc-500 mt-0.5">
+        <p className="text-sm mt-0.5" style={{ color: "var(--c-text-2)" }}>
           {currentTenant?.name}
         </p>
       </div>
@@ -136,13 +136,19 @@ export default function DashboardPage() {
           return (
             <div
               key={card.label}
-              className="bg-[#18181b] border border-[#27272a] rounded-xl p-4 hover:border-[#3f3f46] transition"
+              className="rounded-xl p-4 transition"
+              style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}
+              onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--c-border-light)"}
+              onMouseLeave={(e) => e.currentTarget.style.borderColor = "var(--c-border)"}
             >
-              <Icon className={`w-5 h-5 ${card.accent} mb-2`} />
-              <p className="text-2xl font-bold text-white tabular-nums">
+              <Icon
+                className={`w-5 h-5 mb-2 ${card.accent === "accent" ? "" : card.accent}`}
+                style={card.accent === "accent" ? { color: "var(--c-accent)" } : undefined}
+              />
+              <p className="text-2xl font-bold tabular-nums" style={{ color: "var(--c-text-0)" }}>
                 {card.value}
               </p>
-              <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
+              <p className="text-[11px] font-medium mt-0.5" style={{ color: "var(--c-text-2)" }}>
                 {card.label}
               </p>
             </div>
@@ -153,54 +159,67 @@ export default function DashboardPage() {
       {/* Quick Actions + Recent */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Quick Actions */}
-        <div className="bg-[#18181b] border border-[#27272a] rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-[#27272a] text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+        <div className="rounded-xl overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+          <div className="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ borderBottom: "1px solid var(--c-border)", color: "var(--c-text-2)" }}>
             Azioni Rapide
           </div>
           <div className="p-3 space-y-1.5">
             <Link
               href="/dashboard/articoli/nuovo"
-              className="flex items-center gap-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+              className="flex items-center gap-3 px-3 py-2.5 text-white rounded-lg transition text-sm font-medium"
+              style={{ background: "var(--c-accent)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
             >
               <Plus className="w-4 h-4" /> Nuovo Articolo
             </Link>
             <Link
               href="/dashboard/layout"
-              className="flex items-center gap-3 px-3 py-2.5 bg-[#27272a] text-zinc-300 rounded-lg hover:bg-[#3f3f46] transition text-sm font-medium"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm font-medium"
+              style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-3)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
             >
-              <LayoutTemplate className="w-4 h-4 text-zinc-500" /> Layout Sito
+              <LayoutTemplate className="w-4 h-4" style={{ color: "var(--c-text-2)" }} /> Layout Sito
             </Link>
             <Link
               href="/dashboard/media"
-              className="flex items-center gap-3 px-3 py-2.5 bg-[#27272a] text-zinc-300 rounded-lg hover:bg-[#3f3f46] transition text-sm font-medium"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm font-medium"
+              style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-3)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
             >
-              <Image className="w-4 h-4 text-zinc-500" /> Carica Media
+              <Image className="w-4 h-4" style={{ color: "var(--c-text-2)" }} /> Carica Media
             </Link>
             <Link
               href="/dashboard/breaking-news"
-              className="flex items-center gap-3 px-3 py-2.5 bg-[#27272a] text-zinc-300 rounded-lg hover:bg-[#3f3f46] transition text-sm font-medium"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm font-medium"
+              style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-3)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
             >
-              <Zap className="w-4 h-4 text-zinc-500" /> Breaking News
+              <Zap className="w-4 h-4" style={{ color: "var(--c-text-2)" }} /> Breaking News
             </Link>
           </div>
         </div>
 
         {/* Recent Articles */}
-        <div className="bg-[#18181b] border border-[#27272a] rounded-xl overflow-hidden lg:col-span-2">
-          <div className="px-4 py-3 border-b border-[#27272a] flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+        <div className="rounded-xl overflow-hidden lg:col-span-2" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--c-border)" }}>
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--c-text-2)" }}>
               Ultimi Articoli
             </span>
             <Link
               href="/dashboard/articoli"
-              className="text-xs text-blue-400 font-medium flex items-center gap-1 hover:text-blue-300"
+              className="text-xs font-medium flex items-center gap-1"
+              style={{ color: "var(--c-accent)" }}
             >
               Tutti <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
-          <div className="divide-y divide-[#27272a]">
+          <div className="divide-y" style={{ borderColor: "var(--c-border)" }}>
             {recentArticles.length === 0 ? (
-              <div className="p-8 text-center text-sm text-zinc-600">
+              <div className="p-8 text-center text-sm" style={{ color: "var(--c-text-3)" }}>
                 Nessun articolo. Inizia a scrivere!
               </div>
             ) : (
@@ -208,13 +227,15 @@ export default function DashboardPage() {
                 <Link
                   key={article.id}
                   href={`/dashboard/articoli/${article.id}`}
-                  className="flex items-center justify-between px-4 py-3 hover:bg-[#1f1f23] transition"
+                  className="flex items-center justify-between px-4 py-3 transition"
+                  onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-zinc-200 truncate">
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--c-text-0)" }}>
                       {article.title}
                     </p>
-                    <p className="text-[11px] text-zinc-600 mt-0.5">
+                    <p className="text-[11px] mt-0.5" style={{ color: "var(--c-text-3)" }}>
                       {article.author_name}
                       {article.category_name && ` · ${article.category_name}`}
                       {" · "}
@@ -222,9 +243,8 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <span
-                    className={`text-[10px] font-medium px-2 py-0.5 rounded-full ml-3 ${
-                      statusColors[article.status] ?? "bg-zinc-700 text-zinc-400"
-                    }`}
+                    className="text-[10px] font-medium px-2 py-0.5 rounded-full ml-3"
+                    style={statusColors[article.status] ?? { background: "var(--c-bg-2)", color: "var(--c-text-2)" }}
                   >
                     {statusLabels[article.status] ?? article.status}
                   </span>

@@ -47,11 +47,12 @@ function ToolbarButton({
       type="button"
       onClick={onClick}
       title={title}
-      className={`w-8 h-8 flex items-center justify-center rounded transition ${
-        active
-          ? "bg-[#8B0000] text-white"
-          : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-      }`}
+      className="w-8 h-8 flex items-center justify-center rounded transition"
+      style={active
+        ? { background: "var(--c-accent)", color: "#fff" }
+        : { color: "var(--c-text-2)" }}
+      onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--c-bg-2)"; }}
+      onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
     >
       {children}
     </button>
@@ -109,9 +110,9 @@ export default function TiptapEditor({
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+    <div className="rounded-lg overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 px-3 py-2 border-b border-gray-200 bg-gray-50">
+      <div className="flex flex-wrap items-center gap-0.5 px-3 py-2" style={{ borderBottom: "1px solid var(--c-border)", background: "var(--c-bg-2)" }}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive("bold")}
@@ -141,7 +142,7 @@ export default function TiptapEditor({
           <Strikethrough className="w-4 h-4" />
         </ToolbarButton>
 
-        <div className="w-px h-6 bg-gray-200 mx-1" />
+        <div className="w-px h-6 mx-1" style={{ background: "var(--c-border)" }} />
 
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -165,7 +166,7 @@ export default function TiptapEditor({
           <Heading3 className="w-4 h-4" />
         </ToolbarButton>
 
-        <div className="w-px h-6 bg-gray-200 mx-1" />
+        <div className="w-px h-6 mx-1" style={{ background: "var(--c-border)" }} />
 
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -196,7 +197,7 @@ export default function TiptapEditor({
           <Code className="w-4 h-4" />
         </ToolbarButton>
 
-        <div className="w-px h-6 bg-gray-200 mx-1" />
+        <div className="w-px h-6 mx-1" style={{ background: "var(--c-border)" }} />
 
         <ToolbarButton onClick={addLink} active={editor.isActive("link")} title="Link">
           <Link2 className="w-4 h-4" />

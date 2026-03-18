@@ -39,10 +39,10 @@ const entityIcons: Record<string, typeof FileText> = {
 
 const actionColors: Record<string, string> = {
   create: "bg-green-100 text-green-700",
-  update: "bg-blue-100 text-blue-700",
+  update: "text-[var(--c-accent)]",
   delete: "bg-red-100 text-red-600",
   publish: "bg-purple-100 text-purple-700",
-  archive: "bg-gray-100 text-gray-600",
+  archive: "text-[var(--c-text-2)]",
   login: "bg-yellow-100 text-yellow-700",
 };
 
@@ -89,8 +89,8 @@ export default function ActivityLogPage() {
   if (!isAdmin) {
     return (
       <div className="text-center py-20">
-        <Activity className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-        <p className="text-sm text-gray-500">Solo admin e caporedattori possono vedere il log attività</p>
+        <Activity className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
+        <p className="text-sm" style={{ color: "var(--c-text-2)" }}>Solo admin e caporedattori possono vedere il log attività</p>
       </div>
     );
   }
@@ -99,67 +99,76 @@ export default function ActivityLogPage() {
     <div className="max-w-4xl">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <Activity className="w-5 h-5 text-gray-400" />
-          <span className="text-sm text-gray-500">Registro attività</span>
+          <Activity className="w-5 h-5" style={{ color: "var(--c-text-3)" }} />
+          <span className="text-sm" style={{ color: "var(--c-text-2)" }}>Registro attività</span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setPage(p => Math.max(0, p - 1))}
             disabled={page === 0}
-            className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-30"
+            className="w-8 h-8 flex items-center justify-center rounded disabled:opacity-30"
+            style={{ border: "1px solid var(--c-border)" }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="text-xs text-gray-500">Pagina {page + 1}</span>
+          <span className="text-xs" style={{ color: "var(--c-text-2)" }}>Pagina {page + 1}</span>
           <button
             onClick={() => setPage(p => p + 1)}
             disabled={!hasMore}
-            className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-30"
+            className="w-8 h-8 flex items-center justify-center rounded disabled:opacity-30"
+            style={{ border: "1px solid var(--c-border)" }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
           >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="rounded-lg overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin text-[#8B0000]" />
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--c-accent)" }} />
           </div>
         ) : entries.length === 0 ? (
           <div className="p-12 text-center">
-            <Activity className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-            <p className="text-sm text-gray-400">Nessuna attività registrata</p>
+            <Activity className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
+            <p className="text-sm" style={{ color: "var(--c-text-3)" }}>Nessuna attività registrata</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y" style={{ borderColor: "var(--c-border)" }}>
             {entries.map(entry => {
               const Icon = entityIcons[entry.entity_type] || Activity;
-              const actionColor = actionColors[entry.action] || "bg-gray-100 text-gray-600";
+              const actionColor = actionColors[entry.action] || "text-[var(--c-text-2)]";
               return (
-                <div key={entry.id} className="flex items-start gap-3 px-5 py-3 hover:bg-gray-50 transition">
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center mt-0.5 shrink-0">
-                    <Icon className="w-4 h-4 text-gray-500" />
+                <div key={entry.id} className="flex items-start gap-3 px-5 py-3 transition"
+                  onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center mt-0.5 shrink-0" style={{ background: "var(--c-bg-2)" }}>
+                    <Icon className="w-4 h-4" style={{ color: "var(--c-text-2)" }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-gray-900">
+                      <span className="text-sm font-medium" style={{ color: "var(--c-text-0)" }}>
                         {entry.user?.full_name || "Sistema"}
                       </span>
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${actionColor}`}>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${actionColor}`}
+                        style={actionColor.startsWith("text-[var") ? { background: "var(--c-bg-2)" } : undefined}>
                         {entry.action}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs" style={{ color: "var(--c-text-2)" }}>
                         {entry.entity_type}
                       </span>
                     </div>
                     {entry.details && (
-                      <p className="text-xs text-gray-400 mt-0.5 truncate">
+                      <p className="text-xs mt-0.5 truncate" style={{ color: "var(--c-text-3)" }}>
                         {JSON.stringify(entry.details).slice(0, 100)}
                       </p>
                     )}
                   </div>
-                  <span className="text-[11px] text-gray-400 shrink-0 whitespace-nowrap">
+                  <span className="text-[11px] shrink-0 whitespace-nowrap" style={{ color: "var(--c-text-3)" }}>
                     {new Date(entry.created_at).toLocaleString("it-IT", {
                       day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
                     })}

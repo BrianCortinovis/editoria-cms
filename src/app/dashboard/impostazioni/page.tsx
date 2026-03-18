@@ -131,8 +131,8 @@ export default function ImpostazioniPage() {
   if (!isAdmin) {
     return (
       <div className="max-w-2xl text-center py-20">
-        <Shield className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-        <p className="text-sm text-gray-500">Solo i Super Admin possono modificare le impostazioni</p>
+        <Shield className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
+        <p className="text-sm" style={{ color: "var(--c-text-2)" }}>Solo i Super Admin possono modificare le impostazioni</p>
       </div>
     );
   }
@@ -140,18 +140,17 @@ export default function ImpostazioniPage() {
   return (
     <div className="max-w-4xl">
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-gray-200 overflow-x-auto">
+      <div className="flex gap-1 mb-6 overflow-x-auto" style={{ borderBottom: "1px solid var(--c-border)" }}>
         {tabs.map(tab => {
           const Icon = tab.icon;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition whitespace-nowrap ${
-                activeTab === tab.id
-                  ? "border-[#8B0000] text-[#8B0000]"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+              className="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition whitespace-nowrap"
+              style={activeTab === tab.id
+                ? { borderColor: "var(--c-accent)", color: "var(--c-accent)" }
+                : { borderColor: "transparent", color: "var(--c-text-2)" }}
             >
               <Icon className="w-4 h-4" /> {tab.label}
             </button>
@@ -159,43 +158,47 @@ export default function ImpostazioniPage() {
         })}
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="rounded-lg p-6" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
         {/* General */}
         {activeTab === "general" && (
           <div className="space-y-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Informazioni Testata</h3>
+            <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--c-text-0)" }}>Informazioni Testata</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-gray-500 font-medium">Nome testata *</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Nome testata *</label>
                 <input type="text" value={name} onChange={e => setName(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B0000]" />
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+                  style={{ border: "1px solid var(--c-border)" }} />
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-medium">Slug</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Slug</label>
                 <input type="text" value={slug} onChange={e => setSlug(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]" />
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }} />
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-medium">Dominio sito pubblico</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Dominio sito pubblico</label>
                 <div className="relative mt-1">
-                  <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--c-text-3)" }} />
                   <input type="text" value={domain} onChange={e => setDomain(e.target.value)} placeholder="www.valbrembana.web"
-                    className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]" />
+                    className="w-full pl-10 pr-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ border: "1px solid var(--c-border)" }} />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-medium">Logo URL</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Logo URL</label>
                 <div className="relative mt-1">
-                  <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--c-text-3)" }} />
                   <input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://..."
-                    className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]" />
+                    className="w-full pl-10 pr-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ border: "1px solid var(--c-border)" }} />
                 </div>
               </div>
             </div>
             {logoUrl && (
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "var(--c-bg-2)" }}>
                 <img src={logoUrl} alt="Logo" className="h-12 w-auto" />
-                <span className="text-xs text-gray-500">Preview logo</span>
+                <span className="text-xs" style={{ color: "var(--c-text-2)" }}>Preview logo</span>
               </div>
             )}
           </div>
@@ -204,21 +207,23 @@ export default function ImpostazioniPage() {
         {/* Theme */}
         {activeTab === "theme" && (
           <div className="space-y-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Personalizzazione Tema</h3>
+            <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--c-text-0)" }}>Personalizzazione Tema</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="text-xs text-gray-500 font-medium">Colore primario</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Colore primario</label>
                 <div className="flex items-center gap-2 mt-1">
                   <input type="color" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)}
-                    className="w-10 h-10 rounded border border-gray-200 cursor-pointer" />
+                    className="w-10 h-10 rounded cursor-pointer" style={{ border: "1px solid var(--c-border)" }} />
                   <input type="text" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]" />
+                    className="flex-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ border: "1px solid var(--c-border)" }} />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-medium">Font titoli (Serif)</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Font titoli (Serif)</label>
                 <select value={fontSerif} onChange={e => setFontSerif(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#8B0000]">
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
                   <option>Playfair Display</option>
                   <option>Merriweather</option>
                   <option>Lora</option>
@@ -227,9 +232,10 @@ export default function ImpostazioniPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-medium">Font corpo (Sans)</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Font corpo (Sans)</label>
                 <select value={fontSans} onChange={e => setFontSans(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#8B0000]">
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
                   <option>Inter</option>
                   <option>Open Sans</option>
                   <option>Source Sans 3</option>
@@ -238,10 +244,10 @@ export default function ImpostazioniPage() {
                 </select>
               </div>
             </div>
-            <div className="p-4 rounded-lg border border-gray-200" style={{ borderLeftColor: primaryColor, borderLeftWidth: 4 }}>
-              <p className="text-xs text-gray-400 mb-2">Anteprima</p>
+            <div className="p-4 rounded-lg" style={{ border: "1px solid var(--c-border)", borderLeftColor: primaryColor, borderLeftWidth: 4 }}>
+              <p className="text-xs mb-2" style={{ color: "var(--c-text-3)" }}>Anteprima</p>
               <p className="text-xl font-bold" style={{ fontFamily: fontSerif }}>Titolo di esempio della testata</p>
-              <p className="text-sm text-gray-600 mt-1" style={{ fontFamily: fontSans }}>Questo è un esempio di come apparirà il testo del corpo degli articoli.</p>
+              <p className="text-sm mt-1" style={{ fontFamily: fontSans, color: "var(--c-text-2)" }}>Questo è un esempio di come apparirà il testo del corpo degli articoli.</p>
             </div>
           </div>
         )}
@@ -249,7 +255,7 @@ export default function ImpostazioniPage() {
         {/* Social */}
         {activeTab === "social" && (
           <div className="space-y-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Profili Social</h3>
+            <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--c-text-0)" }}>Profili Social</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
                 { label: "Facebook", value: facebook, set: setFacebook, placeholder: "https://facebook.com/..." },
@@ -259,9 +265,10 @@ export default function ImpostazioniPage() {
                 { label: "YouTube", value: youtube, set: setYoutube, placeholder: "https://youtube.com/..." },
               ].map(s => (
                 <div key={s.label}>
-                  <label className="text-xs text-gray-500 font-medium">{s.label}</label>
+                  <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>{s.label}</label>
                   <input type="url" value={s.value} onChange={e => s.set(e.target.value)} placeholder={s.placeholder}
-                    className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]" />
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ border: "1px solid var(--c-border)" }} />
                 </div>
               ))}
             </div>
@@ -271,23 +278,26 @@ export default function ImpostazioniPage() {
         {/* SEO */}
         {activeTab === "seo" && (
           <div className="space-y-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">SEO & Analytics</h3>
+            <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--c-text-0)" }}>SEO & Analytics</h3>
             <div>
-              <label className="text-xs text-gray-500 font-medium">Descrizione sito (meta description globale)</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Descrizione sito (meta description globale)</label>
               <textarea value={siteDescription} onChange={e => setSiteDescription(e.target.value)} rows={3}
                 placeholder="Descrizione del sito per i motori di ricerca..."
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000] resize-none" />
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 resize-none"
+                style={{ border: "1px solid var(--c-border)" }} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-gray-500 font-medium">Google Analytics ID</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Google Analytics ID</label>
                 <input type="text" value={googleAnalytics} onChange={e => setGoogleAnalytics(e.target.value)} placeholder="G-XXXXXXXXXX"
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]" />
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }} />
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-medium">Google AdSense Publisher ID</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Google AdSense Publisher ID</label>
                 <input type="text" value={googleAdsense} onChange={e => setGoogleAdsense(e.target.value)} placeholder="ca-pub-XXXXXXXXXX"
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]" />
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }} />
               </div>
             </div>
           </div>
@@ -296,18 +306,18 @@ export default function ImpostazioniPage() {
         {/* Security */}
         {activeTab === "security" && (
           <div className="space-y-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Sicurezza</h3>
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm font-medium text-green-800 mb-1">Row Level Security attiva</p>
-              <p className="text-xs text-green-600">Tutti i dati sono isolati per testata tramite RLS di Supabase. Ogni query è filtrata automaticamente per tenant_id.</p>
+            <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--c-text-0)" }}>Sicurezza</h3>
+            <div className="p-4 rounded-lg" style={{ background: "rgba(var(--c-success-rgb, 16,185,129), 0.1)", border: "1px solid var(--c-success)" }}>
+              <p className="text-sm font-medium mb-1" style={{ color: "var(--c-success)" }}>Row Level Security attiva</p>
+              <p className="text-xs" style={{ color: "var(--c-success)" }}>Tutti i dati sono isolati per testata tramite RLS di Supabase. Ogni query è filtrata automaticamente per tenant_id.</p>
             </div>
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm font-medium text-blue-800 mb-1">Autenticazione Magic Link</p>
-              <p className="text-xs text-blue-600">Gli utenti accedono tramite link email sicuro. Nessuna password viene salvata nel sistema.</p>
+            <div className="p-4 rounded-lg" style={{ background: "var(--c-accent-soft)", border: "1px solid var(--c-accent)" }}>
+              <p className="text-sm font-medium mb-1" style={{ color: "var(--c-accent)" }}>Autenticazione Magic Link</p>
+              <p className="text-xs" style={{ color: "var(--c-accent)" }}>Gli utenti accedono tramite link email sicuro. Nessuna password viene salvata nel sistema.</p>
             </div>
-            <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-              <p className="text-sm font-medium text-purple-800 mb-1">5 livelli di ruoli</p>
-              <p className="text-xs text-purple-600">Super Admin, Caporedattore, Redattore, Collaboratore, Commerciale — ogni ruolo ha permessi specifici definiti a livello database.</p>
+            <div className="p-4 rounded-lg" style={{ background: "var(--c-bg-2)", border: "1px solid var(--c-border)" }}>
+              <p className="text-sm font-medium mb-1" style={{ color: "var(--c-text-0)" }}>5 livelli di ruoli</p>
+              <p className="text-xs" style={{ color: "var(--c-text-2)" }}>Super Admin, Caporedattore, Redattore, Collaboratore, Commerciale — ogni ruolo ha permessi specifici definiti a livello database.</p>
             </div>
           </div>
         )}
@@ -317,7 +327,10 @@ export default function ImpostazioniPage() {
       {activeTab !== "security" && (
         <div className="flex justify-end mt-6">
           <button onClick={handleSave} disabled={saving}
-            className="flex items-center gap-2 px-6 py-2.5 bg-[#8B0000] text-white text-sm font-semibold rounded-lg hover:bg-[#6d0000] transition disabled:opacity-50">
+            className="flex items-center gap-2 px-6 py-2.5 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50"
+            style={{ background: "var(--c-accent)" }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Salva Impostazioni
           </button>

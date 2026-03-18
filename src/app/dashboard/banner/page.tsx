@@ -173,62 +173,69 @@ export default function BannerPage() {
     <div>
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white border border-gray-200 p-4 rounded-lg">
-          <p className="text-2xl font-bold font-serif">{banners.length}</p>
-          <p className="text-xs text-gray-500">Banner totali</p>
+        <div className="p-4 rounded-lg" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+          <p className="text-2xl font-bold font-serif" style={{ color: "var(--c-text-0)" }}>{banners.length}</p>
+          <p className="text-xs" style={{ color: "var(--c-text-2)" }}>Banner totali</p>
         </div>
-        <div className="bg-white border border-gray-200 p-4 rounded-lg">
-          <p className="text-2xl font-bold font-serif text-green-600">{banners.filter(b => b.is_active).length}</p>
-          <p className="text-xs text-gray-500">Attivi</p>
+        <div className="p-4 rounded-lg" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+          <p className="text-2xl font-bold font-serif" style={{ color: "var(--c-success)" }}>{banners.filter(b => b.is_active).length}</p>
+          <p className="text-xs" style={{ color: "var(--c-text-2)" }}>Attivi</p>
         </div>
-        <div className="bg-white border border-gray-200 p-4 rounded-lg">
-          <p className="text-2xl font-bold font-serif">{banners.reduce((s, b) => s + b.impressions, 0).toLocaleString()}</p>
-          <p className="text-xs text-gray-500">Impressioni totali</p>
+        <div className="p-4 rounded-lg" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+          <p className="text-2xl font-bold font-serif" style={{ color: "var(--c-text-0)" }}>{banners.reduce((s, b) => s + b.impressions, 0).toLocaleString()}</p>
+          <p className="text-xs" style={{ color: "var(--c-text-2)" }}>Impressioni totali</p>
         </div>
-        <div className="bg-white border border-gray-200 p-4 rounded-lg">
-          <p className="text-2xl font-bold font-serif">{banners.reduce((s, b) => s + b.clicks, 0).toLocaleString()}</p>
-          <p className="text-xs text-gray-500">Click totali</p>
+        <div className="p-4 rounded-lg" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+          <p className="text-2xl font-bold font-serif" style={{ color: "var(--c-text-0)" }}>{banners.reduce((s, b) => s + b.clicks, 0).toLocaleString()}</p>
+          <p className="text-xs" style={{ color: "var(--c-text-2)" }}>Click totali</p>
         </div>
       </div>
 
       <div className="flex items-center justify-between mb-6">
-        <p className="text-sm text-gray-500">{banners.length} banner</p>
+        <p className="text-sm" style={{ color: "var(--c-text-2)" }}>{banners.length} banner</p>
         <button onClick={() => { resetForm(); setShowForm(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#8B0000] text-white text-sm font-semibold rounded-lg hover:bg-[#6d0000] transition">
+          className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
+          style={{ background: "var(--c-accent)" }}
+          onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}>
           <Plus className="w-4 h-4" /> Nuovo Banner
         </button>
       </div>
 
       {showForm && (
-        <div className="bg-white border border-gray-200 rounded-lg p-5 mb-6">
+        <div className="rounded-lg p-5 mb-6" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold">{editingId ? "Modifica" : "Nuovo"} Banner</h3>
-            <button onClick={resetForm}><X className="w-4 h-4 text-gray-400" /></button>
+            <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>{editingId ? "Modifica" : "Nuovo"} Banner</h3>
+            <button onClick={resetForm}><X className="w-4 h-4" style={{ color: "var(--c-text-3)" }} /></button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="sm:col-span-2 lg:col-span-3">
-              <label className="text-xs text-gray-500 font-medium">Nome campagna *</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Nome campagna *</label>
               <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Es: Banner primavera Hotel Stella"
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B0000]" />
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+                style={{ border: "1px solid var(--c-border)" }} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium">Posizione</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Posizione</label>
               <select value={position} onChange={e => setPosition(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#8B0000]">
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
                 {positions.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium">Tipo</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Tipo</label>
               <select value={type} onChange={e => setType(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#8B0000]">
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
                 {bannerTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium">Dispositivo</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Dispositivo</label>
               <select value={targetDevice} onChange={e => setTargetDevice(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#8B0000]">
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
                 <option value="all">Tutti</option>
                 <option value="desktop">Solo Desktop</option>
                 <option value="mobile">Solo Mobile</option>
@@ -236,58 +243,71 @@ export default function BannerPage() {
             </div>
             {type === "image" && (
               <div className="sm:col-span-2 lg:col-span-3">
-                <label className="text-xs text-gray-500 font-medium">URL Immagine</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>URL Immagine</label>
                 <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..."
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]" />
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }} />
               </div>
             )}
             {type === "html" && (
               <div className="sm:col-span-2 lg:col-span-3">
-                <label className="text-xs text-gray-500 font-medium">Codice HTML</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Codice HTML</label>
                 <textarea value={htmlContent} onChange={e => setHtmlContent(e.target.value)} rows={4} placeholder="<div>...</div>"
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 focus:ring-[#8B0000] resize-none" />
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 resize-none"
+                  style={{ border: "1px solid var(--c-border)" }} />
               </div>
             )}
             <div>
-              <label className="text-xs text-gray-500 font-medium">Link destinazione</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Link destinazione</label>
               <input type="url" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder="https://..."
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]" />
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ border: "1px solid var(--c-border)" }} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium">Peso (rotazione)</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Peso (rotazione)</label>
               <input type="number" value={weight} onChange={e => setWeight(Number(e.target.value))} min={1} max={100}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]" />
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ border: "1px solid var(--c-border)" }} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium">Inserzionista</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Inserzionista</label>
               <select value={advertiserId} onChange={e => setAdvertiserId(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#8B0000]">
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
                 <option value="">Nessuno</option>
                 {advertisers.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium">Data inizio</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Data inizio</label>
               <input type="datetime-local" value={startsAt} onChange={e => setStartsAt(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]" />
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ border: "1px solid var(--c-border)" }} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium">Data fine</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Data fine</label>
               <input type="datetime-local" value={endsAt} onChange={e => setEndsAt(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]" />
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ border: "1px solid var(--c-border)" }} />
             </div>
             <div className="flex items-center">
               <label className="flex items-center gap-2 cursor-pointer mt-5">
                 <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)}
-                  className="w-4 h-4 text-[#8B0000] rounded border-gray-300" />
-                <span className="text-sm text-gray-700">Attivo</span>
+                  className="w-4 h-4 rounded" />
+                <span className="text-sm" style={{ color: "var(--c-text-1)" }}>Attivo</span>
               </label>
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-4">
-            <button onClick={resetForm} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition">Annulla</button>
+            <button onClick={resetForm} className="px-4 py-2 text-sm font-medium rounded-lg transition"
+              style={{ color: "var(--c-text-2)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>Annulla</button>
             <button onClick={handleSave} disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[#8B0000] text-white text-sm font-semibold rounded-lg hover:bg-[#6d0000] transition disabled:opacity-50">
+              className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50"
+              style={{ background: "var(--c-accent)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salva
             </button>
           </div>
@@ -295,80 +315,87 @@ export default function BannerPage() {
       )}
 
       {/* Banners list */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="rounded-lg overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
         {loading ? (
-          <div className="p-12 text-center text-sm text-gray-400">Caricamento...</div>
+          <div className="p-12 text-center text-sm" style={{ color: "var(--c-text-3)" }}>Caricamento...</div>
         ) : banners.length === 0 ? (
           <div className="p-12 text-center">
-            <Megaphone className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-            <p className="text-sm text-gray-400">Nessun banner</p>
+            <Megaphone className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
+            <p className="text-sm" style={{ color: "var(--c-text-3)" }}>Nessun banner</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Banner</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Posizione</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Device</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden lg:table-cell">Impressioni</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden lg:table-cell">Click</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden lg:table-cell">CTR</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Stato</th>
+                <tr style={{ borderBottom: "1px solid var(--c-border)", background: "var(--c-bg-2)" }}>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase" style={{ color: "var(--c-text-2)" }}>Banner</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase hidden sm:table-cell" style={{ color: "var(--c-text-2)" }}>Posizione</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase hidden md:table-cell" style={{ color: "var(--c-text-2)" }}>Device</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase hidden lg:table-cell" style={{ color: "var(--c-text-2)" }}>Impressioni</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase hidden lg:table-cell" style={{ color: "var(--c-text-2)" }}>Click</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase hidden lg:table-cell" style={{ color: "var(--c-text-2)" }}>CTR</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold uppercase" style={{ color: "var(--c-text-2)" }}>Stato</th>
                   <th className="w-20 px-2"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y" style={{ borderColor: "var(--c-border)" }}>
                 {banners.map(b => (
-                  <tr key={b.id} className={`hover:bg-gray-50 transition ${!b.is_active ? "opacity-50" : ""}`}>
+                  <tr key={b.id} className={`transition ${!b.is_active ? "opacity-50" : ""}`}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {b.image_url ? (
-                          <img src={b.image_url} alt="" className="w-12 h-8 object-cover rounded border border-gray-200" />
+                          <img src={b.image_url} alt="" className="w-12 h-8 object-cover rounded" style={{ border: "1px solid var(--c-border)" }} />
                         ) : (
-                          <div className="w-12 h-8 bg-gray-100 rounded flex items-center justify-center">
-                            {b.type === "html" ? <Code className="w-4 h-4 text-gray-400" /> : <ImageIcon className="w-4 h-4 text-gray-400" />}
+                          <div className="w-12 h-8 rounded flex items-center justify-center" style={{ background: "var(--c-bg-2)" }}>
+                            {b.type === "html" ? <Code className="w-4 h-4" style={{ color: "var(--c-text-3)" }} /> : <ImageIcon className="w-4 h-4" style={{ color: "var(--c-text-3)" }} />}
                           </div>
                         )}
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{b.name}</p>
-                          <p className="text-xs text-gray-400">{b.type}</p>
+                          <p className="text-sm font-medium" style={{ color: "var(--c-text-0)" }}>{b.name}</p>
+                          <p className="text-xs" style={{ color: "var(--c-text-3)" }}>{b.type}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 capitalize">{b.position.replace("_", " ")}</span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full capitalize" style={{ background: "var(--c-bg-2)", color: "var(--c-text-2)" }}>{b.position.replace("_", " ")}</span>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                      <span className="flex items-center gap-1 text-xs" style={{ color: "var(--c-text-2)" }}>
                         {b.target_device === "desktop" ? <Monitor className="w-3 h-3" /> :
                          b.target_device === "mobile" ? <Smartphone className="w-3 h-3" /> : null}
                         {b.target_device === "all" ? "Tutti" : b.target_device}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right hidden lg:table-cell">
-                      <span className="text-sm text-gray-600 flex items-center justify-end gap-1"><Eye className="w-3 h-3" />{b.impressions.toLocaleString()}</span>
+                      <span className="text-sm flex items-center justify-end gap-1" style={{ color: "var(--c-text-2)" }}><Eye className="w-3 h-3" />{b.impressions.toLocaleString()}</span>
                     </td>
                     <td className="px-4 py-3 text-right hidden lg:table-cell">
-                      <span className="text-sm text-gray-600 flex items-center justify-end gap-1"><MousePointer className="w-3 h-3" />{b.clicks.toLocaleString()}</span>
+                      <span className="text-sm flex items-center justify-end gap-1" style={{ color: "var(--c-text-2)" }}><MousePointer className="w-3 h-3" />{b.clicks.toLocaleString()}</span>
                     </td>
                     <td className="px-4 py-3 text-right hidden lg:table-cell">
-                      <span className="text-sm font-medium text-gray-700">{getCTR(b)}</span>
+                      <span className="text-sm font-medium" style={{ color: "var(--c-text-1)" }}>{getCTR(b)}</span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button onClick={() => toggleActive(b)}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                          b.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
-                        }`}>
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
+                        style={b.is_active
+                          ? { background: "rgba(var(--c-success-rgb, 16,185,129), 0.15)", color: "var(--c-success)" }
+                          : { background: "var(--c-bg-2)", color: "var(--c-text-2)" }}>
                         <Power className="w-3 h-3" />{b.is_active ? "ON" : "OFF"}
                       </button>
                     </td>
                     <td className="px-2 py-3">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => startEdit(b)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100">
-                          <Pencil className="w-3.5 h-3.5 text-gray-400" />
+                        <button onClick={() => startEdit(b)} className="w-7 h-7 flex items-center justify-center rounded transition"
+                          onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                          <Pencil className="w-3.5 h-3.5" style={{ color: "var(--c-text-3)" }} />
                         </button>
-                        <button onClick={() => handleDelete(b.id)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-red-50">
+                        <button onClick={() => handleDelete(b.id)} className="w-7 h-7 flex items-center justify-center rounded transition"
+                          onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                           <Trash2 className="w-3.5 h-3.5 text-red-400" />
                         </button>
                       </div>

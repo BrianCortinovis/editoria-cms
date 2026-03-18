@@ -31,12 +31,12 @@ interface Article {
   category: { name: string; color: string } | null;
 }
 
-const statusColors: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-600",
-  in_review: "bg-yellow-100 text-yellow-700",
-  approved: "bg-blue-100 text-blue-700",
-  published: "bg-green-100 text-green-700",
-  archived: "bg-red-100 text-red-600",
+const statusColors: Record<string, { background: string; color: string }> = {
+  draft: { background: "var(--c-bg-2)", color: "var(--c-text-2)" },
+  in_review: { background: "rgba(var(--c-warning-rgb, 234,179,8), 0.15)", color: "var(--c-warning)" },
+  approved: { background: "var(--c-accent-soft)", color: "var(--c-accent)" },
+  published: { background: "rgba(var(--c-success-rgb, 16,185,129), 0.15)", color: "var(--c-success)" },
+  archived: { background: "rgba(var(--c-danger-rgb, 239,68,68), 0.15)", color: "var(--c-danger)" },
 };
 
 const statusLabels: Record<string, string> = {
@@ -117,13 +117,16 @@ export default function ArticoliPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold" style={{ color: "var(--c-text-0)" }}>
             {articles.length} articol{articles.length === 1 ? "o" : "i"}
           </h2>
         </div>
         <Link
           href="/dashboard/articoli/nuovo"
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#8B0000] text-white text-sm font-semibold rounded-lg hover:bg-[#6d0000] transition"
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
+          style={{ background: "var(--c-accent)" }}
+          onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
         >
           <Plus className="w-4 h-4" /> Nuovo Articolo
         </Link>
@@ -132,21 +135,23 @@ export default function ArticoliPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--c-text-3)" }} />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Cerca articoli..."
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B0000] focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+            style={{ border: "1px solid var(--c-border)", "--tw-ring-color": "var(--c-accent)" } as React.CSSProperties}
           />
         </div>
         <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--c-text-3)" }} />
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="pl-10 pr-8 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#8B0000] appearance-none cursor-pointer"
+            className="pl-10 pr-8 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 appearance-none cursor-pointer"
+            style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}
           >
             <option value="all">Tutti gli stati</option>
             <option value="draft">Bozze</option>
@@ -159,17 +164,18 @@ export default function ArticoliPage() {
       </div>
 
       {/* Articles Table */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="rounded-lg overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
         {loading ? (
-          <div className="p-12 text-center text-sm text-gray-400">
+          <div className="p-12 text-center text-sm" style={{ color: "var(--c-text-3)" }}>
             Caricamento...
           </div>
         ) : articles.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-gray-400 text-sm mb-3">Nessun articolo trovato</p>
+            <p className="text-sm mb-3" style={{ color: "var(--c-text-3)" }}>Nessun articolo trovato</p>
             <Link
               href="/dashboard/articoli/nuovo"
-              className="text-[#8B0000] text-sm font-medium hover:underline"
+              className="text-sm font-medium hover:underline"
+              style={{ color: "var(--c-accent)" }}
             >
               Crea il primo articolo
             </Link>
@@ -178,43 +184,45 @@ export default function ArticoliPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <tr style={{ borderBottom: "1px solid var(--c-border)", background: "var(--c-bg-2)" }}>
+                  <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--c-text-2)" }}>
                     Titolo
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--c-text-2)" }}>
                     Categoria
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider hidden sm:table-cell" style={{ color: "var(--c-text-2)" }}>
                     Stato
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider hidden lg:table-cell" style={{ color: "var(--c-text-2)" }}>
                     Autore
                   </th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider hidden lg:table-cell" style={{ color: "var(--c-text-2)" }}>
                     Visite
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--c-text-2)" }}>
                     Data
                   </th>
                   <th className="w-10 px-2"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y" style={{ borderColor: "var(--c-border)" }}>
                 {articles.map((article) => (
-                  <tr key={article.id} className="hover:bg-gray-50 transition">
+                  <tr key={article.id} className="transition"
+                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                     <td className="px-5 py-3">
                       <Link
                         href={`/dashboard/articoli/${article.id}`}
                         className="group"
                       >
-                        <p className="text-sm font-medium text-gray-900 group-hover:text-[#8B0000] transition flex items-center gap-1.5">
+                        <p className="text-sm font-medium transition flex items-center gap-1.5" style={{ color: "var(--c-text-0)" }}>
                           {article.is_featured && (
                             <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500 shrink-0" />
                           )}
                           {article.title}
                         </p>
-                        <p className="text-xs text-gray-400 mt-0.5 sm:hidden">
+                        <p className="text-xs mt-0.5 sm:hidden" style={{ color: "var(--c-text-3)" }}>
                           {statusLabels[article.status]}
                         </p>
                       </Link>
@@ -231,31 +239,30 @@ export default function ArticoliPage() {
                           {article.category.name}
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-300">—</span>
+                        <span className="text-xs" style={{ color: "var(--c-text-3)" }}>—</span>
                       )}
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
                       <span
-                        className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                          statusColors[article.status]
-                        }`}
+                        className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                        style={statusColors[article.status] ?? { background: "var(--c-bg-2)", color: "var(--c-text-2)" }}
                       >
                         {statusLabels[article.status]}
                       </span>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
-                      <span className="text-sm text-gray-600">
+                      <span className="text-sm" style={{ color: "var(--c-text-2)" }}>
                         {article.author?.full_name ?? "—"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right hidden lg:table-cell">
-                      <span className="text-sm text-gray-500 flex items-center justify-end gap-1">
+                      <span className="text-sm flex items-center justify-end gap-1" style={{ color: "var(--c-text-2)" }}>
                         <Eye className="w-3.5 h-3.5" />
                         {article.view_count}
                       </span>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <span className="text-xs flex items-center gap-1" style={{ color: "var(--c-text-3)" }}>
                         <Clock className="w-3 h-3" />
                         {new Date(article.created_at).toLocaleDateString("it-IT")}
                       </span>
@@ -265,23 +272,30 @@ export default function ArticoliPage() {
                         onClick={() =>
                           setMenuOpen(menuOpen === article.id ? null : article.id)
                         }
-                        className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition"
+                        className="w-8 h-8 flex items-center justify-center rounded transition"
+                        onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                       >
-                        <MoreVertical className="w-4 h-4 text-gray-400" />
+                        <MoreVertical className="w-4 h-4" style={{ color: "var(--c-text-3)" }} />
                       </button>
                       {menuOpen === article.id && (
-                        <div className="absolute right-2 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1 w-40">
+                        <div className="absolute right-2 top-10 rounded-lg shadow-lg z-10 py-1 w-40" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
                           <Link
                             href={`/dashboard/articoli/${article.id}`}
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            className="flex items-center gap-2 px-3 py-2 text-sm"
+                            style={{ color: "var(--c-text-1)" }}
                             onClick={() => setMenuOpen(null)}
+                            onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                           >
                             <Pencil className="w-3.5 h-3.5" /> Modifica
                           </Link>
                           {currentRole === "super_admin" && (
                             <button
                               onClick={() => handleDelete(article.id)}
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 w-full text-left transition"
+                              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                             >
                               <Trash2 className="w-3.5 h-3.5" /> Elimina
                             </button>

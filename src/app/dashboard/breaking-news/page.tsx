@@ -121,76 +121,85 @@ export default function BreakingNewsPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <Zap className="w-5 h-5 text-red-500" />
-          <span className="text-sm text-gray-500">
+          <span className="text-sm" style={{ color: "var(--c-text-2)" }}>
             {items.filter(i => i.is_active).length} attive
           </span>
         </div>
         <button
           onClick={() => { resetForm(); setShowForm(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition"
+          className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
+          style={{ background: "var(--c-danger)" }}
         >
           <Plus className="w-4 h-4" /> Nuova Breaking
         </button>
       </div>
 
       {showForm && (
-        <div className="bg-white border border-gray-200 rounded-lg p-5 mb-6">
+        <div className="rounded-lg p-5 mb-6" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
+            <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--c-text-0)" }}>
               <AlertTriangle className="w-4 h-4 text-red-500" />
               {editingId ? "Modifica" : "Nuova"} Breaking News
             </h3>
-            <button onClick={resetForm}><X className="w-4 h-4 text-gray-400" /></button>
+            <button onClick={resetForm}><X className="w-4 h-4" style={{ color: "var(--c-text-3)" }} /></button>
           </div>
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-gray-500 font-medium">Testo *</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Testo *</label>
               <textarea
                 value={text}
                 onChange={e => setText(e.target.value)}
                 rows={2}
                 placeholder="Es: Allerta meteo arancione in Val Brembana..."
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 resize-none"
+                style={{ border: "1px solid var(--c-border)" }}
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="text-xs text-gray-500 font-medium">Link (opzionale)</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Link (opzionale)</label>
                 <div className="relative mt-1">
-                  <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--c-text-3)" }} />
                   <input
                     type="url"
                     value={linkUrl}
                     onChange={e => setLinkUrl(e.target.value)}
                     placeholder="https://..."
-                    className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+                    className="w-full pl-10 pr-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ border: "1px solid var(--c-border)" }}
                   />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-medium">Priorità</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Priorità</label>
                 <input
                   type="number"
                   value={priority}
                   onChange={e => setPriority(Number(e.target.value))}
                   min={0}
                   max={100}
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }}
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-medium">Scadenza</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Scadenza</label>
                 <input
                   type="datetime-local"
                   value={expiresAt}
                   onChange={e => setExpiresAt(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }}
                 />
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={resetForm} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition">Annulla</button>
-              <button onClick={handleSave} className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition">
+              <button onClick={resetForm} className="px-4 py-2 text-sm font-medium rounded-lg transition"
+                style={{ color: "var(--c-text-2)" }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>Annulla</button>
+              <button onClick={handleSave} className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-lg transition"
+                style={{ background: "var(--c-danger)" }}>
                 <Check className="w-4 h-4" /> Salva
               </button>
             </div>
@@ -198,32 +207,31 @@ export default function BreakingNewsPage() {
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="rounded-lg overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
         {loading ? (
-          <div className="p-12 text-center text-sm text-gray-400">Caricamento...</div>
+          <div className="p-12 text-center text-sm" style={{ color: "var(--c-text-3)" }}>Caricamento...</div>
         ) : items.length === 0 ? (
           <div className="p-12 text-center">
-            <Zap className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-            <p className="text-sm text-gray-400">Nessuna breaking news</p>
+            <Zap className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
+            <p className="text-sm" style={{ color: "var(--c-text-3)" }}>Nessuna breaking news</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y" style={{ borderColor: "var(--c-border)" }}>
             {items.map(item => (
-              <div key={item.id} className={`flex items-start gap-4 px-5 py-4 transition ${item.is_active ? "bg-red-50/50" : "opacity-50"}`}>
+              <div key={item.id} className={`flex items-start gap-4 px-5 py-4 transition ${!item.is_active ? "opacity-50" : ""}`}>
                 <button
                   onClick={() => toggleActive(item)}
-                  className={`mt-0.5 w-8 h-8 flex items-center justify-center rounded-lg shrink-0 transition ${
-                    item.is_active
-                      ? "bg-green-100 text-green-600 hover:bg-green-200"
-                      : "bg-gray-100 text-gray-400 hover:bg-gray-200"
-                  }`}
+                  className="mt-0.5 w-8 h-8 flex items-center justify-center rounded-lg shrink-0 transition"
+                  style={item.is_active
+                    ? { background: "rgba(var(--c-success-rgb, 16,185,129), 0.15)", color: "var(--c-success)" }
+                    : { background: "var(--c-bg-2)", color: "var(--c-text-3)" }}
                   title={item.is_active ? "Disattiva" : "Attiva"}
                 >
                   {item.is_active ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{item.text}</p>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                  <p className="text-sm font-medium" style={{ color: "var(--c-text-0)" }}>{item.text}</p>
+                  <div className="flex items-center gap-3 mt-1 text-xs" style={{ color: "var(--c-text-3)" }}>
                     {item.link_url && (
                       <span className="flex items-center gap-1">
                         <Link2 className="w-3 h-3" /> Link
@@ -240,10 +248,15 @@ export default function BreakingNewsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => startEdit(item)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition text-gray-400 hover:text-gray-600">
+                  <button onClick={() => startEdit(item)} className="w-8 h-8 flex items-center justify-center rounded transition"
+                    style={{ color: "var(--c-text-3)" }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                     <Check className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => handleDelete(item.id)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-red-50 transition text-gray-400 hover:text-red-500">
+                  <button onClick={() => handleDelete(item.id)} className="w-8 h-8 flex items-center justify-center rounded transition text-red-400"
+                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>

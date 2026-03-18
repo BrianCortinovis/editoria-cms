@@ -76,12 +76,16 @@ export default function TagPage() {
             onChange={(e) => setNewTag(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder="Nuovo tag..."
-            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B0000]"
+            className="flex-1 px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
+            style={{ border: "1px solid var(--c-border)" }}
           />
           <button
             onClick={handleAdd}
             disabled={!newTag.trim()}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#8B0000] text-white text-sm font-semibold rounded-lg hover:bg-[#6d0000] transition disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50"
+            style={{ background: "var(--c-accent)" }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
           >
             <Plus className="w-4 h-4" /> Aggiungi
           </button>
@@ -90,25 +94,26 @@ export default function TagPage() {
 
       {/* Tags */}
       {loading ? (
-        <p className="text-sm text-gray-400 text-center py-12">Caricamento...</p>
+        <p className="text-sm text-center py-12" style={{ color: "var(--c-text-3)" }}>Caricamento...</p>
       ) : tags.length === 0 ? (
         <div className="text-center py-12">
-          <TagIcon className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-          <p className="text-sm text-gray-400">Nessun tag</p>
+          <TagIcon className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
+          <p className="text-sm" style={{ color: "var(--c-text-3)" }}>Nessun tag</p>
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
           {tags.map((tag) => (
             <span
               key={tag.id}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-700 group hover:border-gray-300 transition"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm group transition"
+              style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)", color: "var(--c-text-1)" }}
             >
-              <TagIcon className="w-3.5 h-3.5 text-gray-400" />
+              <TagIcon className="w-3.5 h-3.5" style={{ color: "var(--c-text-3)" }} />
               {tag.name}
               {canEdit && (
                 <button
                   onClick={() => handleDelete(tag.id)}
-                  className="w-4 h-4 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-100 hover:text-red-500 transition"
+                  className="w-4 h-4 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 hover:text-red-500 transition"
                 >
                   <X className="w-3 h-3" />
                 </button>

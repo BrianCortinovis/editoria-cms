@@ -131,13 +131,16 @@ export default function CategoriePage() {
     <div className="max-w-3xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm" style={{ color: "var(--c-text-2)" }}>
           {categories.length} categori{categories.length === 1 ? "a" : "e"}
         </p>
         {canEdit && (
           <button
             onClick={() => { resetForm(); setShowNew(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#8B0000] text-white text-sm font-semibold rounded-lg hover:bg-[#6d0000] transition"
+            className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
+            style={{ background: "var(--c-accent)" }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
           >
             <Plus className="w-4 h-4" /> Nuova Categoria
           </button>
@@ -146,18 +149,18 @@ export default function CategoriePage() {
 
       {/* New / Edit form */}
       {(showNew || editingId) && (
-        <div className="bg-white border border-gray-200 rounded-lg p-5 mb-6">
+        <div className="rounded-lg p-5 mb-6" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold">
+            <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>
               {editingId ? "Modifica Categoria" : "Nuova Categoria"}
             </h3>
             <button onClick={resetForm}>
-              <X className="w-4 h-4 text-gray-400" />
+              <X className="w-4 h-4" style={{ color: "var(--c-text-3)" }} />
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-gray-500 font-medium">Nome</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Nome</label>
               <input
                 type="text"
                 value={name}
@@ -165,44 +168,49 @@ export default function CategoriePage() {
                   setName(e.target.value);
                   if (!editingId) setSlug(slugify(e.target.value, { lower: true, strict: true, locale: "it" }));
                 }}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ border: "1px solid var(--c-border)" }}
                 placeholder="Es: Cronaca"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium">Slug</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Slug</label>
               <input
                 type="text"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ border: "1px solid var(--c-border)" }}
                 placeholder="cronaca"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium">Descrizione</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Descrizione</label>
               <input
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ border: "1px solid var(--c-border)" }}
                 placeholder="Descrizione opzionale"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium">Colore</label>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Colore</label>
               <div className="flex items-center gap-2 mt-1">
                 <input
                   type="color"
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
-                  className="w-10 h-10 rounded border border-gray-200 cursor-pointer"
+                  className="w-10 h-10 rounded cursor-pointer"
+                  style={{ border: "1px solid var(--c-border)" }}
                 />
                 <input
                   type="text"
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+                  className="flex-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }}
                 />
               </div>
             </div>
@@ -210,13 +218,19 @@ export default function CategoriePage() {
           <div className="flex justify-end gap-2 mt-4">
             <button
               onClick={resetForm}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition"
+              className="px-4 py-2 text-sm font-medium rounded-lg transition"
+              style={{ color: "var(--c-text-2)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
             >
               Annulla
             </button>
             <button
               onClick={handleSave}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[#8B0000] text-white text-sm font-semibold rounded-lg hover:bg-[#6d0000] transition"
+              className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-lg transition"
+              style={{ background: "var(--c-accent)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
             >
               <Check className="w-4 h-4" /> Salva
             </button>
@@ -225,32 +239,34 @@ export default function CategoriePage() {
       )}
 
       {/* Categories list */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="rounded-lg overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
         {loading ? (
-          <div className="p-12 text-center text-sm text-gray-400">Caricamento...</div>
+          <div className="p-12 text-center text-sm" style={{ color: "var(--c-text-3)" }}>Caricamento...</div>
         ) : categories.length === 0 ? (
           <div className="p-12 text-center">
-            <FolderOpen className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-            <p className="text-sm text-gray-400">Nessuna categoria</p>
+            <FolderOpen className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
+            <p className="text-sm" style={{ color: "var(--c-text-3)" }}>Nessuna categoria</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y" style={{ borderColor: "var(--c-border)" }}>
             {categories.map((cat) => (
               <div
                 key={cat.id}
-                className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition"
+                className="flex items-center gap-4 px-5 py-3 transition"
+                onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
               >
-                <GripVertical className="w-4 h-4 text-gray-300 cursor-grab shrink-0" />
+                <GripVertical className="w-4 h-4 cursor-grab shrink-0" style={{ color: "var(--c-text-3)" }} />
                 <div
                   className="w-4 h-4 rounded-full shrink-0"
                   style={{ backgroundColor: cat.color }}
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{cat.name}</p>
-                  <p className="text-xs text-gray-400">/{cat.slug}</p>
+                  <p className="text-sm font-medium" style={{ color: "var(--c-text-0)" }}>{cat.name}</p>
+                  <p className="text-xs" style={{ color: "var(--c-text-3)" }}>/{cat.slug}</p>
                 </div>
                 {cat.description && (
-                  <p className="text-xs text-gray-400 hidden sm:block max-w-[200px] truncate">
+                  <p className="text-xs hidden sm:block max-w-[200px] truncate" style={{ color: "var(--c-text-3)" }}>
                     {cat.description}
                   </p>
                 )}
@@ -258,13 +274,17 @@ export default function CategoriePage() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => startEdit(cat)}
-                      className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition"
+                      className="w-8 h-8 flex items-center justify-center rounded transition"
+                      onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                     >
-                      <Pencil className="w-3.5 h-3.5 text-gray-400" />
+                      <Pencil className="w-3.5 h-3.5" style={{ color: "var(--c-text-3)" }} />
                     </button>
                     <button
                       onClick={() => handleDelete(cat.id)}
-                      className="w-8 h-8 flex items-center justify-center rounded hover:bg-red-50 transition"
+                      className="w-8 h-8 flex items-center justify-center rounded transition"
+                      onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                     >
                       <Trash2 className="w-3.5 h-3.5 text-red-400" />
                     </button>

@@ -250,7 +250,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-[#8B0000]" />
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--c-accent)" }} />
       </div>
     );
   }
@@ -261,7 +261,10 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
       <div className="flex items-center justify-between mb-6 gap-4">
         <button
           onClick={() => router.push("/dashboard/articoli")}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition"
+          className="flex items-center gap-1.5 text-sm transition"
+          style={{ color: "var(--c-text-2)" }}
+          onMouseEnter={(e) => e.currentTarget.style.color = "var(--c-text-0)"}
+          onMouseLeave={(e) => e.currentTarget.style.color = "var(--c-text-2)"}
         >
           <ArrowLeft className="w-4 h-4" />
           Articoli
@@ -272,7 +275,10 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           <button
             onClick={() => handleSave("draft")}
             disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
+            style={{ border: "1px solid var(--c-border)" }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
           >
             {saving ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -298,7 +304,10 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             <button
               onClick={() => handleSave("approved")}
               disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-2 text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
+              style={{ background: "var(--c-accent)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
             >
               <CheckCircle className="w-4 h-4" /> Approva
             </button>
@@ -309,7 +318,10 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             <button
               onClick={() => handleSave("published")}
               disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-2 bg-[#8B0000] text-white rounded-lg text-sm font-semibold hover:bg-[#6d0000] transition disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-2 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50"
+              style={{ background: "var(--c-accent)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
             >
               <Globe className="w-4 h-4" /> Pubblica
             </button>
@@ -320,7 +332,10 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             <button
               onClick={() => handleSave("archived")}
               disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-2 text-red-600 rounded-lg text-sm font-medium transition disabled:opacity-50"
+              style={{ border: "1px solid var(--c-danger)", color: "var(--c-danger)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
             >
               <Archive className="w-4 h-4" /> Archivia
             </button>
@@ -337,7 +352,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Titolo dell'articolo"
-            className="w-full text-3xl font-bold font-serif border-0 bg-transparent focus:outline-none placeholder-gray-300"
+            className="w-full text-3xl font-bold font-serif border-0 bg-transparent focus:outline-none placeholder-gray-300/50"
           />
 
           {/* Subtitle */}
@@ -346,7 +361,8 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             value={subtitle}
             onChange={(e) => setSubtitle(e.target.value)}
             placeholder="Sottotitolo (opzionale)"
-            className="w-full text-lg text-gray-500 border-0 bg-transparent focus:outline-none placeholder-gray-300"
+            className="w-full text-lg border-0 bg-transparent focus:outline-none placeholder-gray-300/50"
+            style={{ color: "var(--c-text-2)" }}
           />
 
           {/* Summary */}
@@ -355,11 +371,12 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             onChange={(e) => setSummary(e.target.value)}
             placeholder="Sommario / Lead dell'articolo..."
             rows={2}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B0000] resize-none"
+            className="w-full px-4 py-3 rounded-lg text-sm focus:outline-none focus:ring-2 resize-none"
+            style={{ border: "1px solid var(--c-border)" }}
           />
 
           {/* Cover Image */}
-          <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+          <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-1)" }}>
             {coverImageUrl ? (
               <div className="relative">
                 <img
@@ -375,9 +392,11 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                 </button>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center py-8 cursor-pointer hover:bg-gray-50 transition">
-                <ImageIcon className="w-8 h-8 text-gray-300 mb-2" />
-                <span className="text-sm text-gray-400">
+              <label className="flex flex-col items-center justify-center py-8 cursor-pointer transition"
+                onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                <ImageIcon className="w-8 h-8 mb-2" style={{ color: "var(--c-text-3)" }} />
+                <span className="text-sm" style={{ color: "var(--c-text-3)" }}>
                   Aggiungi immagine di copertina
                 </span>
                 <input
@@ -385,7 +404,8 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                   placeholder="URL immagine..."
                   value={coverImageUrl}
                   onChange={(e) => setCoverImageUrl(e.target.value)}
-                  className="mt-2 px-3 py-1.5 border border-gray-200 rounded text-xs w-64 focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+                  className="mt-2 px-3 py-1.5 rounded text-xs w-64 focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }}
                 />
               </label>
             )}
@@ -398,18 +418,19 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
         {/* Sidebar */}
         <div className="space-y-4">
           {/* Status */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Stato</h3>
+          <div className="rounded-lg p-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--c-text-0)" }}>Stato</h3>
             <span
-              className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+              className="text-xs font-medium px-2.5 py-1 rounded-full"
+              style={
                 {
-                  draft: "bg-gray-100 text-gray-600",
-                  in_review: "bg-yellow-100 text-yellow-700",
-                  approved: "bg-blue-100 text-blue-700",
-                  published: "bg-green-100 text-green-700",
-                  archived: "bg-red-100 text-red-600",
+                  draft: { background: "var(--c-bg-2)", color: "var(--c-text-2)" },
+                  in_review: { background: "rgba(var(--c-warning-rgb, 234,179,8), 0.15)", color: "var(--c-warning)" },
+                  approved: { background: "var(--c-accent-soft)", color: "var(--c-accent)" },
+                  published: { background: "rgba(var(--c-success-rgb, 16,185,129), 0.15)", color: "var(--c-success)" },
+                  archived: { background: "rgba(var(--c-danger-rgb, 239,68,68), 0.15)", color: "var(--c-danger)" },
                 }[status]
-              }`}
+              }
             >
               {
                 {
@@ -424,8 +445,8 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           </div>
 
           {/* Slug */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">Slug URL</h3>
+          <div className="rounded-lg p-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>Slug URL</h3>
             <input
               type="text"
               value={slug}
@@ -433,17 +454,19 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                 setSlugManual(true);
                 setSlug(e.target.value);
               }}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+              className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+              style={{ border: "1px solid var(--c-border)" }}
             />
           </div>
 
           {/* Category */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">Categoria</h3>
+          <div className="rounded-lg p-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>Categoria</h3>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+              className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+              style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}
             >
               <option value="">Nessuna categoria</option>
               {categories.map((cat) => (
@@ -455,15 +478,16 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           </div>
 
           {/* Tags */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">Tag</h3>
+          <div className="rounded-lg p-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>Tag</h3>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {selectedTags.map((tagId) => {
                 const tag = tags.find((t) => t.id === tagId);
                 return tag ? (
                   <span
                     key={tagId}
-                    className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full"
+                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full"
+                    style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}
                   >
                     {tag.name}
                     <button
@@ -488,7 +512,8 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                 }
                 e.target.value = "";
               }}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+              className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+              style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}
             >
               <option value="">Aggiungi tag...</option>
               {tags
@@ -502,72 +527,74 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           </div>
 
           {/* Flags */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-gray-900">Opzioni</h3>
+          <div className="rounded-lg p-4 space-y-3" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Opzioni</h3>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={isFeatured}
                 onChange={(e) => setIsFeatured(e.target.checked)}
-                className="w-4 h-4 text-[#8B0000] rounded border-gray-300 focus:ring-[#8B0000]"
+                className="w-4 h-4 rounded"
               />
               <Star className="w-4 h-4 text-yellow-500" />
-              <span className="text-sm text-gray-700">In Evidenza</span>
+              <span className="text-sm" style={{ color: "var(--c-text-1)" }}>In Evidenza</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={isBreaking}
                 onChange={(e) => setIsBreaking(e.target.checked)}
-                className="w-4 h-4 text-[#8B0000] rounded border-gray-300 focus:ring-[#8B0000]"
+                className="w-4 h-4 rounded"
               />
               <Zap className="w-4 h-4 text-red-500" />
-              <span className="text-sm text-gray-700">Breaking News</span>
+              <span className="text-sm" style={{ color: "var(--c-text-1)" }}>Breaking News</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={isPremium}
                 onChange={(e) => setIsPremium(e.target.checked)}
-                className="w-4 h-4 text-[#8B0000] rounded border-gray-300 focus:ring-[#8B0000]"
+                className="w-4 h-4 rounded"
               />
               <Lock className="w-4 h-4 text-purple-500" />
-              <span className="text-sm text-gray-700">Contenuto Premium</span>
+              <span className="text-sm" style={{ color: "var(--c-text-1)" }}>Contenuto Premium</span>
             </label>
           </div>
 
           {/* Schedule */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">
+          <div className="rounded-lg p-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>
               Pubblicazione programmata
             </h3>
             <input
               type="datetime-local"
               value={scheduledAt}
               onChange={(e) => setScheduledAt(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+              className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+              style={{ border: "1px solid var(--c-border)" }}
             />
           </div>
 
           {/* SEO */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">SEO</h3>
+          <div className="rounded-lg p-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--c-text-0)" }}>SEO</h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-gray-500 font-medium">Meta Title</label>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Meta Title</label>
                 <input
                   type="text"
                   value={metaTitle}
                   onChange={(e) => setMetaTitle(e.target.value)}
                   placeholder={title || "Titolo per i motori di ricerca"}
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000]"
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }}
                 />
-                <p className="text-[11px] text-gray-400 mt-1">
+                <p className="text-[11px] mt-1" style={{ color: "var(--c-text-3)" }}>
                   {(metaTitle || title).length}/60
                 </p>
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-medium">
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>
                   Meta Description
                 </label>
                 <textarea
@@ -575,9 +602,10 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                   onChange={(e) => setMetaDescription(e.target.value)}
                   placeholder={summary || "Descrizione per i motori di ricerca"}
                   rows={2}
-                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#8B0000] resize-none"
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 resize-none"
+                  style={{ border: "1px solid var(--c-border)" }}
                 />
-                <p className="text-[11px] text-gray-400 mt-1">
+                <p className="text-[11px] mt-1" style={{ color: "var(--c-text-3)" }}>
                   {(metaDescription || summary).length}/160
                 </p>
               </div>
