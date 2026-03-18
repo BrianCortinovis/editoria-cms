@@ -25,6 +25,7 @@ import {
   BarChart3,
   Receipt,
   Cpu,
+  Package,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { useThemeStore } from "@/lib/theme";
@@ -54,6 +55,7 @@ const systemNav = [
   { href: "/dashboard/seo", label: "SEO", icon: BarChart3 },
   { href: "/dashboard/gdpr", label: "GDPR", icon: Shield },
   { href: "/dashboard/utenti", label: "Team", icon: Users },
+  { href: "/dashboard/moduli", label: "Moduli", icon: Package },
   { href: "/dashboard/activity-log", label: "Log", icon: Activity },
   { href: "/dashboard/impostazioni", label: "Config", icon: Settings },
 ];

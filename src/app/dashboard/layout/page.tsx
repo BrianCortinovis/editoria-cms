@@ -24,8 +24,10 @@ import {
   Pencil,
   ArrowRight,
   ScanLine,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
+import { isModuleActive } from "@/lib/modules";
 
 interface LayoutSlot {
   id: string;
@@ -84,7 +86,12 @@ export default function LayoutPage() {
   const [editingSlot, setEditingSlot] = useState<LayoutSlot | null>(null);
   const [showNewSlot, setShowNewSlot] = useState(false);
   const [parsing, setParsing] = useState(false);
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const aiFileInputRef = useRef<HTMLInputElement>(null);
+
+  const settings = (currentTenant?.settings ?? {}) as Record<string, unknown>;
+  const aiActive = isModuleActive(settings, "ai_assistant");
 
   // Slot form
   const [slotKey, setSlotKey] = useState("");
@@ -299,6 +306,64 @@ export default function LayoutPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // AI-powered layout analysis
+  const handleAIAnalyze = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0 || !currentTenant) return;
+    setAiAnalyzing(true);
+
+    const filesToAnalyze: { path: string; content: string }[] = [];
+    for (const file of Array.from(fileList)) {
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      if (!ext || !["html", "htm", "tsx", "jsx", "vue", "svelte", "astro"].includes(ext)) continue;
+      if (file.name.includes("node_modules") || file.name.startsWith(".")) continue;
+      try {
+        const content = await file.text();
+        filesToAnalyze.push({ path: (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name, content });
+      } catch { /* skip */ }
+    }
+
+    if (filesToAnalyze.length === 0) { toast.error("Nessun file valido"); setAiAnalyzing(false); return; }
+
+    toast.success(`Analisi IA su ${filesToAnalyze.length} file...`);
+
+    try {
+      const res = await fetch("/api/ai/analyze-layout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenant_id: currentTenant.id, files: filesToAnalyze }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) { toast.error(data.error || "Errore IA"); setAiAnalyzing(false); return; }
+
+      if (data.slots && data.slots.length > 0 && template) {
+        const supabase = createClient();
+        let added = 0;
+        for (const s of data.slots) {
+          if (slots.find(existing => existing.slot_key === s.slot_key)) continue;
+          const matchedCat = categories.find(c => s.slot_key.includes(c.slug) || s.label.toLowerCase().includes(c.name.toLowerCase()));
+          await supabase.from("layout_slots").insert({
+            template_id: template.id, slot_key: s.slot_key, label: s.label,
+            description: s.description || null, content_type: s.content_type || "articles",
+            category_id: matchedCat?.id ?? null, max_items: s.max_items || 6,
+            sort_by: "published_at", sort_order: "desc", sort_index: slots.length + added,
+            style_hint: s.style_hint || null,
+          });
+          added++;
+        }
+        toast.success(`IA: ${added} slot creati da ${data.slots.length} suggeriti (${data.provider})`);
+        if (data.analysis) toast.success(data.analysis, { duration: 6000 });
+        load();
+      } else {
+        toast.error("L'IA non ha trovato zone nel codice");
+      }
+    } catch { toast.error("Errore di connessione"); }
+
+    setAiAnalyzing(false);
+    if (aiFileInputRef.current) aiFileInputRef.current.value = "";
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -338,6 +403,29 @@ export default function LayoutPage() {
             className="hidden"
             onChange={handleFolderUpload}
           />
+          {aiActive && (
+            <>
+              <button
+                onClick={() => aiFileInputRef.current?.click()}
+                disabled={aiAnalyzing}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition disabled:opacity-50"
+                style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}
+              >
+                {aiAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                Analisi IA
+              </button>
+              <input
+                ref={aiFileInputRef}
+                type="file"
+                // @ts-expect-error webkitdirectory is not in standard HTML types
+                webkitdirectory=""
+                directory=""
+                multiple
+                className="hidden"
+                onChange={handleAIAnalyze}
+              />
+            </>
+          )}
           <button
             onClick={() => { resetSlotForm(); setShowNewSlot(true); }}
             className="flex items-center gap-2 px-3 py-2 text-white text-sm font-semibold rounded-lg transition"

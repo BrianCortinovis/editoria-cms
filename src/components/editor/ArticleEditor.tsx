@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import TiptapEditor from "./TiptapEditor";
+import AIPanel from "./AIPanel";
 import slugify from "slugify";
 import toast from "react-hot-toast";
 import {
@@ -611,6 +612,17 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
               </div>
             </div>
           </div>
+
+          {/* AI Assistant */}
+          <AIPanel
+            title={title}
+            body={body}
+            summary={summary}
+            onApplyMetaTitle={setMetaTitle}
+            onApplyMetaDescription={setMetaDescription}
+            onApplyTitle={setTitle}
+            onApplySummary={setSummary}
+          />
         </div>
       </div>
     </div>
