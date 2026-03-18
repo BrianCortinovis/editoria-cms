@@ -14,6 +14,7 @@ import {
   Check,
   FolderOpen,
 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface Category {
   id: string;
@@ -135,15 +136,31 @@ export default function CategoriePage() {
           {categories.length} categori{categories.length === 1 ? "a" : "e"}
         </p>
         {canEdit && (
-          <button
-            onClick={() => { resetForm(); setShowNew(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
-            style={{ background: "var(--c-accent)" }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
-          >
-            <Plus className="w-4 h-4" /> Nuova Categoria
-          </button>
+          <div className="flex items-center gap-2">
+            <AIButton
+              actions={[
+                {
+                  id: "suggerisci_categorie",
+                  label: "Suggerisci categorie mancanti",
+                  prompt: "Analizza le seguenti categorie di un giornale locale italiano e suggerisci categorie mancanti che potrebbero essere utili per una copertura completa delle notizie. Categorie esistenti: {context}",
+                },
+              ]}
+              contextData={categories.map(c => c.name).join(", ")}
+              onApply={(actionId, result) => {
+                setName(result.split("\n")[0]?.replace(/^[-*\d.)\s]+/, "").trim() || result);
+                setShowNew(true);
+              }}
+            />
+            <button
+              onClick={() => { resetForm(); setShowNew(true); }}
+              className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
+              style={{ background: "var(--c-accent)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
+            >
+              <Plus className="w-4 h-4" /> Nuova Categoria
+            </button>
+          </div>
         )}
       </div>
 

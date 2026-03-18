@@ -16,6 +16,7 @@ import {
   Link2,
   AlertTriangle,
 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface BreakingItem {
   id: string;
@@ -125,13 +126,34 @@ export default function BreakingNewsPage() {
             {items.filter(i => i.is_active).length} attive
           </span>
         </div>
-        <button
-          onClick={() => { resetForm(); setShowForm(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
-          style={{ background: "var(--c-danger)" }}
-        >
-          <Plus className="w-4 h-4" /> Nuova Breaking
-        </button>
+        <div className="flex items-center gap-2">
+          <AIButton
+            actions={[
+              {
+                id: "genera_breaking",
+                label: "Genera breaking news",
+                prompt: "Basandoti sulle tendenze attuali e sulle breaking news esistenti, genera una nuova breaking news breve e d'impatto per un giornale locale italiano. Breaking news esistenti: {context}",
+              },
+              {
+                id: "riscrivi_urgente",
+                label: "Riscrivi urgente",
+                prompt: "Riscrivi la seguente breaking news con un tono più urgente e d'impatto, mantenendola breve e incisiva: {context}",
+              },
+            ]}
+            contextData={items.map(i => i.text).join(" | ")}
+            onApply={(actionId, result) => {
+              setText(result);
+              setShowForm(true);
+            }}
+          />
+          <button
+            onClick={() => { resetForm(); setShowForm(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
+            style={{ background: "var(--c-danger)" }}
+          >
+            <Plus className="w-4 h-4" /> Nuova Breaking
+          </button>
+        </div>
       </div>
 
       {showForm && (

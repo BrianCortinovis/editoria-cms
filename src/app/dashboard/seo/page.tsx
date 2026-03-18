@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Rss,
 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface ArticleSEO {
   id: string;
@@ -110,7 +111,30 @@ export default function SeoPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* SEO Checklist */}
         <div className="card">
-          <div className="card-header flex items-center gap-2"><CheckCircle className="w-4 h-4" /> Checklist SEO Sito</div>
+          <div className="card-header flex items-center justify-between">
+            <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" /> Checklist SEO Sito</span>
+            <AIButton
+              actions={[
+                {
+                  id: "analisi_seo",
+                  label: "Analisi SEO completa",
+                  prompt: "Esegui un'analisi SEO completa per un giornale online italiano basandoti sui seguenti dati degli articoli pubblicati. Evidenzia problemi critici e opportunità. Dati: {context}",
+                },
+                {
+                  id: "suggerisci_miglioramenti",
+                  label: "Suggerisci miglioramenti",
+                  prompt: "Suggerisci miglioramenti SEO specifici e attuabili per i seguenti articoli di un giornale locale italiano, concentrandoti su quelli senza meta description o meta title: {context}",
+                },
+                {
+                  id: "genera_meta_sito",
+                  label: "Genera meta description sito",
+                  prompt: "Genera una meta description ottimizzata per SEO (max 160 caratteri) per il sito di un giornale locale italiano, basandoti sui contenuti pubblicati: {context}",
+                },
+              ]}
+              contextData={articles.map(a => `"${a.title}" - Meta: ${a.meta_title ? 'si' : 'no'}, Desc: ${a.meta_description ? 'si' : 'no'}, Visite: ${a.view_count}`).join(" | ")}
+              compact
+            />
+          </div>
           <div className="p-4">
             <CheckItem ok={true} label="Sitemap.xml generabile da API" />
             <CheckItem ok={true} label="Schema.org NewsArticle nei dati" />

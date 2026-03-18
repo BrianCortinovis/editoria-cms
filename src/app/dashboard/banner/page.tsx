@@ -22,6 +22,7 @@ import {
   Smartphone,
   Calendar,
 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface Banner {
   id: string;
@@ -193,13 +194,30 @@ export default function BannerPage() {
 
       <div className="flex items-center justify-between mb-6">
         <p className="text-sm" style={{ color: "var(--c-text-2)" }}>{banners.length} banner</p>
-        <button onClick={() => { resetForm(); setShowForm(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
-          style={{ background: "var(--c-accent)" }}
-          onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
-          onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}>
-          <Plus className="w-4 h-4" /> Nuovo Banner
-        </button>
+        <div className="flex items-center gap-2">
+          <AIButton
+            actions={[
+              {
+                id: "suggerisci_copy",
+                label: "Suggerisci copy per banner",
+                prompt: "Suggerisci un copy efficace e persuasivo per un banner pubblicitario su un giornale locale italiano. Campagne attive: {context}",
+              },
+              {
+                id: "analizza_performance",
+                label: "Analizza performance",
+                prompt: "Analizza le performance dei seguenti banner pubblicitari e suggerisci miglioramenti per aumentare il CTR. Dati banner: {context}",
+              },
+            ]}
+            contextData={banners.map(b => `${b.name} (${b.position}, ${b.impressions} imp, ${b.clicks} click, CTR: ${b.impressions > 0 ? ((b.clicks / b.impressions) * 100).toFixed(2) : 0}%)`).join(" | ")}
+          />
+          <button onClick={() => { resetForm(); setShowForm(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
+            style={{ background: "var(--c-accent)" }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}>
+            <Plus className="w-4 h-4" /> Nuovo Banner
+          </button>
+        </div>
       </div>
 
       {showForm && (

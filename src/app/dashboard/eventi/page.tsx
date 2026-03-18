@@ -17,6 +17,7 @@ import {
   Image as ImageIcon,
   Loader2,
 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface EventItem {
   id: string;
@@ -170,6 +171,25 @@ export default function EventiPage() {
               style={viewMode === "calendar" ? { background: "var(--c-bg-2)", color: "var(--c-text-0)" } : { color: "var(--c-text-2)" }}
             >Calendario</button>
           </div>
+          <AIButton
+            actions={[
+              {
+                id: "suggerisci_descrizione",
+                label: "Suggerisci descrizione evento",
+                prompt: "Dato il seguente evento, scrivi una descrizione accattivante e informativa per il pubblico di un giornale locale italiano. Dati evento: {context}",
+              },
+              {
+                id: "genera_promo",
+                label: "Genera testo promozionale",
+                prompt: "Genera un breve testo promozionale per i social media (max 280 caratteri) per il seguente evento locale: {context}",
+              },
+            ]}
+            contextData={events.map(e => `${e.title}${e.description ? ': ' + e.description : ''}`).join(" | ")}
+            onApply={(actionId, result) => {
+              setDescription(result);
+              if (!showForm) setShowForm(true);
+            }}
+          />
           <button
             onClick={() => { resetForm(); setShowForm(true); }}
             className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
