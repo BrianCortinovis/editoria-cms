@@ -299,6 +299,8 @@ export default function LayoutPage() {
       try { files.push({ path: (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name, content: await file.text() }); } catch { /* skip */ }
     }
     if (files.length === 0) { toast.error("Nessun file"); setAiAnalyzing(false); return; }
+    useAIStatus.getState().set({ message: `Analisi IA di ${files.length} file in corso (ogni pagina viene analizzata separatamente)...`, provider: "" });
+    toast.success(`Invio ${files.length} file all'IA — ogni pagina verrà analizzata individualmente...`);
     try {
       const res = await fetch("/api/ai/analyze-layout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenant_id: currentTenant.id, files }) });
       const data = await res.json();
