@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import TiptapEditor from "./TiptapEditor";
 import AIPanel from "./AIPanel";
+import AIFieldHelper from "@/components/ai/AIFieldHelper";
 import slugify from "slugify";
 import toast from "react-hot-toast";
 import {
@@ -348,33 +349,49 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
         {/* Main content */}
         <div className="lg:col-span-2 space-y-4">
           {/* Title */}
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Titolo dell'articolo"
-            className="w-full text-3xl font-bold font-serif border-0 bg-transparent focus:outline-none placeholder-gray-300/50"
-          />
+          <div className="relative group">
+            <div className="absolute right-1 top-2 z-10 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+              <AIFieldHelper fieldLabel="Titolo articolo" currentValue={title} context={body?.slice(0, 300)} onApply={setTitle} />
+            </div>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Titolo dell'articolo"
+              className="w-full text-3xl font-bold font-serif border-0 bg-transparent focus:outline-none pr-10"
+              style={{ color: "var(--c-text-0)" }}
+            />
+          </div>
 
           {/* Subtitle */}
-          <input
-            type="text"
-            value={subtitle}
-            onChange={(e) => setSubtitle(e.target.value)}
-            placeholder="Sottotitolo (opzionale)"
-            className="w-full text-lg border-0 bg-transparent focus:outline-none placeholder-gray-300/50"
-            style={{ color: "var(--c-text-2)" }}
-          />
+          <div className="relative group">
+            <div className="absolute right-1 top-1 z-10 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+              <AIFieldHelper fieldLabel="Sottotitolo" currentValue={subtitle} context={title} onApply={setSubtitle} />
+            </div>
+            <input
+              type="text"
+              value={subtitle}
+              onChange={(e) => setSubtitle(e.target.value)}
+              placeholder="Sottotitolo (opzionale)"
+              className="w-full text-lg border-0 bg-transparent focus:outline-none pr-10"
+              style={{ color: "var(--c-text-2)" }}
+            />
+          </div>
 
           {/* Summary */}
-          <textarea
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            placeholder="Sommario / Lead dell'articolo..."
-            rows={2}
-            className="w-full px-4 py-3 rounded-lg text-sm focus:outline-none focus:ring-2 resize-none"
-            style={{ border: "1px solid var(--c-border)" }}
-          />
+          <div className="relative group">
+            <div className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+              <AIFieldHelper fieldLabel="Sommario / Lead" currentValue={summary} context={`${title}\n${body?.slice(0, 500)}`} onApply={setSummary} />
+            </div>
+            <textarea
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              placeholder="Sommario / Lead dell'articolo..."
+              rows={2}
+              className="w-full px-4 py-3 rounded-lg text-sm focus:outline-none resize-none pr-10"
+              style={{ border: "1px solid var(--c-border)" }}
+            />
+          </div>
 
           {/* Cover Image */}
           <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-1)" }}>
@@ -580,8 +597,13 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           <div className="rounded-lg p-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
             <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--c-text-0)" }}>SEO</h3>
             <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Meta Title</label>
+              <div className="relative group">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Meta Title</label>
+                  <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                    <AIFieldHelper fieldLabel="Meta Title SEO" currentValue={metaTitle} context={`Titolo: ${title}\nSommario: ${summary}`} onApply={setMetaTitle} />
+                  </div>
+                </div>
                 <input
                   type="text"
                   value={metaTitle}
@@ -594,10 +616,13 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                   {(metaTitle || title).length}/60
                 </p>
               </div>
-              <div>
-                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>
-                  Meta Description
-                </label>
+              <div className="relative group">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Meta Description</label>
+                  <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                    <AIFieldHelper fieldLabel="Meta Description SEO" currentValue={metaDescription} context={`Titolo: ${title}\nSommario: ${summary}\nCorpo: ${body?.slice(0, 300)}`} onApply={setMetaDescription} />
+                  </div>
+                </div>
                 <textarea
                   value={metaDescription}
                   onChange={(e) => setMetaDescription(e.target.value)}

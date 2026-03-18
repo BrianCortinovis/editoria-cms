@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/lib/store";
 import { isModuleActive } from "@/lib/modules";
+import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import {
   Sparkles,
@@ -46,11 +47,28 @@ export default function AIPanel({
   const [results, setResults] = useState<Record<string, unknown>>({});
   const [expanded, setExpanded] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
+  const [aiActive, setAiActive] = useState(false);
+  const [checked, setChecked] = useState(false);
 
-  const settings = (currentTenant?.settings ?? {}) as Record<string, unknown>;
-  const aiActive = isModuleActive(settings, "ai_assistant");
+  useEffect(() => {
+    if (!currentTenant || checked) return;
+    // Check fresh settings from DB
+    const supabase = createClient();
+    supabase
+      .from("tenants")
+      .select("settings")
+      .eq("id", currentTenant.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          const s = (data.settings ?? {}) as Record<string, unknown>;
+          setAiActive(isModuleActive(s, "ai_assistant"));
+        }
+        setChecked(true);
+      });
+  }, [currentTenant, checked]);
 
-  if (!aiActive) return null;
+  if (!checked || !aiActive) return null;
 
   const callAI = async (action: AIAction) => {
     if (!currentTenant) return;
