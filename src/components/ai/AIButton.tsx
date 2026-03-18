@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuthStore } from "@/lib/store";
 import { isModuleActive } from "@/lib/modules";
+import { useAIStatus } from "@/lib/ai-status";
 import toast from "react-hot-toast";
 import { Sparkles, Loader2, Copy, Check, X } from "lucide-react";
 
@@ -38,6 +39,7 @@ export default function AIButton({ actions, contextData, systemPrompt, onApply, 
   const handleAction = async (action: AIAction) => {
     if (!currentTenant) return;
     setLoading(action.id);
+    useAIStatus.getState().set({ message: action.label + "...", provider: "" });
 
     try {
       const res = await fetch("/api/ai/freeform", {
@@ -56,6 +58,8 @@ export default function AIButton({ actions, contextData, systemPrompt, onApply, 
 
       setResults(prev => ({ ...prev, [action.id]: data.text }));
       toast.success(`Generato con ${data.provider}`);
+      useAIStatus.getState().set({ message: `${action.label} completato`, provider: data.provider || "" });
+      setTimeout(() => useAIStatus.getState().clear(), 3000);
     } catch {
       toast.error("Errore di connessione");
     }

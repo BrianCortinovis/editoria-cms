@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "@/lib/store";
 import { isModuleActive } from "@/lib/modules";
+import { useAIStatus } from "@/lib/ai-status";
 import { createClient } from "@/lib/supabase/client";
 import { Sparkles, Loader2, Send, X } from "lucide-react";
 
@@ -61,6 +62,8 @@ export default function AIFieldHelper({ fieldLabel, currentValue, context, onApp
     if (!prompt.trim() || !currentTenant) return;
     setLoading(true);
     setResult("");
+    const aiStatus = useAIStatus.getState();
+    aiStatus.set({ message: `Generando "${fieldLabel}"...`, provider: "" });
 
     try {
       const res = await fetch("/api/ai/freeform", {
@@ -84,11 +87,13 @@ Se l'utente chiede aiuto o informazioni, rispondi in modo conciso.`,
         setResult("Errore: " + (data.error || "Riprova"));
       } else {
         setResult(data.text?.trim() || "");
+        aiStatus.set({ message: `"${fieldLabel}" completato`, provider: data.provider || "" });
       }
     } catch {
       setResult("Errore di connessione");
     }
     setLoading(false);
+    setTimeout(() => useAIStatus.getState().clear(), 3000);
   };
 
   const handleApply = () => {

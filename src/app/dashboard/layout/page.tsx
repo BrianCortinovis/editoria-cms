@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import { isModuleActive } from "@/lib/modules";
+import { useAIStatus } from "@/lib/ai-status";
 import toast from "react-hot-toast";
 import ZoneRenderer from "@/components/layout/ZoneRenderer";
 import {
@@ -289,6 +290,7 @@ export default function LayoutPage() {
     const fileList = e.target.files;
     if (!fileList || !currentTenant) return;
     setAiAnalyzing(true);
+    useAIStatus.getState().set({ message: "Analisi IA layout in corso...", provider: "" });
     const files: { path: string; content: string }[] = [];
     for (const file of Array.from(fileList)) {
       const ext = file.name.split(".").pop()?.toLowerCase();
@@ -343,6 +345,8 @@ export default function LayoutPage() {
           }
         }
         toast.success(`IA: ${totalAdded} slot in ${pageNames.length} pagine (${data.provider})`);
+        useAIStatus.getState().set({ message: `Layout analizzato: ${totalAdded} slot in ${pageNames.length} pagine`, provider: data.provider || "" });
+        setTimeout(() => useAIStatus.getState().clear(), 5000);
         if (data.analysis) toast.success(data.analysis, { duration: 5000 });
         load();
       }

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuthStore } from "@/lib/store";
 import { isModuleActive } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/client";
+import { useAIStatus } from "@/lib/ai-status";
 import toast from "react-hot-toast";
 import {
   Sparkles,
@@ -78,6 +79,9 @@ export default function AIPanel({
     }
 
     setLoading(action);
+    const aiStatus = useAIStatus.getState();
+    const actionLabels: Record<string, string> = { seo: "SEO", titles: "Titoli", social: "Post Social", translate: "Traduzione", summary: "Sommario" };
+    aiStatus.set({ message: `Generando ${actionLabels[action] || action}...`, provider: "" });
 
     try {
       const res = await fetch("/api/ai/generate", {
@@ -102,6 +106,8 @@ export default function AIPanel({
 
       setResults(prev => ({ ...prev, [action]: data.data }));
       toast.success(`${action.toUpperCase()} generato con ${data.provider}`);
+      aiStatus.set({ message: `${actionLabels[action] || action} completato`, provider: data.provider || "" });
+      setTimeout(() => useAIStatus.getState().clear(), 3000);
     } catch {
       toast.error("Errore di connessione");
     }
