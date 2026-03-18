@@ -427,7 +427,8 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
 
           {/* Body Editor */}
           <div className="relative group">
-            <div className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+            <TiptapEditor content={body} onChange={setBody} />
+            <div className="flex justify-end px-3 py-2" style={{ borderTop: "1px solid var(--c-border)" }}>
               <AIFieldHelper
                 fieldLabel="Corpo dell'articolo"
                 currentValue={body?.slice(0, 200) || ""}
@@ -435,7 +436,6 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                 onApply={(v) => setBody(body + "\n" + v)}
               />
             </div>
-            <TiptapEditor content={body} onChange={setBody} />
           </div>
         </div>
 
