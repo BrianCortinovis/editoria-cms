@@ -26,6 +26,7 @@ import {
   Receipt,
   Cpu,
   Package,
+  Globe,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { useThemeStore } from "@/lib/theme";
@@ -34,6 +35,7 @@ import { useRouter } from "next/navigation";
 
 const mainNav = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+  { href: "/dashboard/site-builder", label: "Sito", icon: Globe },
   { href: "/dashboard/layout", label: "Layout", icon: LayoutTemplate },
   { href: "/dashboard/articoli", label: "Articoli", icon: FileText },
   { href: "/dashboard/media", label: "Media", icon: Image },

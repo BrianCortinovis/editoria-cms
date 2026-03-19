@@ -4,6 +4,44 @@ export type ArticleStatus = "draft" | "in_review" | "approved" | "published" | "
 
 export type BannerPosition = "header" | "sidebar" | "in_article" | "footer" | "interstitial";
 
+export type PageType = "homepage" | "article" | "category" | "tag" | "author" | "search" | "contact" | "about" | "events" | "custom";
+
+export interface SiteTheme {
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+    surface: string;
+    text: string;
+    textSecondary: string;
+    border: string;
+  };
+  fonts: {
+    heading: string;
+    body: string;
+    mono: string;
+  };
+  spacing: {
+    unit: number;
+    containerMax: string;
+    sectionGap: string;
+  };
+  borderRadius: string;
+}
+
+export interface NavItem {
+  label: string;
+  url: string;
+  children?: NavItem[];
+}
+
+export interface SiteFooter {
+  columns: { title: string; links: { label: string; url: string }[] }[];
+  copyright: string;
+  links: { label: string; url: string }[];
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -458,6 +496,207 @@ export interface Database {
         };
         Update: Record<string, never>;
       };
+      site_config: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          theme: SiteTheme;
+          navigation: NavItem[];
+          footer: SiteFooter;
+          global_css: string | null;
+          global_head: string | null;
+          favicon_url: string | null;
+          og_defaults: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          theme?: SiteTheme;
+          navigation?: NavItem[];
+          footer?: SiteFooter;
+          global_css?: string | null;
+          global_head?: string | null;
+          favicon_url?: string | null;
+          og_defaults?: Record<string, unknown>;
+        };
+        Update: {
+          theme?: SiteTheme;
+          navigation?: NavItem[];
+          footer?: SiteFooter;
+          global_css?: string | null;
+          global_head?: string | null;
+          favicon_url?: string | null;
+          og_defaults?: Record<string, unknown>;
+        };
+      };
+      site_pages: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          title: string;
+          slug: string;
+          page_type: PageType;
+          meta: Record<string, unknown>;
+          blocks: unknown[];
+          custom_css: string | null;
+          is_published: boolean;
+          sort_order: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          title: string;
+          slug: string;
+          page_type?: PageType;
+          meta?: Record<string, unknown>;
+          blocks?: unknown[];
+          custom_css?: string | null;
+          is_published?: boolean;
+          sort_order?: number;
+          created_by?: string | null;
+        };
+        Update: {
+          title?: string;
+          slug?: string;
+          page_type?: PageType;
+          meta?: Record<string, unknown>;
+          blocks?: unknown[];
+          custom_css?: string | null;
+          is_published?: boolean;
+          sort_order?: number;
+        };
+      };
+      site_page_revisions: {
+        Row: {
+          id: string;
+          page_id: string;
+          blocks: unknown[];
+          meta: Record<string, unknown> | null;
+          changed_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          page_id: string;
+          blocks: unknown[];
+          meta?: Record<string, unknown> | null;
+          changed_by: string;
+        };
+        Update: Record<string, never>;
+      };
+      api_keys: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: string;
+          key_hash: string;
+          key_prefix: string;
+          permissions: string[];
+          rate_limit: number;
+          last_used_at: string | null;
+          expires_at: string | null;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          name: string;
+          key_hash: string;
+          key_prefix: string;
+          permissions?: string[];
+          rate_limit?: number;
+          expires_at?: string | null;
+          is_active?: boolean;
+        };
+        Update: {
+          name?: string;
+          permissions?: string[];
+          rate_limit?: number;
+          expires_at?: string | null;
+          is_active?: boolean;
+        };
+      };
+      layout_templates: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          page_type: string;
+          name: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          page_type: string;
+          name: string;
+          is_active?: boolean;
+        };
+        Update: {
+          page_type?: string;
+          name?: string;
+          is_active?: boolean;
+        };
+      };
+      layout_slots: {
+        Row: {
+          id: string;
+          template_id: string;
+          slot_key: string;
+          label: string;
+          description: string | null;
+          content_type: string;
+          category_id: string | null;
+          max_items: number;
+          sort_by: string;
+          sort_order: string;
+          sort_index: number;
+          layout_width: string;
+          layout_height: string;
+          layout_grid_cols: number;
+          layout_display: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
+          slot_key: string;
+          label: string;
+          description?: string | null;
+          content_type?: string;
+          category_id?: string | null;
+          max_items?: number;
+          sort_by?: string;
+          sort_order?: string;
+          sort_index?: number;
+          layout_width?: string;
+          layout_height?: string;
+          layout_grid_cols?: number;
+          layout_display?: string;
+        };
+        Update: {
+          slot_key?: string;
+          label?: string;
+          description?: string | null;
+          content_type?: string;
+          category_id?: string | null;
+          max_items?: number;
+          sort_by?: string;
+          sort_order?: string;
+          sort_index?: number;
+          layout_width?: string;
+          layout_height?: string;
+          layout_grid_cols?: number;
+          layout_display?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -465,6 +704,7 @@ export interface Database {
       user_role: UserRole;
       article_status: ArticleStatus;
       banner_position: BannerPosition;
+      page_type: PageType;
     };
   };
 }

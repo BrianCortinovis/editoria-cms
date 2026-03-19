@@ -1,7 +1,7 @@
 // Module system for per-tenant premium features
 // Each module can be activated/deactivated per tenant
 
-export type ModuleId = "ai_assistant" | "newsletter" | "paywall" | "social_auto" | "multilingual";
+export type ModuleId = "ai_assistant" | "newsletter" | "paywall" | "social_auto" | "multilingual" | "site_builder";
 
 export interface Module {
   id: ModuleId;
@@ -56,6 +56,17 @@ export const AVAILABLE_MODULES: Module[] = [
     name: "Multilingua",
     description: "Traduzione articoli IT/EN, URL localizzati, hreflang automatico",
     icon: "Globe",
+  },
+  {
+    id: "site_builder",
+    name: "Site Builder",
+    description: "Costruisci il sito della testata con blocchi drag-and-drop, temi personalizzabili e preview live",
+    icon: "Layout",
+    configFields: [
+      { key: "site_mode", label: "Modalità sito", type: "select", options: ["builder", "headless", "both"] },
+      { key: "site_domain", label: "Dominio sito pubblico", type: "text" },
+      { key: "site_subdomain", label: "Sottodominio (es. testata1)", type: "text" },
+    ],
   },
 ];
 

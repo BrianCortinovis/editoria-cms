@@ -178,3 +178,20 @@ export async function callAI(
       throw new Error(`Unknown AI provider: ${provider}`);
   }
 }
+
+/**
+ * Simplified helper for calling AI with system + user prompt.
+ * Used by public-facing AI endpoints.
+ */
+export async function callProvider(
+  provider: AIProvider,
+  apiKey: string,
+  opts: { system: string; prompt: string; model?: string }
+): Promise<{ text: string; provider: AIProvider; model: string }> {
+  const messages: AIMessage[] = [
+    { role: "system", content: opts.system },
+    { role: "user", content: opts.prompt },
+  ];
+  const result = await callAI(provider, messages, { apiKey, model: opts.model });
+  return { text: result.text, provider: result.provider, model: result.model };
+}

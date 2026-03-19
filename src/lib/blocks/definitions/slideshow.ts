@@ -1,0 +1,59 @@
+import { registerBlock } from '../registry';
+import type { BlockDefinition } from '@/lib/types/block';
+
+const slideshowBlock: BlockDefinition = {
+  type: 'slideshow',
+  label: 'Slideshow',
+  description: 'Slideshow con transizioni, autoplay, navigazione e indicatori',
+  icon: 'GalleryHorizontal',
+  category: 'media',
+  defaultProps: {
+    slides: [
+      {
+        id: '1', type: 'image', image: '', title: 'Slide 1', description: 'Descrizione slide', link: '',
+        overlay: { enabled: true, color: 'rgba(0,0,0,0.4)', position: 'bottom-left' },
+        buttons: [{ id: 'btn1', text: 'Scopri di più', url: '#', style: 'primary' }],
+        textStyle: { titleSize: '36px', titleWeight: '700', descSize: '16px', color: '#ffffff' },
+      },
+      {
+        id: '2', type: 'image', image: '', title: 'Slide 2', description: 'Seconda slide', link: '',
+        overlay: { enabled: true, color: 'rgba(0,0,0,0.3)', position: 'center' },
+        buttons: [],
+        textStyle: { titleSize: '36px', titleWeight: '700', descSize: '16px', color: '#ffffff' },
+      },
+    ],
+    autoplay: true,
+    interval: 5000,
+    pauseOnHover: true,
+    transition: 'fade',
+    transitionSpeed: 600,
+    direction: 'horizontal',
+    slidesPerView: 1,
+    spaceBetween: 0,
+    loop: true,
+    showDots: true,
+    showArrows: true,
+    showProgress: false,
+    dotsPosition: 'bottom',
+    arrowStyle: 'circle',
+    height: '500px',
+    objectFit: 'cover',
+    showThumbnails: false,
+    thumbnailPosition: 'bottom',
+    kenBurns: false,
+    parallaxEffect: false,
+  },
+  defaultStyle: {
+    layout: {
+      display: 'block',
+      padding: { top: '0', right: '0', bottom: '0', left: '0' },
+      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      width: '100%',
+      maxWidth: '100%',
+      overflow: 'hidden',
+    },
+  },
+  supportsChildren: false,
+};
+
+registerBlock(slideshowBlock);

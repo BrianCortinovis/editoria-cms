@@ -1,0 +1,28 @@
+import { registerBlock } from '../registry';
+import type { BlockDefinition } from '@/lib/types/block';
+
+const customHtmlBlock: BlockDefinition = {
+  type: 'custom-html',
+  label: 'HTML Custom',
+  description: 'Blocco HTML/CSS/JS libero per embed e codice personalizzato',
+  icon: 'FileCode',
+  category: 'content',
+  defaultProps: {
+    html: '<div style="padding: 24px; text-align: center;">\n  <p>Il tuo HTML personalizzato qui</p>\n</div>',
+    css: '',
+    js: '',
+    sandboxed: true,
+  },
+  defaultStyle: {
+    layout: {
+      display: 'block',
+      padding: { top: '0', right: '0', bottom: '0', left: '0' },
+      margin: { top: '24px', right: 'auto', bottom: '24px', left: 'auto' },
+      width: '100%',
+      maxWidth: '100%',
+    },
+  },
+  supportsChildren: false,
+};
+
+registerBlock(customHtmlBlock);

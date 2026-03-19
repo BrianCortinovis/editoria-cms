@@ -1,0 +1,96 @@
+import { createServiceRoleClient } from '@/lib/supabase/server';
+import type { BlockDataSource } from '@/lib/types/block';
+
+/**
+ * Resolve data for a data-bound block at render time.
+ * Fetches articles, events, breaking news, etc. from Supabase.
+ */
+export async function resolveBlockData(
+  tenantId: string,
+  dataSource: BlockDataSource
+): Promise<unknown[]> {
+  const supabase = await createServiceRoleClient();
+  const { endpoint, params } = dataSource;
+
+  switch (endpoint) {
+    case 'articles': {
+      let query = supabase
+        .from('articles')
+        .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, is_featured, profiles!articles_author_id_fkey(full_name, avatar_url), categories(name, slug, color)')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'published')
+        .order('published_at', { ascending: false });
+
+      if (params.category) {
+        const { data: cat } = await supabase
+          .from('categories')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('slug', params.category)
+          .single();
+        if (cat) query = query.eq('category_id', cat.id);
+      }
+      if (params.featured === 'true') query = query.eq('is_featured', true);
+      if (params.limit) query = query.limit(parseInt(params.limit));
+
+      const { data } = await query;
+      return data || [];
+    }
+
+    case 'categories': {
+      const { data } = await supabase
+        .from('categories')
+        .select('id, name, slug, color, sort_order')
+        .eq('tenant_id', tenantId)
+        .order('sort_order');
+      return data || [];
+    }
+
+    case 'events': {
+      const limit = params.limit ? parseInt(params.limit) : 10;
+      const { data } = await supabase
+        .from('events')
+        .select('id, title, description, location, image_url, starts_at, ends_at, price')
+        .eq('tenant_id', tenantId)
+        .gte('starts_at', new Date().toISOString())
+        .order('starts_at')
+        .limit(limit);
+      return data || [];
+    }
+
+    case 'breaking-news': {
+      const { data } = await supabase
+        .from('breaking_news')
+        .select('id, text, link_url, priority')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('priority', { ascending: false });
+      return data || [];
+    }
+
+    case 'banners': {
+      let query = supabase
+        .from('banners')
+        .select('id, name, image_url, html_content, link_url, type, position')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true);
+
+      if (params.position) query = query.eq('position', params.position);
+
+      const { data } = await query;
+      return data || [];
+    }
+
+    case 'tags': {
+      const { data } = await supabase
+        .from('tags')
+        .select('id, name, slug')
+        .eq('tenant_id', tenantId)
+        .order('name');
+      return data || [];
+    }
+
+    default:
+      return [];
+  }
+}
