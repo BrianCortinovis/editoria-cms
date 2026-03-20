@@ -1,34 +1,65 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
+import { getTenantFromRequest } from '@/lib/cache/tenant-context';
+import { getCacheHeadersWithSecurity } from '@/lib/cache/cache-headers';
 import { NextRequest, NextResponse } from 'next/server';
 
+/**
+ * GET /api/v1/articles
+ * Optimized article listing with composite indexes
+ * Cache: 60s at edge, SWR 300s
+ */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const tenant = request.nextUrl.searchParams.get('tenant') || 'valbremmbana';
-    const limit = parseInt(request.nextUrl.searchParams.get('limit') || '20');
-    const offset = parseInt(request.nextUrl.searchParams.get('offset') || '0');
-
-    const { data: tenantData } = await supabase
-      .from('tenants').select('id').eq('slug', tenant).single();
-
-    if (!tenantData) {
-      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+    const tenant = await getTenantFromRequest(request);
+    if (!tenant) {
+      return NextResponse.json(
+        { error: 'Tenant not found' },
+        { status: 404, headers: { 'Cache-Control': 'private, max-age=0' } }
+      );
     }
 
-    const { data: articles, error, count } = await supabase
+    const url = new URL(request.url);
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
+    const offset = parseInt(url.searchParams.get('offset') || '0');
+    const featured = url.searchParams.get('featured') === 'true';
+
+    const supabase = await createServiceRoleClient();
+
+    let query = supabase
       .from('articles')
-      .select('*', { count: 'exact' })
-      .eq('tenant_id', tenantData.id)
+      .select('*, author:profiles(full_name, avatar_url), categories:article_categories(category:categories(name, slug, color))', {
+        count: 'exact',
+      })
+      .eq('tenant_id', tenant.tenantId)
       .eq('status', 'published')
       .order('published_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error) throw error;
+    if (featured) {
+      query = query.eq('is_featured', true);
+    }
 
-    return NextResponse.json({ articles, total: count }, {
-      headers: { 'Cache-Control': 'public, max-age=60' }
-    });
+    const { data: articles, error, count } = await query;
+
+    if (error) {
+      console.error('Articles query error:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch articles' },
+        { status: 500, headers: getCacheHeadersWithSecurity('ADMIN') }
+      );
+    }
+
+    return NextResponse.json(
+      { articles, total: count || 0 },
+      {
+        headers: getCacheHeadersWithSecurity('ARTICLES_LIST'),
+      }
+    );
   } catch (error) {
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    console.error('Unexpected error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500, headers: getCacheHeadersWithSecurity('ADMIN') }
+    );
   }
 }
