@@ -1,83 +1,67 @@
-import { NextResponse } from "next/server";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = createClient();
+    const tenant = request.nextUrl.searchParams.get('tenant') || 'valbremmbana';
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
-}
+    const { data: tenantData } = await supabase
+      .from('tenants').select('id').eq('slug', tenant).single();
 
-// GET: Public endpoint — fetch published pages for a tenant
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const tenantSlug = searchParams.get("tenant");
-  const slug = searchParams.get("slug");
-  const pageType = searchParams.get("type");
-
-  if (!tenantSlug) {
-    return NextResponse.json({ error: "tenant parameter required" }, { status: 400, headers: CORS_HEADERS });
-  }
-
-  const supabase = await createServiceRoleClient();
-
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("id")
-    .eq("slug", tenantSlug)
-    .single();
-
-  if (!tenant) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 404, headers: CORS_HEADERS });
-  }
-
-  // Single page by slug
-  if (slug) {
-    const { data, error } = await supabase
-      .from("site_pages")
-      .select("id, title, slug, page_type, meta, blocks, custom_css, updated_at")
-      .eq("tenant_id", tenant.id)
-      .eq("slug", slug)
-      .eq("is_published", true)
-      .single();
-
-    if (error || !data) {
-      return NextResponse.json({ error: "Page not found" }, { status: 404, headers: CORS_HEADERS });
+    if (!tenantData) {
+      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ page: data }, {
-      headers: {
-        ...CORS_HEADERS,
-        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
-      },
+    const { data: pages, error } = await supabase
+      .from('pages')
+      .select('*')
+      .eq('tenant_id', tenantData.id)
+      .eq('status', 'published')
+      .order('published_at', { ascending: false });
+
+    if (error) throw error;
+
+    return NextResponse.json({ pages }, {
+      headers: { 'Cache-Control': 'public, max-age=300' }
     });
+  } catch (error) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
+}
 
-  // List published pages
-  let query = supabase
-    .from("site_pages")
-    .select("id, title, slug, page_type, meta, sort_order, updated_at")
-    .eq("tenant_id", tenant.id)
-    .eq("is_published", true)
-    .order("sort_order");
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-  if (pageType) {
-    query = query.eq("page_type", pageType);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { id, title, slug, layout_data, tenant_id, status } = body;
+
+    if (id) {
+      const { data: page, error } = await supabase
+        .from('pages')
+        .update({ title, slug, layout_data, status, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('tenant_id', tenant_id)
+        .select().single();
+
+      if (error) throw error;
+      return NextResponse.json(page);
+    } else {
+      const { data: page, error } = await supabase
+        .from('pages')
+        .insert([{ tenant_id, author_id: user.id, title, slug, layout_data, status: status || 'draft', page_type: 'custom' }])
+        .select().single();
+
+      if (error) throw error;
+      return NextResponse.json(page, { status: 201 });
+    }
+  } catch (error) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
-
-  const { data, error } = await query;
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500, headers: CORS_HEADERS });
-  }
-
-  return NextResponse.json({ pages: data }, {
-    headers: {
-      ...CORS_HEADERS,
-      "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
-    },
-  });
 }
