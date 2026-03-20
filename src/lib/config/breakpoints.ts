@@ -1,10 +1,10 @@
-export type DeviceMode = 'desktop' | 'tablet' | 'mobile';
+export const BREAKPOINTS = {
+  mobile: 768,
+  tablet: 1024,
+  desktop: 1440,
+} as const;
 
-export const BREAKPOINTS: Record<DeviceMode, { width: number; label: string }> = {
-  desktop: { width: 1440, label: 'Desktop' },
-  tablet: { width: 768, label: 'Tablet' },
-  mobile: { width: 375, label: 'Mobile' },
-};
+export type DeviceMode = 'desktop' | 'tablet' | 'mobile';
 
 export const DEVICE_WIDTHS: Record<DeviceMode, number> = {
   desktop: 1440,

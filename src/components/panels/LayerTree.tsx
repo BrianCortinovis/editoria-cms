@@ -1,7 +1,7 @@
 'use client';
 
 import { usePageStore } from '@/lib/stores/page-store';
-import type { Block } from '@/lib/types/block';
+import type { Block } from '@/lib/types';
 import { cn } from '@/lib/utils/cn';
 import {
   ChevronRight, ChevronDown, Eye, EyeOff, Lock, Unlock, GripVertical

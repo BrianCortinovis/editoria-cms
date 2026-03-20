@@ -8,11 +8,13 @@ import {
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Toolbar } from './Toolbar';
 import { Canvas } from './Canvas';
+import { PreviewMode } from './PreviewMode';
 import { LeftPanel } from '@/components/panels/LeftPanel';
 import { RightPanel } from '@/components/panels/RightPanel';
+import { AiPanel } from '@/components/ai/AiPanel';
 import { useUiStore } from '@/lib/stores/ui-store';
-import { usePageStore } from '@/lib/stores/page-store';
-import { createBlock, type BlockType } from '@/lib/types/block';
+import { usePageStore, loadAutosave, clearAutosave, setAutosaveContext } from '@/lib/stores/page-store';
+import { createBlock, type BlockType } from '@/lib/types';
 import { getBlockDefinition } from '@/lib/blocks/registry';
 import { generateId } from '@/lib/utils/id';
 import '@/lib/blocks/init';
@@ -21,55 +23,87 @@ import {
 } from 'lucide-react';
 
 interface BuilderShellProps {
+  projectId: string;
+  projectName: string;
   pageId: string;
-  pageTitle: string;
-  tenantId: string;
 }
 
-export function BuilderShell({ pageId, pageTitle, tenantId }: BuilderShellProps) {
+export function BuilderShell({ projectId, projectName, pageId }: BuilderShellProps) {
   const {
-    leftPanelOpen, rightPanelOpen,
+    leftPanelOpen, rightPanelOpen, aiPanelOpen,
     setLeftPanelOpen, setRightPanelOpen,
     previewMode, setPreviewMode,
   } = useUiStore();
-  const { blocks, setBlocks, addBlock, isDirty, markSaved, setSaving, isSaving } = usePageStore();
-  const [loaded, setLoaded] = useState(false);
+  const { blocks, setBlocks, addBlock } = usePageStore();
+  const [saving, setSaving] = useState(false);
+  const [recovered, setRecovered] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  // Set context and load page blocks from Supabase
+  // Set autosave context
   useEffect(() => {
-    usePageStore.getState().setContext(pageId, tenantId);
+    setAutosaveContext(projectId, pageId);
+  }, [projectId, pageId]);
 
-    fetch(`/api/builder/pages/${pageId}`)
+  // Load page data — check autosave first
+  useEffect(() => {
+    const autosave = loadAutosave(projectId, pageId);
+
+    fetch(`/api/projects/${projectId}/pages/${pageId}`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.page?.blocks) {
-          setBlocks(data.page.blocks);
+        const serverBlocks = data.blocks || [];
+        // Use autosave ONLY if server has nothing (empty page) and autosave has content
+        if (serverBlocks.length === 0 && autosave && autosave.blocks.length > 0) {
+          setBlocks(autosave.blocks);
+          setRecovered(true);
+          setTimeout(() => setRecovered(false), 5000);
+        } else if (serverBlocks.length > 0) {
+          setBlocks(serverBlocks);
+          // Server has data — clear any stale autosave
+          clearAutosave(projectId, pageId);
         }
-        setLoaded(true);
       })
-      .catch(() => setLoaded(true));
-  }, [pageId, tenantId, setBlocks]);
+      .catch(() => {
+        // Server failed — use autosave if available
+        if (autosave && autosave.blocks.length > 0) {
+          setBlocks(autosave.blocks);
+          setRecovered(true);
+          setTimeout(() => setRecovered(false), 5000);
+        }
+      });
+  }, [projectId, pageId, setBlocks]);
 
-  // Save to Supabase
+  // Save
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      await fetch(`/api/builder/pages/${pageId}`, {
+      await fetch(`/api/projects/${projectId}/pages/${pageId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ blocks }),
       });
-      markSaved();
+      // Clear autosave after successful server save
+      clearAutosave(projectId, pageId);
     } catch (error) {
       console.error('Save error:', error);
     } finally {
       setSaving(false);
     }
-  }, [pageId, blocks, markSaved, setSaving]);
+  }, [projectId, pageId, blocks]);
+
+  // Warn before leaving with unsaved work
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (blocks.length > 0) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [blocks.length]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -86,18 +120,11 @@ export function BuilderShell({ pageId, pageTitle, tenantId }: BuilderShellProps)
     return () => window.removeEventListener('keydown', handler);
   }, [handleSave, previewMode, setPreviewMode]);
 
-  // Warn before leaving with unsaved work
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [isDirty]);
-
   // Drag handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    // drag started
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
@@ -107,38 +134,65 @@ export function BuilderShell({ pageId, pageTitle, tenantId }: BuilderShellProps)
       const blockType = activeData.blockType as BlockType;
       const def = getBlockDefinition(blockType);
       if (def) {
-        const block = createBlock(def.type, def.label, def.defaultProps, def.defaultStyle, def.defaultDataSource);
+        const block = createBlock(def.type, def.label, def.defaultProps, def.defaultStyle);
         block.id = generateId();
         addBlock(block);
       }
     }
   };
 
-  if (!loaded) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-        <div className="text-zinc-400 animate-pulse">Caricamento builder...</div>
-      </div>
-    );
+  const handlePreview = () => {
+    setPreviewMode(true);
+  };
+
+  const handleExport = async () => {
+    try {
+      const response = await fetch(`/api/export/${projectId}`, { method: 'POST' });
+      const data = await response.json();
+      if (data.html) {
+        const blob = new Blob([data.html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${projectName}.html`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+    }
+  };
+
+  if (previewMode) {
+    return <PreviewMode />;
   }
 
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={pointerWithin}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
       <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
+        {/* Recovered work notification */}
+        {recovered && (
+          <div className="bg-green-500 text-white text-sm text-center py-2 px-4 flex items-center justify-center gap-2 shrink-0 z-[100]">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm3.35 5.35l-4 4a.5.5 0 01-.7 0l-2-2a.5.5 0 01.7-.7L7 9.29l3.65-3.64a.5.5 0 01.7.7z" fill="currentColor"/></svg>
+            Lavoro recuperato automaticamente
+            <button onClick={() => setRecovered(false)} className="ml-2 underline opacity-80 hover:opacity-100">OK</button>
+          </div>
+        )}
         <Toolbar
-          projectName={pageTitle}
+          projectName={projectName}
           onSave={handleSave}
-          onPreview={() => setPreviewMode(!previewMode)}
-          onExport={() => {}}
-          saving={isSaving}
+          onPreview={handlePreview}
+          onExport={handleExport}
+          saving={saving}
         />
 
         <div className="flex-1 flex overflow-hidden">
-          {/* Left Panel */}
+          {/* Left Panel - Fixed width */}
           {leftPanelOpen ? (
             <div className="w-[280px] shrink-0 h-full relative">
               <LeftPanel />
@@ -160,14 +214,14 @@ export function BuilderShell({ pageId, pageTitle, tenantId }: BuilderShellProps)
             </button>
           )}
 
-          {/* Canvas */}
+          {/* Canvas - Fills remaining space */}
           <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
             <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
               <Canvas />
             </SortableContext>
           </div>
 
-          {/* Right Panel */}
+          {/* Right Panel - Fixed width */}
           {rightPanelOpen ? (
             <div className="w-[340px] shrink-0 h-full relative">
               <RightPanel />
@@ -183,19 +237,15 @@ export function BuilderShell({ pageId, pageTitle, tenantId }: BuilderShellProps)
             <button
               onClick={() => setRightPanelOpen(true)}
               className="w-8 shrink-0 flex items-center justify-center bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-400"
-              title="Apri proprietà"
+              title="Apri proprieta"
             >
               <PanelRight size={14} />
             </button>
           )}
-        </div>
 
-        {/* Dirty indicator */}
-        {isDirty && (
-          <div className="absolute bottom-4 right-4 bg-amber-500 text-white text-xs px-3 py-1 rounded-full shadow-lg z-50">
-            Modifiche non salvate
-          </div>
-        )}
+          {/* AI Panel - Fixed width, outside main layout */}
+          <AiPanel />
+        </div>
       </div>
     </DndContext>
   );

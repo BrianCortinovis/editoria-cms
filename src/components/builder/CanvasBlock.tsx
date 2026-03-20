@@ -5,7 +5,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { usePageStore } from '@/lib/stores/page-store';
 import { useUiStore } from '@/lib/stores/ui-store';
-import type { Block } from '@/lib/types/block';
+import type { Block } from '@/lib/types';
 import { cn } from '@/lib/utils/cn';
 import {
   Trash2, Copy, Eye, EyeOff, Settings2,

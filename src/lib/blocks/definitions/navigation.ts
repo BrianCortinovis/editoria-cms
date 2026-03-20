@@ -1,5 +1,5 @@
 import { registerBlock } from '../registry';
-import type { BlockDefinition } from '@/lib/types/block';
+import type { BlockDefinition } from '@/lib/types';
 
 const navigationBlock: BlockDefinition = {
   type: 'navigation',

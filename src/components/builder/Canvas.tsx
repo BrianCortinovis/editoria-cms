@@ -4,7 +4,7 @@ import { useCallback, useRef, useEffect, useState } from 'react';
 import { usePageStore } from '@/lib/stores/page-store';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { CanvasBlock } from './CanvasBlock';
-import { DEVICE_WIDTHS, type DeviceMode } from '@/lib/config/breakpoints';
+import { DEVICE_WIDTHS } from '@/lib/config/breakpoints';
 import { cn } from '@/lib/utils/cn';
 import { Plus } from 'lucide-react';
 import { useDroppable } from '@dnd-kit/core';
@@ -138,6 +138,9 @@ export function Canvas() {
             style={{
               width: canvasWidth,
               minHeight: 800,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
               ...(showGrid ? {
                 backgroundImage: `linear-gradient(rgba(0,0,0,${gridSize <= 5 ? 0.06 : 0.03}) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,${gridSize <= 5 ? 0.06 : 0.03}) 1px, transparent 1px)`,
                 backgroundSize: `${gridSize}px ${gridSize}px`,
@@ -146,7 +149,7 @@ export function Canvas() {
             onClick={handleCanvasClick}
           >
             {blocks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center min-h-[800px] text-zinc-400 dark:text-zinc-600 gap-4">
+              <div className="flex flex-col items-center justify-center min-h-[800px] w-full text-zinc-400 dark:text-zinc-600 gap-4">
                 <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
                   <Plus size={32} />
                 </div>

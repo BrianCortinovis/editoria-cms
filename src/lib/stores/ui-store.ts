@@ -4,10 +4,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { DeviceMode } from '@/lib/config/breakpoints';
 
-export type BuilderTheme = 'dark' | 'light';
+export type Theme = 'dark' | 'light';
 
 interface UiState {
-  theme: BuilderTheme;
+  theme: Theme;
   deviceMode: DeviceMode;
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
@@ -18,9 +18,11 @@ interface UiState {
   showGrid: boolean;
   gridSize: number;
   showOutlines: boolean;
+  projectPalette: string[];
   previewMode: boolean;
 
-  setTheme: (theme: BuilderTheme) => void;
+  // Actions
+  setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
   setDeviceMode: (mode: DeviceMode) => void;
   setLeftPanelOpen: (open: boolean) => void;
@@ -35,6 +37,7 @@ interface UiState {
   toggleGrid: () => void;
   setGridSize: (size: number) => void;
   toggleOutlines: () => void;
+  setProjectPalette: (colors: string[]) => void;
   setPreviewMode: (on: boolean) => void;
   togglePreviewMode: () => void;
 }
@@ -53,6 +56,7 @@ export const useUiStore = create<UiState>()(
       showGrid: false,
       gridSize: 1,
       showOutlines: true,
+      projectPalette: ['#1a1a2e', '#16213e', '#0f3460', '#e94560', '#ffffff', '#f1f1f1'],
       previewMode: false,
 
       setTheme: (theme) => set({ theme }),
@@ -70,11 +74,12 @@ export const useUiStore = create<UiState>()(
       toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
       setGridSize: (gridSize) => set({ gridSize: Math.max(1, Math.min(100, gridSize)) }),
       toggleOutlines: () => set((s) => ({ showOutlines: !s.showOutlines })),
+      setProjectPalette: (projectPalette) => set({ projectPalette }),
       setPreviewMode: (previewMode) => set({ previewMode }),
       togglePreviewMode: () => set((s) => ({ previewMode: !s.previewMode })),
     }),
     {
-      name: 'editoria-builder-ui',
+      name: 'sitebuilder-ui',
       partialize: (state) => ({
         theme: state.theme,
         showGrid: state.showGrid,

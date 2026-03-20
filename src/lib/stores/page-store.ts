@@ -2,16 +2,10 @@
 
 import { create } from 'zustand';
 import { produce } from 'immer';
-import type { Block, BlockStyle, BlockShape } from '@/lib/types/block';
+import type { Block, BlockStyle, BlockShape } from '@/lib/types';
 import { generateId } from '@/lib/utils/id';
 
 interface PageState {
-  // Current page context
-  pageId: string | null;
-  tenantId: string | null;
-  isDirty: boolean;
-  isSaving: boolean;
-
   blocks: Block[];
   selectedBlockId: string | null;
   hoveredBlockId: string | null;
@@ -21,9 +15,6 @@ interface PageState {
   history: Block[][];
   historyIndex: number;
 
-  // Context
-  setContext: (pageId: string, tenantId: string) => void;
-
   // Actions
   setBlocks: (blocks: Block[]) => void;
   addBlock: (block: Block, parentId?: string | null, index?: number) => void;
@@ -31,15 +22,12 @@ interface PageState {
   updateBlock: (id: string, updates: Partial<Block>) => void;
   updateBlockProps: (id: string, props: Record<string, unknown>) => void;
   updateBlockStyle: (id: string, style: Partial<BlockStyle>) => void;
-  updateBlockResponsive: (id: string, device: 'tablet' | 'mobile', style: Partial<BlockStyle>) => void;
   updateBlockShape: (id: string, shape: BlockShape | null) => void;
   moveBlock: (id: string, newParentId: string | null, newIndex: number) => void;
   duplicateBlock: (id: string) => void;
   selectBlock: (id: string | null) => void;
   hoverBlock: (id: string | null) => void;
   setEditingBlock: (id: string | null) => void;
-  markSaved: () => void;
-  setSaving: (saving: boolean) => void;
 
   // History
   undo: () => void;
@@ -92,15 +80,61 @@ function pushHistory(state: PageState): Partial<PageState> {
   return {
     history: newHistory,
     historyIndex: newHistory.length - 1,
-    isDirty: true,
   };
 }
 
+// Auto-save key prefix
+const AUTOSAVE_KEY = 'sitebuilder-autosave';
+
+function getAutosaveKey(projectId?: string, pageId?: string) {
+  return `${AUTOSAVE_KEY}-${projectId || 'default'}-${pageId || 'home'}`;
+}
+
+// Save blocks to localStorage with timestamp
+function autosaveBlocks(blocks: Block[], projectId?: string, pageId?: string) {
+  try {
+    const key = getAutosaveKey(projectId, pageId);
+    const data = {
+      blocks,
+      timestamp: Date.now(),
+      version: 1,
+    };
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch { /* quota exceeded or SSR */ }
+}
+
+// Load autosaved blocks
+export function loadAutosave(projectId?: string, pageId?: string): { blocks: Block[]; timestamp: number } | null {
+  try {
+    const key = getAutosaveKey(projectId, pageId);
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (data && Array.isArray(data.blocks) && data.blocks.length > 0) {
+      return { blocks: data.blocks, timestamp: data.timestamp || 0 };
+    }
+    return null;
+  } catch { return null; }
+}
+
+// Clear autosave (after successful server save)
+export function clearAutosave(projectId?: string, pageId?: string) {
+  try {
+    const key = getAutosaveKey(projectId, pageId);
+    localStorage.removeItem(key);
+  } catch { /* SSR */ }
+}
+
+// Current project/page context for autosave
+let _autosaveProjectId: string | undefined;
+let _autosavePageId: string | undefined;
+
+export function setAutosaveContext(projectId: string, pageId: string) {
+  _autosaveProjectId = projectId;
+  _autosavePageId = pageId;
+}
+
 export const usePageStore = create<PageState>()((set, get) => ({
-  pageId: null,
-  tenantId: null,
-  isDirty: false,
-  isSaving: false,
   blocks: [],
   selectedBlockId: null,
   hoveredBlockId: null,
@@ -108,13 +142,10 @@ export const usePageStore = create<PageState>()((set, get) => ({
   history: [[]],
   historyIndex: 0,
 
-  setContext: (pageId, tenantId) => set({ pageId, tenantId }),
-
   setBlocks: (blocks) =>
     set((state) => ({
       blocks,
       ...pushHistory({ ...state, blocks }),
-      isDirty: false,
     })),
 
   addBlock: (block, parentId = null, index) =>
@@ -203,27 +234,6 @@ export const usePageStore = create<PageState>()((set, get) => ({
       };
     }),
 
-  updateBlockResponsive: (id, device, style) =>
-    set((state) => {
-      const newBlocks = updateBlockInTree(state.blocks, id, (b) => ({
-        ...b,
-        responsive: {
-          ...b.responsive,
-          [device]: {
-            ...((b.responsive?.[device] as Partial<BlockStyle>) || {}),
-            layout: { ...((b.responsive?.[device] as Partial<BlockStyle>)?.layout || {}), ...(style.layout || {}) },
-            background: { ...((b.responsive?.[device] as Partial<BlockStyle>)?.background || {}), ...(style.background || {}) },
-            typography: { ...((b.responsive?.[device] as Partial<BlockStyle>)?.typography || {}), ...(style.typography || {}) },
-            border: { ...((b.responsive?.[device] as Partial<BlockStyle>)?.border || {}), ...(style.border || {}) },
-          },
-        },
-      }));
-      return {
-        blocks: newBlocks,
-        ...pushHistory({ ...state, blocks: newBlocks }),
-      };
-    }),
-
   updateBlockShape: (id, shape) =>
     set((state) => {
       const newBlocks = updateBlockInTree(state.blocks, id, (b) => ({ ...b, shape }));
@@ -264,6 +274,7 @@ export const usePageStore = create<PageState>()((set, get) => ({
 
       const clone = deepCloneBlock(block);
 
+      // Find parent and index
       const insertAfter = (blocks: Block[]): Block[] => {
         const idx = blocks.findIndex((b) => b.id === id);
         if (idx !== -1) {
@@ -288,8 +299,6 @@ export const usePageStore = create<PageState>()((set, get) => ({
   selectBlock: (id) => set({ selectedBlockId: id }),
   hoverBlock: (id) => set({ hoveredBlockId: id }),
   setEditingBlock: (id) => set({ editingBlockId: id }),
-  markSaved: () => set({ isDirty: false }),
-  setSaving: (isSaving) => set({ isSaving }),
 
   undo: () =>
     set((state) => {
@@ -298,7 +307,6 @@ export const usePageStore = create<PageState>()((set, get) => ({
       return {
         blocks: JSON.parse(JSON.stringify(state.history[newIndex])),
         historyIndex: newIndex,
-        isDirty: true,
       };
     }),
 
@@ -309,7 +317,6 @@ export const usePageStore = create<PageState>()((set, get) => ({
       return {
         blocks: JSON.parse(JSON.stringify(state.history[newIndex])),
         historyIndex: newIndex,
-        isDirty: true,
       };
     }),
 
@@ -323,3 +330,14 @@ export const usePageStore = create<PageState>()((set, get) => ({
     return findBlock(blocks, selectedBlockId);
   },
 }));
+
+// Auto-save on every blocks change (debounced)
+let _autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+usePageStore.subscribe((state, prevState) => {
+  if (state.blocks !== prevState.blocks && state.blocks.length > 0) {
+    if (_autosaveTimer) clearTimeout(_autosaveTimer);
+    _autosaveTimer = setTimeout(() => {
+      autosaveBlocks(state.blocks, _autosaveProjectId, _autosavePageId);
+    }, 500);
+  }
+});

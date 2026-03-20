@@ -1,15 +1,364 @@
 'use client';
 
-import type { Block } from '@/lib/types/block';
+import { usePageStore } from '@/lib/stores/page-store';
+import type { Block, BlockStyle } from '@/lib/types';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { ColorPicker } from '@/components/ui/color-picker';
+import { Slider } from '@/components/ui/slider';
+import { Toggle } from '@/components/ui/toggle';
+import { AiButton } from '@/components/ai/AiButton';
+import { useState } from 'react';
+import { cn } from '@/lib/utils/cn';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
-// Style editor stub — will be completed with full style controls
-export function StyleEditor({ block }: { block: Block }) {
+interface StyleEditorProps {
+  block: Block;
+}
+
+function Section({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="p-3 text-xs text-zinc-500">
-      <p>Stile per: {block.label}</p>
-      <p className="mt-2">Editor stili in sviluppo</p>
+    <div className="border-b border-zinc-100 dark:border-zinc-800 pb-3 mb-3">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 w-full text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2 hover:text-zinc-700 dark:hover:text-zinc-200"
+      >
+        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        {title}
+      </button>
+      {open && <div className="space-y-3">{children}</div>}
     </div>
   );
 }
 
-export default StyleEditor;
+function SpacingInput({ label, value, onChange }: {
+  label: string;
+  value: { top: string; right: string; bottom: string; left: string };
+  onChange: (v: { top: string; right: string; bottom: string; left: string }) => void;
+}) {
+  return (
+    <div>
+      <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">{label}</span>
+      <div className="grid grid-cols-4 gap-1">
+        {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
+          <input
+            key={side}
+            value={value[side]}
+            onChange={(e) => onChange({ ...value, [side]: e.target.value })}
+            placeholder={side[0].toUpperCase()}
+            className="px-2 py-1 text-xs text-center rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+            title={side}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function StyleEditor({ block }: StyleEditorProps) {
+  const { updateBlockStyle } = usePageStore();
+
+  const s = block.style;
+
+  const updateLayout = (updates: Partial<BlockStyle['layout']>) => {
+    updateBlockStyle(block.id, { layout: { ...s.layout, ...updates } });
+  };
+
+  const updateBg = (updates: Partial<BlockStyle['background']>) => {
+    updateBlockStyle(block.id, { background: { ...s.background, ...updates } });
+  };
+
+  const updateTypo = (updates: Partial<BlockStyle['typography']>) => {
+    updateBlockStyle(block.id, { typography: { ...s.typography, ...updates } });
+  };
+
+  const updateBorder = (updates: Partial<BlockStyle['border']>) => {
+    updateBlockStyle(block.id, { border: { ...s.border, ...updates } });
+  };
+
+  return (
+    <div>
+      {/* Layout */}
+      <Section title="Layout" defaultOpen>
+        <Select
+          label="Display"
+          value={s.layout.display}
+          onChange={(e) => updateLayout({ display: e.target.value })}
+          options={[
+            { value: 'block', label: 'Block' },
+            { value: 'flex', label: 'Flex' },
+            { value: 'grid', label: 'Grid' },
+            { value: 'inline-flex', label: 'Inline Flex' },
+          ]}
+        />
+        {(s.layout.display === 'flex' || s.layout.display === 'inline-flex') && (
+          <>
+            <Select
+              label="Direzione"
+              value={s.layout.flexDirection || 'row'}
+              onChange={(e) => updateLayout({ flexDirection: e.target.value })}
+              options={[
+                { value: 'row', label: 'Riga' },
+                { value: 'column', label: 'Colonna' },
+                { value: 'row-reverse', label: 'Riga inversa' },
+                { value: 'column-reverse', label: 'Colonna inversa' },
+              ]}
+            />
+            <Select
+              label="Allineamento"
+              value={s.layout.alignItems || 'stretch'}
+              onChange={(e) => updateLayout({ alignItems: e.target.value })}
+              options={[
+                { value: 'stretch', label: 'Stretch' },
+                { value: 'flex-start', label: 'Inizio' },
+                { value: 'center', label: 'Centro' },
+                { value: 'flex-end', label: 'Fine' },
+              ]}
+            />
+            <Select
+              label="Giustificazione"
+              value={s.layout.justifyContent || 'flex-start'}
+              onChange={(e) => updateLayout({ justifyContent: e.target.value })}
+              options={[
+                { value: 'flex-start', label: 'Inizio' },
+                { value: 'center', label: 'Centro' },
+                { value: 'flex-end', label: 'Fine' },
+                { value: 'space-between', label: 'Space Between' },
+                { value: 'space-around', label: 'Space Around' },
+              ]}
+            />
+            <Input label="Gap" value={s.layout.gap || ''} onChange={(e) => updateLayout({ gap: e.target.value })} placeholder="16px" />
+          </>
+        )}
+        <Input label="Larghezza" value={s.layout.width} onChange={(e) => updateLayout({ width: e.target.value })} />
+        <Input label="Max Larghezza" value={s.layout.maxWidth} onChange={(e) => updateLayout({ maxWidth: e.target.value })} />
+        <Input label="Altezza Minima" value={s.layout.minHeight || ''} onChange={(e) => updateLayout({ minHeight: e.target.value })} />
+        <SpacingInput label="Padding" value={s.layout.padding} onChange={(v) => updateLayout({ padding: v })} />
+        <SpacingInput label="Margine" value={s.layout.margin} onChange={(v) => updateLayout({ margin: v })} />
+      </Section>
+
+      {/* Background */}
+      <Section title="Sfondo">
+        <Select
+          label="Tipo"
+          value={s.background.type}
+          onChange={(e) => updateBg({ type: e.target.value as BlockStyle['background']['type'] })}
+          options={[
+            { value: 'none', label: 'Nessuno' },
+            { value: 'color', label: 'Colore' },
+            { value: 'gradient', label: 'Gradiente' },
+            { value: 'image', label: 'Immagine' },
+          ]}
+        />
+        {s.background.type === 'color' && (
+          <ColorPicker label="Colore" value={s.background.value} onChange={(v) => updateBg({ value: v })} />
+        )}
+        {s.background.type === 'gradient' && (
+          <Input label="Gradiente CSS" value={s.background.value} onChange={(e) => updateBg({ value: e.target.value })} placeholder="linear-gradient(135deg, #667eea 0%, #764ba2 100%)" />
+        )}
+        {s.background.type === 'image' && (
+          <>
+            <Input label="URL Immagine" value={s.background.value} onChange={(e) => updateBg({ value: e.target.value })} />
+            <Input label="Dimensione" value={s.background.size || 'cover'} onChange={(e) => updateBg({ size: e.target.value })} />
+            <Input label="Posizione" value={s.background.position || 'center'} onChange={(e) => updateBg({ position: e.target.value })} />
+            <Toggle label="Parallax" checked={s.background.parallax || false} onChange={(v) => updateBg({ parallax: v })} />
+          </>
+        )}
+        {(s.background.type === 'image' || s.background.type === 'video') && (
+          <Input label="Overlay (rgba)" value={s.background.overlay || ''} onChange={(e) => updateBg({ overlay: e.target.value })} placeholder="rgba(0,0,0,0.5)" />
+        )}
+      </Section>
+
+      {/* Typography */}
+      <Section title="Tipografia">
+        <Input label="Font Family" value={s.typography.fontFamily || ''} onChange={(e) => updateTypo({ fontFamily: e.target.value })} placeholder="Inter, sans-serif" />
+        <Input label="Dimensione" value={s.typography.fontSize || ''} onChange={(e) => updateTypo({ fontSize: e.target.value })} placeholder="16px" />
+        <Select
+          label="Peso"
+          value={s.typography.fontWeight || '400'}
+          onChange={(e) => updateTypo({ fontWeight: e.target.value })}
+          options={[
+            { value: '300', label: 'Light' },
+            { value: '400', label: 'Regular' },
+            { value: '500', label: 'Medium' },
+            { value: '600', label: 'Semibold' },
+            { value: '700', label: 'Bold' },
+            { value: '800', label: 'Extra Bold' },
+          ]}
+        />
+        <Input label="Interlinea" value={s.typography.lineHeight || ''} onChange={(e) => updateTypo({ lineHeight: e.target.value })} placeholder="1.5" />
+        <Input label="Spaziatura lettere" value={s.typography.letterSpacing || ''} onChange={(e) => updateTypo({ letterSpacing: e.target.value })} placeholder="0.5px" />
+        <ColorPicker label="Colore testo" value={s.typography.color || ''} onChange={(v) => updateTypo({ color: v })} />
+        <Select
+          label="Allineamento"
+          value={s.typography.textAlign || 'left'}
+          onChange={(e) => updateTypo({ textAlign: e.target.value })}
+          options={[
+            { value: 'left', label: 'Sinistra' },
+            { value: 'center', label: 'Centro' },
+            { value: 'right', label: 'Destra' },
+            { value: 'justify', label: 'Giustificato' },
+          ]}
+        />
+      </Section>
+
+      {/* Border */}
+      <Section title="Bordo">
+        <Input label="Spessore" value={s.border.width || ''} onChange={(e) => updateBorder({ width: e.target.value })} placeholder="1px" />
+        <Select
+          label="Stile"
+          value={s.border.style || 'none'}
+          onChange={(e) => updateBorder({ style: e.target.value })}
+          options={[
+            { value: 'none', label: 'Nessuno' },
+            { value: 'solid', label: 'Solido' },
+            { value: 'dashed', label: 'Tratteggiato' },
+            { value: 'dotted', label: 'Punteggiato' },
+          ]}
+        />
+        <ColorPicker label="Colore bordo" value={s.border.color || ''} onChange={(v) => updateBorder({ color: v })} />
+        <Input label="Raggio" value={s.border.radius || ''} onChange={(e) => updateBorder({ radius: e.target.value })} placeholder="8px" />
+      </Section>
+
+      {/* Effects */}
+      <Section title="Effetti & Filtri">
+        <Input label="Ombra box" value={s.shadow || ''} onChange={(e) => updateBlockStyle(block.id, { shadow: e.target.value })} placeholder="0 4px 6px rgba(0,0,0,0.1)" />
+        <Slider label="Opacita" value={(s.opacity ?? 1) * 100} onChange={(v) => updateBlockStyle(block.id, { opacity: v / 100 })} min={0} max={100} suffix="%" />
+        <Input label="Transform" value={s.transform || ''} onChange={(e) => updateBlockStyle(block.id, { transform: e.target.value })} placeholder="rotate(5deg) scale(1.05)" />
+        <Input label="Transition" value={s.transition || ''} onChange={(e) => updateBlockStyle(block.id, { transition: e.target.value })} placeholder="all 0.3s ease" />
+
+        <h5 className="text-[10px] font-semibold text-zinc-400 uppercase mt-3 mb-1">Filtri CSS</h5>
+        <Input label="Filtro" value={s.filter || ''} onChange={(e) => updateBlockStyle(block.id, { filter: e.target.value })} placeholder="blur(4px) brightness(1.2)" />
+        <div className="flex flex-wrap gap-1 mt-1">
+          {[
+            { label: 'Blur 2px', val: 'blur(2px)' },
+            { label: 'Blur 5px', val: 'blur(5px)' },
+            { label: 'Blur 10px', val: 'blur(10px)' },
+            { label: 'Luminoso', val: 'brightness(1.3)' },
+            { label: 'Scuro', val: 'brightness(0.7)' },
+            { label: 'Contrasto', val: 'contrast(1.5)' },
+            { label: 'Grigio', val: 'grayscale(1)' },
+            { label: 'Seppia', val: 'sepia(1)' },
+            { label: 'Saturato', val: 'saturate(2)' },
+            { label: 'Invertito', val: 'invert(1)' },
+            { label: 'Hue 90', val: 'hue-rotate(90deg)' },
+            { label: 'Nessuno', val: '' },
+          ].map((f) => (
+            <button
+              key={f.label}
+              onClick={() => updateBlockStyle(block.id, { filter: f.val })}
+              className={cn('px-1.5 py-0.5 text-[9px] rounded', s.filter === f.val ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200')}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <h5 className="text-[10px] font-semibold text-zinc-400 uppercase mt-3 mb-1">Vetro & Sfocatura Sfondo</h5>
+        <Input label="Backdrop Filter" value={s.backdropFilter || ''} onChange={(e) => updateBlockStyle(block.id, { backdropFilter: e.target.value })} placeholder="blur(10px) saturate(1.5)" />
+        <div className="flex flex-wrap gap-1 mt-1">
+          {[
+            { label: 'Vetro', val: 'blur(10px) saturate(1.8)' },
+            { label: 'Vetro leggero', val: 'blur(5px) saturate(1.2)' },
+            { label: 'Vetro forte', val: 'blur(20px) saturate(2)' },
+            { label: 'Nessuno', val: '' },
+          ].map((f) => (
+            <button
+              key={f.label}
+              onClick={() => updateBlockStyle(block.id, { backdropFilter: f.val })}
+              className={cn('px-1.5 py-0.5 text-[9px] rounded', s.backdropFilter === f.val ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200')}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <h5 className="text-[10px] font-semibold text-zinc-400 uppercase mt-3 mb-1">Blend Mode</h5>
+        <Select
+          label="Mix Blend Mode"
+          value={s.mixBlendMode || 'normal'}
+          onChange={(e) => updateBlockStyle(block.id, { mixBlendMode: e.target.value })}
+          options={[
+            { value: 'normal', label: 'Normale' },
+            { value: 'multiply', label: 'Moltiplica' },
+            { value: 'screen', label: 'Schermo' },
+            { value: 'overlay', label: 'Sovrapposizione' },
+            { value: 'darken', label: 'Scurisci' },
+            { value: 'lighten', label: 'Schiarisci' },
+            { value: 'color-dodge', label: 'Scherma colore' },
+            { value: 'color-burn', label: 'Brucia colore' },
+            { value: 'hard-light', label: 'Luce forte' },
+            { value: 'soft-light', label: 'Luce tenue' },
+            { value: 'difference', label: 'Differenza' },
+            { value: 'exclusion', label: 'Esclusione' },
+            { value: 'hue', label: 'Tonalita' },
+            { value: 'saturation', label: 'Saturazione' },
+            { value: 'color', label: 'Colore' },
+            { value: 'luminosity', label: 'Luminosita' },
+          ]}
+        />
+
+        <h5 className="text-[10px] font-semibold text-zinc-400 uppercase mt-3 mb-1">Ombra Testo</h5>
+        <Input label="Text Shadow" value={s.textShadow || ''} onChange={(e) => updateBlockStyle(block.id, { textShadow: e.target.value })} placeholder="2px 2px 4px rgba(0,0,0,0.5)" />
+        <div className="flex flex-wrap gap-1 mt-1">
+          {[
+            { label: 'Ombra leggera', val: '1px 1px 2px rgba(0,0,0,0.3)' },
+            { label: 'Ombra forte', val: '2px 2px 6px rgba(0,0,0,0.6)' },
+            { label: 'Glow bianco', val: '0 0 10px rgba(255,255,255,0.8)' },
+            { label: 'Glow blu', val: '0 0 15px rgba(59,130,246,0.7)' },
+            { label: 'Glow rosso', val: '0 0 15px rgba(239,68,68,0.7)' },
+            { label: 'Neon verde', val: '0 0 10px #0f0, 0 0 20px #0f0, 0 0 40px #0f0' },
+            { label: 'Emboss', val: '1px 1px 0 rgba(255,255,255,0.5), -1px -1px 0 rgba(0,0,0,0.3)' },
+            { label: 'Outline', val: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' },
+            { label: 'Nessuno', val: '' },
+          ].map((f) => (
+            <button
+              key={f.label}
+              onClick={() => updateBlockStyle(block.id, { textShadow: f.val })}
+              className={cn('px-1.5 py-0.5 text-[9px] rounded', s.textShadow === f.val ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200')}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <h5 className="text-[10px] font-semibold text-zinc-400 uppercase mt-3 mb-1">Ombra Box Presets</h5>
+        <div className="flex flex-wrap gap-1">
+          {[
+            { label: 'Nessuna', val: '' },
+            { label: 'Leggera', val: '0 1px 3px rgba(0,0,0,0.12)' },
+            { label: 'Media', val: '0 4px 6px rgba(0,0,0,0.1)' },
+            { label: 'Forte', val: '0 10px 25px rgba(0,0,0,0.15)' },
+            { label: 'XL', val: '0 20px 50px rgba(0,0,0,0.2)' },
+            { label: 'Interna', val: 'inset 0 2px 4px rgba(0,0,0,0.15)' },
+            { label: 'Glow blu', val: '0 0 20px rgba(59,130,246,0.4)' },
+            { label: 'Glow viola', val: '0 0 20px rgba(139,92,246,0.4)' },
+            { label: 'Bordo glow', val: '0 0 0 3px rgba(59,130,246,0.3)' },
+          ].map((f) => (
+            <button
+              key={f.label}
+              onClick={() => updateBlockStyle(block.id, { shadow: f.val })}
+              className={cn('px-1.5 py-0.5 text-[9px] rounded', s.shadow === f.val ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200')}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      {/* Custom CSS */}
+      <Section title="CSS Personalizzato">
+        <div className="flex items-start gap-1">
+          <textarea
+            value={s.customCss || ''}
+            onChange={(e) => updateBlockStyle(block.id, { customCss: e.target.value })}
+            className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 min-h-[80px] resize-y"
+            placeholder="/* CSS aggiuntivo */"
+          />
+          <AiButton blockId={block.id} fieldName="customCss" fieldValue={s.customCss || ''} size="sm" />
+        </div>
+      </Section>
+    </div>
+  );
+}

@@ -8,7 +8,7 @@ import type { UserRole } from "@/types/database";
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
-  const { setUser, setProfile, setTenants, setCurrentTenant, currentTenant } = useAuthStore();
+  const { setUser, setProfile, setTenants, setCurrentTenant } = useAuthStore();
 
   useEffect(() => {
     const supabase = createClient();
@@ -70,7 +70,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     );
 
     return () => subscription.unsubscribe();
-  }, [setUser, setProfile, setTenants, setCurrentTenant, currentTenant]);
+  }, [setUser, setProfile, setTenants, setCurrentTenant]);
 
   if (loading) {
     return (

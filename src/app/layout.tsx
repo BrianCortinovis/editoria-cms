@@ -9,6 +9,15 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+const themeBootScript = `
+  try {
+    var theme = localStorage.getItem("editoria_theme");
+    if (theme === "light" || theme === "dark") {
+      document.documentElement.setAttribute("data-theme", theme);
+    }
+  } catch (error) {}
+`;
+
 export const metadata: Metadata = {
   title: "Editoria CMS",
   description: "Sistema editoriale multi-testata",
@@ -22,6 +31,7 @@ export default function RootLayout({
   return (
     <html lang="it" data-theme="dark" suppressHydrationWarning>
       <body className={`${inter.variable} antialiased`}>
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
         <ThemeInit />
         {children}
         <Toaster

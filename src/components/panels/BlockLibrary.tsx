@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { usePageStore } from '@/lib/stores/page-store';
 import { getAllBlockDefinitions, BLOCK_CATEGORIES, getBlockDefinition } from '@/lib/blocks/registry';
-import { createBlock, createDefaultStyle, type BlockDefinition, type BlockType } from '@/lib/types/block';
+import { createBlock, createDefaultStyle, type BlockDefinition, type BlockType } from '@/lib/types';
 import { generateId } from '@/lib/utils/id';
 import { cn } from '@/lib/utils/cn';
 import { Search } from 'lucide-react';

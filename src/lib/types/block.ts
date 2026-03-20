@@ -9,11 +9,7 @@ export type BlockType =
   | 'social' | 'author-bio' | 'related-content' | 'newsletter'
   | 'timeline' | 'quote' | 'accordion' | 'tabs' | 'map'
   | 'code' | 'table' | 'divider' | 'counter' | 'comparison'
-  | 'custom-html' | 'slideshow' | 'carousel'
-  // Editorial data-bound blocks
-  | 'article-grid' | 'article-hero' | 'breaking-ticker'
-  | 'category-nav' | 'event-list' | 'banner-zone'
-  | 'search-bar' | 'newsletter-signup';
+  | 'custom-html' | 'slideshow' | 'carousel';
 
 export type BlockCategory =
   | 'layout' | 'content' | 'media'
@@ -73,10 +69,10 @@ export interface BlockStyle {
   opacity?: number;
   transform?: string;
   transition?: string;
-  filter?: string;
-  backdropFilter?: string;
-  mixBlendMode?: string;
-  textShadow?: string;
+  filter?: string;           // CSS filter: blur(), brightness(), contrast(), grayscale(), etc.
+  backdropFilter?: string;   // backdrop-filter for glass effects
+  mixBlendMode?: string;     // mix-blend-mode
+  textShadow?: string;       // text-shadow for text glow/emboss
   customCss?: string;
 }
 
@@ -119,13 +115,6 @@ export interface ResponsiveOverrides {
   mobile?: Partial<BlockStyle>;
 }
 
-// === Data Source (for editorial blocks) ===
-export interface BlockDataSource {
-  endpoint: string;
-  params: Record<string, string>;
-  refreshInterval?: number;
-}
-
 // === Core Block ===
 export interface Block {
   id: string;
@@ -139,7 +128,6 @@ export interface Block {
   children: Block[];
   locked: boolean;
   hidden: boolean;
-  dataSource?: BlockDataSource;
 }
 
 // === Block Definition (Registry) ===
@@ -154,7 +142,6 @@ export interface BlockDefinition {
   supportsChildren: boolean;
   maxChildren?: number;
   allowedChildTypes?: BlockType[];
-  defaultDataSource?: BlockDataSource;
 }
 
 // === Default Style Factory ===
@@ -195,11 +182,10 @@ export function createBlock(
   type: BlockType,
   label: string,
   props: Record<string, unknown> = {},
-  styleOverrides?: Partial<BlockStyle>,
-  dataSource?: BlockDataSource
+  styleOverrides?: Partial<BlockStyle>
 ): Block {
   return {
-    id: '',
+    id: '', // Will be set by the store using nanoid
     type,
     label,
     props,
@@ -210,6 +196,5 @@ export function createBlock(
     children: [],
     locked: false,
     hidden: false,
-    ...(dataSource ? { dataSource } : {}),
   };
 }

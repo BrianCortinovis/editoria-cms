@@ -1,19 +1,9 @@
 // Import all block definitions to trigger self-registration
-// Layout
 import './definitions/section';
 import './definitions/container';
 import './definitions/columns';
-// Content
 import './definitions/hero';
 import './definitions/text';
-import './definitions/quote';
-import './definitions/timeline';
-import './definitions/accordion';
-import './definitions/tabs';
-import './definitions/table';
-import './definitions/code';
-import './definitions/custom-html';
-// Media
 import './definitions/image-gallery';
 import './definitions/video';
 import './definitions/audio';
@@ -21,25 +11,20 @@ import './definitions/slideshow';
 import './definitions/carousel';
 import './definitions/comparison';
 import './definitions/divider';
-// Editorial (data-bound)
-import './definitions/article-grid';
-import './definitions/article-hero';
-import './definitions/breaking-ticker';
-import './definitions/category-nav';
-import './definitions/event-list';
-import './definitions/search-bar';
-import './definitions/newsletter-signup';
-// Structure
+import './definitions/banner-ad';
 import './definitions/navigation';
 import './definitions/footer';
 import './definitions/sidebar';
-// Social & editorial
 import './definitions/social';
 import './definitions/author-bio';
 import './definitions/related-content';
 import './definitions/newsletter';
-// Monetization
-import './definitions/banner-ad';
-import './definitions/banner-zone';
-import './definitions/counter';
+import './definitions/timeline';
+import './definitions/quote';
+import './definitions/accordion';
+import './definitions/tabs';
+import './definitions/table';
+import './definitions/code';
 import './definitions/map';
+import './definitions/counter';
+import './definitions/custom-html';

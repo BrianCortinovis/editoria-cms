@@ -1,4 +1,4 @@
-import type { BlockDefinition, BlockType } from '@/lib/types/block';
+import type { BlockDefinition, BlockType } from '@/lib/types';
 
 const registry = new Map<BlockType, BlockDefinition>();
 

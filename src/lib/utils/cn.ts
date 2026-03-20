@@ -1,8 +1,5 @@
-// Simple className utility (replaces clsx + tailwind-merge for lighter bundle)
-type ClassValue = string | number | boolean | undefined | null;
+import { clsx, type ClassValue } from 'clsx';
 
-export function cn(...args: ClassValue[]): string {
-  return args.filter((x) => typeof x === 'string' && x).join(' ');
+export function cn(...inputs: ClassValue[]) {
+  return clsx(inputs);
 }
-
-export default cn;

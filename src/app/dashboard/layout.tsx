@@ -7,6 +7,7 @@ import AuthProvider from "@/components/layout/AuthProvider";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
+  "/dashboard/editor": "✏️ Editor Grafico",
   "/dashboard/layout": "Layout Sito",
   "/dashboard/articoli": "Articoli",
   "/dashboard/media": "Media Library",
