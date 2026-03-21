@@ -505,15 +505,32 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
       {/* ================================================================ */}
       {selected && !isDragging && (
         <>
-          {/* Selection border - follows shape if clip-path is applied */}
-          <div
-            className="absolute inset-0 pointer-events-none border-2 z-40"
-            style={{
-              borderRadius: block.style.border.radius,
-              borderColor: 'var(--c-accent)',
-              ...(block.shape?.type === 'clip-path' && block.shape.value ? { clipPath: block.shape.value } : {})
-            }}
-          />
+          {/* Selection border - rectangular or shape outline */}
+          {hasClipPath && block.shape?.value ? (
+            // SVG overlay that draws the shape outline
+            <svg
+              className="absolute inset-0 pointer-events-none z-40"
+              style={{ width: '100%', height: '100%', overflow: 'visible' }}
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              <polygon
+                points={clipPathToPolygonPoints(block.shape.value)}
+                fill="none"
+                stroke="var(--c-accent)"
+                strokeWidth="0.5"
+              />
+            </svg>
+          ) : (
+            // Regular rectangular border for non-shaped blocks
+            <div
+              className="absolute inset-0 pointer-events-none border-2 z-40"
+              style={{
+                borderRadius: block.style.border.radius,
+                borderColor: 'var(--c-accent)',
+              }}
+            />
+          )}
 
           {/* 8 resize handles - BIG and visible */}
           <ResizeHandle dir="n" onDrag={handleResize} />
@@ -2535,4 +2552,48 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
   }
 
   return css;
+}
+
+// ================================================================
+// CLIP-PATH TO SVG POLYGON CONVERTER
+// ================================================================
+// Converts polygon() and circle() clip-path to SVG points
+function clipPathToPolygonPoints(clipPathValue: string): string {
+  // Match polygon(x1 y1, x2 y2, ...) format
+  const polygonMatch = clipPathValue.match(/polygon\((.*?)\)/);
+  if (polygonMatch) {
+    const pointsStr = polygonMatch[1];
+    const points = pointsStr.split(',').map((p) => {
+      // Convert percentages to viewBox coordinates (0-100)
+      const [x, y] = p.trim().split(/\s+/);
+      const xVal = parseFloat(x.replace('%', ''));
+      const yVal = parseFloat(y.replace('%', ''));
+      return `${xVal},${yVal}`;
+    });
+    return points.join(' ');
+  }
+
+  // Match circle(radius at x y) format - generate circle approximation with polygon
+  const circleMatch = clipPathValue.match(/circle\((.*?)\)/);
+  if (circleMatch) {
+    const parts = circleMatch[1].split(/\s+at\s+/);
+    const radiusStr = parts[0].trim();
+    const radius = parseFloat(radiusStr.replace('%', '')) / 2; // radius to diameter
+    const centerParts = (parts[1] || '50% 50%').trim().split(/\s+/);
+    const cx = parseFloat(centerParts[0].replace('%', ''));
+    const cy = parseFloat(centerParts[1].replace('%', ''));
+
+    // Generate circle with 12 points for smooth outline
+    const points = [];
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const x = cx + radius * Math.cos(angle);
+      const y = cy + radius * Math.sin(angle);
+      points.push(`${x},${y}`);
+    }
+    return points.join(' ');
+  }
+
+  // Fallback to rectangle
+  return '0,0 100,0 100,100 0,100';
 }
