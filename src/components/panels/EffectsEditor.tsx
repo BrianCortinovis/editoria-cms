@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { usePageStore } from '@/lib/stores/page-store';
 import type { Block, GlassmorphismEffect } from '@/lib/types';
-import AIButton from '@/components/ai/AIButton';
+import { AIModal } from '@/components/ai/AIModal';
 
 interface EffectsEditorProps {
   block: Block;
@@ -15,6 +15,7 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
   const effects = block.style.effects || {};
 
   const [openGlass, setOpenGlass] = useState(true);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   const glassmorphism = effects.glassmorphism || {
     enabled: false,
@@ -66,26 +67,6 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
           {openGlass ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           Glassmorphism
         </span>
-        {openGlass && (
-          <AIButton
-            blockId={block.id}
-            fieldName="glassmorphism"
-            contextData={contextData}
-            actions={[
-              {
-                id: 'suggest-glass',
-                label: 'Suggerisci',
-                prompt: 'Suggest beautiful glassmorphism settings for this block: {context}. Return pure JSON with blur, saturation, bgOpacity, bgColor, borderOpacity.',
-              },
-            ]}
-            onCommand={(cmd: any) => {
-              if (cmd.action === 'updateEffects' && cmd.glassmorphism) {
-                updateGlass(cmd.glassmorphism);
-              }
-            }}
-            compact
-          />
-        )}
       </div>
 
       {openGlass && (
@@ -235,29 +216,32 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
             </>
           )}
 
-          <AIButton
-            blockId={block.id}
-            fieldName="glassmorphism"
-            fieldValue={contextData}
-            onResult={(result) => {
-              try {
-                const parsed = JSON.parse(result) as GlassmorphismEffect;
-                updateGlass(parsed);
-              } catch {
-                console.error('Invalid glassmorphism response:', result);
-              }
-            }}
-            actions={[
-              {
-                id: 'suggest-effects',
-                label: 'Suggerisci glassmorphism',
-                prompt: 'Suggest beautiful glassmorphism settings for this block type: {context}. Return a pure JSON object matching GlassmorphismEffect type.',
-              },
-            ]}
-            compact
-          />
+          <button
+            onClick={() => setAiModalOpen(true)}
+            className="w-full px-3 py-2 rounded text-sm font-medium flex items-center justify-center gap-2"
+            style={{ background: 'var(--c-accent)', color: 'white' }}
+          >
+            <Sparkles size={16} />
+            Suggerisci glassmorphism
+          </button>
         </div>
       )}
+
+      <AIModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        defaultPrompt="Suggest beautiful glassmorphism settings for this block type: {context}. Return a pure JSON object matching GlassmorphismEffect type."
+        contextData={contextData}
+        title="Suggerisci Glassmorphism"
+        onApply={(result) => {
+          try {
+            const parsed = JSON.parse(result) as GlassmorphismEffect;
+            updateGlass(parsed);
+          } catch {
+            console.error('Invalid glassmorphism response:', result);
+          }
+        }}
+      />
     </div>
   );
 }

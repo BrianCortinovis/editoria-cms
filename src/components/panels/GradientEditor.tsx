@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Trash2, Sparkles } from 'lucide-react';
 import { usePageStore } from '@/lib/stores/page-store';
 import type { Block, AdvancedGradient, GradientStop } from '@/lib/types';
 import { buildCssGradient, GRADIENT_PRESETS } from '@/lib/shapes/gradients';
-import AIButton from '@/components/ai/AIButton';
+import { AIModal } from '@/components/ai/AIModal';
 
 interface GradientEditorProps {
   block: Block;
@@ -22,15 +22,9 @@ export function GradientEditor({ block }: GradientEditorProps) {
     ],
   };
 
-  // DEBUG: Log quando il block prop cambia
-  console.log('GradientEditor received block update:', {
-    blockId: block.id,
-    bgType: block.style.background.type,
-    bgValue: block.style.background.value?.substring?.(0, 50),
-    gradient: gradient.type
-  });
 
   const [open, setOpen] = useState(true);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   const updateGradient = useCallback((updates: Partial<AdvancedGradient>) => {
     // Use current gradient value from block prop, not stale closure value
@@ -92,34 +86,6 @@ export function GradientEditor({ block }: GradientEditorProps) {
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           Gradiente Avanzato
         </span>
-        {open && (
-          <AIButton
-            blockId={block.id}
-            fieldName="gradient"
-            contextData={contextData}
-            actions={[
-              {
-                id: 'suggest-gradient',
-                label: 'Suggerisci',
-                prompt: 'Suggest a beautiful gradient for this block type: {context}. Return pure JSON matching AdvancedGradient type.',
-              },
-            ]}
-            onCommand={(cmd: any) => {
-              if (cmd.action === 'updateGradient') {
-                const updates: Partial<typeof gradient> = {};
-                if (cmd.type) updates.type = cmd.type;
-                if (cmd.angle !== undefined) updates.angle = cmd.angle;
-                if (cmd.stops) updates.stops = cmd.stops;
-                if (cmd.animated !== undefined) updates.animated = cmd.animated;
-                if (cmd.animationDuration) updates.animationDuration = cmd.animationDuration;
-                if (cmd.scrollDriven !== undefined) updates.scrollDriven = cmd.scrollDriven;
-                if (cmd.hoverDriven !== undefined) updates.hoverDriven = cmd.hoverDriven;
-                updateGradient(updates);
-              }
-            }}
-            compact
-          />
-        )}
       </div>
 
       {open && (
@@ -165,30 +131,9 @@ export function GradientEditor({ block }: GradientEditorProps) {
 
           {/* Stops List */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold block" style={{ color: 'var(--c-text-1)' }}>
-                Colori ({gradient.stops.length})
-              </label>
-              <AIButton
-                blockId={block.id}
-                fieldName="gradient-colors"
-                contextData={JSON.stringify({ type: gradient.type, angle: gradient.angle })}
-                actions={[
-                  {
-                    id: 'color-suggestion',
-                    label: 'Suggerisci colori',
-                    prompt: 'Suggest 2-3 beautiful colors for a gradient. Return JSON with array of colors like ["#ff3333", "#2196f3"]. Context: {context}',
-                  },
-                ]}
-                onCommand={(cmd: any) => {
-                  if (Array.isArray(cmd.stops)) {
-                    const stops = cmd.stops;
-                    updateGradient({ stops });
-                  }
-                }}
-                compact
-              />
-            </div>
+            <label className="text-xs font-semibold block" style={{ color: 'var(--c-text-1)' }}>
+              Colori ({gradient.stops.length})
+            </label>
             <div className="space-y-2">
               {gradient.stops.map((stop, idx) => (
                 <div key={idx} className="flex items-center gap-2 p-2 rounded" style={{ background: 'var(--c-bg-2)' }}>
@@ -325,12 +270,25 @@ export function GradientEditor({ block }: GradientEditorProps) {
             </div>
           </div>
 
-          {/* AI Button */}
-          <AIButton
-            blockId={block.id}
-            fieldName="gradient"
-            fieldValue={contextData}
-            onResult={(result) => {
+          {/* AI Suggestions Row */}
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={() => setAiModalOpen(true)}
+              className="w-full px-3 py-2 rounded text-sm font-medium flex items-center justify-center gap-2"
+              style={{ background: 'var(--c-accent)', color: 'white' }}
+            >
+              <Sparkles size={16} />
+              Suggerisci gradiente
+            </button>
+          </div>
+
+          <AIModal
+            isOpen={aiModalOpen}
+            onClose={() => setAiModalOpen(false)}
+            defaultPrompt="Suggest a beautiful gradient for this block type: {context}. Return a pure JSON object matching AdvancedGradient type."
+            contextData={contextData}
+            title="Suggerisci Gradiente"
+            onApply={(result) => {
               try {
                 const parsed = JSON.parse(result) as AdvancedGradient;
                 updateGradient(parsed);
@@ -338,19 +296,6 @@ export function GradientEditor({ block }: GradientEditorProps) {
                 console.error('Invalid gradient response:', result);
               }
             }}
-            actions={[
-              {
-                id: 'suggest-gradient',
-                label: 'Suggerisci gradiente',
-                prompt: 'Suggest a beautiful gradient for this block type: {context}. Return a pure JSON object matching AdvancedGradient type.',
-              },
-              {
-                id: 'gradient-from-theme',
-                label: 'Combina colori progetto',
-                prompt: 'Create a gradient using the project theme colors from {context}. Return valid AdvancedGradient JSON.',
-              },
-            ]}
-            compact
           />
         </div>
       )}
