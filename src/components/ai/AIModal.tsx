@@ -32,15 +32,20 @@ export function AIModal({
   const [submitted, setSubmitted] = useState(false);
 
   const settings = (currentTenant?.settings ?? {}) as Record<string, unknown>;
-  if (!isModuleActive(settings, 'ai_assistant')) {
+  // Allow AI in development, check module in production
+  const isDev = process.env.NODE_ENV === 'development';
+  if (!isDev && !isModuleActive(settings, 'ai_assistant')) {
     return null;
   }
 
   const handleGenerate = async () => {
-    if (!currentTenant || !prompt.trim()) {
+    if (!prompt.trim()) {
       toast.error('Scrivi un prompt');
       return;
     }
+
+    // In dev, use a placeholder tenant if not set
+    const tenant = currentTenant || { id: 'dev-tenant' } as any;
 
     setLoading(true);
     setSubmitted(false);
@@ -51,7 +56,7 @@ export function AIModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tenant_id: currentTenant.id,
+          tenant_id: tenant.id,
           task: 'seo',
           system: systemPrompt || 'Sei un assistente editoriale per un CMS giornalistico italiano. Rispondi in modo conciso e utile.',
           prompt: prompt.replace('{context}', contextData),

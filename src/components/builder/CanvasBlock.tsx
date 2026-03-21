@@ -2282,6 +2282,21 @@ function SlideshowContent({ block }: { block: Block }) {
 // ================================================================
 // CSS BUILDER
 // ================================================================
+// Generate noise pattern as SVG data URL
+function generateNoisePattern(opacity: number, frequency: number, type: 'fractalNoise' | 'turbulence'): string {
+  const size = Math.max(64, Math.round(100 / frequency));
+  const points = [];
+  for (let i = 0; i < size * size; i++) {
+    const x = (i % size) * (256 / size);
+    const y = Math.floor(i / size) * (256 / size);
+    const rand = Math.sin(x * 0.1 + y * 0.1 + type.charCodeAt(0)) * 0.5 + 0.5;
+    const alpha = rand * opacity;
+    points.push(`<circle cx="${x}" cy="${y}" r="1" fill="rgba(0,0,0,${alpha})"/>`);
+  }
+  const svg = `<svg width="256" height="256" xmlns="http://www.w3.org/2000/svg"><defs><filter id="noise" x="0%" y="0%" width="100%" height="100%"><feTurbulence type="${type}" baseFrequency="${frequency * 0.1}" numOctaves="4" result="turbulence"/><feColorMatrix in="turbulence" type="saturate" values="${opacity}"/></filter></defs><rect width="256" height="256" fill="white" filter="url(#noise)"/></svg>`;
+  return `url('data:image/svg+xml;utf8,${encodeURIComponent(svg)}')`;
+}
+
 function buildCssFromBlockStyle(block: Block): React.CSSProperties {
   const s = block.style;
   const css: React.CSSProperties = {};
@@ -2337,7 +2352,7 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
   if (s.mixBlendMode) (css as Record<string,string>).mixBlendMode = s.mixBlendMode;
   if (s.textShadow) (css as Record<string,string>).textShadow = s.textShadow;
 
-  // Apply effects (glassmorphism, etc.)
+  // Apply effects (glassmorphism, noise, grain)
   if (s.effects?.glassmorphism?.enabled) {
     const g = s.effects.glassmorphism;
     const backdropStr = `blur(${g.blur || 10}px) saturate(${g.saturation || 100}%)`;
@@ -2354,9 +2369,24 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
     if (g.borderOpacity !== undefined) css.borderColor = `rgba(0, 0, 0, ${g.borderOpacity})`;
   }
 
-  // NOTE: Noise and grain effects require SVG defs rendering, which is not yet implemented.
-  // Skipping for now to focus on working effects (glassmorphism, gradients, animations).
-  // TODO: Implement SVG filter defs rendering for noise and grain effects
+  // Noise effect: apply as background pattern with opacity
+  if (s.effects?.noise?.enabled) {
+    const n = s.effects.noise;
+    const noisePattern = generateNoisePattern(n.opacity, n.frequency, n.type);
+    (css as Record<string,string>).backgroundImage = noisePattern;
+    if (!css.backgroundSize) (css as Record<string,string>).backgroundSize = '100% 100%';
+  }
+
+  // Grain effect: create a grainy overlay using a repeating pattern
+  if (s.effects?.grain?.enabled) {
+    const gr = s.effects.grain;
+    const grainSize = gr.size || 2;
+    const grainOpacity = gr.opacity || 0.2;
+    const grainSvg = `<svg width="${grainSize * 2}" height="${grainSize * 2}" xmlns="http://www.w3.org/2000/svg"><rect width="${grainSize * 2}" height="${grainSize * 2}" fill="rgba(0,0,0,${grainOpacity})"/><circle cx="${grainSize}" cy="${grainSize}" r="0.5" fill="rgba(255,255,255,${grainOpacity * 0.5})"/></svg>`;
+    const grainUrl = `url('data:image/svg+xml;utf8,${encodeURIComponent(grainSvg)}')`;
+    (css as Record<string,string>).backgroundImage = grainUrl;
+    if (!css.backgroundSize) (css as Record<string,string>).backgroundSize = `${grainSize}px ${grainSize}px`;
+  }
 
   return css;
 }
