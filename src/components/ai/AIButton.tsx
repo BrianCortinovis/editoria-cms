@@ -5,6 +5,7 @@ import { useAuthStore } from "@/lib/store";
 import { isModuleActive } from "@/lib/modules";
 import { useAIStatus } from "@/lib/ai-status";
 import { parseAICommand, type AICommand } from "@/lib/ai/command-parser";
+import { parseNaturalLanguage, detectContextFromText } from "@/lib/ai/natural-language-executor";
 import toast from "react-hot-toast";
 import { Sparkles, Loader2, Copy, Check, X } from "lucide-react";
 
@@ -39,7 +40,7 @@ interface AIButtonProps {
   compact?: boolean;
 }
 
-export default function AIButton({ actions, fieldValue, contextData: contextDataProp, systemPrompt, onResult, onCommand, onApply, compact }: AIButtonProps) {
+export default function AIButton({ actions, fieldValue, contextData: contextDataProp, systemPrompt, onResult, onCommand, onApply, compact, blockId, fieldName }: AIButtonProps) {
   const { currentTenant } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
@@ -74,7 +75,20 @@ export default function AIButton({ actions, fieldValue, contextData: contextData
       setResults(prev => ({ ...prev, [action.id]: result }));
 
       // Try to parse as command first
-      const command = parseAICommand(result);
+      let command = parseAICommand(result);
+
+      // If no command found, try natural language parsing
+      if (!command && onCommand && fieldName) {
+        // Detect context from fieldName
+        const context = detectContextFromText(fieldName) || detectContextFromText(result);
+        if (context) {
+          const natLangResult = parseNaturalLanguage(result, context);
+          if (natLangResult.success && natLangResult.command) {
+            command = natLangResult.command;
+          }
+        }
+      }
+
       if (command && onCommand) {
         onCommand(command);
         toast.success(`Comando eseguito con ${data.provider}`);
