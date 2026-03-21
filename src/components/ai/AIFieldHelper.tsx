@@ -1,216 +1,138 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect } from "react";
-import { useAuthStore } from "@/lib/store";
-import { isModuleActive } from "@/lib/modules";
-import { useAIStatus } from "@/lib/ai-status";
-import { createClient } from "@/lib/supabase/client";
-import { Sparkles, Loader2, Send, X } from "lucide-react";
+import { useState } from 'react';
+import { Sparkles, Loader2, Copy, Wand2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface AIFieldHelperProps {
-  /** What this field is (e.g. "titolo articolo", "meta description", "descrizione evento") */
-  fieldLabel: string;
-  /** Current value of the field */
-  currentValue: string;
-  /** Extra context (e.g. article body, other fields) */
-  context?: string;
-  /** Callback to set the field value */
-  onApply: (value: string) => void;
+  fieldName: string;
+  fieldValue?: string;
+  fieldType?: 'text' | 'textarea' | 'title' | 'description' | 'meta' | 'custom';
+  context?: Record<string, any>;
+  onGenerate?: (result: string) => void;
+  className?: string;
+  compact?: boolean;
 }
 
-export default function AIFieldHelper({ fieldLabel, currentValue, context, onApply }: AIFieldHelperProps) {
-  const { currentTenant } = useAuthStore();
+export function AIFieldHelper({
+  fieldName,
+  fieldValue,
+  fieldType = 'text',
+  context,
+  onGenerate,
+  className = '',
+  compact = false,
+}: AIFieldHelperProps) {
   const [open, setOpen] = useState(false);
-  const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState("");
-  const [aiActive, setAiActive] = useState(false);
-  const [checked, setChecked] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const [result, setResult] = useState('');
+  const [style, setStyle] = useState<'auto' | 'journalist' | 'publication'>('auto');
 
-  useEffect(() => {
-    if (!currentTenant || checked) return;
-    const supabase = createClient();
-    supabase.from("tenants").select("settings").eq("id", currentTenant.id).single()
-      .then(({ data }) => {
-        if (data) {
-          const s = (data.settings ?? {}) as Record<string, unknown>;
-          setAiActive(isModuleActive(s, "ai_assistant"));
-        }
-        setChecked(true);
-      });
-  }, [currentTenant, checked]);
-
-  // Close on click outside
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  useEffect(() => {
-    if (open && inputRef.current) inputRef.current.focus();
-  }, [open]);
-
-  if (!checked || !aiActive) return null;
-
-  const handleSend = async () => {
-    if (!prompt.trim() || !currentTenant) return;
+  const generateContent = async () => {
     setLoading(true);
-    setResult("");
-    const aiStatus = useAIStatus.getState();
-    aiStatus.set({ message: `Generando "${fieldLabel}"...`, provider: "" });
-
     try {
-      const res = await fetch("/api/ai/freeform", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tenant_id: currentTenant.id,
-          task: "seo",
-          system: `Sei un assistente editoriale integrato in un CMS per giornali italiani.
-L'utente sta compilando il campo "${fieldLabel}".
-Il valore attuale del campo è: "${currentValue || "(vuoto)"}"
-${context ? `Contesto aggiuntivo: ${context.slice(0, 500)}` : ""}
-
-Rispondi SOLO con il testo da inserire nel campo, senza spiegazioni, senza virgolette, senza prefissi.
-Se l'utente chiede aiuto o informazioni, rispondi in modo conciso.`,
-          prompt: prompt,
+          fieldName,
+          fieldType,
+          context,
+          currentValue: fieldValue,
+          style,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setResult("Errore: " + (data.error || "Riprova"));
-      } else {
-        setResult(data.text?.trim() || "");
-        aiStatus.set({ message: `"${fieldLabel}" completato`, provider: data.provider || "" });
-      }
-    } catch {
-      setResult("Errore di connessione");
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      setResult(data.result);
+      toast.success('Contenuto generato!');
+    } catch (error) {
+      toast.error('Errore nella generazione');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    setTimeout(() => useAIStatus.getState().clear(), 3000);
   };
 
-  const handleApply = () => {
-    onApply(result);
-    setOpen(false);
-    setResult("");
-    setPrompt("");
+  const applyResult = () => {
+    if (result && onGenerate) {
+      onGenerate(result);
+      setOpen(false);
+      setResult('');
+      toast.success('Applicato!');
+    }
   };
-
-  const quickActions = [
-    { label: "Compila", prompt: `Genera un contenuto ottimale per il campo "${fieldLabel}" di un articolo di giornale` },
-    { label: "Migliora", prompt: `Migliora e rendi più efficace questo testo: "${currentValue}"` },
-    { label: "Accorcia", prompt: `Riscrivi in modo più conciso: "${currentValue}"` },
-    { label: "Cos'è?", prompt: `Spiegami brevemente a cosa serve il campo "${fieldLabel}" in un CMS editoriale e come compilarlo al meglio` },
-  ];
 
   return (
-    <div className="relative inline-flex" ref={panelRef}>
-      {/* Trigger button */}
+    <>
       <button
-        type="button"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(!open); }}
-        className="w-6 h-6 flex items-center justify-center rounded-md transition-all"
-        style={{
-          background: open ? "var(--c-accent)" : "var(--c-accent-soft)",
-          color: open ? "#fff" : "var(--c-accent)",
-        }}
-        title="AI Assistant per questo campo"
+        onClick={() => setOpen(true)}
+        className={`inline-flex items-center justify-center p-1.5 rounded text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors ${className}`}
       >
-        <Sparkles className="w-3 h-3" />
+        <Sparkles size={compact ? 16 : 18} />
       </button>
 
-      {/* Popup panel */}
       {open && (
-        <div
-          className="absolute right-0 top-full mt-1.5 w-80 rounded-xl shadow-2xl z-[100] overflow-hidden"
-          style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: "1px solid var(--c-border)" }}>
-            <span className="text-[11px] font-semibold flex items-center gap-1.5" style={{ color: "var(--c-text-0)" }}>
-              <Sparkles className="w-3 h-3" style={{ color: "var(--c-accent)" }} />
-              IA · {fieldLabel}
-            </span>
-            <button type="button" onClick={() => setOpen(false)}>
-              <X className="w-3 h-3" style={{ color: "var(--c-text-3)" }} />
-            </button>
-          </div>
-
-          {/* Quick actions */}
-          <div className="flex flex-wrap gap-1 px-3 pt-2">
-            {quickActions.map(qa => (
-              <button
-                key={qa.label}
-                type="button"
-                onClick={() => { setPrompt(qa.prompt); }}
-                className="text-[10px] px-2 py-1 rounded-full transition font-medium"
-                style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}
-              >
-                {qa.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Input */}
-          <div className="px-3 py-2">
-            <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5" style={{ background: "var(--c-bg-3)", border: "1px solid var(--c-border)" }}>
-              <input
-                ref={inputRef}
-                type="text"
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleSend(); } }}
-                placeholder="Chiedi all'IA..."
-                className="flex-1 bg-transparent border-0 text-xs focus:outline-none"
-                style={{ color: "var(--c-text-0)" }}
-              />
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={loading || !prompt.trim()}
-                className="w-6 h-6 flex items-center justify-center rounded-md transition disabled:opacity-30"
-                style={{ background: "var(--c-accent)", color: "#fff" }}
-              >
-                {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-              </button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl max-w-2xl w-full">
+            <div className="p-6 border-b border-zinc-200 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <Wand2 size={20} className="text-blue-600" />
+                <h2 className="text-lg font-semibold">Genera Contenuto</h2>
+              </div>
+              <p className="text-sm text-zinc-500 mt-1">Campo: {fieldName}</p>
             </div>
-          </div>
 
-          {/* Result */}
-          {result && (
-            <div className="px-3 pb-3">
-              <div className="p-2.5 rounded-lg text-xs leading-relaxed" style={{ background: "var(--c-bg-2)", color: "var(--c-text-0)" }}>
-                <p className="whitespace-pre-wrap">{result}</p>
-                <div className="flex items-center gap-1.5 mt-2">
-                  <button
-                    type="button"
-                    onClick={handleApply}
-                    className="text-[10px] px-2.5 py-1 rounded-md font-medium transition"
-                    style={{ background: "var(--c-accent)", color: "#fff" }}
-                  >
-                    Inserisci nel campo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setResult(""); setPrompt(""); }}
-                    className="text-[10px] px-2 py-1 rounded-md font-medium transition"
-                    style={{ background: "var(--c-bg-3)", color: "var(--c-text-2)" }}
-                  >
-                    Riprova
-                  </button>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-sm font-medium block mb-2">Stile</label>
+                <div className="flex gap-2">
+                  {['auto', 'journalist', 'publication'].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setStyle(s as any)}
+                      className={`px-3 py-2 rounded text-sm font-medium ${
+                        style === s ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800'
+                      }`}
+                    >
+                      {s === 'auto' ? 'Auto' : s === 'journalist' ? 'Giornalista' : 'Rivista'}
+                    </button>
+                  ))}
                 </div>
               </div>
+
+              {result ? (
+                <div>
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded text-sm">{result}</div>
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={applyResult} className="flex-1 bg-blue-600 text-white py-2 rounded">
+                      Applica
+                    </button>
+                    <button onClick={() => setResult('')} className="flex-1 bg-zinc-200 dark:bg-zinc-700 py-2 rounded">
+                      Cancella
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={generateContent}
+                  disabled={loading}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-400 text-white py-2 rounded font-medium flex items-center justify-center gap-2"
+                >
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                  {loading ? 'Generazione...' : 'Genera'}
+                </button>
+              )}
             </div>
-          )}
+
+            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
+              <button onClick={() => setOpen(false)} className="w-full text-zinc-600 hover:text-zinc-900">
+                Chiudi
+              </button>
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
