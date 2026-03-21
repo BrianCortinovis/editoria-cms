@@ -446,6 +446,8 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
 
   if (block.shape?.type === 'clip-path' && block.shape.value) {
     (wrapperStyle as Record<string, string>).clipPath = block.shape.value;
+    // Ensure overflow is hidden when clip-path is applied so shape renders correctly
+    wrapperStyle.overflow = 'hidden';
   }
 
   const isEditing = editingBlockId === block.id;
