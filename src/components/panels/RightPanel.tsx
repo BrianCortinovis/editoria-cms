@@ -7,7 +7,7 @@ import { SnapGridSettings, OverlayEditor, ButtonEditor, ShapeTools, PositionSize
 import { ColorPaletteManager } from '@/components/builder/ColorPaletteManager';
 import { cn } from '@/lib/utils/cn';
 import { Paintbrush, Settings2, Pentagon, Smartphone, Move, Palette, Layers, MousePointerClick } from 'lucide-react';
-import { AiButton } from '@/components/ai/AiButton';
+import AIButton from '@/components/ai/AIButton';
 import { Input } from '@/components/ui/input';
 import { Toggle } from '@/components/ui/toggle';
 import { useState } from 'react';
@@ -61,7 +61,7 @@ export function RightPanel() {
             />
             <span className="text-[10px] text-zinc-400 font-mono">{block.type} · {block.id.slice(0, 6)}</span>
           </div>
-          <AiButton blockId={block.id} fieldName="block" fieldValue={JSON.stringify(block.props).substring(0, 200)} />
+          <AIButton blockId={block.id} fieldName="block" fieldValue={JSON.stringify(block.props).substring(0, 200)} />
         </div>
       </div>
 
@@ -122,7 +122,7 @@ function PropertiesEditor({ block, projectPalette }: { block: Block; projectPale
                 <Input label={key} value={value as string} onChange={(e) => updateBlockProps(block.id, { [key]: e.target.value })} />
               </div>
               <div className="pt-4">
-                <AiButton blockId={block.id} fieldName={key} fieldValue={String(value)} size="sm" />
+                <AIButton blockId={block.id} fieldName={key} fieldValue={String(value)} size="sm" />
               </div>
             </div>
           )}
