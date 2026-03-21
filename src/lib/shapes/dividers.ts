@@ -153,3 +153,22 @@ export const CLIP_PATH_PRESETS = [
   { name: 'Ellisse', value: 'ellipse(50% 40% at 50% 50%)' },
   { name: 'Inset arrotondato', value: 'inset(5% round 20px)' },
 ];
+
+// Convert divider shapes to clip-path polygons for section borders
+export function dividerToClipPath(shape: DividerShape, height: number = 60): string {
+  const clipPaths: Record<DividerShape, string> = {
+    diagonal: `polygon(0 0, 100% ${Math.min(height, 30)}%, 100% 100%, 0 100%)`,
+    wave: `polygon(0 0, 2% 2%, 4% 1%, 6% 3%, 8% 1%, 10% 3%, 12% 1%, 14% 4%, 16% 1%, 18% 4%, 20% 2%, 22% 5%, 24% 1%, 26% 5%, 28% 2%, 30% 5%, 32% 1%, 34% 6%, 36% 1%, 38% 6%, 40% 2%, 42% 6%, 44% 1%, 46% 6%, 48% 2%, 50% 6%, 52% 2%, 54% 6%, 56% 1%, 58% 6%, 60% 2%, 62% 5%, 64% 1%, 66% 5%, 68% 2%, 70% 5%, 72% 1%, 74% 4%, 76% 2%, 78% 4%, 80% 1%, 82% 3%, 84% 2%, 86% 3%, 88% 1%, 90% 3%, 92% 1%, 94% 2%, 96% 1%, 98% 2%, 100% 0, 100% 100%, 0 100%)`,
+    zigzag: `polygon(0 0, 5% ${height / 2}%, 10% 0, 15% ${height / 2}%, 20% 0, 25% ${height / 2}%, 30% 0, 35% ${height / 2}%, 40% 0, 45% ${height / 2}%, 50% 0, 55% ${height / 2}%, 60% 0, 65% ${height / 2}%, 70% 0, 75% ${height / 2}%, 80% 0, 85% ${height / 2}%, 90% 0, 95% ${height / 2}%, 100% 0, 100% 100%, 0 100%)`,
+    'zigzag-smooth': `polygon(0 0, 5% ${height / 3}%, 10% 0, 15% ${height / 3}%, 20% 0, 25% ${height / 3}%, 30% 0, 35% ${height / 3}%, 40% 0, 45% ${height / 3}%, 50% 0, 55% ${height / 3}%, 60% 0, 65% ${height / 3}%, 70% 0, 75% ${height / 3}%, 80% 0, 85% ${height / 3}%, 90% 0, 95% ${height / 3}%, 100% 0, 100% 100%, 0 100%)`,
+    curve: `polygon(0 0, 10% ${height * 0.2}%, 20% ${height * 0.4}%, 30% ${height * 0.6}%, 40% ${height * 0.8}%, 50% ${height}%, 60% ${height * 0.8}%, 70% ${height * 0.6}%, 80% ${height * 0.4}%, 90% ${height * 0.2}%, 100% 0, 100% 100%, 0 100%)`,
+    triangle: `polygon(50% 0, 100% ${height}%, 0 ${height}%, 0 100%, 100% 100%)`,
+    arrow: `polygon(25% 0, 50% ${height * 0.6}%, 75% 0, 100% ${height}%, 75% ${height}%, 50% ${height * 0.4}%, 25% ${height}%, 0 100%, 0 ${height}%)`,
+    staircase: `polygon(0 0, 20% 0, 20% ${height * 0.25}%, 40% ${height * 0.25}%, 40% ${height * 0.5}%, 60% ${height * 0.5}%, 60% ${height * 0.75}%, 80% ${height * 0.75}%, 80% ${height}%, 100% ${height}%, 100% 0, 100% 100%, 0 100%)`,
+    cloud: `polygon(0 ${height * 0.3}%, 5% ${height * 0.1}%, 10% ${height * 0.2}%, 15% 0, 20% ${height * 0.15}%, 25% ${height * 0.05}%, 30% ${height * 0.2}%, 35% ${height * 0.08}%, 40% ${height * 0.25}%, 45% 0, 50% ${height * 0.2}%, 55% ${height * 0.05}%, 60% ${height * 0.25}%, 65% ${height * 0.1}%, 70% ${height * 0.2}%, 75% 0, 80% ${height * 0.15}%, 85% ${height * 0.05}%, 90% ${height * 0.2}%, 95% ${height * 0.1}%, 100% ${height * 0.3}%, 100% 100%, 0 100%)`,
+    bezier: `polygon(0 0, 100% 0, 100% 100%, 0 100%)`,
+    custom: `polygon(0 0, 100% 0, 100% 100%, 0 100%)`,
+  };
+
+  return clipPaths[shape] || clipPaths.wave;
+}

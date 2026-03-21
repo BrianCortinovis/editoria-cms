@@ -14,7 +14,7 @@ import {
   Magnet, AlignCenterHorizontal, AlignCenterVertical
 } from 'lucide-react';
 import { DEVICE_WIDTHS } from '@/lib/config/breakpoints';
-import { generateDividerSvg } from '@/lib/shapes/dividers';
+import { generateDividerSvg, dividerToClipPath } from '@/lib/shapes/dividers';
 
 interface CanvasBlockProps {
   block: Block;
@@ -458,10 +458,10 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
       onMouseLeave={() => hoverBlock(null)}
       {...attributes}
     >
-      {/* Top divider */}
-      {block.shape?.topDivider && (
+      {/* Top divider - hidden when using clip-path */}
+      {/* {block.shape?.topDivider && (
         <div dangerouslySetInnerHTML={{ __html: generateDividerSvg(block.shape.topDivider.shape, 1440, block.shape.topDivider.height, block.shape.topDivider.color, block.shape.topDivider.flip, block.shape.topDivider.invert) }} style={{ marginBottom: -1 }} />
-      )}
+      )} */}
 
       {/* Block content */}
       <div style={blockStyle}>
@@ -475,10 +475,10 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
         )}
       </div>
 
-      {/* Bottom divider */}
-      {block.shape?.bottomDivider && (
+      {/* Bottom divider - hidden when using clip-path */}
+      {/* {block.shape?.bottomDivider && (
         <div dangerouslySetInnerHTML={{ __html: generateDividerSvg(block.shape.bottomDivider.shape, 1440, block.shape.bottomDivider.height, block.shape.bottomDivider.color, block.shape.bottomDivider.flip, !block.shape.bottomDivider.invert) }} style={{ marginTop: -1 }} />
-      )}
+      )} */}
 
       {/* ================================================================ */}
       {/* SELECTION UI - Big handles, inline toolbar, dimensions */}
@@ -2336,6 +2336,25 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
   if (s.backdropFilter) (css as Record<string,string>).backdropFilter = s.backdropFilter;
   if (s.mixBlendMode) (css as Record<string,string>).mixBlendMode = s.mixBlendMode;
   if (s.textShadow) (css as Record<string,string>).textShadow = s.textShadow;
+
+  // Apply clip-path from dividers (section border shaping)
+  // If topDivider or bottomDivider exist, apply them as clip-path to make shape contour
+  const blockRef = block as any;
+  if (blockRef.shape?.topDivider || blockRef.shape?.bottomDivider) {
+    const topDivider = blockRef.shape?.topDivider;
+    const bottomDivider = blockRef.shape?.bottomDivider;
+
+    // If only topDivider, apply top clip-path
+    if (topDivider && !bottomDivider) {
+      const clipPath = dividerToClipPath(topDivider.shape, topDivider.height || 60);
+      (css as Record<string,string>).clipPath = clipPath;
+    }
+    // If both or only bottom, apply bottom clip-path (inverted)
+    else if (bottomDivider) {
+      const clipPath = dividerToClipPath(bottomDivider.shape, bottomDivider.height || 60);
+      (css as Record<string,string>).clipPath = clipPath;
+    }
+  }
 
   // Apply effects (glassmorphism)
   if (s.effects?.glassmorphism?.enabled) {
