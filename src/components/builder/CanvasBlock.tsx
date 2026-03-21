@@ -435,8 +435,17 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
   const canMoveDown = blockIndex < blocks.length - 1;
 
   const blockStyle = buildCssFromBlockStyle(block);
+
+  // Apply clip-path to outer wrapper if shape is defined
+  const wrapperStyle: React.CSSProperties = {
+    ...style,
+    position: 'relative',
+    width: block.style.layout.width || '100%',
+    maxWidth: block.style.layout.maxWidth || '100%',
+  };
+
   if (block.shape?.type === 'clip-path' && block.shape.value) {
-    (blockStyle as Record<string, string>).clipPath = block.shape.value;
+    (wrapperStyle as Record<string, string>).clipPath = block.shape.value;
   }
 
   const isEditing = editingBlockId === block.id;
@@ -446,12 +455,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
     <div
       data-block-id={block.id}
       ref={(node) => { setNodeRef(node); (blockRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
-      style={{
-        ...style,
-        position: 'relative',
-        width: block.style.layout.width || '100%',
-        maxWidth: block.style.layout.maxWidth || '100%',
-      }}
+      style={wrapperStyle}
       className={cn('sb-block-wrapper', selected && 'sb-selected', isEditing && 'sb-editing', isHovered && !selected && 'sb-hovered')}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -797,17 +801,11 @@ function TextContent({ block, isEditing }: { block: Block; isEditing: boolean })
   const p = block.props as { content: string; dropCap?: boolean; columns?: number };
   const blockStyle = buildCssFromBlockStyle(block);
 
-  // Apply shape.value as clip-path to make text follow vector shape
-  const textStyle = { ...blockStyle };
-  if (block.shape?.value && block.shape.type === 'clip-path') {
-    (textStyle as Record<string, string>).clipPath = block.shape.value;
-  }
-
   return (
     <div
       className={cn('prose prose-zinc dark:prose-invert max-w-none', p.dropCap && 'first-letter:text-5xl first-letter:font-bold first-letter:float-left first-letter:mr-2', p.columns && p.columns > 1 && `columns-${p.columns} gap-8`)}
       style={{
-        ...textStyle,
+        ...blockStyle,
         outline: isEditing ? 'none' : undefined,
         minHeight: isEditing ? 40 : undefined,
       }}
