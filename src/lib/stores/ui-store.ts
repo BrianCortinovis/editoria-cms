@@ -12,7 +12,8 @@ interface UiState {
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
   leftPanelTab: 'blocks' | 'layers';
-  rightPanelTab: 'properties' | 'style' | 'shape' | 'responsive' | 'animation' | 'position' | 'tools';
+  rightPanelTab: 'properties' | 'style' | 'animation' | 'shape' | 'responsive' | 'position' | 'tools' | 'gradient' | 'effects';
+  hiddenRightPanelTabs: string[];
   aiPanelOpen: boolean;
   zoom: number;
   showGrid: boolean;
@@ -29,6 +30,7 @@ interface UiState {
   setRightPanelOpen: (open: boolean) => void;
   setLeftPanelTab: (tab: 'blocks' | 'layers') => void;
   setRightPanelTab: (tab: UiState['rightPanelTab']) => void;
+  toggleHiddenRightPanelTab: (tab: string) => void;
   setAiPanelOpen: (open: boolean) => void;
   setZoom: (zoom: number) => void;
   zoomIn: () => void;
@@ -51,6 +53,7 @@ export const useUiStore = create<UiState>()(
       rightPanelOpen: true,
       leftPanelTab: 'blocks',
       rightPanelTab: 'properties',
+      hiddenRightPanelTabs: [],
       aiPanelOpen: false,
       zoom: 1,
       showGrid: false,
@@ -66,6 +69,12 @@ export const useUiStore = create<UiState>()(
       setRightPanelOpen: (rightPanelOpen) => set({ rightPanelOpen }),
       setLeftPanelTab: (leftPanelTab) => set({ leftPanelTab }),
       setRightPanelTab: (rightPanelTab) => set({ rightPanelTab }),
+      toggleHiddenRightPanelTab: (tab) =>
+        set((s) => ({
+          hiddenRightPanelTabs: s.hiddenRightPanelTabs.includes(tab)
+            ? s.hiddenRightPanelTabs.filter((t) => t !== tab)
+            : [...s.hiddenRightPanelTabs, tab],
+        })),
       setAiPanelOpen: (aiPanelOpen) => set({ aiPanelOpen }),
       setZoom: (zoom) => set({ zoom: Math.max(0.25, Math.min(2, zoom)) }),
       zoomIn: () => set((s) => ({ zoom: Math.min(2, s.zoom + 0.1) })),
@@ -79,13 +88,7 @@ export const useUiStore = create<UiState>()(
       togglePreviewMode: () => set((s) => ({ previewMode: !s.previewMode })),
     }),
     {
-      name: 'sitebuilder-ui',
-      partialize: (state) => ({
-        theme: state.theme,
-        showGrid: state.showGrid,
-        gridSize: state.gridSize,
-        showOutlines: state.showOutlines,
-      }),
+      name: 'editoria-ui-store',
     }
   )
 );

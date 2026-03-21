@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { usePageStore } from '@/lib/stores/page-store';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { StyleEditor } from './StyleEditor';
@@ -7,16 +8,16 @@ import { AnimationEditor } from './AnimationEditor';
 import { SnapGridSettings, OverlayEditor, ButtonEditor, ShapeTools, PositionSizeEditor } from './AdvancedTools';
 import { ColorPaletteManager } from '@/components/builder/ColorPaletteManager';
 import { cn } from '@/lib/utils/cn';
-import { Paintbrush, Settings2, Pentagon, Smartphone, Move, Palette, Layers, MousePointerClick, Sparkles } from 'lucide-react';
+import { Paintbrush, Settings2, Pentagon, Smartphone, Move, Palette, Layers, MousePointerClick, Sparkles, Settings, Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Toggle } from '@/components/ui/toggle';
-import { useState } from 'react';
 
 export function RightPanel() {
-  const { rightPanelTab, setRightPanelTab } = useUiStore();
+  const { rightPanelTab, setRightPanelTab, hiddenRightPanelTabs, toggleHiddenRightPanelTab } = useUiStore();
   const { selectedBlockId, getSelectedBlock, updateBlock, updateBlockProps } = usePageStore();
   const projectPalette = useUiStore((s) => s.projectPalette);
   const setProjectPalette = useUiStore((s) => s.setProjectPalette);
+  const [showTabMenu, setShowTabMenu] = useState(false);
 
   const block = getSelectedBlock();
 
@@ -28,6 +29,8 @@ export function RightPanel() {
     { id: 'position' as const, icon: Move, label: 'Pos.' },
     { id: 'tools' as const, icon: Layers, label: 'Tools' },
   ];
+
+  const visibleTabs = tabs.filter((t) => !hiddenRightPanelTabs.includes(t.id));
 
   if (!block) {
     return (
@@ -67,8 +70,8 @@ export function RightPanel() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b" style={{ borderColor: 'var(--c-border)' }}>
-        {tabs.map(({ id, icon: Icon, label }) => (
+      <div className="flex border-b items-center" style={{ borderColor: 'var(--c-border)' }}>
+        {visibleTabs.map(({ id, icon: Icon, label }) => (
           <button
             key={id}
             onClick={() => setRightPanelTab(id as typeof rightPanelTab)}
@@ -85,6 +88,47 @@ export function RightPanel() {
             {label}
           </button>
         ))}
+
+        {/* Tab visibility menu */}
+        <div className="relative ml-auto">
+          <button
+            onClick={() => setShowTabMenu(!showTabMenu)}
+            className="px-2 py-2 rounded transition-colors"
+            style={{ color: 'var(--c-text-1)' }}
+            title="Personalizza schede"
+          >
+            <Settings size={12} />
+          </button>
+
+          {showTabMenu && (
+            <div
+              className="absolute right-0 top-full mt-1 w-48 rounded-lg shadow-lg z-50 p-2 space-y-1"
+              style={{ background: 'var(--c-bg-1)', border: '1px solid var(--c-border)' }}
+            >
+              {tabs.map(({ id, label }) => (
+                <button
+                  key={id}
+                  onClick={() => {
+                    toggleHiddenRightPanelTab(id);
+                    // Switch to visible tab if current is hidden
+                    if (hiddenRightPanelTabs.includes(id) && rightPanelTab === id) {
+                      const firstVisible = tabs.find((t) => !hiddenRightPanelTabs.includes(t.id));
+                      if (firstVisible) setRightPanelTab(firstVisible.id as typeof rightPanelTab);
+                    }
+                  }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs font-medium transition-colors text-left"
+                  style={{
+                    background: hiddenRightPanelTabs.includes(id) ? 'var(--c-bg-2)' : 'var(--c-accent-soft)',
+                    color: hiddenRightPanelTabs.includes(id) ? 'var(--c-text-1)' : 'var(--c-accent)',
+                  }}
+                >
+                  {hiddenRightPanelTabs.includes(id) ? <EyeOff size={12} /> : <Eye size={12} />}
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tab Content */}
