@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useAuthStore } from '@/lib/store';
 import { Sparkles, Loader2, Copy, Wand2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -23,18 +24,25 @@ export const AIFieldHelper = ({
   className = '',
   compact = false,
 }: AIFieldHelperProps) => {
+  const { currentTenant } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState('');
   const [style, setStyle] = useState<'auto' | 'journalist' | 'publication'>('auto');
 
   const generateContent = async () => {
+    if (!currentTenant) {
+      toast.error('Tenant non configurato');
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          tenant_id: currentTenant.id,
           fieldName,
           fieldType,
           context,

@@ -24,6 +24,8 @@ interface AIConfig {
   openai_model?: string;
   gemini_api_key?: string;
   gemini_model?: string;
+  ollama_url?: string;
+  ollama_model?: string;
   [key: string]: string | undefined;
 }
 
@@ -62,7 +64,7 @@ export function resolveProvider(config: AIConfig, task: AITask): ResolvedProvide
   if (bestResolved) return bestResolved;
 
   // 4. Fallback: use whichever provider has a key
-  for (const p of ["claude", "openai", "gemini"] as AIProvider[]) {
+  for (const p of ["claude", "openai", "gemini", "ollama"] as AIProvider[]) {
     const resolved = getProviderCredentials(config, p);
     if (resolved) return resolved;
   }
@@ -80,6 +82,13 @@ export function resolveProvider(config: AIConfig, task: AITask): ResolvedProvide
 }
 
 function getProviderCredentials(config: AIConfig, provider: AIProvider): ResolvedProvider | null {
+  // Ollama uses ollamaUrl instead of apiKey
+  if (provider === 'ollama') {
+    const ollamaUrl = config.ollama_url;
+    if (!ollamaUrl) return null;
+    return { provider, apiKey: ollamaUrl, model: config.ollama_model || undefined };
+  }
+
   const keyField = `${provider}_api_key`;
   const modelField = `${provider}_model`;
   const apiKey = config[keyField];

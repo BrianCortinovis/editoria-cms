@@ -1,4 +1,4 @@
-export type AIProvider = "claude" | "openai" | "gemini";
+export type AIProvider = "claude" | "openai" | "gemini" | "ollama";
 
 export interface AIMessage {
   role: "system" | "user" | "assistant";
@@ -15,6 +15,7 @@ export interface AIResponse {
 interface ProviderConfig {
   apiKey: string;
   model?: string;
+  ollamaUrl?: string;
 }
 
 // ========================
@@ -160,6 +161,48 @@ async function callGemini(
 }
 
 // ========================
+// OLLAMA (Local/Remote)
+// ========================
+async function callOllama(
+  messages: AIMessage[],
+  config: ProviderConfig
+): Promise<AIResponse> {
+  const ollamaUrl = config.ollamaUrl || 'http://localhost:11434';
+  const model = config.model || 'llama3.2';
+
+  const res = await fetch(`${ollamaUrl}/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      stream: false,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Ollama API error: ${res.status} — ${err}`);
+  }
+
+  const data = await res.json();
+  return {
+    text: data.choices?.[0]?.message?.content || '',
+    provider: 'ollama',
+    model,
+    usage: data.usage
+      ? {
+          input_tokens: data.usage.prompt_tokens || 0,
+          output_tokens: data.usage.completion_tokens || 0,
+        }
+      : undefined,
+  };
+}
+
+// ========================
 // DISPATCH
 // ========================
 export async function callAI(
@@ -174,6 +217,8 @@ export async function callAI(
       return callOpenAI(messages, config);
     case "gemini":
       return callGemini(messages, config);
+    case "ollama":
+      return callOllama(messages, config);
     default:
       throw new Error(`Unknown AI provider: ${provider}`);
   }
