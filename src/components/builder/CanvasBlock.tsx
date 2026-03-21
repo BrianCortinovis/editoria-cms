@@ -435,6 +435,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
   const canMoveDown = blockIndex < blocks.length - 1;
 
   const blockStyle = buildCssFromBlockStyle(block);
+  const hasClipPath = block.shape?.type === 'clip-path' && block.shape.value;
 
   // Apply clip-path to outer wrapper if shape is defined
   const wrapperStyle: React.CSSProperties = {
@@ -444,10 +445,22 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
     maxWidth: block.style.layout.maxWidth || '100%',
   };
 
-  if (block.shape?.type === 'clip-path' && block.shape.value) {
+  // Apply effects (shadow, filter, blend mode) to wrapper instead of content
+  // so they show around the clipped shape, not inside it
+  if (block.style.shadow) wrapperStyle.boxShadow = block.style.shadow;
+  if (block.style.filter) wrapperStyle.filter = block.style.filter;
+  if (block.style.backdropFilter) (wrapperStyle as Record<string, string>).backdropFilter = block.style.backdropFilter;
+  if (block.style.mixBlendMode) (wrapperStyle as Record<string, string>).mixBlendMode = block.style.mixBlendMode;
+
+  if (hasClipPath) {
     (wrapperStyle as Record<string, string>).clipPath = block.shape.value;
     // Ensure overflow is hidden when clip-path is applied so shape renders correctly
     wrapperStyle.overflow = 'hidden';
+    // Remove effects from content div to avoid duplication
+    delete (blockStyle as any).boxShadow;
+    delete (blockStyle as any).filter;
+    delete (blockStyle as any).backdropFilter;
+    delete (blockStyle as any).mixBlendMode;
   }
 
   const isEditing = editingBlockId === block.id;
@@ -492,8 +505,15 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
       {/* ================================================================ */}
       {selected && !isDragging && (
         <>
-          {/* Selection border */}
-          <div className="absolute inset-0 pointer-events-none border-2 z-40" style={{ borderRadius: block.style.border.radius, borderColor: 'var(--c-accent)' }} />
+          {/* Selection border - follows shape if clip-path is applied */}
+          <div
+            className="absolute inset-0 pointer-events-none border-2 z-40"
+            style={{
+              borderRadius: block.style.border.radius,
+              borderColor: 'var(--c-accent)',
+              ...(block.shape?.type === 'clip-path' && block.shape.value ? { clipPath: block.shape.value } : {})
+            }}
+          />
 
           {/* 8 resize handles - BIG and visible */}
           <ResizeHandle dir="n" onDrag={handleResize} />
