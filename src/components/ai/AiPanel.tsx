@@ -18,11 +18,11 @@ const QUICK_ACTIONS: { key: QuickAction; label: string; icon: string }[] = [
   { key: 'content', label: 'Contenuto', icon: '✨' },
 ];
 
-const PROVIDERS: { value: AIProvider; label: string }[] = [
-  { value: 'claude', label: 'Claude' },
-  { value: 'openai', label: 'GPT-4o' },
-  { value: 'gemini', label: 'Gemini' },
-  { value: 'ollama', label: 'Ollama (Locale)' },
+const PROVIDERS: { value: AIProvider; label: string; models: string[] }[] = [
+  { value: 'claude', label: 'Claude', models: ['claude-sonnet-4-20250514', 'claude-opus-4-20250805', 'claude-haiku-4-5-20251001'] },
+  { value: 'openai', label: 'GPT-4o', models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'] },
+  { value: 'gemini', label: 'Gemini', models: ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'] },
+  { value: 'ollama', label: 'Ollama (Locale)', models: ['llama3.2', 'mistral', 'neural-chat'] },
 ];
 
 export function AiPanel() {
@@ -31,9 +31,18 @@ export function AiPanel() {
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<AIProvider>('claude');
+  const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-20250514');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const currentProviderModels = PROVIDERS.find(p => p.value === selectedProvider)?.models || [];
+
+  const handleProviderChange = (provider: AIProvider) => {
+    setSelectedProvider(provider);
+    const models = PROVIDERS.find(p => p.value === provider)?.models || [];
+    setSelectedModel(models[0] || '');
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -73,6 +82,7 @@ export function AiPanel() {
           messages: newMessages,
           tenant_id: currentTenant.id,
           provider: selectedProvider,
+          model: selectedModel,
           context: { pageTitle: 'Page Editor' },
         }),
       });
@@ -110,6 +120,7 @@ export function AiPanel() {
           messages: newMessages,
           tenant_id: currentTenant.id,
           provider: selectedProvider,
+          model: selectedModel,
           context: { pageTitle: 'Page Editor' },
         }),
       });
@@ -158,23 +169,42 @@ export function AiPanel() {
         </button>
       </div>
 
-      {/* Provider Selector */}
-      <div className="px-4 pt-3 pb-2 flex items-center gap-2" style={{ borderColor: 'var(--c-border)' }}>
-        <span className="text-xs font-medium" style={{ color: 'var(--c-text-2)' }}>
-          Modello:
-        </span>
-        <select
-          value={selectedProvider}
-          onChange={(e) => setSelectedProvider(e.target.value as AIProvider)}
-          className="text-xs px-2 py-1 rounded border"
-          style={{ background: 'var(--c-bg-0)', borderColor: 'var(--c-border)', color: 'var(--c-text-0)' }}
-        >
-          {PROVIDERS.map((p) => (
-            <option key={p.value} value={p.value}>
-              {p.label}
-            </option>
-          ))}
-        </select>
+      {/* Provider & Model Selectors */}
+      <div className="px-4 pt-3 pb-3 space-y-2 border-b" style={{ borderColor: 'var(--c-border)' }}>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium flex-1" style={{ color: 'var(--c-text-2)' }}>
+            Provider:
+          </span>
+          <select
+            value={selectedProvider}
+            onChange={(e) => handleProviderChange(e.target.value as AIProvider)}
+            className="text-xs px-2 py-1 rounded border flex-1"
+            style={{ background: 'var(--c-bg-0)', borderColor: 'var(--c-border)', color: 'var(--c-text-0)' }}
+          >
+            {PROVIDERS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium flex-1" style={{ color: 'var(--c-text-2)' }}>
+            Modello:
+          </span>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="text-xs px-2 py-1 rounded border flex-1"
+            style={{ background: 'var(--c-bg-0)', borderColor: 'var(--c-border)', color: 'var(--c-text-0)' }}
+          >
+            {currentProviderModels.map((model) => (
+              <option key={model} value={model}>
+                {model}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Quick Actions */}
