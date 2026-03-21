@@ -2331,8 +2331,37 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
     const g = s.effects.glassmorphism;
     const backdropStr = `blur(${g.blur || 10}px) saturate(${g.saturation || 100}%)`;
     (css as Record<string,string>).backdropFilter = backdropStr;
-    css.background = `rgba(${g.bgColor?.replace('#', '') || 'ffffff'}, ${g.bgOpacity || 0.1})`;
+
+    // Convert hex color to RGB for rgba()
+    const hexColor = g.bgColor || '#ffffff';
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const gb = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    css.background = `rgba(${r}, ${gb}, ${b}, ${g.bgOpacity || 0.1})`;
+
     if (g.borderOpacity !== undefined) css.borderColor = `rgba(0, 0, 0, ${g.borderOpacity})`;
+  }
+
+  // Apply noise effect with SVG filter
+  if (s.effects?.noise?.enabled) {
+    const n = s.effects.noise;
+    const filterId = `noise-${block.id}`;
+    // Noise is applied via filter, will be handled in SVG defs
+    if (!s.effects._noiseFilterId) {
+      (s.effects as any)._noiseFilterId = filterId;
+    }
+    css.filter = (css.filter || '') + ` url(#${filterId})`;
+  }
+
+  // Apply grain effect with similar SVG filter
+  if (s.effects?.grain?.enabled) {
+    const gr = s.effects.grain;
+    const filterId = `grain-${block.id}`;
+    if (!s.effects._grainFilterId) {
+      (s.effects as any)._grainFilterId = filterId;
+    }
+    css.filter = (css.filter || '') + ` url(#${filterId})`;
   }
 
   return css;
