@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../../../../site-builder"
+		},
+		{
+			"path": "../../.."
+		},
+		{
+			"path": "../../../../BrembanaWeb"
+		}
+	],
+	"settings": {}
+}

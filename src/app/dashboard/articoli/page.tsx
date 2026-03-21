@@ -76,21 +76,7 @@ export default function ArticoliPage() {
 
     const { data } = await query.limit(50);
     if (data) {
-      setArticles(
-        data.map((a: Record<string, unknown>) => ({
-          id: a.id as string,
-          title: a.title as string,
-          slug: a.slug as string,
-          status: a.status as string,
-          is_featured: a.is_featured as boolean,
-          is_premium: a.is_premium as boolean,
-          view_count: a.view_count as number,
-          created_at: a.created_at as string,
-          published_at: a.published_at as string | null,
-          author: a.profiles as Article["author"],
-          category: a.categories as Article["category"],
-        }))
-      );
+      setArticles(data as Article[]);
     }
     setLoading(false);
   }, [currentTenant, filterStatus, search]);
@@ -123,10 +109,8 @@ export default function ArticoliPage() {
         </div>
         <Link
           href="/dashboard/articoli/nuovo"
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition hover:opacity-90"
           style={{ background: "var(--c-accent)" }}
-          onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
-          onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
         >
           <Plus className="w-4 h-4" /> Nuovo Articolo
         </Link>
@@ -208,9 +192,7 @@ export default function ArticoliPage() {
               </thead>
               <tbody className="divide-y" style={{ borderColor: "var(--c-border)" }}>
                 {articles.map((article) => (
-                  <tr key={article.id} className="transition"
-                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
-                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                  <tr key={article.id} className="transition hover:bg-[var(--c-bg-2)]">
                     <td className="px-5 py-3">
                       <Link
                         href={`/dashboard/articoli/${article.id}`}
@@ -272,9 +254,7 @@ export default function ArticoliPage() {
                         onClick={() =>
                           setMenuOpen(menuOpen === article.id ? null : article.id)
                         }
-                        className="w-8 h-8 flex items-center justify-center rounded transition"
-                        onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
-                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                        className="w-8 h-8 flex items-center justify-center rounded transition hover:bg-[var(--c-bg-2)]"
                       >
                         <MoreVertical className="w-4 h-4" style={{ color: "var(--c-text-3)" }} />
                       </button>
@@ -282,20 +262,16 @@ export default function ArticoliPage() {
                         <div className="absolute right-2 top-10 rounded-lg shadow-lg z-10 py-1 w-40" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
                           <Link
                             href={`/dashboard/articoli/${article.id}`}
-                            className="flex items-center gap-2 px-3 py-2 text-sm"
+                            className="flex items-center gap-2 px-3 py-2 text-sm transition hover:bg-[var(--c-bg-2)]"
                             style={{ color: "var(--c-text-1)" }}
                             onClick={() => setMenuOpen(null)}
-                            onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
-                            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                           >
                             <Pencil className="w-3.5 h-3.5" /> Modifica
                           </Link>
                           {currentRole === "super_admin" && (
                             <button
                               onClick={() => handleDelete(article.id)}
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 w-full text-left transition"
-                              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
-                              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 w-full text-left transition hover:bg-[var(--c-bg-2)]"
                             >
                               <Trash2 className="w-3.5 h-3.5" /> Elimina
                             </button>
