@@ -97,13 +97,13 @@ export function Canvas() {
       onClick={handleCanvasClick}
       onWheel={handleWheel}
     >
-      {/* Inner scrollable content — just a centered column with padding */}
+      {/* Inner scrollable content — just a centered column */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'center',
-          paddingTop: 24,
-          paddingBottom: 24,
+          paddingTop: 0,
+          paddingBottom: 0,
         }}
         onClick={handleCanvasClick}
       >
