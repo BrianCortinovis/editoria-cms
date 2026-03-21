@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
-import { Save, Building2, Loader2 } from "lucide-react";
+import { Save, Building2, Loader2, Users, Plus, X, Edit2 } from "lucide-react";
 
 export default function TestataPage() {
   const { currentTenant, currentRole } = useAuthStore();
@@ -34,9 +34,21 @@ export default function TestataPage() {
   const [iscrRoc, setIscrRoc] = useState("");
   const [tipologia, setTipologia] = useState("quotidiano_online");
 
+  // Team members
+  type TeamMember = {
+    id: string;
+    nome: string;
+    email: string;
+    ruolo: 'giornalista' | 'editor' | 'videomaker' | 'operatore';
+  };
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [newMember, setNewMember] = useState<Omit<TeamMember, 'id'>>({ nome: '', email: '', ruolo: 'giornalista' });
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!currentTenant) return;
-    const s = (currentTenant.settings ?? {}) as Record<string, string>;
+    const s = (currentTenant.settings ?? {}) as Record<string, any>;
     setRagioneSociale(s.ragione_sociale ?? "");
     setPartitaIva(s.partita_iva ?? "");
     setCodiceFiscale(s.codice_fiscale ?? "");
@@ -56,6 +68,7 @@ export default function TestataPage() {
     setEditore(s.editore ?? "");
     setIscrRoc(s.iscr_roc ?? "");
     setTipologia(s.tipologia ?? "quotidiano_online");
+    setTeamMembers(s.team_members ?? []);
   }, [currentTenant]);
 
   const handleSave = async () => {
@@ -72,12 +85,41 @@ export default function TestataPage() {
         direttore_responsabile: direttoreResponsabile, registro_tribunale: registroTribunale,
         num_registro: numRegistro, data_registro: dataRegistro, editore,
         iscr_roc: iscrRoc, tipologia,
+        team_members: teamMembers,
       },
     }).eq("id", currentTenant.id);
 
     if (error) toast.error(error.message);
     else toast.success("Scheda testata salvata");
     setSaving(false);
+  };
+
+  const handleAddMember = () => {
+    if (!newMember.nome || !newMember.email) {
+      toast.error("Nome e email obbligatori");
+      return;
+    }
+    if (editingId) {
+      setTeamMembers(teamMembers.map(m => m.id === editingId ? { ...newMember, id: editingId } : m));
+      toast.success("Membro aggiornato");
+      setEditingId(null);
+    } else {
+      setTeamMembers([...teamMembers, { id: Date.now().toString(), ...newMember }]);
+      toast.success("Membro aggiunto");
+    }
+    setNewMember({ nome: '', email: '', ruolo: 'giornalista' });
+    setShowAddMember(false);
+  };
+
+  const handleEditMember = (member: typeof teamMembers[0]) => {
+    setNewMember(member);
+    setEditingId(member.id);
+    setShowAddMember(true);
+  };
+
+  const handleDeleteMember = (id: string) => {
+    setTeamMembers(teamMembers.filter(m => m.id !== id));
+    toast.success("Membro rimosso");
   };
 
   const Field = ({ label, value, onChange, placeholder, span2, type }: {
@@ -133,6 +175,115 @@ export default function TestataPage() {
           <Field label="Numero registro stampa" value={numRegistro} onChange={setNumRegistro} placeholder="N. XX/2024" />
           <Field label="Data registrazione" value={dataRegistro} onChange={setDataRegistro} type="date" />
           <Field label="Iscrizione ROC" value={iscrRoc} onChange={setIscrRoc} placeholder="N. XXXXX" />
+        </div>
+      </div>
+
+      {/* Team Members */}
+      <div className="card">
+        <div className="card-header flex items-center justify-between">
+          <div className="flex items-center gap-2"><Users className="w-4 h-4" /> Giornalisti, Editor, Videomaker & Operatori</div>
+          {isAdmin && (
+            <button
+              onClick={() => {
+                setShowAddMember(!showAddMember);
+                setEditingId(null);
+                setNewMember({ nome: '', email: '', ruolo: 'giornalista' });
+              }}
+              className="btn btn-sm btn-primary flex items-center gap-1"
+            >
+              <Plus className="w-3 h-3" /> Aggiungi membro
+            </button>
+          )}
+        </div>
+        <div className="p-5 space-y-4">
+          {showAddMember && (
+            <div className="p-4 rounded-lg" style={{ background: "var(--c-bg-2)" }}>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                <input
+                  type="text"
+                  placeholder="Nome e cognome"
+                  value={newMember.nome}
+                  onChange={e => setNewMember({ ...newMember, nome: e.target.value })}
+                  className="input w-full"
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={newMember.email}
+                  onChange={e => setNewMember({ ...newMember, email: e.target.value })}
+                  className="input w-full"
+                />
+                <select
+                  value={newMember.ruolo}
+                  onChange={e => setNewMember({ ...newMember, ruolo: e.target.value as any })}
+                  className="input w-full"
+                >
+                  <option value="giornalista">Giornalista</option>
+                  <option value="editor">Editor</option>
+                  <option value="videomaker">Videomaker</option>
+                  <option value="operatore">Operatore</option>
+                </select>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => {
+                    setShowAddMember(false);
+                    setEditingId(null);
+                    setNewMember({ nome: '', email: '', ruolo: 'giornalista' });
+                  }}
+                  className="btn btn-sm"
+                  style={{ background: "var(--c-bg-3)", color: "var(--c-text-1)" }}
+                >
+                  Annulla
+                </button>
+                <button onClick={handleAddMember} className="btn btn-sm btn-primary">
+                  {editingId ? 'Aggiorna' : 'Aggiungi'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {teamMembers.length === 0 ? (
+            <p className="text-sm text-center" style={{ color: "var(--c-text-2)" }}>
+              Nessun membro del team aggiunto ancora
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {teamMembers.map(member => (
+                <div key={member.id} className="flex items-center justify-between p-3 rounded-lg" style={{ background: "var(--c-bg-2)" }}>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "var(--c-text-0)" }}>{member.nome}</p>
+                    <p className="text-xs" style={{ color: "var(--c-text-2)" }}>{member.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-1 rounded" style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}>
+                      {member.ruolo}
+                    </span>
+                    {isAdmin && (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEditMember(member)}
+                          className="p-1 rounded transition"
+                          style={{ color: "var(--c-text-2)", background: "var(--c-bg-3)" }}
+                          title="Modifica"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMember(member.id)}
+                          className="p-1 rounded transition"
+                          style={{ color: "var(--c-danger)" }}
+                          title="Elimina"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
