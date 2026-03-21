@@ -15,8 +15,10 @@ import {
   XCircle,
   ExternalLink,
   Rss,
+  Loader2,
 } from "lucide-react";
 import AIButton from "@/components/ai/AIButton";
+import toast from "react-hot-toast";
 
 interface ArticleSEO {
   id: string;
@@ -33,6 +35,8 @@ export default function SeoPage() {
   const { currentTenant } = useAuthStore();
   const [articles, setArticles] = useState<ArticleSEO[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
 
   useEffect(() => {
     if (!currentTenant) return;
@@ -80,6 +84,66 @@ export default function SeoPage() {
     </div>
   );
 
+  const handleSEOAnalysis = async () => {
+    if (!currentTenant || articles.length === 0) return;
+    setAnalyzing(true);
+    try {
+      const response = await fetch("/api/ai/seo-tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: currentTenant.id,
+          action: "analyze_seo",
+          articles: articles,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        toast.error(result.error || "Errore nell'analisi SEO");
+        return;
+      }
+
+      setAnalysisResult(result);
+      toast.success("Analisi SEO completata!");
+    } catch (error) {
+      toast.error("Errore di connessione");
+      console.error(error);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleGenerateMeta = async () => {
+    if (!currentTenant || articles.length === 0) return;
+    setAnalyzing(true);
+    try {
+      const response = await fetch("/api/ai/seo-tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: currentTenant.id,
+          action: "generate_meta",
+          articles: articles.filter(a => !a.meta_title || !a.meta_description),
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        toast.error(result.error || "Errore nella generazione");
+        return;
+      }
+
+      setAnalysisResult(result);
+      toast.success(`${result.count} meta tag generati!`);
+    } catch (error) {
+      toast.error("Errore di connessione");
+      console.error(error);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl space-y-6">
       {/* Score + KPI */}
@@ -111,29 +175,42 @@ export default function SeoPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* SEO Checklist */}
         <div className="card">
-          <div className="card-header flex items-center justify-between">
+          <div className="card-header flex items-center justify-between relative">
             <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" /> Checklist SEO Sito</span>
-            <AIButton
-              actions={[
-                {
-                  id: "analisi_seo",
-                  label: "Analisi SEO completa",
-                  prompt: "Esegui un'analisi SEO completa per un giornale online italiano basandoti sui seguenti dati degli articoli pubblicati. Evidenzia problemi critici e opportunità. Dati: {context}",
-                },
-                {
-                  id: "suggerisci_miglioramenti",
-                  label: "Suggerisci miglioramenti",
-                  prompt: "Suggerisci miglioramenti SEO specifici e attuabili per i seguenti articoli di un giornale locale italiano, concentrandoti su quelli senza meta description o meta title: {context}",
-                },
-                {
-                  id: "genera_meta_sito",
-                  label: "Genera meta description sito",
-                  prompt: "Genera una meta description ottimizzata per SEO (max 160 caratteri) per il sito di un giornale locale italiano, basandoti sui contenuti pubblicati: {context}",
-                },
-              ]}
-              contextData={articles.map(a => `"${a.title}" - Meta: ${a.meta_title ? 'si' : 'no'}, Desc: ${a.meta_description ? 'si' : 'no'}, Visite: ${a.view_count}`).join(" | ")}
-              compact
-            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSEOAnalysis}
+                disabled={analyzing || articles.length === 0}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50"
+                style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}
+              >
+                {analyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BarChart3 className="w-3.5 h-3.5" />}
+                Analizza
+              </button>
+              <div className="relative">
+                <AIButton
+                  actions={[
+                    {
+                      id: "analisi_seo",
+                      label: "Analisi SEO completa",
+                      prompt: "Esegui un'analisi SEO completa per un giornale online italiano basandoti sui seguenti dati degli articoli pubblicati. Evidenzia problemi critici e opportunità. Dati: {context}",
+                    },
+                    {
+                      id: "suggerisci_miglioramenti",
+                      label: "Suggerisci miglioramenti",
+                      prompt: "Suggerisci miglioramenti SEO specifici e attuabili per i seguenti articoli di un giornale locale italiano, concentrandoti su quelli senza meta description o meta title: {context}",
+                    },
+                    {
+                      id: "genera_meta_sito",
+                      label: "Genera meta description sito",
+                      prompt: "Genera una meta description ottimizzata per SEO (max 160 caratteri) per il sito di un giornale locale italiano, basandoti sui contenuti pubblicati: {context}",
+                    },
+                  ]}
+                  contextData={articles.map(a => `"${a.title}" - Meta: ${a.meta_title ? 'si' : 'no'}, Desc: ${a.meta_description ? 'si' : 'no'}, Visite: ${a.view_count}`).join(" | ")}
+                  compact
+                />
+              </div>
+            </div>
           </div>
           <div className="p-4">
             <CheckItem ok={true} label="Sitemap.xml generabile da API" />
@@ -167,6 +244,48 @@ export default function SeoPage() {
           </div>
         </div>
       </div>
+
+      {/* Analysis Results */}
+      {analysisResult && (
+        <div className="card" style={{ background: "var(--c-bg-2)" }}>
+          <div className="card-header flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" style={{ color: "var(--c-accent)" }} />
+            Risultati Analisi SEO
+          </div>
+          <div className="p-4 space-y-3">
+            {analysisResult.stats && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                <div className="p-2 rounded" style={{ background: "var(--c-bg-3)" }}>
+                  <p className="text-[10px]" style={{ color: "var(--c-text-2)" }}>Totale</p>
+                  <p className="text-lg font-bold">{analysisResult.stats.total}</p>
+                </div>
+                <div className="p-2 rounded" style={{ background: "var(--c-bg-3)" }}>
+                  <p className="text-[10px]" style={{ color: "var(--c-text-2)" }}>Meta Title</p>
+                  <p className="text-lg font-bold">{Math.round((analysisResult.stats.with_meta_title / analysisResult.stats.total) * 100)}%</p>
+                </div>
+                <div className="p-2 rounded" style={{ background: "var(--c-bg-3)" }}>
+                  <p className="text-[10px]" style={{ color: "var(--c-text-2)" }}>Meta Desc</p>
+                  <p className="text-lg font-bold">{Math.round((analysisResult.stats.with_meta_desc / analysisResult.stats.total) * 100)}%</p>
+                </div>
+              </div>
+            )}
+            <div className="text-xs leading-relaxed" style={{ color: "var(--c-text-0)", whiteSpace: "pre-wrap" }}>
+              {analysisResult.analysis || analysisResult.message}
+            </div>
+            {analysisResult.suggestions && Array.isArray(analysisResult.suggestions) && (
+              <div className="mt-3 space-y-1">
+                <p className="text-xs font-semibold" style={{ color: "var(--c-text-0)" }}>Suggerimenti:</p>
+                {analysisResult.suggestions.slice(0, 3).map((s: any, i: number) => (
+                  <div key={i} className="text-xs p-2 rounded" style={{ background: "var(--c-bg-1)" }}>
+                    <p style={{ color: "var(--c-text-1)" }}><strong>{s.article_title}</strong></p>
+                    <p style={{ color: "var(--c-text-2)" }}>Title: {s.suggested_meta_title?.slice(0, 50)}...</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Articles SEO Audit */}
       <div className="card">
