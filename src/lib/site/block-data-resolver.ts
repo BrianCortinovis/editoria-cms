@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import type { BlockDataSource } from '@/lib/types/block';
+import type { DataSource } from '@/lib/types/block';
 
 /**
  * Resolve data for a data-bound block at render time.
@@ -7,7 +7,7 @@ import type { BlockDataSource } from '@/lib/types/block';
  */
 export async function resolveBlockData(
   tenantId: string,
-  dataSource: BlockDataSource
+  dataSource: DataSource
 ): Promise<unknown[]> {
   const supabase = await createServiceRoleClient();
   const { endpoint, params } = dataSource;
