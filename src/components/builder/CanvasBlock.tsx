@@ -797,11 +797,17 @@ function TextContent({ block, isEditing }: { block: Block; isEditing: boolean })
   const p = block.props as { content: string; dropCap?: boolean; columns?: number };
   const blockStyle = buildCssFromBlockStyle(block);
 
+  // Apply shape.value as clip-path to make text follow vector shape
+  const textStyle = { ...blockStyle };
+  if (block.shape?.value && block.shape.type === 'clip-path') {
+    (textStyle as Record<string, string>).clipPath = block.shape.value;
+  }
+
   return (
     <div
       className={cn('prose prose-zinc dark:prose-invert max-w-none', p.dropCap && 'first-letter:text-5xl first-letter:font-bold first-letter:float-left first-letter:mr-2', p.columns && p.columns > 1 && `columns-${p.columns} gap-8`)}
       style={{
-        ...blockStyle,
+        ...textStyle,
         outline: isEditing ? 'none' : undefined,
         minHeight: isEditing ? 40 : undefined,
       }}
