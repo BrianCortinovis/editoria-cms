@@ -53,6 +53,7 @@ export interface BlockStyle {
     size?: string;
     position?: string;
     repeat?: string;
+    advancedGradient?: AdvancedGradient;
   };
   typography: {
     fontFamily?: string;
@@ -79,10 +80,59 @@ export interface BlockStyle {
   mixBlendMode?: string;     // mix-blend-mode
   textShadow?: string;       // text-shadow for text glow/emboss
   customCss?: string;
+  effects?: BlockEffects;    // Advanced effects: glassmorphism, noise, grain
+}
+
+// === Gradient System ===
+export interface GradientStop {
+  color: string;
+  position: number;
+  opacity?: number;
+}
+
+export type GradientType = 'linear' | 'radial' | 'conic' | 'mesh';
+
+export interface AdvancedGradient {
+  type: GradientType;
+  angle?: number;
+  stops: GradientStop[];
+  animated?: boolean;
+  animationDuration?: number;
+  scrollDriven?: boolean;
+  hoverDriven?: boolean;
+}
+
+// === Effects System ===
+export interface GlassmorphismEffect {
+  enabled: boolean;
+  blur: number;
+  saturation: number;
+  bgOpacity: number;
+  bgColor: string;
+  borderOpacity: number;
+}
+
+export interface NoiseEffect {
+  enabled: boolean;
+  opacity: number;
+  frequency: number;
+  type: 'fractalNoise' | 'turbulence';
+}
+
+export interface GrainEffect {
+  enabled: boolean;
+  opacity: number;
+  size: number;
+}
+
+export interface BlockEffects {
+  glassmorphism?: GlassmorphismEffect;
+  noise?: NoiseEffect;
+  grain?: GrainEffect;
 }
 
 // === Divider Config ===
-export type DividerShape = 'diagonal' | 'wave' | 'zigzag' | 'curve' | 'triangle' | 'arrow' | 'custom';
+export type DividerShape = 'diagonal' | 'wave' | 'zigzag' | 'curve' | 'triangle' | 'arrow' | 'custom' | 'bezier' | 'zigzag-smooth' | 'staircase' | 'cloud';
 
 export interface DividerConfig {
   shape: DividerShape;
@@ -91,6 +141,9 @@ export interface DividerConfig {
   invert: boolean;
   color: string;
   svgPath?: string;
+  opacity?: number;
+  blendWithSection?: boolean;
+  blendColor?: string;
 }
 
 // === Block Shape ===

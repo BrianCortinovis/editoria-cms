@@ -6,7 +6,8 @@ export function generateDividerSvg(
   height: number = 80,
   color: string = '#ffffff',
   flip: boolean = false,
-  invert: boolean = false
+  invert: boolean = false,
+  opacity: number = 1
 ): string {
   const transform = [
     flip ? `scale(-1, 1) translate(-${width}, 0)` : '',
@@ -19,9 +20,13 @@ export function generateDividerSvg(
     diagonal: `M0 ${height} L${width} 0 L${width} ${height} Z`,
     wave: `M0 ${height * 0.6} C${width * 0.25} ${height * 0.2}, ${width * 0.5} ${height}, ${width * 0.75} ${height * 0.4} S${width} ${height * 0.8} ${width} ${height * 0.5} L${width} ${height} L0 ${height} Z`,
     zigzag: generateZigzag(width, height),
+    'zigzag-smooth': generateZigzagSmooth(width, height),
     curve: `M0 ${height} C${width * 0.33} 0, ${width * 0.66} 0, ${width} ${height} L${width} ${height} L0 ${height} Z`,
     triangle: `M0 ${height} L${width / 2} 0 L${width} ${height} Z`,
     arrow: `M0 ${height} L${width / 2} ${height * 0.3} L${width} ${height} L${width * 0.75} ${height} L${width / 2} ${height * 0.6} L${width * 0.25} ${height} Z`,
+    staircase: generateStaircase(width, height),
+    cloud: generateCloud(width, height),
+    bezier: '',
     custom: '',
   };
 
@@ -29,8 +34,42 @@ export function generateDividerSvg(
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="display:block;width:100%;height:${height}px;">
     <g${transform ? ` transform="${transform}"` : ''}>
-      <path d="${path}" fill="${color}" />
+      <path d="${path}" fill="${color}" opacity="${opacity}" />
     </g>
+  </svg>`;
+}
+
+export function generateTransparentBlendDivider(
+  fromColor: string,
+  toColor: string,
+  width: number = 1440,
+  height: number = 80,
+  shape: DividerShape = 'wave'
+): string {
+  const paths: Record<DividerShape, string> = {
+    diagonal: `M0 ${height} L${width} 0 L${width} ${height} Z`,
+    wave: `M0 ${height * 0.6} C${width * 0.25} ${height * 0.2}, ${width * 0.5} ${height}, ${width * 0.75} ${height * 0.4} S${width} ${height * 0.8} ${width} ${height * 0.5} L${width} ${height} L0 ${height} Z`,
+    zigzag: generateZigzag(width, height),
+    'zigzag-smooth': generateZigzagSmooth(width, height),
+    curve: `M0 ${height} C${width * 0.33} 0, ${width * 0.66} 0, ${width} ${height} L${width} ${height} L0 ${height} Z`,
+    triangle: `M0 ${height} L${width / 2} 0 L${width} ${height} Z`,
+    arrow: `M0 ${height} L${width / 2} ${height * 0.3} L${width} ${height} L${width * 0.75} ${height} L${width / 2} ${height * 0.6} L${width * 0.25} ${height} Z`,
+    staircase: generateStaircase(width, height),
+    cloud: generateCloud(width, height),
+    bezier: `M0 ${height} C${width * 0.33} ${height * 0.3}, ${width * 0.66} ${height * 0.7}, ${width} ${height} L${width} ${height} Z`,
+    custom: '',
+  };
+
+  const path = paths[shape] || paths.wave;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="display:block;width:100%;height:${height}px;">
+    <defs>
+      <linearGradient id="blendGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" style="stop-color:${fromColor};stop-opacity:1" />
+        <stop offset="100%" style="stop-color:${toColor};stop-opacity:1" />
+      </linearGradient>
+    </defs>
+    <path d="${path}" fill="url(#blendGrad)" />
   </svg>`;
 }
 
@@ -43,6 +82,55 @@ function generateZigzag(width: number, height: number): string {
     const x = segWidth * (i + 0.5);
     const y = i % 2 === 0 ? 0 : height * 0.6;
     path += ` L${x} ${y}`;
+  }
+
+  path += ` L${width} ${height} Z`;
+  return path;
+}
+
+function generateZigzagSmooth(width: number, height: number): string {
+  const segments = 12;
+  const segWidth = width / segments;
+  let path = `M0 ${height}`;
+
+  for (let i = 0; i < segments; i++) {
+    const x1 = segWidth * i;
+    const x2 = segWidth * (i + 0.5);
+    const x3 = segWidth * (i + 1);
+    const y = i % 2 === 0 ? height * 0.3 : height * 0.7;
+    path += ` Q${x2} ${y}, ${x3} ${height}`;
+  }
+
+  path += ` L${width} ${height} Z`;
+  return path;
+}
+
+function generateStaircase(width: number, height: number): string {
+  const steps = 8;
+  const stepWidth = width / steps;
+  const stepHeight = height / steps;
+  let path = `M0 ${height}`;
+
+  for (let i = 0; i < steps; i++) {
+    const x = stepWidth * (i + 1);
+    const y = height - stepHeight * (i + 1);
+    path += ` L${x} ${y} L${x} ${height}`;
+  }
+
+  path += ` L${width} ${height} Z`;
+  return path;
+}
+
+function generateCloud(width: number, height: number): string {
+  const bumps = 4;
+  const bumpWidth = width / bumps;
+  let path = `M0 ${height}`;
+
+  for (let i = 0; i < bumps; i++) {
+    const cx = bumpWidth * (i + 0.5);
+    const startX = bumpWidth * i;
+    const endX = bumpWidth * (i + 1);
+    path += ` Q${cx} 0, ${endX} ${height * 0.4}`;
   }
 
   path += ` L${width} ${height} Z`;

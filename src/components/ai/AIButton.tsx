@@ -16,17 +16,25 @@ interface AIAction {
 interface AIButtonProps {
   /** Actions available in this context */
   actions: AIAction[];
-  /** Data to pass as context to the AI */
-  contextData: string;
+  /** Data to pass as context to the AI (JSON string) */
+  fieldValue?: string;
+  /** Alternate interface: just context data string */
+  contextData?: string;
   /** System prompt override */
   systemPrompt?: string;
-  /** Callback when AI generates a result the user wants to apply */
+  /** Callback when AI generates a result (new interface) */
+  onResult?: (result: string) => void;
+  /** Callback when AI generates a result the user wants to apply (legacy interface) */
   onApply?: (actionId: string, result: string) => void;
+  /** Block ID for context */
+  blockId?: string;
+  /** Field name for context */
+  fieldName?: string;
   /** Compact mode (just icon button) */
   compact?: boolean;
 }
 
-export default function AIButton({ actions, contextData, systemPrompt, onApply, compact }: AIButtonProps) {
+export default function AIButton({ actions, fieldValue, contextData: contextDataProp, systemPrompt, onResult, onApply, compact }: AIButtonProps) {
   const { currentTenant } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
@@ -42,6 +50,7 @@ export default function AIButton({ actions, contextData, systemPrompt, onApply, 
     useAIStatus.getState().set({ message: action.label + "...", provider: "" });
 
     try {
+      const contextToUse = fieldValue || contextDataProp || "";
       const res = await fetch("/api/ai/freeform", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -49,14 +58,21 @@ export default function AIButton({ actions, contextData, systemPrompt, onApply, 
           tenant_id: currentTenant.id,
           task: "seo", // fallback task for provider resolution
           system: systemPrompt || "Sei un assistente editoriale per un CMS giornalistico italiano. Rispondi in modo conciso e utile.",
-          prompt: action.prompt.replace("{context}", contextData),
+          prompt: action.prompt.replace("{context}", contextToUse),
         }),
       });
 
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Errore IA"); setLoading(null); return; }
 
-      setResults(prev => ({ ...prev, [action.id]: data.text }));
+      const result = data.text;
+      setResults(prev => ({ ...prev, [action.id]: result }));
+
+      // If onResult callback is provided, call it automatically
+      if (onResult) {
+        onResult(result);
+      }
+
       toast.success(`Generato con ${data.provider}`);
       useAIStatus.getState().set({ message: `${action.label} completato`, provider: data.provider || "" });
       setTimeout(() => useAIStatus.getState().clear(), 3000);

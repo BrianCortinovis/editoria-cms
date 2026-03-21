@@ -9,7 +9,40 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'md', ...props }, ref) => {
+  ({ className, variant = 'primary', size = 'md', style, ...props }, ref) => {
+    const getVariantStyles = (): React.CSSProperties => {
+      switch (variant) {
+        case 'primary':
+          return {
+            background: 'var(--c-accent)',
+            color: 'white',
+          };
+        case 'secondary':
+          return {
+            background: 'var(--c-bg-2)',
+            color: 'var(--c-text-0)',
+          };
+        case 'ghost':
+          return {
+            background: 'transparent',
+            color: 'var(--c-text-0)',
+          };
+        case 'danger':
+          return {
+            background: '#dc2626',
+            color: 'white',
+          };
+        case 'outline':
+          return {
+            background: 'transparent',
+            color: 'var(--c-text-0)',
+            border: '1px solid var(--c-border)',
+          };
+        default:
+          return {};
+      }
+    };
+
     return (
       <button
         ref={ref}
@@ -18,13 +51,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           'focus:outline-none focus:ring-2 focus:ring-offset-1',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           {
-            'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 active:bg-blue-800': variant === 'primary',
-            'bg-zinc-200 text-zinc-800 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600 focus:ring-zinc-400': variant === 'secondary',
-            'bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 focus:ring-zinc-400': variant === 'ghost',
-            'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500': variant === 'danger',
-            'border border-zinc-300 dark:border-zinc-600 bg-transparent text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus:ring-zinc-400': variant === 'outline',
-          },
-          {
             'text-xs px-2 py-1 gap-1': size === 'xs',
             'text-sm px-3 py-1.5 gap-1.5': size === 'sm',
             'text-sm px-4 py-2 gap-2': size === 'md',
@@ -32,6 +58,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           },
           className
         )}
+        style={{ ...getVariantStyles(), ...style }}
         {...props}
       />
     );

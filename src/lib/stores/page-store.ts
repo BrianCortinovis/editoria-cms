@@ -226,6 +226,11 @@ export const usePageStore = create<PageState>()((set, get) => ({
           transform: style.transform ?? b.style.transform,
           transition: style.transition ?? b.style.transition,
           customCss: style.customCss ?? b.style.customCss,
+          filter: style.filter ?? b.style.filter,
+          backdropFilter: style.backdropFilter ?? b.style.backdropFilter,
+          mixBlendMode: style.mixBlendMode ?? b.style.mixBlendMode,
+          textShadow: style.textShadow ?? b.style.textShadow,
+          effects: style.effects ?? b.style.effects,
         },
       }));
       return {

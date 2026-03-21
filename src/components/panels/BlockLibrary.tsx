@@ -42,18 +42,22 @@ function DraggableBlockItem({ definition }: { definition: BlockDefinition }) {
       onClick={handleClick}
       className={cn(
         'flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-grab active:cursor-grabbing transition-all',
-        'hover:bg-zinc-100 dark:hover:bg-zinc-800',
-        'text-zinc-700 dark:text-zinc-300',
         isDragging && 'opacity-50 scale-95'
       )}
+      style={{
+        color: 'var(--c-text-0)',
+        ...(!isDragging && { '--hover-bg': 'var(--c-bg-1)' } as React.CSSProperties),
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--c-bg-1)')}
+      onMouseLeave={(e) => (e.currentTarget.style.background = '')}
       title={definition.description}
     >
-      <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--c-bg-1)' }}>
         <IconComponent size={16} />
       </div>
       <div className="min-w-0">
         <div className="text-xs font-medium truncate">{definition.label}</div>
-        <div className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">{definition.description}</div>
+        <div className="text-[10px] truncate" style={{ color: 'var(--c-text-2)' }}>{definition.description}</div>
       </div>
     </div>
   );
@@ -77,13 +81,18 @@ export function BlockLibrary() {
     <div className="p-2">
       {/* Search */}
       <div className="relative mb-2">
-        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--c-text-2)' }} />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Cerca blocco..."
-          className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+          className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border"
+          style={{
+            background: 'var(--c-bg-1)',
+            borderColor: 'var(--c-border)',
+            color: 'var(--c-text-0)',
+          }}
         />
       </div>
 
@@ -94,7 +103,7 @@ export function BlockLibrary() {
             <DraggableBlockItem key={def.type} definition={def} />
           ))}
           {filteredBlocks.length === 0 && (
-            <p className="text-xs text-zinc-400 text-center py-4">Nessun blocco trovato</p>
+            <p className="text-xs text-center py-4" style={{ color: 'var(--c-text-2)' }}>Nessun blocco trovato</p>
           )}
         </div>
       ) : (
@@ -109,7 +118,10 @@ export function BlockLibrary() {
             <div key={id} className="mb-1">
               <button
                 onClick={() => setOpenCategory(isOpen ? null : id)}
-                className="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 uppercase tracking-wider"
+                className="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors"
+                style={{ color: 'var(--c-text-1)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--c-text-0)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--c-text-1)')}
               >
                 <IconComponent size={12} />
                 {label}

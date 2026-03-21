@@ -92,8 +92,8 @@ export function Canvas() {
   return (
     <div
       ref={containerRef}
-      className="bg-zinc-100 dark:bg-zinc-950 relative"
-      style={{ overflow: 'auto', flex: '1 1 0%', height: '100%', minHeight: 0 }}
+      className="relative"
+      style={{ overflow: 'auto', flex: '1 1 0%', height: '100%', minHeight: 0, background: 'var(--c-bg-1)' }}
       onClick={handleCanvasClick}
       onWheel={handleWheel}
     >
@@ -120,7 +120,7 @@ export function Canvas() {
           {/* Device frame chrome */}
           {deviceMode !== 'desktop' && (
             <div className="text-center mb-2">
-              <span className="text-[10px] font-mono text-zinc-400 bg-zinc-200 dark:bg-zinc-800 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ color: 'var(--c-text-2)', background: 'var(--c-bg-2)' }}>
                 {deviceMode === 'tablet' ? 'Tablet' : 'Mobile'} — {canvasWidth}px
               </span>
             </div>
@@ -130,27 +130,32 @@ export function Canvas() {
           <div
             ref={setNodeRef}
             className={cn(
-              'bg-white dark:bg-zinc-900 shadow-xl relative',
-              deviceMode === 'desktop' ? 'rounded-none' : 'rounded-xl border border-zinc-300 dark:border-zinc-700',
-              isOver && 'ring-2 ring-blue-400 ring-dashed',
+              'shadow-xl relative',
+              deviceMode === 'desktop' ? 'rounded-none' : 'rounded-xl border',
+              isOver && 'ring-2 ring-dashed',
               showOutlines && 'sb-show-outlines'
             )}
             style={{
+              background: 'var(--c-bg-0)',
+              borderColor: 'var(--c-border)',
+              outlineColor: 'var(--c-accent)',
               width: canvasWidth,
               minHeight: 800,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
+              ...(isOver ? { outline: '2px dashed var(--c-accent)' } : {}),
               ...(showGrid ? {
-                backgroundImage: `linear-gradient(rgba(0,0,0,${gridSize <= 5 ? 0.06 : 0.03}) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,${gridSize <= 5 ? 0.06 : 0.03}) 1px, transparent 1px)`,
+                backgroundImage: `linear-gradient(var(--c-border) 1px, transparent 1px), linear-gradient(90deg, var(--c-border) 1px, transparent 1px)`,
                 backgroundSize: `${gridSize}px ${gridSize}px`,
+                backgroundPositionX: 'var(--c-bg-0)',
               } : {}),
             }}
             onClick={handleCanvasClick}
           >
             {blocks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center min-h-[800px] w-full text-zinc-400 dark:text-zinc-600 gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+              <div className="flex flex-col items-center justify-center min-h-[800px] w-full gap-4" style={{ color: 'var(--c-text-2)' }}>
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'var(--c-bg-2)' }}>
                   <Plus size={32} />
                 </div>
                 <div className="text-center">
@@ -175,7 +180,7 @@ export function Canvas() {
       </div>
 
       {/* Bottom-right zoom indicator */}
-      <div className="absolute bottom-3 right-3 bg-zinc-900/70 text-white text-[10px] font-mono px-2 py-1 rounded-lg pointer-events-none z-40">
+      <div className="absolute bottom-3 right-3 text-[10px] font-mono px-2 py-1 rounded-lg pointer-events-none z-40" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-0)' }}>
         {canvasWidth}px · {Math.round(zoom * 100)}%
       </div>
     </div>

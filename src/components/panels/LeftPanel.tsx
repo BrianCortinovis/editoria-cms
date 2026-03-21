@@ -16,9 +16,9 @@ export function LeftPanel() {
   ];
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800">
+    <div className="h-full flex flex-col border-r" style={{ background: 'var(--c-bg-0)', borderColor: 'var(--c-border)' }}>
       {/* Tab Header */}
-      <div className="flex border-b border-zinc-200 dark:border-zinc-800">
+      <div className="flex border-b" style={{ borderColor: 'var(--c-border)' }}>
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -26,9 +26,10 @@ export function LeftPanel() {
             className={cn(
               'flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors',
               leftPanelTab === id
-                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50 dark:bg-blue-950/30'
-                : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                ? 'border-b-2 border-blue-600'
+                : ''
             )}
+            style={leftPanelTab !== id ? { color: 'var(--c-text-1)' } : undefined}
           >
             <Icon size={14} />
             {label}

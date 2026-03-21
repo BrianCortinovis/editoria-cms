@@ -1,5 +1,6 @@
 import type { Block, BlockStyle, DividerConfig } from '@/lib/types';
 import { generateDividerSvg } from '@/lib/shapes/dividers';
+import { buildAnimatedGradientKeyframes } from '@/lib/shapes/gradients';
 
 export function generateFullHtml(
   blocks: Block[],
@@ -13,6 +14,7 @@ export function generateFullHtml(
   } = {}
 ): string {
   const css = generateCssFromBlocks(blocks);
+  const animationKeyframes = generateAnimationKeyframes(blocks);
   const html = blocks.map((b) => blockToHtml(b)).join('\n');
 
   return `<!DOCTYPE html>
@@ -29,6 +31,8 @@ export function generateFullHtml(
     a { color: inherit; text-decoration: none; }
 
 ${css}
+
+${animationKeyframes}
 
     /* Responsive */
     @media (max-width: 768px) {
@@ -52,6 +56,27 @@ ${html}
 ${options.customJs ? `<script>\n${options.customJs}\n</script>` : ''}
 </body>
 </html>`;
+}
+
+function generateAnimationKeyframes(blocks: Block[]): string {
+  let keyframes = '';
+  const processBlock = (block: Block) => {
+    // Handle animated gradients
+    if (block.style.background.advancedGradient?.animated) {
+      keyframes += buildAnimatedGradientKeyframes(block.id, block.style.background.advancedGradient);
+      keyframes += '\n\n';
+    }
+    // Recurse into children
+    if (block.children.length > 0) {
+      for (const child of block.children) {
+        processBlock(child);
+      }
+    }
+  };
+  for (const block of blocks) {
+    processBlock(block);
+  }
+  return keyframes ? `    /* Animation Keyframes */\n${keyframes}` : '';
 }
 
 function generateCssFromBlocks(blocks: Block[]): string {
@@ -119,6 +144,13 @@ function blockToCss(block: Block): string {
   if (s.opacity !== undefined && s.opacity !== 1) css += `      opacity: ${s.opacity};\n`;
   if (s.transform) css += `      transform: ${s.transform};\n`;
   if (s.transition) css += `      transition: ${s.transition};\n`;
+  if (s.filter) css += `      filter: ${s.filter};\n`;
+  if (s.backdropFilter) {
+    css += `      backdrop-filter: ${s.backdropFilter};\n`;
+    css += `      -webkit-backdrop-filter: ${s.backdropFilter};\n`;
+  }
+  if (s.mixBlendMode && s.mixBlendMode !== 'normal') css += `      mix-blend-mode: ${s.mixBlendMode};\n`;
+  if (s.textShadow) css += `      text-shadow: ${s.textShadow};\n`;
 
   // Clip path
   if (block.shape?.type === 'clip-path' && block.shape.value && block.shape.value !== 'none') {

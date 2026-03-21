@@ -2,16 +2,15 @@
 
 import {
   Save, Undo2, Redo2, Monitor, Tablet, Smartphone,
-  Eye, Download, Sparkles, Sun, Moon, Grid3X3, SquareDashed,
-  PanelLeft, PanelRight,
+  Eye, Download, Sparkles, Grid3X3, SquareDashed,
+  PanelLeft, PanelRight, Trash,
   // Block tools
   Type, Image, Columns3, Layers, Minus, Play, Music,
   Megaphone, Quote, Mail, BarChart3, Code, Table, MapPin,
   Menu, PanelBottom, FileCode, GalleryHorizontal, LayoutTemplate,
-  Maximize2, ScanLine, Database
+  Maximize2, ScanLine
 } from 'lucide-react';
 import { LayoutPresets } from './LayoutPresets';
-import { CmsPanel } from './CmsPanel';
 import { AiModelSelector, type AiMode } from './AiModelSelector';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { usePageStore } from '@/lib/stores/page-store';
@@ -57,16 +56,18 @@ const QUICK_BLOCKS: { type: BlockType; icon: typeof Type; label: string; shortLa
 
 export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: ToolbarProps) {
   const {
-    theme, toggleTheme, deviceMode, setDeviceMode,
+    deviceMode, setDeviceMode,
     showGrid, toggleGrid, gridSize, setGridSize, showOutlines, toggleOutlines,
     aiPanelOpen, setAiPanelOpen, zoom, setZoom, zoomIn, zoomOut, resetZoom,
     leftPanelOpen, setLeftPanelOpen, rightPanelOpen, setRightPanelOpen,
   } = useUiStore();
 
-  const { undo, redo, canUndo, canRedo, addBlock } = usePageStore();
+  // CSS variable for active button state
+  const activeButtonStyle = { background: "var(--c-accent-soft)", color: "var(--c-accent)" };
+
+  const { undo, redo, canUndo, canRedo, addBlock, setBlocks } = usePageStore();
   const [showBlockTools, setShowBlockTools] = useState(false);
   const [showLayoutPresets, setShowLayoutPresets] = useState(false);
-  const [showCms, setShowCms] = useState(false);
   const [aiModel, setAiModel] = useState<AiMode>('gemini');
 
   const addQuickBlock = (type: BlockType) => {
@@ -103,7 +104,7 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
           variant="ghost" size="xs"
           onClick={() => setRightPanelOpen(!rightPanelOpen)}
           title="Pannello proprieta"
-          className={cn(rightPanelOpen && 'bg-blue-50 dark:bg-blue-950 text-blue-600')}
+          style={rightPanelOpen ? activeButtonStyle : {}}
         >
           <PanelRight size={16} />
         </Button>
@@ -131,7 +132,7 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
             size="xs"
             onClick={() => setDeviceMode(mode)}
             title={label}
-            className={cn(deviceMode === mode && 'bg-blue-50 dark:bg-blue-950 text-blue-600')}
+            style={deviceMode === mode ? activeButtonStyle : {}}
           >
             <Icon size={15} />
           </Button>
@@ -148,34 +149,38 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
           {/* Zoom dropdown with presets */}
           <div className="relative group">
             <button
-              className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 min-w-[42px] text-center hover:text-blue-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 px-1.5 py-1 rounded"
+              style={{ color: "var(--c-text-2)" }}
+              className="text-[10px] font-mono min-w-[42px] text-center hover:text-accent px-1.5 py-1 rounded"
               title="Zoom - click per preset"
             >
               {Math.round(zoom * 100)}%
             </button>
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white dark:bg-zinc-800 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-700 z-[100] hidden group-hover:block w-28 py-1">
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 rounded-lg shadow-xl z-[100] hidden group-hover:block w-28 py-1" style={{ background: "var(--c-bg-1)", borderColor: "var(--c-border)", border: "1px solid var(--c-border)" }}>
               {[25, 33, 50, 67, 75, 100, 125, 150, 200].map((pct) => (
                 <button
                   key={pct}
                   onClick={() => setZoom(pct / 100)}
-                  className={cn(
-                    'w-full px-3 py-1 text-[10px] font-mono text-left hover:bg-blue-50 dark:hover:bg-blue-950',
-                    Math.round(zoom * 100) === pct ? 'text-blue-600 font-bold' : 'text-zinc-600 dark:text-zinc-400'
-                  )}
+                  style={{
+                    color: Math.round(zoom * 100) === pct ? "var(--c-accent)" : "var(--c-text-1)",
+                    fontWeight: Math.round(zoom * 100) === pct ? "bold" : "normal"
+                  }}
+                  className="w-full px-3 py-1 text-[10px] font-mono text-left hover:text-accent"
                 >
                   {pct}%
                 </button>
               ))}
-              <div className="border-t border-zinc-100 dark:border-zinc-700 my-1" />
+              <div className="border-t my-1" style={{ borderColor: "var(--c-border)" }} />
               <button
                 onClick={() => (window as unknown as Record<string, unknown>).__canvasFitWidth && ((window as unknown as Record<string, unknown>).__canvasFitWidth as () => void)()}
-                className="w-full px-3 py-1 text-[10px] text-left text-zinc-600 dark:text-zinc-400 hover:bg-blue-50 dark:hover:bg-blue-950"
+                style={{ color: "var(--c-text-1)" }}
+                className="w-full px-3 py-1 text-[10px] text-left hover:text-accent"
               >
                 Adatta larghezza
               </button>
               <button
                 onClick={() => (window as unknown as Record<string, unknown>).__canvasFitAll && ((window as unknown as Record<string, unknown>).__canvasFitAll as () => void)()}
-                className="w-full px-3 py-1 text-[10px] text-left text-zinc-600 dark:text-zinc-400 hover:bg-blue-50 dark:hover:bg-blue-950"
+                style={{ color: "var(--c-text-1)" }}
+                className="w-full px-3 py-1 text-[10px] text-left hover:text-accent"
               >
                 Inquadra tutto
               </button>
@@ -217,7 +222,7 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
         {/* Grid & Outlines */}
         <Button
           variant="ghost" size="xs" onClick={toggleGrid} title="Griglia"
-          className={cn(showGrid && 'bg-blue-50 dark:bg-blue-950 text-blue-600')}
+          style={showGrid ? activeButtonStyle : {}}
         >
           <Grid3X3 size={15} />
         </Button>
@@ -225,7 +230,8 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
           <select
             value={gridSize}
             onChange={(e) => setGridSize(Number(e.target.value))}
-            className="h-7 text-[11px] bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded px-1 text-zinc-700 dark:text-zinc-300"
+            style={{ background: "var(--c-bg-2)", color: "var(--c-text-0)", borderColor: "var(--c-border)" }}
+            className="h-7 text-[11px] border rounded px-1"
             title="Dimensione griglia"
           >
             <option value={1}>1px</option>
@@ -238,7 +244,7 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
         )}
         <Button
           variant="ghost" size="xs" onClick={toggleOutlines} title="Contorni"
-          className={cn(showOutlines && 'bg-blue-50 dark:bg-blue-950 text-blue-600')}
+          style={showOutlines ? activeButtonStyle : {}}
         >
           <SquareDashed size={15} />
         </Button>
@@ -264,10 +270,19 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
           <span className="hidden lg:inline text-xs">Layout</span>
         </Button>
 
-        {/* CMS Connection */}
-        <Button variant="outline" size="xs" onClick={() => setShowCms(true)} title="Connetti CMS Editoriale">
-          <Database size={15} />
-          <span className="hidden lg:inline text-xs">CMS</span>
+        {/* Clear Page */}
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={() => {
+            if (confirm('Svuotare la pagina? Questa azione non può essere annullata.')) {
+              setBlocks([]);
+            }
+          }}
+          title="Svuota pagina"
+        >
+          <Trash size={15} />
+          <span className="hidden lg:inline text-xs">Svuota</span>
         </Button>
 
         {/* AI Model Selector */}
@@ -284,15 +299,11 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
           <span className="hidden lg:inline text-xs">AI</span>
         </Button>
 
-        {/* Theme */}
-        <Button variant="ghost" size="xs" onClick={toggleTheme} title="Tema">
-          {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
-        </Button>
       </div>
 
       {/* Secondary toolbar - Quick add blocks */}
-      <div className="h-9 bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-3 gap-0.5 overflow-x-auto">
-        <span className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mr-2 shrink-0">
+      <div className="h-9 border-b flex items-center px-3 gap-0.5 overflow-x-auto" style={{ background: "var(--c-bg-2)", borderColor: "var(--c-border)" }}>
+        <span className="text-[10px] font-semibold uppercase tracking-wider mr-2 shrink-0" style={{ color: "var(--c-text-2)" }}>
           Aggiungi:
         </span>
         {QUICK_BLOCKS.map(({ type, icon: Icon, label, shortLabel }) => (
@@ -300,7 +311,8 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
             key={type}
             onClick={() => addQuickBlock(type)}
             title={`Aggiungi ${label}`}
-            className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium text-zinc-600 dark:text-zinc-400 hover:bg-blue-50 dark:hover:bg-blue-950 hover:text-blue-600 transition-colors shrink-0 whitespace-nowrap"
+            style={{ color: "var(--c-text-1)" }}
+            className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium hover:text-accent transition-colors shrink-0 whitespace-nowrap"
           >
             <Icon size={12} />
             <span className="hidden xl:inline">{shortLabel}</span>
@@ -309,9 +321,6 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
       </div>
       {/* Layout Presets Modal */}
       <LayoutPresets open={showLayoutPresets} onClose={() => setShowLayoutPresets(false)} />
-
-      {/* CMS Panel Modal */}
-      <CmsPanel open={showCms} onClose={() => setShowCms(false)} />
     </div>
   );
 }

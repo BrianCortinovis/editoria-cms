@@ -3,10 +3,11 @@
 import { usePageStore } from '@/lib/stores/page-store';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { StyleEditor } from './StyleEditor';
+import { AnimationEditor } from './AnimationEditor';
 import { SnapGridSettings, OverlayEditor, ButtonEditor, ShapeTools, PositionSizeEditor } from './AdvancedTools';
 import { ColorPaletteManager } from '@/components/builder/ColorPaletteManager';
 import { cn } from '@/lib/utils/cn';
-import { Paintbrush, Settings2, Pentagon, Smartphone, Move, Palette, Layers, MousePointerClick } from 'lucide-react';
+import { Paintbrush, Settings2, Pentagon, Smartphone, Move, Palette, Layers, MousePointerClick, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Toggle } from '@/components/ui/toggle';
 import { useState } from 'react';
@@ -22,6 +23,7 @@ export function RightPanel() {
   const tabs = [
     { id: 'properties' as const, icon: Settings2, label: 'Props' },
     { id: 'style' as const, icon: Paintbrush, label: 'Stile' },
+    { id: 'animation' as const, icon: Sparkles, label: 'Anim' },
     { id: 'shape' as const, icon: Pentagon, label: 'Forma' },
     { id: 'position' as const, icon: Move, label: 'Pos.' },
     { id: 'tools' as const, icon: Layers, label: 'Tools' },
@@ -29,15 +31,15 @@ export function RightPanel() {
 
   if (!block) {
     return (
-      <div className="h-full flex flex-col bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800">
-        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
-          <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Strumenti</h3>
-          <p className="text-[10px] text-zinc-400">Seleziona un blocco o usa gli strumenti globali</p>
+      <div className="h-full flex flex-col border-l" style={{ background: 'var(--c-bg-0)', borderColor: 'var(--c-border)' }}>
+        <div className="p-4 border-b" style={{ borderColor: 'var(--c-border)' }}>
+          <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--c-text-0)' }}>Strumenti</h3>
+          <p className="text-[10px]" style={{ color: 'var(--c-text-2)' }}>Seleziona un blocco o usa gli strumenti globali</p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <SnapGridSettings />
-          <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-3">
-            <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+          <div className="border rounded-lg p-3" style={{ borderColor: 'var(--c-border)' }}>
+            <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 mb-3" style={{ color: 'var(--c-text-1)' }}>
               <Palette size={12} /> Palette Colori Progetto
             </h4>
             <ColorPaletteManager currentPalette={projectPalette} onChange={setProjectPalette} />
@@ -48,23 +50,24 @@ export function RightPanel() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800">
+    <div className="h-full flex flex-col border-l" style={{ background: 'var(--c-bg-0)', borderColor: 'var(--c-border)' }}>
       {/* Block header */}
-      <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
+      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--c-border)' }}>
         <div className="flex items-center justify-between">
           <div className="min-w-0">
             <input
               value={block.label}
               onChange={(e) => updateBlock(block.id, { label: e.target.value })}
-              className="text-sm font-semibold bg-transparent border-none outline-none text-zinc-800 dark:text-zinc-200 w-full"
+              className="text-sm font-semibold bg-transparent border-none outline-none w-full"
+              style={{ color: 'var(--c-text-0)' }}
             />
-            <span className="text-[10px] text-zinc-400 font-mono">{block.type} · {block.id.slice(0, 6)}</span>
+            <span className="text-[10px] font-mono" style={{ color: 'var(--c-text-2)' }}>{block.type} · {block.id.slice(0, 6)}</span>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-zinc-200 dark:border-zinc-800">
+      <div className="flex border-b" style={{ borderColor: 'var(--c-border)' }}>
         {tabs.map(({ id, icon: Icon, label }) => (
           <button
             key={id}
@@ -72,9 +75,10 @@ export function RightPanel() {
             className={cn(
               'flex-1 flex items-center justify-center gap-1 px-1 py-2 text-[9px] font-medium transition-colors',
               rightPanelTab === id
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                ? 'border-b-2 border-blue-600'
+                : ''
             )}
+            style={rightPanelTab !== id ? { color: 'var(--c-text-1)' } : undefined}
             title={label}
           >
             <Icon size={11} />
@@ -87,6 +91,7 @@ export function RightPanel() {
       <div className="flex-1 overflow-y-auto p-4">
         {rightPanelTab === 'properties' && <PropertiesEditor block={block} projectPalette={projectPalette} />}
         {rightPanelTab === 'style' && <StyleEditor block={block} />}
+        {rightPanelTab === 'animation' && <AnimationEditor block={block} />}
         {rightPanelTab === 'shape' && <ShapeTabContent block={block} />}
         {rightPanelTab === 'position' && <PositionSizeEditor block={block} />}
         {rightPanelTab === 'tools' && <ToolsTabContent block={block} projectPalette={projectPalette} onPaletteChange={setProjectPalette} />}
@@ -126,7 +131,7 @@ function PropertiesEditor({ block, projectPalette }: { block: Block; projectPale
         </div>
       ))}
       {editableFields.length === 0 && (
-        <p className="text-xs text-zinc-400 text-center py-4">Nessuna proprieta semplice modificabile</p>
+        <p className="text-xs text-center py-4" style={{ color: 'var(--c-text-2)' }}>Nessuna proprieta semplice modificabile</p>
       )}
     </div>
   );
@@ -172,7 +177,7 @@ function DividerSection({ label, config, block, position }: { label: string; con
 
   return (
     <div className="space-y-2">
-      <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{label}</h4>
+      <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--c-text-1)' }}>{label}</h4>
       <Select
         label="Forma"
         value={config?.shape || 'none'}
@@ -203,8 +208,8 @@ function ToolsTabContent({ block, projectPalette, onPaletteChange }: { block: Bl
       <SnapGridSettings />
       <OverlayEditor block={block} />
       <ButtonEditor block={block} />
-      <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-3">
-        <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+      <div className="border rounded-lg p-3" style={{ borderColor: 'var(--c-border)' }}>
+        <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 mb-3" style={{ color: 'var(--c-text-1)' }}>
           <Palette size={12} /> Palette Colori
         </h4>
         <ColorPaletteManager currentPalette={projectPalette} onChange={onPaletteChange} />

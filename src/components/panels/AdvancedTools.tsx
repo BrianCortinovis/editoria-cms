@@ -29,8 +29,8 @@ export function SnapGridSettings() {
   const [showRulers, setShowRulers] = useState(false);
 
   return (
-    <div className="space-y-3 p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg">
-      <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+    <div className="space-y-3 p-3 border rounded-lg" style={{ borderColor: 'var(--c-border)' }}>
+      <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--c-text-1)' }}>
         <Magnet size={12} /> Griglia & Snap
       </h4>
 
@@ -56,11 +56,19 @@ export function SnapGridSettings() {
                 key={v}
                 onClick={() => setSnapSize(v)}
                 className={cn(
-                  'px-2 py-0.5 rounded text-[10px] font-mono',
-                  snapSize === v
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200'
+                  'px-2 py-0.5 rounded text-[10px] font-mono transition-colors'
                 )}
+                style={snapSize === v ? { background: '#3b82f6', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+                onMouseEnter={(e) => {
+                  if (snapSize !== v) {
+                    e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (snapSize !== v) {
+                    e.currentTarget.style.background = 'var(--c-bg-1)';
+                  }
+                }}
               >
                 {v}px
               </button>
@@ -94,8 +102,8 @@ export function OverlayEditor({ block }: OverlayEditorProps) {
   const overlayBlur = (props.overlayBlur as number) || 0;
 
   return (
-    <div className="space-y-3 p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg">
-      <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+    <div className="space-y-3 p-3 border rounded-lg" style={{ borderColor: 'var(--c-border)' }}>
+      <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--c-text-1)' }}>
         <Layers size={12} /> Overlay Testo su Immagine
       </h4>
 
@@ -198,16 +206,16 @@ export function ButtonEditor({ block }: { block: Block }) {
   };
 
   return (
-    <div className="space-y-3 p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg">
+    <div className="space-y-3 p-3 border rounded-lg" style={{ borderColor: 'var(--c-border)' }}>
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+        <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--c-text-1)' }}>
           <MousePointerClick size={12} /> Pulsanti Interattivi
         </h4>
-        <button onClick={addButton} className="text-[10px] text-blue-500 hover:text-blue-600 font-medium">+ Aggiungi</button>
+        <button onClick={addButton} className="text-[10px] font-medium transition-colors" style={{ color: '#3b82f6' }} onMouseEnter={(e) => (e.currentTarget.style.color = '#1d4ed8')} onMouseLeave={(e) => (e.currentTarget.style.color = '#3b82f6')}>+ Aggiungi</button>
       </div>
 
       {buttons.map((btn) => (
-        <div key={btn.id} className="p-2 bg-zinc-50 dark:bg-zinc-800 rounded-lg space-y-2">
+        <div key={btn.id} className="p-2 rounded-lg space-y-2" style={{ background: 'var(--c-bg-1)' }}>
           <div className="flex gap-2">
             <Input label="Testo" value={btn.text} onChange={(e) => updateButton(btn.id, { text: e.target.value })} />
             <Input label="URL" value={btn.url} onChange={(e) => updateButton(btn.id, { url: e.target.value })} />
@@ -241,7 +249,7 @@ export function ButtonEditor({ block }: { block: Block }) {
             <div className="flex-1"><ColorPicker label="Testo" value={btn.textColor} onChange={(v) => updateButton(btn.id, { textColor: v })} /></div>
           </div>
           <Input label="Border Radius" value={btn.borderRadius} onChange={(e) => updateButton(btn.id, { borderRadius: e.target.value })} placeholder="8px" />
-          <button onClick={() => removeButton(btn.id)} className="text-[10px] text-red-500 hover:text-red-600">Rimuovi pulsante</button>
+          <button onClick={() => removeButton(btn.id)} className="text-[10px] transition-colors" style={{ color: '#ef4444' }} onMouseEnter={(e) => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={(e) => (e.currentTarget.style.color = '#ef4444')}>Rimuovi pulsante</button>
         </div>
       ))}
     </div>
@@ -284,7 +292,7 @@ export function ShapeTools({ block }: { block: Block }) {
 
   return (
     <div className="space-y-3">
-      <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+      <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--c-text-1)' }}>
         <Pentagon size={12} /> Forme Blocco
       </h4>
 
@@ -307,11 +315,19 @@ export function ShapeTools({ block }: { block: Block }) {
                 }
               }}
               className={cn(
-                'flex flex-col items-center gap-1 p-2 rounded-lg text-[9px] transition-colors',
-                isActive
-                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 ring-1 ring-blue-400'
-                  : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                'flex flex-col items-center gap-1 p-2 rounded-lg text-[9px] transition-colors'
               )}
+              style={isActive ? { background: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6', boxShadow: '0 0 0 1px #3b82f6' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = 'var(--c-bg-1)';
+                }
+              }}
               title={shape.name}
             >
               <div
@@ -358,7 +374,7 @@ export function PositionSizeEditor({ block }: { block: Block }) {
 
   return (
     <div className="space-y-3">
-      <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+      <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--c-text-1)' }}>
         <Move size={12} /> Posizione & Dimensione
       </h4>
 
@@ -417,7 +433,7 @@ export function PositionSizeEditor({ block }: { block: Block }) {
 
       {/* Fine-grained padding */}
       <div>
-        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">Padding (px precision)</span>
+        <span className="text-xs font-medium mb-1 block" style={{ color: 'var(--c-text-1)' }}>Padding (px precision)</span>
         <div className="grid grid-cols-4 gap-1">
           {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
             <div key={side} className="text-center">
@@ -426,10 +442,15 @@ export function PositionSizeEditor({ block }: { block: Block }) {
                 onChange={(e) => updateBlockStyle(block.id, {
                   layout: { ...s.layout, padding: { ...s.layout.padding, [side]: e.target.value } }
                 })}
-                className="w-full px-1 py-1 text-[10px] text-center rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                className="w-full px-1 py-1 text-[10px] text-center rounded border"
+                style={{
+                  borderColor: 'var(--c-border)',
+                  background: 'var(--c-bg-1)',
+                  color: 'var(--c-text-0)',
+                }}
                 placeholder="0"
               />
-              <span className="text-[8px] text-zinc-400">{side[0].toUpperCase()}</span>
+              <span className="text-[8px]" style={{ color: 'var(--c-text-2)' }}>{side[0].toUpperCase()}</span>
             </div>
           ))}
         </div>
@@ -437,7 +458,7 @@ export function PositionSizeEditor({ block }: { block: Block }) {
 
       {/* Fine-grained margin */}
       <div>
-        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">Margine (px precision)</span>
+        <span className="text-xs font-medium mb-1 block" style={{ color: 'var(--c-text-1)' }}>Margine (px precision)</span>
         <div className="grid grid-cols-4 gap-1">
           {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
             <div key={side} className="text-center">
@@ -446,10 +467,15 @@ export function PositionSizeEditor({ block }: { block: Block }) {
                 onChange={(e) => updateBlockStyle(block.id, {
                   layout: { ...s.layout, margin: { ...s.layout.margin, [side]: e.target.value } }
                 })}
-                className="w-full px-1 py-1 text-[10px] text-center rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                className="w-full px-1 py-1 text-[10px] text-center rounded border"
+                style={{
+                  borderColor: 'var(--c-border)',
+                  background: 'var(--c-bg-1)',
+                  color: 'var(--c-text-0)',
+                }}
                 placeholder="0"
               />
-              <span className="text-[8px] text-zinc-400">{side[0].toUpperCase()}</span>
+              <span className="text-[8px]" style={{ color: 'var(--c-text-2)' }}>{side[0].toUpperCase()}</span>
             </div>
           ))}
         </div>

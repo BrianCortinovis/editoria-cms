@@ -29,12 +29,14 @@ function LayerItem({ block, depth = 0 }: { block: Block; depth?: number }) {
       <div
         className={cn(
           'flex items-center gap-1 px-2 py-1 cursor-pointer transition-colors rounded-md mx-1',
-          'hover:bg-zinc-100 dark:hover:bg-zinc-800',
-          isSelected && 'bg-blue-50 dark:bg-blue-950 text-blue-600',
-          isHovered && !isSelected && 'bg-zinc-50 dark:bg-zinc-850',
+          isSelected && 'text-blue-600',
           block.hidden && 'opacity-40'
         )}
-        style={{ paddingLeft: 8 + depth * 16 }}
+        style={{
+          paddingLeft: 8 + depth * 16,
+          background: isSelected ? 'rgba(59, 130, 246, 0.1)' : isHovered ? 'var(--c-bg-1)' : '',
+          color: isSelected ? '#3b82f6' : 'var(--c-text-0)',
+        }}
         onClick={() => selectBlock(block.id)}
         onMouseEnter={() => hoverBlock(block.id)}
         onMouseLeave={() => hoverBlock(null)}
@@ -56,13 +58,19 @@ function LayerItem({ block, depth = 0 }: { block: Block; depth?: number }) {
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
           <button
             onClick={(e) => { e.stopPropagation(); updateBlock(block.id, { hidden: !block.hidden }); }}
-            className="p-0.5 text-zinc-400 hover:text-zinc-600"
+            className="p-0.5 transition-colors"
+            style={{ color: 'var(--c-text-2)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--c-text-1)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--c-text-2)')}
           >
             {block.hidden ? <EyeOff size={10} /> : <Eye size={10} />}
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); updateBlock(block.id, { locked: !block.locked }); }}
-            className="p-0.5 text-zinc-400 hover:text-zinc-600"
+            className="p-0.5 transition-colors"
+            style={{ color: 'var(--c-text-2)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--c-text-1)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--c-text-2)')}
           >
             {block.locked ? <Lock size={10} /> : <Unlock size={10} />}
           </button>
@@ -86,7 +94,7 @@ export function LayerTree() {
   return (
     <div className="py-2">
       {blocks.length === 0 ? (
-        <p className="text-xs text-zinc-400 text-center py-8">
+        <p className="text-xs text-center py-8" style={{ color: 'var(--c-text-2)' }}>
           Nessun blocco nella pagina
         </p>
       ) : (

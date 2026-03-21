@@ -108,12 +108,55 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Ctrl/Cmd+S: Save
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         handleSave();
       }
+      // Escape: Exit preview
       if (e.key === 'Escape' && previewMode) {
         setPreviewMode(false);
+      }
+      // Delete/Backspace: Delete selected block
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !previewMode) {
+        const { selectedBlockId, removeBlock } = usePageStore.getState();
+        if (selectedBlockId) {
+          e.preventDefault();
+          removeBlock(selectedBlockId);
+        }
+      }
+      // Ctrl/Cmd+D: Duplicate selected block
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd' && !previewMode) {
+        e.preventDefault();
+        const { selectedBlockId, duplicateBlock } = usePageStore.getState();
+        if (selectedBlockId) {
+          duplicateBlock(selectedBlockId);
+        }
+      }
+      // Ctrl/Cmd+C: Copy selected block (store in localStorage)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !previewMode) {
+        const { selectedBlockId, blocks } = usePageStore.getState();
+        if (selectedBlockId) {
+          const block = blocks.find(b => b.id === selectedBlockId);
+          if (block) {
+            localStorage.setItem('copiedBlock', JSON.stringify(block));
+          }
+        }
+      }
+      // Ctrl/Cmd+V: Paste copied block
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !previewMode) {
+        e.preventDefault();
+        try {
+          const copied = localStorage.getItem('copiedBlock');
+          if (copied) {
+            const block = JSON.parse(copied);
+            block.id = generateId();
+            const { addBlock } = usePageStore.getState();
+            addBlock(block);
+          }
+        } catch (err) {
+          console.error('Paste error:', err);
+        }
       }
     };
     window.addEventListener('keydown', handler);
@@ -177,7 +220,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
       <div className="h-full w-full flex flex-col" style={{ background: "var(--c-bg-0)" }}>
         {/* Recovered work notification */}
         {recovered && (
-          <div className="bg-green-500 text-white text-sm text-center py-2 px-4 flex items-center justify-center gap-2 shrink-0 z-[100]">
+          <div className="text-sm text-center py-2 px-4 flex items-center justify-center gap-2 shrink-0 z-[100]" style={{ background: 'var(--c-success)', color: 'white' }}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm3.35 5.35l-4 4a.5.5 0 01-.7 0l-2-2a.5.5 0 01.7-.7L7 9.29l3.65-3.64a.5.5 0 01.7.7z" fill="currentColor"/></svg>
             Lavoro recuperato automaticamente
             <button onClick={() => setRecovered(false)} className="ml-2 underline opacity-80 hover:opacity-100">OK</button>
@@ -198,7 +241,8 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
               <LeftPanel />
               <button
                 onClick={() => setLeftPanelOpen(false)}
-                className="absolute top-2 right-2 p-1 rounded bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 z-10"
+                className="absolute top-2 right-2 p-1 rounded z-10"
+                style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-2)' }}
                 title="Chiudi pannello"
               >
                 <ChevronLeft size={14} />
@@ -207,7 +251,8 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           ) : (
             <button
               onClick={() => setLeftPanelOpen(true)}
-              className="w-8 shrink-0 flex items-center justify-center bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-400"
+              className="w-8 shrink-0 flex items-center justify-center border-r"
+              style={{ background: 'var(--c-bg-1)', borderColor: 'var(--c-border)', color: 'var(--c-text-2)' }}
               title="Apri blocchi"
             >
               <PanelLeft size={14} />
@@ -227,7 +272,8 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
               <RightPanel />
               <button
                 onClick={() => setRightPanelOpen(false)}
-                className="absolute top-2 left-2 p-1 rounded bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 z-10"
+                className="absolute top-2 left-2 p-1 rounded text-zinc-500 z-10"
+                style={{ background: 'var(--c-bg-2)' }}
                 title="Chiudi pannello"
               >
                 <ChevronRight size={14} />
@@ -236,7 +282,8 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           ) : (
             <button
               onClick={() => setRightPanelOpen(true)}
-              className="w-8 shrink-0 flex items-center justify-center bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-400"
+              className="w-8 shrink-0 flex items-center justify-center border-l"
+              style={{ background: 'var(--c-bg-1)', borderColor: 'var(--c-border)', color: 'var(--c-text-2)' }}
               title="Apri proprieta"
             >
               <PanelRight size={14} />

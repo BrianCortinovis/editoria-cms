@@ -21,6 +21,12 @@ export type AiTaskType =
   | 'creative-suggest'
   | 'color-palette'
   | 'image-prompt'
+  // Graphics tasks → OpenAI/Claude/Gemini
+  | 'suggest-gradient'
+  | 'suggest-clip-path'
+  | 'suggest-animation'
+  | 'suggest-effects'
+  | 'suggest-divider'
   // Realtime tasks → Ollama
   | 'autocomplete'
   | 'quick-rewrite'
@@ -102,6 +108,11 @@ export const TASK_PROVIDER_MAP: Record<AiTaskType, AiProvider> = {
   'creative-suggest': 'openai',
   'color-palette': 'openai',
   'image-prompt': 'openai',
+  'suggest-gradient': 'openai',
+  'suggest-clip-path': 'claude',
+  'suggest-animation': 'gemini',
+  'suggest-effects': 'openai',
+  'suggest-divider': 'gemini',
   'autocomplete': 'ollama',
   'quick-rewrite': 'ollama',
   'field-assist': 'gemini',

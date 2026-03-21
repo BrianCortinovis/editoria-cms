@@ -78,31 +78,44 @@ function ResizeHandle({ dir, onDrag }: {
   return (
     <div
       onMouseDown={onMouseDown}
-      style={{ position: 'absolute', zIndex: 70, ...styles[dir] }}
       className={cn(
         isCorner
-          ? 'bg-white border-2 border-blue-500 rounded-sm shadow-md hover:bg-blue-500 hover:border-blue-600 transition-colors'
+          ? 'border-2 rounded-sm shadow-md transition-colors'
           : 'group/handle'
       )}
+      style={isCorner ? {
+        position: 'absolute',
+        zIndex: 70,
+        ...styles[dir],
+        background: 'var(--c-bg-0)',
+        borderColor: 'var(--c-accent)',
+        borderWidth: '2px'
+      } : { position: 'absolute', zIndex: 70, ...styles[dir] }}
     >
       {/* Edge handles: show a thick blue line */}
       {!isCorner && (
         <div
-          className={cn(
-            'absolute bg-blue-500 rounded-full transition-all',
-            'opacity-60 hover:opacity-100',
-            isHoriz ? 'w-1 left-1/2 -translate-x-1/2 top-2 bottom-2' : 'h-1 top-1/2 -translate-y-1/2 left-2 right-2'
-          )}
+          className="absolute rounded-full transition-all opacity-60 hover:opacity-100"
+          style={{
+            background: 'var(--c-accent)',
+            ...(isHoriz ? { width: '4px', left: '50%', transform: 'translateX(-50%)', top: '8px', bottom: '8px' } : { height: '4px', top: '50%', transform: 'translateY(-50%)', left: '8px', right: '8px' })
+          }}
         />
       )}
       {/* Mid-point knob on edges */}
       {!isCorner && (
         <div
-          className={cn(
-            'absolute bg-white border-2 border-blue-500 rounded-full shadow-sm',
-            'w-3 h-3',
-            isHoriz ? 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2' : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
-          )}
+          className="absolute rounded-full shadow-sm"
+          style={{
+            background: 'var(--c-bg-0)',
+            borderColor: 'var(--c-accent)',
+            borderWidth: '2px',
+            width: '12px',
+            height: '12px',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)'
+          }}
         />
       )}
     </div>
@@ -473,7 +486,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
       {selected && !isDragging && (
         <>
           {/* Selection border */}
-          <div className="absolute inset-0 pointer-events-none border-2 border-blue-500 z-40" style={{ borderRadius: block.style.border.radius }} />
+          <div className="absolute inset-0 pointer-events-none border-2 z-40" style={{ borderRadius: block.style.border.radius, borderColor: 'var(--c-accent)' }} />
 
           {/* 8 resize handles - BIG and visible */}
           <ResizeHandle dir="n" onDrag={handleResize} />
@@ -493,98 +506,100 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
             onClick={(e) => e.stopPropagation()}
           >
             {/* Main toolbar bar */}
-            <div className="flex items-center gap-1 bg-blue-600 rounded-xl px-3 py-1.5 shadow-lg">
+            <div className="flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg" style={{ background: 'var(--c-accent)' }}>
               {/* Drag handle - free movement */}
-              <button onMouseDown={handleFreeDragStart} className="p-2 text-blue-200 hover:text-white cursor-grab active:cursor-grabbing rounded-lg hover:bg-blue-500" title="Trascina per spostare liberamente">
+              <button onMouseDown={handleFreeDragStart} className="p-2 cursor-grab active:cursor-grabbing rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Trascina per spostare liberamente">
                 <Move size={20} />
               </button>
 
-              <div className="w-px h-7 bg-blue-400/50 mx-1" />
+              <div className="w-px h-7 mx-1" style={{ background: 'rgba(0,0,0,0.2)' }} />
 
               {/* Label */}
-              <span className="text-[13px] text-blue-100 px-1.5 font-semibold select-none max-w-[140px] truncate">
+              <span className="text-[13px] px-1.5 font-semibold select-none max-w-[140px] truncate" style={{ color: 'var(--c-bg-0)' }}>
                 {block.label}
               </span>
 
-              <div className="w-px h-7 bg-blue-400/50 mx-1" />
+              <div className="w-px h-7 mx-1" style={{ background: 'rgba(0,0,0,0.2)' }} />
 
               {/* Nudge 1px arrows */}
-              <button onClick={() => nudge(-1, 0)} className="p-1.5 text-blue-200 hover:text-white rounded-lg hover:bg-blue-500" title="Sinistra 1px">
+              <button onClick={() => nudge(-1, 0)} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Sinistra 1px">
                 <ArrowLeft size={16} />
               </button>
-              <button onClick={() => nudge(0, -1)} className="p-1.5 text-blue-200 hover:text-white rounded-lg hover:bg-blue-500" title="Su 1px">
+              <button onClick={() => nudge(0, -1)} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Su 1px">
                 <ArrowUp size={16} />
               </button>
-              <button onClick={() => nudge(0, 1)} className="p-1.5 text-blue-200 hover:text-white rounded-lg hover:bg-blue-500" title="Giu 1px">
+              <button onClick={() => nudge(0, 1)} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Giu 1px">
                 <ArrowDown size={16} />
               </button>
-              <button onClick={() => nudge(1, 0)} className="p-1.5 text-blue-200 hover:text-white rounded-lg hover:bg-blue-500" title="Destra 1px">
+              <button onClick={() => nudge(1, 0)} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Destra 1px">
                 <ArrowRight size={16} />
               </button>
 
-              <div className="w-px h-7 bg-blue-400/50 mx-1" />
+              <div className="w-px h-7 mx-1" style={{ background: 'rgba(0,0,0,0.2)' }} />
 
               {/* Snap magnet */}
               <button
                 onClick={() => setSnapEnabled(!snapEnabled)}
-                className={cn('p-2 rounded-lg', snapEnabled ? 'text-white bg-blue-500' : 'text-blue-200 hover:text-white hover:bg-blue-500')}
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: 'var(--c-bg-0)', background: snapEnabled ? 'rgba(0,0,0,0.2)' : 'transparent' }} onMouseEnter={(e) => !snapEnabled && (e.currentTarget.style.background = 'rgba(0,0,0,0.1)')} onMouseLeave={(e) => !snapEnabled && (e.currentTarget.style.background = 'transparent')}
                 title={snapEnabled ? 'Magnete ON (5px)' : 'Magnete OFF'}
               >
                 <Magnet size={18} />
               </button>
 
               {/* Center horizontal on page */}
-              <button onClick={() => centerOnPage('h')} className="p-2 text-blue-200 hover:text-white rounded-lg hover:bg-blue-500" title="Centra orizzontale pagina">
+              <button onClick={() => centerOnPage('h')} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Centra orizzontale pagina">
                 <AlignCenterHorizontal size={18} />
               </button>
 
               {/* Center vertical on page */}
-              <button onClick={() => centerOnPage('v')} className="p-2 text-blue-200 hover:text-white rounded-lg hover:bg-blue-500" title="Centra verticale pagina">
+              <button onClick={() => centerOnPage('v')} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Centra verticale pagina">
                 <AlignCenterVertical size={18} />
               </button>
 
-              <div className="w-px h-7 bg-blue-400/50 mx-1" />
+              <div className="w-px h-7 mx-1" style={{ background: 'rgba(0,0,0,0.2)' }} />
 
               {/* Mirror resize */}
               <button
                 onClick={() => setMirrorResize(!mirrorResize)}
-                className={cn('p-2 rounded-lg', mirrorResize ? 'text-white bg-blue-500' : 'text-blue-200 hover:text-white hover:bg-blue-500')}
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: 'var(--c-bg-0)', background: mirrorResize ? 'rgba(0,0,0,0.2)' : 'transparent' }} onMouseEnter={(e) => !mirrorResize && (e.currentTarget.style.background = 'rgba(0,0,0,0.1)')} onMouseLeave={(e) => !mirrorResize && (e.currentTarget.style.background = 'transparent')}
                 title={mirrorResize ? 'Resize speculare ON' : 'Resize speculare OFF'}
               >
                 <FlipHorizontal2 size={18} />
               </button>
 
               {/* Duplicate */}
-              <button onClick={() => duplicateBlock(block.id)} className="p-2 text-blue-200 hover:text-white rounded-lg hover:bg-blue-500" title="Duplica (Ctrl+D)">
+              <button onClick={() => duplicateBlock(block.id)} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Duplica (Ctrl+D)">
                 <Copy size={18} />
               </button>
 
               {/* Settings */}
-              <button onClick={() => { setRightPanelOpen(true); setRightPanelTab('properties'); }} className="p-2 text-blue-200 hover:text-white rounded-lg hover:bg-blue-500" title="Proprieta">
+              <button onClick={() => { setRightPanelOpen(true); setRightPanelTab('properties'); }} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Proprieta">
                 <Settings2 size={18} />
               </button>
 
               {/* Visibility */}
-              <button onClick={() => updateBlock(block.id, { hidden: !block.hidden })} className="p-2 text-blue-200 hover:text-white rounded-lg hover:bg-blue-500" title={block.hidden ? 'Mostra' : 'Nascondi'}>
+              <button onClick={() => updateBlock(block.id, { hidden: !block.hidden })} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title={block.hidden ? 'Mostra' : 'Nascondi'}>
                 {block.hidden ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
 
               {/* Lock */}
-              <button onClick={() => updateBlock(block.id, { locked: !block.locked })} className="p-2 text-blue-200 hover:text-white rounded-lg hover:bg-blue-500" title={block.locked ? 'Sblocca' : 'Blocca'}>
+              <button onClick={() => updateBlock(block.id, { locked: !block.locked })} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title={block.locked ? 'Sblocca' : 'Blocca'}>
                 {block.locked ? <Lock size={18} /> : <Unlock size={18} />}
               </button>
 
-              <div className="w-px h-7 bg-blue-400/50 mx-1" />
+              <div className="w-px h-7 mx-1" style={{ background: 'rgba(0,0,0,0.2)' }} />
 
               {/* Delete */}
-              <button onClick={() => removeBlock(block.id)} className="p-2 text-blue-200 hover:text-red-300 rounded-lg hover:bg-red-500/30" title="Elimina (Delete)">
+              <button onClick={() => removeBlock(block.id)} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,59,48,0.2)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Elimina (Delete)">
                 <Trash2 size={18} />
               </button>
             </div>
           </div>
 
           {/* Dimensions + position badge */}
-          <div className="absolute bottom-2 right-2 bg-zinc-900/90 text-white text-sm font-mono px-3 py-1.5 rounded-lg z-50 pointer-events-none shadow-lg">
+          <div className="absolute bottom-2 right-2 text-sm font-mono px-3 py-1.5 rounded-lg z-50 pointer-events-none shadow-lg" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-0)' }}>
             {dims.w} × {dims.h} px {(() => { const t = parseTranslate(block.style.transform); return t.x || t.y ? ` · x:${t.x} y:${t.y}` : ''; })()}
           </div>
 
@@ -614,8 +629,8 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
       {/* Hover state (not selected) */}
       {isHovered && !selected && !isDragging && (
         <>
-          <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-blue-400/50 z-30" style={{ borderRadius: block.style.border.radius }} />
-          <div className="absolute top-1 left-1 bg-blue-500/80 text-white text-[9px] px-1.5 py-0.5 rounded z-40 pointer-events-none font-medium">
+          <div className="absolute inset-0 pointer-events-none border-2 border-dashed z-30" style={{ borderRadius: block.style.border.radius, borderColor: 'var(--c-accent)' }} />
+          <div className="absolute top-1 left-1 text-[9px] px-1.5 py-0.5 rounded z-40 pointer-events-none font-medium" style={{ background: 'var(--c-accent)', color: 'var(--c-bg-0)' }}>
             {block.label || block.type}
           </div>
         </>
@@ -647,9 +662,9 @@ function BlockContent({ block, isEditing }: { block: Block; isEditing: boolean }
     case 'section': case 'container': case 'columns': return null;
     default:
       return (
-        <div className="p-6 text-center text-sm text-zinc-500 dark:text-zinc-400 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg">
-          <span className="font-semibold text-base block mb-1">{block.label || block.type}</span>
-          <span className="text-xs opacity-60">Doppio click per configurare</span>
+        <div className="p-6 text-center text-sm border-2 border-dashed rounded-lg" style={{ color: 'var(--c-text-2)', borderColor: 'var(--c-border)' }}>
+          <span className="font-semibold text-base block mb-1" style={{ color: 'var(--c-text-1)' }}>{block.label || block.type}</span>
+          <span className="text-xs opacity-60" style={{ color: 'var(--c-text-2)' }}>Doppio click per configurare</span>
         </div>
       );
   }
@@ -663,7 +678,7 @@ function HeroContent({ block }: { block: Block }) {
       <div className="relative z-10">
         <h1 className="text-4xl md:text-5xl font-bold mb-4">{(p.title as string) || 'Titolo Hero'}</h1>
         {p.subtitle && <p className="text-xl opacity-80 mb-8">{p.subtitle as string}</p>}
-        {p.ctaText && <button className="px-8 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">{p.ctaText as string}</button>}
+        {p.ctaText && <button className="px-8 py-3 rounded-lg font-medium transition-colors" style={{ background: 'var(--c-accent)', color: 'var(--c-bg-0)' }}>{p.ctaText as string}</button>}
       </div>
     </div>
   );
@@ -690,8 +705,8 @@ function BannerAdContent({ block }: { block: Block }) {
   const p = block.props as { format: string; width: number; height: number; label: string; showLabel: boolean };
   return (
     <div className="flex flex-col items-center">
-      {p.showLabel && <span className="text-[10px] text-zinc-400 mb-1 uppercase tracking-wider">{p.label || 'Pubblicita'}</span>}
-      <div className="bg-zinc-200 dark:bg-zinc-800 border-2 border-dashed border-zinc-300 dark:border-zinc-600 flex items-center justify-center text-zinc-400 text-sm font-mono rounded" style={{ width: p.width || 728, height: p.height || 90, maxWidth: '100%' }}>
+      {p.showLabel && <span className="text-[10px] mb-1 uppercase tracking-wider" style={{ color: 'var(--c-text-2)' }}>{p.label || 'Pubblicita'}</span>}
+      <div className="border-2 border-dashed flex items-center justify-center text-sm font-mono rounded" style={{ width: p.width || 728, height: p.height || 90, maxWidth: '100%', background: 'var(--c-bg-1)', borderColor: 'var(--c-border)', color: 'var(--c-text-2)' }}>
         {p.format} ({p.width}x{p.height})
       </div>
     </div>
@@ -703,7 +718,7 @@ function QuoteContent({ block }: { block: Block }) {
   return (
     <blockquote>
       <p className="text-xl italic mb-4">&ldquo;{p.text || 'Citazione...'}&rdquo;</p>
-      {p.author && <cite className="text-sm text-zinc-500 not-italic">— {p.author}{p.source ? `, ${p.source}` : ''}</cite>}
+      {p.author && <cite className="text-sm not-italic" style={{ color: 'var(--c-text-2)' }}>— {p.author}{p.source ? `, ${p.source}` : ''}</cite>}
     </blockquote>
   );
 }
@@ -714,8 +729,8 @@ function NavigationContent({ block }: { block: Block }) {
     <nav className="flex items-center justify-between w-full">
       <span className="text-lg font-bold">{p.logo?.value || 'Logo'}</span>
       <div className="flex items-center gap-6">
-        {p.items?.map((item) => <span key={item.id} className="text-sm hover:text-blue-600 cursor-pointer transition-colors">{item.label}</span>)}
-        {p.ctaButton?.text && <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg">{p.ctaButton.text}</button>}
+        {p.items?.map((item) => <span key={item.id} className="text-sm cursor-pointer transition-colors" style={{ color: 'var(--c-text-1)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--c-accent)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--c-text-1)'}>{item.label}</span>)}
+        {p.ctaButton?.text && <button className="px-4 py-2 text-sm rounded-lg" style={{ background: 'var(--c-accent)', color: 'var(--c-bg-0)' }}>{p.ctaButton.text}</button>}
       </div>
     </nav>
   );
@@ -738,10 +753,10 @@ function NewsletterContent({ block }: { block: Block }) {
   return (
     <div className="text-center max-w-md mx-auto">
       <h3 className="text-2xl font-bold mb-2">{p.title}</h3>
-      <p className="text-sm opacity-70 mb-6">{p.description}</p>
+      <p className="text-sm opacity-70 mb-6" style={{ color: 'var(--c-text-1)' }}>{p.description}</p>
       <div className="flex gap-2">
-        <input className="flex-1 px-4 py-2 rounded-lg border border-zinc-300 text-sm" placeholder={p.placeholder} readOnly />
-        <button className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">{p.buttonText}</button>
+        <input className="flex-1 px-4 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)', color: 'var(--c-text-0)' }} placeholder={p.placeholder} readOnly />
+        <button className="px-6 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--c-accent)', color: 'var(--c-bg-0)' }}>{p.buttonText}</button>
       </div>
     </div>
   );
@@ -1819,8 +1834,8 @@ function CarouselContent({ block }: { block: Block }) {
 function AccordionContent({ block }: { block: Block }) {
   const p = block.props as { items: { id: string; title: string }[] };
   return (
-    <div className="divide-y divide-zinc-200 dark:divide-zinc-700">
-      {p.items?.map((item) => <div key={item.id} className="py-3"><div className="font-medium flex items-center justify-between cursor-pointer">{item.title}<span className="text-zinc-400">+</span></div></div>)}
+    <div style={{ borderTop: `1px solid var(--c-border)` }}>
+      {p.items?.map((item) => <div key={item.id} className="py-3" style={{ borderBottom: `1px solid var(--c-border)` }}><div className="font-medium flex items-center justify-between cursor-pointer" style={{ color: 'var(--c-text-0)' }}>{item.title}<span style={{ color: 'var(--c-text-2)' }}>+</span></div></div>)}
     </div>
   );
 }
@@ -1829,8 +1844,8 @@ function AuthorBioContent({ block }: { block: Block }) {
   const p = block.props as { name: string; role: string; bio: string };
   return (
     <div className="flex items-center gap-4">
-      <div className="w-16 h-16 rounded-full bg-zinc-300 dark:bg-zinc-700 shrink-0" />
-      <div><div className="font-semibold">{p.name}</div><div className="text-sm text-zinc-500">{p.role}</div><div className="text-sm mt-1 opacity-70">{p.bio}</div></div>
+      <div className="w-16 h-16 rounded-full shrink-0" style={{ background: 'var(--c-bg-1)' }} />
+      <div><div className="font-semibold" style={{ color: 'var(--c-text-0)' }}>{p.name}</div><div className="text-sm" style={{ color: 'var(--c-text-2)' }}>{p.role}</div><div className="text-sm mt-1 opacity-70" style={{ color: 'var(--c-text-1)' }}>{p.bio}</div></div>
     </div>
   );
 }
@@ -1989,11 +2004,36 @@ function SlideshowContent({ block }: { block: Block }) {
   };
 
   // Arrow button styles
-  const arrowBase = 'absolute top-1/2 -translate-y-1/2 z-10 flex items-center justify-center transition-all text-white';
+  const arrowBase = 'absolute top-1/2 -translate-y-1/2 z-10 flex items-center justify-center transition-all';
+  const arrowStylesObj: Record<string, React.CSSProperties> = {
+    circle: {
+      width: '40px',
+      height: '40px',
+      borderRadius: '50%',
+      background: 'rgba(0,0,0,0.4)',
+      backdropFilter: 'blur(4px)',
+      color: 'white'
+    },
+    square: {
+      width: '40px',
+      height: '40px',
+      borderRadius: '8px',
+      background: 'rgba(0,0,0,0.4)',
+      backdropFilter: 'blur(4px)',
+      color: 'white'
+    },
+    minimal: {
+      width: '32px',
+      height: '32px',
+      borderRadius: '4px',
+      color: 'white'
+    },
+    none: { display: 'none' },
+  };
   const arrowStyles: Record<string, string> = {
-    circle: `${arrowBase} w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm`,
-    square: `${arrowBase} w-10 h-10 rounded-lg bg-black/40 hover:bg-black/60 backdrop-blur-sm`,
-    minimal: `${arrowBase} w-8 h-8 hover:bg-black/20 rounded`,
+    circle: `${arrowBase} w-10 h-10 rounded-full backdrop-blur-sm`,
+    square: `${arrowBase} w-10 h-10 rounded-lg backdrop-blur-sm`,
+    minimal: `${arrowBase} w-8 h-8 rounded`,
     none: 'hidden',
   };
   const arrowClass = arrowStyles[p.arrowStyle || 'circle'] || arrowStyles.circle;

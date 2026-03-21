@@ -10,6 +10,8 @@ import { Toggle } from '@/components/ui/toggle';
 import { useState } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { GradientEditor } from './GradientEditor';
+import { EffectsEditor } from './EffectsEditor';
 
 interface StyleEditorProps {
   block: Block;
@@ -18,10 +20,13 @@ interface StyleEditorProps {
 function Section({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-b border-zinc-100 dark:border-zinc-800 pb-3 mb-3">
+    <div className="border-b pb-3 mb-3" style={{ borderColor: 'var(--c-border)' }}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 w-full text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2 hover:text-zinc-700 dark:hover:text-zinc-200"
+        className="flex items-center gap-1.5 w-full text-xs font-semibold uppercase tracking-wider mb-2 transition-colors"
+        style={{ color: 'var(--c-text-1)' }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--c-text-0)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--c-text-1)')}
       >
         {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         {title}
@@ -38,7 +43,7 @@ function SpacingInput({ label, value, onChange }: {
 }) {
   return (
     <div>
-      <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">{label}</span>
+      <span className="text-xs font-medium mb-1 block" style={{ color: 'var(--c-text-1)' }}>{label}</span>
       <div className="grid grid-cols-4 gap-1">
         {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
           <input
@@ -46,7 +51,12 @@ function SpacingInput({ label, value, onChange }: {
             value={value[side]}
             onChange={(e) => onChange({ ...value, [side]: e.target.value })}
             placeholder={side[0].toUpperCase()}
-            className="px-2 py-1 text-xs text-center rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+            className="px-2 py-1 text-xs text-center rounded border"
+            style={{
+              borderColor: 'var(--c-border)',
+              background: 'var(--c-bg-1)',
+              color: 'var(--c-text-0)',
+            }}
             title={side}
           />
         ))}
@@ -169,6 +179,12 @@ export function StyleEditor({ block }: StyleEditorProps) {
         )}
       </Section>
 
+      {/* Advanced Gradient Editor */}
+      <GradientEditor block={block} />
+
+      {/* Advanced Effects Editor */}
+      <EffectsEditor block={block} />
+
       {/* Typography */}
       <Section title="Tipografia">
         <Input label="Font Family" value={s.typography.fontFamily || ''} onChange={(e) => updateTypo({ fontFamily: e.target.value })} placeholder="Inter, sans-serif" />
@@ -227,7 +243,7 @@ export function StyleEditor({ block }: StyleEditorProps) {
         <Input label="Transform" value={s.transform || ''} onChange={(e) => updateBlockStyle(block.id, { transform: e.target.value })} placeholder="rotate(5deg) scale(1.05)" />
         <Input label="Transition" value={s.transition || ''} onChange={(e) => updateBlockStyle(block.id, { transition: e.target.value })} placeholder="all 0.3s ease" />
 
-        <h5 className="text-[10px] font-semibold text-zinc-400 uppercase mt-3 mb-1">Filtri CSS</h5>
+        <h5 className="text-[10px] font-semibold uppercase mt-3 mb-1" style={{ color: 'var(--c-text-2)' }}>Filtri CSS</h5>
         <Input label="Filtro" value={s.filter || ''} onChange={(e) => updateBlockStyle(block.id, { filter: e.target.value })} placeholder="blur(4px) brightness(1.2)" />
         <div className="flex flex-wrap gap-1 mt-1">
           {[
@@ -247,14 +263,25 @@ export function StyleEditor({ block }: StyleEditorProps) {
             <button
               key={f.label}
               onClick={() => updateBlockStyle(block.id, { filter: f.val })}
-              className={cn('px-1.5 py-0.5 text-[9px] rounded', s.filter === f.val ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200')}
+              className={cn('px-1.5 py-0.5 text-[9px] rounded transition-colors')}
+              style={s.filter === f.val ? { background: '#3b82f6', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+              onMouseEnter={(e) => {
+                if (s.filter !== f.val) {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (s.filter !== f.val) {
+                  e.currentTarget.style.background = 'var(--c-bg-1)';
+                }
+              }}
             >
               {f.label}
             </button>
           ))}
         </div>
 
-        <h5 className="text-[10px] font-semibold text-zinc-400 uppercase mt-3 mb-1">Vetro & Sfocatura Sfondo</h5>
+        <h5 className="text-[10px] font-semibold uppercase mt-3 mb-1" style={{ color: 'var(--c-text-2)' }}>Vetro & Sfocatura Sfondo</h5>
         <Input label="Backdrop Filter" value={s.backdropFilter || ''} onChange={(e) => updateBlockStyle(block.id, { backdropFilter: e.target.value })} placeholder="blur(10px) saturate(1.5)" />
         <div className="flex flex-wrap gap-1 mt-1">
           {[
@@ -266,14 +293,25 @@ export function StyleEditor({ block }: StyleEditorProps) {
             <button
               key={f.label}
               onClick={() => updateBlockStyle(block.id, { backdropFilter: f.val })}
-              className={cn('px-1.5 py-0.5 text-[9px] rounded', s.backdropFilter === f.val ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200')}
+              className={cn('px-1.5 py-0.5 text-[9px] rounded transition-colors')}
+              style={s.backdropFilter === f.val ? { background: '#3b82f6', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+              onMouseEnter={(e) => {
+                if (s.backdropFilter !== f.val) {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (s.backdropFilter !== f.val) {
+                  e.currentTarget.style.background = 'var(--c-bg-1)';
+                }
+              }}
             >
               {f.label}
             </button>
           ))}
         </div>
 
-        <h5 className="text-[10px] font-semibold text-zinc-400 uppercase mt-3 mb-1">Blend Mode</h5>
+        <h5 className="text-[10px] font-semibold uppercase mt-3 mb-1" style={{ color: 'var(--c-text-2)' }}>Blend Mode</h5>
         <Select
           label="Mix Blend Mode"
           value={s.mixBlendMode || 'normal'}
@@ -298,7 +336,7 @@ export function StyleEditor({ block }: StyleEditorProps) {
           ]}
         />
 
-        <h5 className="text-[10px] font-semibold text-zinc-400 uppercase mt-3 mb-1">Ombra Testo</h5>
+        <h5 className="text-[10px] font-semibold uppercase mt-3 mb-1" style={{ color: 'var(--c-text-2)' }}>Ombra Testo</h5>
         <Input label="Text Shadow" value={s.textShadow || ''} onChange={(e) => updateBlockStyle(block.id, { textShadow: e.target.value })} placeholder="2px 2px 4px rgba(0,0,0,0.5)" />
         <div className="flex flex-wrap gap-1 mt-1">
           {[
@@ -315,14 +353,25 @@ export function StyleEditor({ block }: StyleEditorProps) {
             <button
               key={f.label}
               onClick={() => updateBlockStyle(block.id, { textShadow: f.val })}
-              className={cn('px-1.5 py-0.5 text-[9px] rounded', s.textShadow === f.val ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200')}
+              className={cn('px-1.5 py-0.5 text-[9px] rounded transition-colors')}
+              style={s.textShadow === f.val ? { background: '#3b82f6', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+              onMouseEnter={(e) => {
+                if (s.textShadow !== f.val) {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (s.textShadow !== f.val) {
+                  e.currentTarget.style.background = 'var(--c-bg-1)';
+                }
+              }}
             >
               {f.label}
             </button>
           ))}
         </div>
 
-        <h5 className="text-[10px] font-semibold text-zinc-400 uppercase mt-3 mb-1">Ombra Box Presets</h5>
+        <h5 className="text-[10px] font-semibold uppercase mt-3 mb-1" style={{ color: 'var(--c-text-2)' }}>Ombra Box Presets</h5>
         <div className="flex flex-wrap gap-1">
           {[
             { label: 'Nessuna', val: '' },
@@ -338,7 +387,18 @@ export function StyleEditor({ block }: StyleEditorProps) {
             <button
               key={f.label}
               onClick={() => updateBlockStyle(block.id, { shadow: f.val })}
-              className={cn('px-1.5 py-0.5 text-[9px] rounded', s.shadow === f.val ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200')}
+              className={cn('px-1.5 py-0.5 text-[9px] rounded transition-colors')}
+              style={s.shadow === f.val ? { background: '#3b82f6', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+              onMouseEnter={(e) => {
+                if (s.shadow !== f.val) {
+                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (s.shadow !== f.val) {
+                  e.currentTarget.style.background = 'var(--c-bg-1)';
+                }
+              }}
             >
               {f.label}
             </button>
@@ -352,7 +412,12 @@ export function StyleEditor({ block }: StyleEditorProps) {
           <textarea
             value={s.customCss || ''}
             onChange={(e) => updateBlockStyle(block.id, { customCss: e.target.value })}
-            className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 min-h-[80px] resize-y"
+            className="w-full px-3 py-2 text-xs font-mono rounded-lg border min-h-[80px] resize-y"
+            style={{
+              background: 'var(--c-bg-1)',
+              borderColor: 'var(--c-border)',
+              color: 'var(--c-text-0)',
+            }}
             placeholder="/* CSS aggiuntivo */"
           />
         </div>
