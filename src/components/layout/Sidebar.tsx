@@ -36,6 +36,7 @@ import { useRouter } from "next/navigation";
 
 const mainNav = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+  { href: "/dashboard/pagine", label: "Pagine", icon: FileText },
   { href: "/dashboard/editor", label: "Editor", icon: Globe },
   { href: "/dashboard/layout", label: "Layout", icon: LayoutTemplate },
   { href: "/dashboard/articoli", label: "Articoli", icon: FileText },
