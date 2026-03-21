@@ -42,26 +42,34 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
   };
 
   const updateEffects = (newEffects: Partial<typeof effects>) => {
+    // Use current effects from block prop, not stale closure value
+    const currentEffects = block.style.effects || {};
     updateBlockStyle(block.id, {
-      effects: { ...effects, ...newEffects },
+      effects: { ...currentEffects, ...newEffects },
     });
   };
 
   const updateGlass = (updates: Partial<GlassmorphismEffect>) => {
+    // Use current glassmorphism from block prop
+    const currentGlassmorphism = block.style.effects?.glassmorphism || glassmorphism;
     updateEffects({
-      glassmorphism: { ...glassmorphism, ...updates },
+      glassmorphism: { ...currentGlassmorphism, ...updates },
     });
   };
 
   const updateNoise = (updates: Partial<NoiseEffect>) => {
+    // Use current noise from block prop
+    const currentNoise = block.style.effects?.noise || noise;
     updateEffects({
-      noise: { ...noise, ...updates },
+      noise: { ...currentNoise, ...updates },
     });
   };
 
   const updateGrain = (updates: Partial<GrainEffect>) => {
+    // Use current grain from block prop
+    const currentGrain = block.style.effects?.grain || grain;
     updateEffects({
-      grain: { ...grain, ...updates },
+      grain: { ...currentGrain, ...updates },
     });
   };
 

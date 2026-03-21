@@ -41,7 +41,7 @@ export function RightPanel() {
   const tabs = [
     { id: 'properties' as const, icon: Settings2, label: 'Props' },
     { id: 'style' as const, icon: Paintbrush, label: 'Stile' },
-    { id: 'animation' as const, icon: Sparkles, label: 'Anim' },
+    // { id: 'animation' as const, icon: Sparkles, label: 'Anim' }, // TODO: Implement animation rendering
     { id: 'shape' as const, icon: Pentagon, label: 'Forma' },
     { id: 'position' as const, icon: Move, label: 'Pos.' },
     { id: 'tools' as const, icon: Layers, label: 'Tools' },

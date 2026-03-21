@@ -47,8 +47,10 @@ export function AnimationEditor({ block }: AnimationEditorProps) {
   const [open, setOpen] = useState(false);
 
   const updateAnimation = (updates: Partial<BlockAnimation>) => {
+    // Use current animation from block prop, not stale closure value
+    const currentAnimation = block.animation || animation;
     updateBlock(block.id, {
-      animation: { ...animation, ...updates },
+      animation: { ...currentAnimation, ...updates },
     });
   };
 

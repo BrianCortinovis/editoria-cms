@@ -22,19 +22,30 @@ export function GradientEditor({ block }: GradientEditorProps) {
     ],
   };
 
+  // DEBUG: Log quando il block prop cambia
+  console.log('GradientEditor received block update:', {
+    blockId: block.id,
+    bgType: block.style.background.type,
+    bgValue: block.style.background.value?.substring?.(0, 50),
+    gradient: gradient.type
+  });
+
   const [open, setOpen] = useState(true);
 
   const updateGradient = useCallback((updates: Partial<AdvancedGradient>) => {
-    const updated = { ...gradient, ...updates };
+    // Use current gradient value from block prop, not stale closure value
+    const currentGradient = block.style.background.advancedGradient || gradient;
+    const updated = { ...currentGradient, ...updates };
     const cssValue = buildCssGradient(updated);
     updateBlockStyle(block.id, {
       background: {
         ...block.style.background,
         advancedGradient: updated,
+        type: 'gradient',
         value: cssValue,
       },
     });
-  }, [gradient, block, updateBlockStyle]);
+  }, [block, updateBlockStyle]);
 
   const updateStop = (index: number, updates: Partial<GradientStop>) => {
     const stops = [...gradient.stops];
@@ -334,7 +345,7 @@ export function GradientEditor({ block }: GradientEditorProps) {
                 prompt: 'Suggest a beautiful gradient for this block type: {context}. Return a pure JSON object matching AdvancedGradient type.',
               },
               {
-                id: 'suggest-gradient',
+                id: 'gradient-from-theme',
                 label: 'Combina colori progetto',
                 prompt: 'Create a gradient using the project theme colors from {context}. Return valid AdvancedGradient JSON.',
               },

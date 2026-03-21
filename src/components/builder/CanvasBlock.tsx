@@ -2298,9 +2298,20 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
   if (s.layout.overflow) css.overflow = s.layout.overflow as 'hidden' | 'auto';
   if (s.layout.position) css.position = s.layout.position as 'relative' | 'sticky';
   if (s.layout.zIndex) css.zIndex = s.layout.zIndex;
-  if (s.background.type === 'color' && s.background.value) css.backgroundColor = s.background.value;
-  else if (s.background.type === 'gradient' && s.background.value) css.background = s.background.value;
-  else if (s.background.type === 'image' && s.background.value) { css.backgroundImage = `url(${s.background.value})`; css.backgroundSize = s.background.size || 'cover'; css.backgroundPosition = s.background.position || 'center'; css.backgroundRepeat = s.background.repeat || 'no-repeat'; }
+  // Use background shorthand for all types to avoid conflicts with backgroundColor
+  if (s.background.type === 'color' && s.background.value) {
+    css.background = s.background.value;
+    delete (css as any).backgroundColor;
+  } else if (s.background.type === 'gradient' && s.background.value) {
+    css.background = s.background.value;
+    delete (css as any).backgroundColor;
+  } else if (s.background.type === 'image' && s.background.value) {
+    css.background = `url(${s.background.value})`;
+    css.backgroundSize = s.background.size || 'cover';
+    css.backgroundPosition = s.background.position || 'center';
+    css.backgroundRepeat = s.background.repeat || 'no-repeat';
+    delete (css as any).backgroundColor;
+  }
   if (s.typography.fontFamily) css.fontFamily = s.typography.fontFamily;
   if (s.typography.fontSize) css.fontSize = s.typography.fontSize;
   if (s.typography.fontWeight) css.fontWeight = s.typography.fontWeight;
@@ -2343,26 +2354,9 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
     if (g.borderOpacity !== undefined) css.borderColor = `rgba(0, 0, 0, ${g.borderOpacity})`;
   }
 
-  // Apply noise effect with SVG filter
-  if (s.effects?.noise?.enabled) {
-    const n = s.effects.noise;
-    const filterId = `noise-${block.id}`;
-    // Noise is applied via filter, will be handled in SVG defs
-    if (!s.effects._noiseFilterId) {
-      (s.effects as any)._noiseFilterId = filterId;
-    }
-    css.filter = (css.filter || '') + ` url(#${filterId})`;
-  }
-
-  // Apply grain effect with similar SVG filter
-  if (s.effects?.grain?.enabled) {
-    const gr = s.effects.grain;
-    const filterId = `grain-${block.id}`;
-    if (!s.effects._grainFilterId) {
-      (s.effects as any)._grainFilterId = filterId;
-    }
-    css.filter = (css.filter || '') + ` url(#${filterId})`;
-  }
+  // NOTE: Noise and grain effects require SVG defs rendering, which is not yet implemented.
+  // Skipping for now to focus on working effects (glassmorphism, gradients, animations).
+  // TODO: Implement SVG filter defs rendering for noise and grain effects
 
   return css;
 }

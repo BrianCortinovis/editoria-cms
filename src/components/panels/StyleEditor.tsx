@@ -92,19 +92,27 @@ export function StyleEditor({ block }: StyleEditorProps) {
   const s = block.style;
 
   const updateLayout = (updates: Partial<BlockStyle['layout']>) => {
-    updateBlockStyle(block.id, { layout: { ...s.layout, ...updates } });
+    // Use current layout from block prop
+    const currentLayout = block.style.layout;
+    updateBlockStyle(block.id, { layout: { ...currentLayout, ...updates } });
   };
 
   const updateBg = (updates: Partial<BlockStyle['background']>) => {
-    updateBlockStyle(block.id, { background: { ...s.background, ...updates } });
+    // Use current background from block prop
+    const currentBg = block.style.background;
+    updateBlockStyle(block.id, { background: { ...currentBg, ...updates } });
   };
 
   const updateTypo = (updates: Partial<BlockStyle['typography']>) => {
-    updateBlockStyle(block.id, { typography: { ...s.typography, ...updates } });
+    // Use current typography from block prop
+    const currentTypo = block.style.typography;
+    updateBlockStyle(block.id, { typography: { ...currentTypo, ...updates } });
   };
 
   const updateBorder = (updates: Partial<BlockStyle['border']>) => {
-    updateBlockStyle(block.id, { border: { ...s.border, ...updates } });
+    // Use current border from block prop
+    const currentBorder = block.style.border;
+    updateBlockStyle(block.id, { border: { ...currentBorder, ...updates } });
   };
 
   return (
