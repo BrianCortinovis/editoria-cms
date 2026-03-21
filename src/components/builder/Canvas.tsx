@@ -39,7 +39,7 @@ export function Canvas() {
 
   const fitToWidth = useCallback(() => {
     if (containerSize.w <= 0) return;
-    const padding = 48;
+    const padding = 0;
     const availableWidth = containerSize.w - padding * 2;
     const newZoom = Math.min(1, availableWidth / canvasWidth);
     setZoom(Math.round(newZoom * 100) / 100);
@@ -47,7 +47,7 @@ export function Canvas() {
 
   const fitAll = useCallback(() => {
     if (containerSize.w <= 0 || containerSize.h <= 0) return;
-    const padding = 48;
+    const padding = 0;
     const availableWidth = containerSize.w - padding * 2;
     const availableHeight = containerSize.h - padding * 2;
     const pageEl = containerRef.current?.querySelector('.sb-page-frame') as HTMLElement;
@@ -97,13 +97,13 @@ export function Canvas() {
       onClick={handleCanvasClick}
       onWheel={handleWheel}
     >
-      {/* Inner scrollable content — just a centered column with padding */}
+      {/* Inner scrollable content — just a centered column */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'center',
-          paddingTop: 24,
-          paddingBottom: 24,
+          paddingTop: 0,
+          paddingBottom: 0,
         }}
         onClick={handleCanvasClick}
       >
