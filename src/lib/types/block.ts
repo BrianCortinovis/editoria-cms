@@ -134,6 +134,13 @@ export interface BlockEffects {
 // === Divider Config ===
 export type DividerShape = 'diagonal' | 'wave' | 'zigzag' | 'curve' | 'triangle' | 'arrow' | 'custom' | 'bezier' | 'zigzag-smooth' | 'staircase' | 'cloud';
 
+export interface DividerGradient {
+  enabled: boolean;
+  colorStart: string;
+  colorEnd: string;
+  direction: 'vertical' | 'horizontal' | 'diagonal';
+}
+
 export interface DividerConfig {
   shape: DividerShape;
   height: number;
@@ -144,6 +151,7 @@ export interface DividerConfig {
   opacity?: number;
   blendWithSection?: boolean;
   blendColor?: string;
+  gradient?: DividerGradient;
 }
 
 // === Block Shape ===

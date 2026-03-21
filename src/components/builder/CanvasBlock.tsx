@@ -14,7 +14,7 @@ import {
   Magnet, AlignCenterHorizontal, AlignCenterVertical
 } from 'lucide-react';
 import { DEVICE_WIDTHS } from '@/lib/config/breakpoints';
-import { generateDividerSvg, dividerToClipPath } from '@/lib/shapes/dividers';
+import { generateDividerSvg, dividerToClipPath, generateDividerGradientMask } from '@/lib/shapes/dividers';
 
 interface CanvasBlockProps {
   block: Block;
@@ -2348,11 +2348,31 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
     if (topDivider && !bottomDivider) {
       const clipPath = dividerToClipPath(topDivider.shape, topDivider.height || 60);
       (css as Record<string,string>).clipPath = clipPath;
+
+      // Apply gradient if enabled
+      if (topDivider.gradient?.enabled) {
+        const gradientMask = generateDividerGradientMask(
+          topDivider.gradient.colorStart || topDivider.color || '#ffffff',
+          topDivider.gradient.colorEnd || 'transparent',
+          topDivider.gradient.direction || 'vertical'
+        );
+        (css as Record<string,string>).backgroundImage = gradientMask;
+      }
     }
     // If both or only bottom, apply bottom clip-path (inverted)
     else if (bottomDivider) {
       const clipPath = dividerToClipPath(bottomDivider.shape, bottomDivider.height || 60);
       (css as Record<string,string>).clipPath = clipPath;
+
+      // Apply gradient if enabled
+      if (bottomDivider.gradient?.enabled) {
+        const gradientMask = generateDividerGradientMask(
+          bottomDivider.gradient.colorStart || bottomDivider.color || '#ffffff',
+          bottomDivider.gradient.colorEnd || 'transparent',
+          bottomDivider.gradient.direction || 'vertical'
+        );
+        (css as Record<string,string>).backgroundImage = gradientMask;
+      }
     }
   }
 

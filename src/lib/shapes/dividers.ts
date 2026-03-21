@@ -154,6 +154,21 @@ export const CLIP_PATH_PRESETS = [
   { name: 'Inset arrotondato', value: 'inset(5% round 20px)' },
 ];
 
+// Generate gradient mask for dividers
+export function generateDividerGradientMask(
+  startColor: string,
+  endColor: string,
+  direction: 'vertical' | 'horizontal' | 'diagonal'
+): string {
+  const gradientDir = {
+    vertical: '180deg',
+    horizontal: '90deg',
+    diagonal: '135deg',
+  }[direction];
+
+  return `linear-gradient(${gradientDir}, ${startColor}, ${endColor})`;
+}
+
 // Convert divider shapes to clip-path polygons for section borders
 export function dividerToClipPath(shape: DividerShape, height: number = 60): string {
   const clipPaths: Record<DividerShape, string> = {

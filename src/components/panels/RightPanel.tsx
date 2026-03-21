@@ -202,7 +202,7 @@ function PropertiesEditor({ block, projectPalette }: { block: Block; projectPale
 import { Select } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { ColorPicker } from '@/components/ui/color-picker';
-import type { DividerConfig, DividerShape } from '@/lib/types';
+import type { DividerConfig, DividerShape, DividerGradient } from '@/lib/types';
 
 function ShapeTabContent({ block }: { block: Block }) {
   return (
@@ -293,6 +293,39 @@ function DividerSection({ label, config, block, position }: { label: string; con
             suffix="%"
           />
           <ColorPicker label="Colore" value={config.color} onChange={(v) => updateConfig({ ...config, color: v })} />
+
+          {/* Gradient Controls */}
+          <Toggle
+            label="Sfumatura"
+            checked={config.gradient?.enabled || false}
+            onChange={(v) => updateConfig({ ...config, gradient: { ...config.gradient, enabled: v, colorStart: config.gradient?.colorStart || config.color, colorEnd: config.gradient?.colorEnd || 'transparent', direction: config.gradient?.direction || 'vertical' } })}
+            size="sm"
+          />
+          {config.gradient?.enabled && (
+            <>
+              <ColorPicker
+                label="Colore inizio"
+                value={config.gradient.colorStart || config.color}
+                onChange={(v) => updateConfig({ ...config, gradient: { ...config.gradient, colorStart: v } })}
+              />
+              <ColorPicker
+                label="Colore fine"
+                value={config.gradient.colorEnd || 'transparent'}
+                onChange={(v) => updateConfig({ ...config, gradient: { ...config.gradient, colorEnd: v } })}
+              />
+              <Select
+                label="Direzione sfumatura"
+                value={config.gradient.direction || 'vertical'}
+                onChange={(e) => updateConfig({ ...config, gradient: { ...config.gradient, direction: e.target.value as 'vertical' | 'horizontal' | 'diagonal' } })}
+                options={[
+                  { value: 'vertical', label: 'Verticale' },
+                  { value: 'horizontal', label: 'Orizzontale' },
+                  { value: 'diagonal', label: 'Diagonale' },
+                ]}
+              />
+            </>
+          )}
+
           <div className="flex gap-4">
             <Toggle label="Ribalta" checked={config.flip} onChange={(v) => updateConfig({ ...config, flip: v })} size="sm" />
             <Toggle label="Inverti" checked={config.invert} onChange={(v) => updateConfig({ ...config, invert: v })} size="sm" />
