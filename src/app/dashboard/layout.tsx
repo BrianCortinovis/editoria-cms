@@ -21,6 +21,7 @@ const pageTitles: Record<string, string> = {
   "/dashboard/tecnico": "Pannello Tecnico",
   "/dashboard/contabilita": "Contabilità",
   "/dashboard/seo": "SEO & Analytics",
+  "/dashboard/ia": "✨ IA & Intelligenza Artificiale",
   "/dashboard/gdpr": "GDPR & Compliance",
   "/dashboard/moduli": "Moduli Premium",
   "/dashboard/utenti": "Team",

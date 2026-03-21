@@ -27,6 +27,7 @@ import {
   Cpu,
   Package,
   Globe,
+  Sparkles,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { useThemeStore } from "@/lib/theme";
@@ -55,6 +56,7 @@ const systemNav = [
   { href: "/dashboard/tecnico", label: "Tecnico", icon: Cpu },
   { href: "/dashboard/contabilita", label: "Conti", icon: Receipt },
   { href: "/dashboard/seo", label: "SEO", icon: BarChart3 },
+  { href: "/dashboard/ia", label: "IA", icon: Sparkles },
   { href: "/dashboard/gdpr", label: "GDPR", icon: Shield },
   { href: "/dashboard/utenti", label: "Team", icon: Users },
   { href: "/dashboard/moduli", label: "Moduli", icon: Package },
