@@ -1,9 +1,9 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createServerSupabaseClient();
     const tenant = request.nextUrl.searchParams.get('tenant') || 'valbremmbana';
 
     const { data: tenantData } = await supabase

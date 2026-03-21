@@ -1,6 +1,6 @@
 'use client';
 
-import BuilderShell from '@/components/builder/BuilderShell';
+import { BuilderShell } from '@/components/builder/BuilderShell';
 
 /**
  * Editor Grafico Unificato - TAB EDITOR nel CMS
