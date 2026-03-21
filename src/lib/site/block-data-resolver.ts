@@ -48,7 +48,7 @@ export async function resolveBlockData(
     }
 
     case 'events': {
-      const limit = params.limit ? parseInt(params.limit) : 10;
+      const limit = p.limit ? parseInt(p.limit) : 10;
       const { data } = await supabase
         .from('events')
         .select('id, title, description, location, image_url, starts_at, ends_at, price')
@@ -76,7 +76,7 @@ export async function resolveBlockData(
         .eq('tenant_id', tenantId)
         .eq('is_active', true);
 
-      if (params.position) query = query.eq('position', params.position);
+      if (p.position) query = query.eq('position', p.position);
 
       const { data } = await query;
       return data || [];
