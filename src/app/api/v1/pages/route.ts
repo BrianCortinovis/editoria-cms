@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
-    const tenant = request.nextUrl.searchParams.get('tenant') || 'valbremmbana';
+    const tenant = request.nextUrl.searchParams.get('tenant') || 'valbrembana';
 
     const { data: tenantData } = await supabase
       .from('tenants').select('id').eq('slug', tenant).single();
@@ -14,11 +14,11 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: pages, error } = await supabase
-      .from('pages')
-      .select('*')
+      .from('site_pages')
+      .select('id, title, slug, status, created_at, updated_at, blocks, meta')
       .eq('tenant_id', tenantData.id)
       .eq('status', 'published')
-      .order('published_at', { ascending: false });
+      .order('updated_at', { ascending: false });
 
     if (error) throw error;
 
@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       headers: { 'Cache-Control': 'public, max-age=300' }
     });
   } catch (error) {
+    console.error('GET /api/v1/pages error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -40,28 +41,50 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, title, slug, layout_data, tenant_id, status } = body;
+    const { id, title, slug, blocks, meta, tenant_id, status } = body;
+
+    // Verify user has access to this tenant
+    const { data: access } = await supabase
+      .from('user_tenants')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('tenant_id', tenant_id)
+      .single();
+
+    if (!access) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     if (id) {
       const { data: page, error } = await supabase
-        .from('pages')
-        .update({ title, slug, layout_data, status, updated_at: new Date().toISOString() })
+        .from('site_pages')
+        .update({ title, slug, blocks: blocks || [], meta: meta || {}, status: status || 'draft', updated_at: new Date().toISOString() })
         .eq('id', id)
         .eq('tenant_id', tenant_id)
-        .select().single();
+        .select()
+        .single();
 
       if (error) throw error;
       return NextResponse.json(page);
     } else {
       const { data: page, error } = await supabase
-        .from('pages')
-        .insert([{ tenant_id, author_id: user.id, title, slug, layout_data, status: status || 'draft', page_type: 'custom' }])
-        .select().single();
+        .from('site_pages')
+        .insert([{
+          tenant_id,
+          title,
+          slug,
+          blocks: blocks || [],
+          meta: meta || {},
+          status: status || 'draft',
+        }])
+        .select()
+        .single();
 
       if (error) throw error;
       return NextResponse.json(page, { status: 201 });
     }
   } catch (error) {
+    console.error('POST /api/v1/pages error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

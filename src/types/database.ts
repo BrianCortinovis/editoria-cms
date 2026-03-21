@@ -662,6 +662,7 @@ export interface Database {
           layout_height: string;
           layout_grid_cols: number;
           layout_display: string;
+          assignment_mode: "auto" | "manual" | "mixed";
           created_at: string;
         };
         Insert: {
@@ -680,6 +681,7 @@ export interface Database {
           layout_height?: string;
           layout_grid_cols?: number;
           layout_display?: string;
+          assignment_mode?: "auto" | "manual" | "mixed";
         };
         Update: {
           slot_key?: string;
@@ -695,6 +697,31 @@ export interface Database {
           layout_height?: string;
           layout_grid_cols?: number;
           layout_display?: string;
+          assignment_mode?: "auto" | "manual" | "mixed";
+        };
+      };
+      slot_assignments: {
+        Row: {
+          id: string;
+          slot_id: string;
+          article_id: string;
+          tenant_id: string;
+          pin_order: number;
+          assigned_by: string | null;
+          assigned_at: string;
+        };
+        Insert: {
+          id?: string;
+          slot_id: string;
+          article_id: string;
+          tenant_id: string;
+          pin_order?: number;
+          assigned_by?: string | null;
+          assigned_at?: string;
+        };
+        Update: {
+          pin_order?: number;
+          assigned_by?: string | null;
         };
       };
     };

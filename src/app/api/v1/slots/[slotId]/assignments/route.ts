@@ -9,6 +9,29 @@ export async function GET(
   const supabase = await createServerSupabaseClient();
 
   try {
+    // Get slot with template info for tenant verification
+    const { data: slot, error: slotError } = await supabase
+      .from("layout_slots")
+      .select("id, template_id")
+      .eq("id", slotId)
+      .single();
+
+    if (slotError || !slot) {
+      return NextResponse.json({ error: "Slot not found" }, { status: 404 });
+    }
+
+    // Get template to verify tenant
+    const { data: template, error: templateError } = await supabase
+      .from("layout_templates")
+      .select("tenant_id")
+      .eq("id", slot.template_id)
+      .single();
+
+    if (templateError || !template) {
+      return NextResponse.json({ error: "Template not found" }, { status: 404 });
+    }
+
+    // Fetch assignments filtered by tenant_id for security
     const { data, error } = await supabase
       .from("slot_assignments")
       .select(
@@ -16,6 +39,7 @@ export async function GET(
          articles(id, title, slug, cover_image_url, published_at, status)`
       )
       .eq("slot_id", slotId)
+      .eq("tenant_id", template.tenant_id)
       .order("pin_order", { ascending: true });
 
     if (error) throw error;
