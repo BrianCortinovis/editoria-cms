@@ -174,7 +174,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
+      <div className="h-full w-full flex flex-col" style={{ background: "var(--c-bg-0)" }}>
         {/* Recovered work notification */}
         {recovered && (
           <div className="bg-green-500 text-white text-sm text-center py-2 px-4 flex items-center justify-center gap-2 shrink-0 z-[100]">

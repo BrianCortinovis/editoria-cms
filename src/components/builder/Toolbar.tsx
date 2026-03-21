@@ -87,25 +87,15 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
   return (
     <div className="shrink-0 z-50">
       {/* Main toolbar */}
-      <div className="h-12 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-3 gap-1">
-        {/* Logo & Project Name */}
-        <div className="flex items-center gap-2 mr-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-            <span className="text-white text-xs font-bold">SB</span>
-          </div>
-          <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 max-w-[120px] truncate hidden lg:block">
-            {projectName}
-          </span>
-        </div>
-
-        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700" />
+      <div className="h-12 flex items-center px-3 gap-1" style={{ background: "var(--c-bg-1)", borderBottom: "1px solid var(--c-border)" }}>
 
         {/* Panels toggle */}
         <Button
           variant="ghost" size="xs"
           onClick={() => setLeftPanelOpen(!leftPanelOpen)}
           title="Pannello blocchi"
-          className={cn(leftPanelOpen && 'bg-blue-50 dark:bg-blue-950 text-blue-600')}
+          className={leftPanelOpen ? 'bg-accent-soft text-accent' : ''}
+          style={leftPanelOpen ? { background: "var(--c-accent-soft)", color: "var(--c-accent)" } : {}}
         >
           <PanelLeft size={16} />
         </Button>
@@ -118,7 +108,7 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
           <PanelRight size={16} />
         </Button>
 
-        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700" />
+        <div className="w-px h-6" style={{ background: "var(--c-border)" }} />
 
         {/* Save / Undo / Redo */}
         <Button variant="ghost" size="xs" onClick={onSave} disabled={saving} title="Salva (Ctrl+S)">
@@ -131,7 +121,7 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
           <Redo2 size={15} />
         </Button>
 
-        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700" />
+        <div className="w-px h-6" style={{ background: "var(--c-border)" }} />
 
         {/* Device Modes */}
         {devices.map(({ mode, icon: Icon, label }) => (
@@ -147,7 +137,7 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
           </Button>
         ))}
 
-        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700" />
+        <div className="w-px h-6" style={{ background: "var(--c-border)" }} />
 
         {/* Zoom & View Tools */}
         <div className="flex items-center gap-0.5">
@@ -222,7 +212,7 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
           </Button>
         </div>
 
-        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700" />
+        <div className="w-px h-6" style={{ background: "var(--c-border)" }} />
 
         {/* Grid & Outlines */}
         <Button
@@ -266,7 +256,7 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
           <span className="hidden lg:inline text-xs">Export</span>
         </Button>
 
-        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700" />
+        <div className="w-px h-6" style={{ background: "var(--c-border)" }} />
 
         {/* Layout Presets */}
         <Button variant="outline" size="xs" onClick={() => setShowLayoutPresets(true)} title="Layout & Template">

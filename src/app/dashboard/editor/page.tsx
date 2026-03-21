@@ -9,7 +9,7 @@ import { BuilderShell } from '@/components/builder/BuilderShell';
 export default function EditorPage() {
   // TODO: Integrare con il contesto CMS per caricare/salvare su Supabase
   return (
-    <div className="h-screen w-full">
+    <div className="w-full" style={{ height: 'calc(100vh - 60px)' }}>
       <BuilderShell projectId="cms" projectName="Editor CMS" pageId="home" />
     </div>
   );

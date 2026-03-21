@@ -7,7 +7,7 @@ import AuthProvider from "@/components/layout/AuthProvider";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
-  "/dashboard/editor": "✏️ Editor Grafico",
+  "/dashboard/editor": "Editor Grafico",
   "/dashboard/layout": "Layout Sito",
   "/dashboard/articoli": "Articoli",
   "/dashboard/media": "Media Library",
@@ -21,7 +21,7 @@ const pageTitles: Record<string, string> = {
   "/dashboard/tecnico": "Pannello Tecnico",
   "/dashboard/contabilita": "Contabilità",
   "/dashboard/seo": "SEO & Analytics",
-  "/dashboard/ia": "✨ IA & Intelligenza Artificiale",
+  "/dashboard/ia": "IA & Intelligenza Artificiale",
   "/dashboard/gdpr": "GDPR & Compliance",
   "/dashboard/moduli": "Moduli Premium",
   "/dashboard/utenti": "Team",
