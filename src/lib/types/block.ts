@@ -145,6 +145,7 @@ export interface BlockDefinition {
   category: BlockCategory;
   defaultProps: Record<string, unknown>;
   defaultStyle: Partial<BlockStyle>;
+  defaultDataSource?: string;
   supportsChildren: boolean;
   maxChildren?: number;
   allowedChildTypes?: BlockType[];
