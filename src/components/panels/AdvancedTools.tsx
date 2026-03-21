@@ -10,6 +10,7 @@ import { ColorPicker } from '@/components/ui/color-picker';
 import { Slider } from '@/components/ui/slider';
 import { Toggle } from '@/components/ui/toggle';
 import { cn } from '@/lib/utils/cn';
+import { ClipPathEditor } from '@/components/shapes/ClipPathEditor';
 import {
   ChevronDown, ChevronRight, MousePointer, Move, Magnet, Ruler,
   Type, Image, MousePointerClick, Layers, Box, Pentagon,
@@ -262,6 +263,7 @@ export function ButtonEditor({ block }: { block: Block }) {
 
 export function ShapeTools({ block }: { block: Block }) {
   const { updateBlockShape, updateBlockStyle } = usePageStore();
+  const [shapeTab, setShapeTab] = useState<'preset' | 'editor'>('preset');
 
   const SHAPES = [
     { name: 'Rettangolo', icon: Square, clipPath: 'none' },
@@ -296,70 +298,102 @@ export function ShapeTools({ block }: { block: Block }) {
         <Pentagon size={12} /> Forme Blocco
       </h4>
 
-      <div className="grid grid-cols-4 gap-1.5">
-        {SHAPES.map((shape) => {
-          const isActive = currentClipPath === shape.clipPath;
-          return (
-            <button
-              key={shape.name}
-              onClick={() => {
-                if (shape.clipPath === 'none') {
-                  updateBlockShape(block.id, null);
-                } else {
-                  updateBlockShape(block.id, {
-                    type: 'clip-path',
-                    value: shape.clipPath,
-                    topDivider: block.shape?.topDivider,
-                    bottomDivider: block.shape?.bottomDivider,
-                  });
-                }
-              }}
-              className={cn(
-                'flex flex-col items-center gap-1 p-2 rounded-lg text-[9px] transition-colors'
-              )}
-              style={isActive ? { background: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6', boxShadow: '0 0 0 1px #3b82f6' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = 'var(--c-bg-1)';
-                }
-              }}
-              title={shape.name}
-            >
-              <div
-                className="w-6 h-6 bg-current rounded-sm"
-                style={{ clipPath: shape.clipPath !== 'none' ? shape.clipPath : undefined }}
-              />
-              <span className="truncate w-full text-center">{shape.name}</span>
-            </button>
-          );
-        })}
+      {/* Tab Selector */}
+      <div className="flex gap-2 border-b pb-2" style={{ borderColor: 'var(--c-border)' }}>
+        <button
+          onClick={() => setShapeTab('preset')}
+          className="px-3 py-1 text-xs font-medium border-b-2 transition-colors"
+          style={{
+            borderColor: shapeTab === 'preset' ? 'var(--c-accent)' : 'transparent',
+            color: shapeTab === 'preset' ? 'var(--c-accent)' : 'var(--c-text-1)',
+          }}
+        >
+          Preset
+        </button>
+        <button
+          onClick={() => setShapeTab('editor')}
+          className="px-3 py-1 text-xs font-medium border-b-2 transition-colors"
+          style={{
+            borderColor: shapeTab === 'editor' ? 'var(--c-accent)' : 'transparent',
+            color: shapeTab === 'editor' ? 'var(--c-accent)' : 'var(--c-text-1)',
+          }}
+        >
+          Editor
+        </button>
       </div>
 
-      {/* Custom clip-path input */}
-      <div className="flex items-center gap-1">
-        <div className="flex-1">
-          <Input
-            label="Clip-path personalizzato"
-            value={currentClipPath === 'none' ? '' : currentClipPath}
-            onChange={(e) => {
-              const val = e.target.value.trim();
-              if (!val || val === 'none') {
-                updateBlockShape(block.id, null);
-              } else {
-                updateBlockShape(block.id, { type: 'clip-path', value: val });
-              }
-            }}
-            placeholder="polygon(0 0, 100% 0, 100% 100%, 0 100%)"
-          />
-        </div>
-        <div className="pt-4">
-        </div>
-      </div>
+      {shapeTab === 'preset' && (
+        <>
+          <div className="grid grid-cols-4 gap-1.5">
+            {SHAPES.map((shape) => {
+              const isActive = currentClipPath === shape.clipPath;
+              return (
+                <button
+                  key={shape.name}
+                  onClick={() => {
+                    if (shape.clipPath === 'none') {
+                      updateBlockShape(block.id, null);
+                    } else {
+                      updateBlockShape(block.id, {
+                        type: 'clip-path',
+                        value: shape.clipPath,
+                        topDivider: block.shape?.topDivider,
+                        bottomDivider: block.shape?.bottomDivider,
+                      });
+                    }
+                  }}
+                  className={cn(
+                    'flex flex-col items-center gap-1 p-2 rounded-lg text-[9px] transition-colors'
+                  )}
+                  style={isActive ? { background: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6', boxShadow: '0 0 0 1px #3b82f6' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'var(--c-bg-1)';
+                    }
+                  }}
+                  title={shape.name}
+                >
+                  <div
+                    className="w-6 h-6 bg-current rounded-sm"
+                    style={{ clipPath: shape.clipPath !== 'none' ? shape.clipPath : undefined }}
+                  />
+                  <span className="truncate w-full text-center">{shape.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Custom clip-path input */}
+          <div className="flex items-center gap-1">
+            <div className="flex-1">
+              <Input
+                label="Clip-path personalizzato"
+                value={currentClipPath === 'none' ? '' : currentClipPath}
+                onChange={(e) => {
+                  const val = e.target.value.trim();
+                  if (!val || val === 'none') {
+                    updateBlockShape(block.id, null);
+                  } else {
+                    updateBlockShape(block.id, { type: 'clip-path', value: val });
+                  }
+                }}
+                placeholder="polygon(0 0, 100% 0, 100% 100%, 0 100%)"
+              />
+            </div>
+            <div className="pt-4">
+            </div>
+          </div>
+        </>
+      )}
+
+      {shapeTab === 'editor' && (
+        <ClipPathEditor block={block} />
+      )}
     </div>
   );
 }
