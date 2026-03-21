@@ -22,12 +22,15 @@ function Section({ title, defaultOpen = false, children, blockId, fieldName, con
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border-b pb-3 mb-3" style={{ borderColor: 'var(--c-border)' }}>
-      <button
+      <div
         onClick={() => setOpen(!open)}
-        className="flex items-center justify-between w-full transition-colors"
+        className="flex items-center justify-between w-full transition-colors cursor-pointer"
         style={{ color: 'var(--c-text-1)' }}
         onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--c-text-0)')}
         onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--c-text-1)')}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpen(!open); }}
       >
         <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
           {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -48,7 +51,7 @@ function Section({ title, defaultOpen = false, children, blockId, fieldName, con
             compact
           />
         )}
-      </button>
+      </div>
       {open && <div className="space-y-3 mt-3">{children}</div>}
     </div>
   );

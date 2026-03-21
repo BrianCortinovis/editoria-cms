@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   // Get slots with their content
   const { data: slots } = await supabase
     .from("layout_slots")
-    .select("slot_key, label, content_type, category_id, max_items, sort_by, sort_order, style_hint, categories(name, slug, color)")
+    .select("slot_key, label, content_type, category_id, max_items, sort_by, sort_order, style_hint, assignment_mode, categories(name, slug, color)")
     .eq("template_id", template.id)
     .order("sort_index");
 
@@ -53,20 +53,55 @@ export async function GET(request: Request) {
       let content = null;
 
       if (slot.content_type === "articles") {
-        let query = supabase
-          .from("articles")
-          .select("id, title, subtitle, slug, summary, cover_image_url, is_featured, is_premium, reading_time_minutes, published_at, profiles!articles_author_id_fkey(full_name, avatar_url), categories(name, slug, color)")
-          .eq("tenant_id", tenant.id)
-          .eq("status", "published")
-          .order(slot.sort_by, { ascending: slot.sort_order === "asc" })
-          .limit(slot.max_items);
+        const mode = slot.assignment_mode ?? "auto";
 
-        if (slot.category_id) {
-          query = query.eq("category_id", slot.category_id);
+        // Step 1: Fetch pinned articles (for manual or mixed mode)
+        let pinned: any[] = [];
+        if (mode === "manual" || mode === "mixed") {
+          const { data: pinnedData } = await supabase
+            .from("slot_assignments")
+            .select(
+              "articles(id, title, subtitle, slug, summary, cover_image_url, is_featured, is_premium, reading_time_minutes, published_at, profiles!articles_author_id_fkey(full_name, avatar_url), categories(name, slug, color))"
+            )
+            .eq("slot_id", slot.id)
+            .order("pin_order");
+          pinned = pinnedData?.map((row: any) => row.articles) ?? [];
         }
 
-        const { data } = await query;
-        content = data;
+        // Step 2: If mode is manual, stop here with pinned articles
+        if (mode === "manual") {
+          content = pinned.slice(0, slot.max_items);
+        } else {
+          // Step 3: Auto-fill remaining slots (for auto or mixed mode)
+          const remaining = slot.max_items - pinned.length;
+          let auto: any[] = [];
+
+          if (remaining > 0 || mode === "auto") {
+            const pinnedIds = pinned.map((a) => a.id);
+            let query = supabase
+              .from("articles")
+              .select(
+                "id, title, subtitle, slug, summary, cover_image_url, is_featured, is_premium, reading_time_minutes, published_at, profiles!articles_author_id_fkey(full_name, avatar_url), categories(name, slug, color)"
+              )
+              .eq("tenant_id", tenant.id)
+              .eq("status", "published")
+              .order(slot.sort_by, { ascending: slot.sort_order === "asc" })
+              .limit(mode === "auto" ? slot.max_items : remaining);
+
+            if (slot.category_id) {
+              query = query.eq("category_id", slot.category_id);
+            }
+
+            if (pinnedIds.length > 0) {
+              query = query.not("id", "in", `(${pinnedIds.join(",")})`);
+            }
+
+            const { data } = await query;
+            auto = data ?? [];
+          }
+
+          content = [...pinned, ...auto];
+        }
       } else if (slot.content_type === "events") {
         const { data } = await supabase
           .from("events")

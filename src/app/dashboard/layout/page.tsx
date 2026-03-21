@@ -51,6 +51,7 @@ interface LayoutSlot {
   layout_height: string;
   layout_grid_cols: number;
   layout_classes: string;
+  assignment_mode?: string;
 }
 
 interface LayoutTemplate {
@@ -129,6 +130,7 @@ export default function LayoutPage() {
   const [slotLabel, setSlotLabel] = useState("");
   const [slotDescription, setSlotDescription] = useState("");
   const [slotContentType, setSlotContentType] = useState("articles");
+  const [slotAssignmentMode, setSlotAssignmentMode] = useState("auto");
   const [slotCategoryId, setSlotCategoryId] = useState("");
   const [slotMaxItems, setSlotMaxItems] = useState(6);
   const [slotSortBy, setSlotSortBy] = useState("published_at");
@@ -267,7 +269,7 @@ export default function LayoutPage() {
 
   const resetSlotForm = () => {
     setSlotKey(""); setSlotLabel(""); setSlotDescription(""); setSlotContentType("articles");
-    setSlotCategoryId(""); setSlotMaxItems(6); setSlotSortBy("published_at");
+    setSlotAssignmentMode("auto"); setSlotCategoryId(""); setSlotMaxItems(6); setSlotSortBy("published_at");
     setSlotWidth("full"); setSlotHeight("auto"); setSlotGridCols(1);
     setEditingSlot(null); setShowNewSlot(false);
   };
@@ -275,6 +277,7 @@ export default function LayoutPage() {
   const startEditSlot = (slot: LayoutSlot) => {
     setEditingSlot(slot); setSlotKey(slot.slot_key); setSlotLabel(slot.label);
     setSlotDescription(slot.description ?? ""); setSlotContentType(slot.content_type);
+    setSlotAssignmentMode(slot.assignment_mode ?? "auto");
     setSlotCategoryId(slot.category_id ?? ""); setSlotMaxItems(slot.max_items);
     setSlotSortBy(slot.sort_by); setSlotWidth(slot.layout_width); setSlotHeight(slot.layout_height);
     setSlotGridCols(slot.layout_grid_cols); setShowNewSlot(true); setActiveTab("moduli");
@@ -293,6 +296,7 @@ export default function LayoutPage() {
       sort_order: "desc", sort_index: editingSlot ? editingSlot.sort_index : slots.length,
       layout_width: slotWidth, layout_height: slotHeight, layout_grid_cols: slotGridCols,
       layout_tag: "div", layout_display: slotGridCols > 1 ? "grid" : "block",
+      assignment_mode: slotAssignmentMode,
     };
 
     if (editingSlot) {
@@ -600,6 +604,12 @@ export default function LayoutPage() {
                     </select>
                   </div>
                   <div>
+                    <label className="text-[10px] font-medium" style={{ color: "var(--c-text-2)" }}>Modalità riempimento</label>
+                    <select value={slotAssignmentMode} onChange={e => setSlotAssignmentMode(e.target.value)} className="input w-full mt-0.5 text-xs">
+                      <option value="auto">Automatico</option><option value="manual">Manuale</option><option value="mixed">Misto</option>
+                    </select>
+                  </div>
+                  <div>
                     <label className="text-[10px] font-medium" style={{ color: "var(--c-text-2)" }}>Categoria</label>
                     <select value={slotCategoryId} onChange={e => setSlotCategoryId(e.target.value)} className="input w-full mt-0.5 text-xs">
                       <option value="">Tutte</option>
@@ -657,7 +667,12 @@ export default function LayoutPage() {
                           <Icon className="w-4 h-4" style={{ color: "var(--c-accent)" }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold truncate" style={{ color: "var(--c-text-0)" }}>{slot.label}</p>
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <p className="text-xs font-semibold truncate" style={{ color: "var(--c-text-0)" }}>{slot.label}</p>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full whitespace-nowrap" style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}>
+                              {slot.assignment_mode === "manual" ? "Manuale" : slot.assignment_mode === "mixed" ? "Misto" : "Auto"}
+                            </span>
+                          </div>
                           <p className="text-[10px] font-mono" style={{ color: "var(--c-text-3)" }}>
                             {slot.slot_key} · {slot.layout_width} · {contentTypeLabels[slot.content_type]} · {slot.max_items}
                             {cat && <span> · <span style={{ color: cat.color }}>{cat.name}</span></span>}

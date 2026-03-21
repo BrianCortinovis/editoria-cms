@@ -60,10 +60,13 @@ export function AnimationEditor({ block }: AnimationEditorProps) {
 
   return (
     <div className="border-b" style={{ borderColor: 'var(--c-border)' }}>
-      <button
+      <div
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium"
+        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium cursor-pointer"
         style={{ color: 'var(--c-text-0)' }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpen(!open); }}
       >
         <span className="flex items-center gap-2">
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -105,7 +108,7 @@ export function AnimationEditor({ block }: AnimationEditorProps) {
             compact
           />
         )}
-      </button>
+      </div>
 
       {open && (
         <div className="p-4 space-y-4" style={{ borderTop: '1px solid var(--c-border)' }}>

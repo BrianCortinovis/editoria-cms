@@ -78,10 +78,13 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
   return (
     <div className="border-b" style={{ borderColor: 'var(--c-border)' }}>
       {/* Glassmorphism Section */}
-      <button
+      <div
         onClick={() => setOpenGlass(!openGlass)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium"
+        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium cursor-pointer"
         style={{ color: 'var(--c-text-0)' }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenGlass(!openGlass); }}
       >
         <span className="flex items-center gap-2">
           {openGlass ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -107,7 +110,7 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
             compact
           />
         )}
-      </button>
+      </div>
 
       {openGlass && (
         <div className="p-4 space-y-4" style={{ borderTop: '1px solid var(--c-border)' }}>
@@ -281,10 +284,13 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
       )}
 
       {/* Noise Section */}
-      <button
+      <div
         onClick={() => setOpenNoise(!openNoise)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium"
+        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium cursor-pointer"
         style={{ color: 'var(--c-text-0)' }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenNoise(!openNoise); }}
       >
         <span className="flex items-center gap-2">
           {openNoise ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -310,7 +316,7 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
             compact
           />
         )}
-      </button>
+      </div>
 
       {openNoise && (
         <div className="p-4 space-y-4" style={{ borderTop: '1px solid var(--c-border)' }}>
@@ -384,10 +390,13 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
       )}
 
       {/* Grain Section */}
-      <button
+      <div
         onClick={() => setOpenGrain(!openGrain)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium"
+        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium cursor-pointer"
         style={{ color: 'var(--c-text-0)' }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenGrain(!openGrain); }}
       >
         <span className="flex items-center gap-2">
           {openGrain ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -413,7 +422,7 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
             compact
           />
         )}
-      </button>
+      </div>
 
       {openGrain && (
         <div className="p-4 space-y-4" style={{ borderTop: '1px solid var(--c-border)' }}>
@@ -466,16 +475,19 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
       )}
 
       {/* Parallax Section */}
-      <button
+      <div
         onClick={() => setOpenParallax(!openParallax)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium"
+        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium cursor-pointer"
         style={{ color: 'var(--c-text-0)' }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenParallax(!openParallax); }}
       >
         <span className="flex items-center gap-2">
           {openParallax ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           Parallax
         </span>
-      </button>
+      </div>
 
       {openParallax && (
         <div className="p-4 space-y-4" style={{ borderTop: '1px solid var(--c-border)' }}>

@@ -37,6 +37,12 @@ interface Tag {
   slug: string;
 }
 
+interface AvailableSlot {
+  id: string;
+  slot_key: string;
+  label: string;
+}
+
 interface ArticleEditorProps {
   articleId?: string;
 }
@@ -69,6 +75,8 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
   // Options
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [slotId, setSlotId] = useState("");
   const [slugManual, setSlugManual] = useState(false);
 
   // Auto-generate slug from title
@@ -80,7 +88,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
     }
   }, [title, slugManual, isNew]);
 
-  // Load categories and tags
+  // Load categories, tags, and available slots
   useEffect(() => {
     if (!currentTenant) return;
     const supabase = createClient();
@@ -101,6 +109,18 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
       .order("name")
       .then(({ data }) => {
         if (data) setTags(data);
+      });
+
+    // Load assignable slots (manual or mixed mode) for articles
+    supabase
+      .from("layout_slots")
+      .select("id, slot_key, label, layout_templates!inner(tenant_id)")
+      .eq("layout_templates.tenant_id", currentTenant.id)
+      .eq("content_type", "articles")
+      .in("assignment_mode", ["manual", "mixed"])
+      .order("slot_key")
+      .then(({ data }) => {
+        if (data) setAvailableSlots(data as any);
       });
   }, [currentTenant]);
 
@@ -135,6 +155,14 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           (data.article_tags as { tag_id: string }[]).map((t) => t.tag_id)
         );
         setSlugManual(true);
+
+        // Load existing slot assignment
+        const { data: assignment } = await supabase
+          .from("slot_assignments")
+          .select("slot_id")
+          .eq("article_id", articleId!)
+          .maybeSingle();
+        if (assignment) setSlotId(assignment.slot_id);
       }
       setLoading(false);
     }
@@ -227,6 +255,33 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             }))
           );
         }
+
+        // Update slot assignment
+        await supabase
+          .from("slot_assignments")
+          .delete()
+          .eq("article_id", savedId);
+
+        if (slotId) {
+          // Get max pin_order for this slot
+          const { data: maxRow } = await supabase
+            .from("slot_assignments")
+            .select("pin_order", { count: "exact" })
+            .eq("slot_id", slotId)
+            .order("pin_order", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const nextOrder = (maxRow?.pin_order ?? -1) + 1;
+
+          await supabase.from("slot_assignments").insert({
+            slot_id: slotId,
+            article_id: savedId,
+            tenant_id: currentTenant.id,
+            assigned_by: user.id,
+            pin_order: nextOrder,
+          });
+        }
       }
 
       setSaving(false);
@@ -242,7 +297,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
       currentTenant, user, title, subtitle, slug, summary, body,
       coverImageUrl, categoryId, status, isFeatured, isBreaking,
       isPremium, metaTitle, metaDescription, scheduledAt,
-      selectedTags, articleId, isNew, router,
+      selectedTags, slotId, articleId, isNew, router,
     ]
   );
 
@@ -514,6 +569,30 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
               ))}
             </select>
           </div>
+
+          {/* Slot Assignment */}
+          {availableSlots.length > 0 && (
+            <div className="rounded-lg p-4 group" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+              <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>Sezione (slot fisso)</h3>
+              <p className="text-xs mb-3" style={{ color: "var(--c-text-3)" }}>Assegna questo articolo a una sezione specifica della homepage.</p>
+              <select
+                value={slotId}
+                onChange={(e) => setSlotId(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}
+              >
+                <option value="">Nessuna sezione</option>
+                {availableSlots.map((slot) => (
+                  <option key={slot.id} value={slot.id}>{slot.label}</option>
+                ))}
+              </select>
+              {slotId && (
+                <p className="text-[11px] mt-2" style={{ color: "var(--c-accent)" }}>
+                  ✓ Questo articolo apparirà in cima allo slot.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Tags */}
           <div className="rounded-lg p-4 group" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>

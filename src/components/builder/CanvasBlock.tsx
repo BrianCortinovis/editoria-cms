@@ -2325,5 +2325,15 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
   if (s.backdropFilter) (css as Record<string,string>).backdropFilter = s.backdropFilter;
   if (s.mixBlendMode) (css as Record<string,string>).mixBlendMode = s.mixBlendMode;
   if (s.textShadow) (css as Record<string,string>).textShadow = s.textShadow;
+
+  // Apply effects (glassmorphism, etc.)
+  if (s.effects?.glassmorphism?.enabled) {
+    const g = s.effects.glassmorphism;
+    const backdropStr = `blur(${g.blur || 10}px) saturate(${g.saturation || 100}%)`;
+    (css as Record<string,string>).backdropFilter = backdropStr;
+    css.background = `rgba(${g.bgColor?.replace('#', '') || 'ffffff'}, ${g.bgOpacity || 0.1})`;
+    if (g.borderOpacity !== undefined) css.borderColor = `rgba(0, 0, 0, ${g.borderOpacity})`;
+  }
+
   return css;
 }
