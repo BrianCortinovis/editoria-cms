@@ -128,6 +128,7 @@ export interface Block {
   children: Block[];
   locked: boolean;
   hidden: boolean;
+  dataSource?: string; // Optional data source for dynamic content
 }
 
 // === Block Definition (Registry) ===
@@ -196,5 +197,6 @@ export function createBlock(
     children: [],
     locked: false,
     hidden: false,
+    dataSource: undefined,
   };
 }
