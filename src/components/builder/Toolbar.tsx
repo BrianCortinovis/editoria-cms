@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { LayoutPresets } from './LayoutPresets';
 import { AiModelSelector, type AiMode } from './AiModelSelector';
+import { AdminMenu } from './AdminMenu';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { usePageStore } from '@/lib/stores/page-store';
 import { Button } from '@/components/ui/button';
@@ -298,6 +299,9 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
           <Sparkles size={15} />
           <span className="hidden lg:inline text-xs">AI</span>
         </Button>
+
+        {/* Admin Menu */}
+        <AdminMenu />
 
       </div>
 

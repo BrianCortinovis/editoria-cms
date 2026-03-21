@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { BlockLibrary } from './BlockLibrary';
 import { LayerTree } from './LayerTree';
+import { SystemPanel } from './SystemPanel';
 import { cn } from '@/lib/utils/cn';
-import { LayoutGrid, Layers } from 'lucide-react';
+import { LayoutGrid, Layers, Server } from 'lucide-react';
 
 export function LeftPanel() {
   const { leftPanelTab, setLeftPanelTab } = useUiStore();
@@ -13,6 +14,7 @@ export function LeftPanel() {
   const tabs = [
     { id: 'blocks' as const, label: 'Blocchi', icon: LayoutGrid },
     { id: 'layers' as const, label: 'Layers', icon: Layers },
+    { id: 'system' as const, label: 'Sistema', icon: Server },
   ];
 
   return (
@@ -39,7 +41,9 @@ export function LeftPanel() {
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto">
-        {leftPanelTab === 'blocks' ? <BlockLibrary /> : <LayerTree />}
+        {leftPanelTab === 'blocks' && <BlockLibrary />}
+        {leftPanelTab === 'layers' && <LayerTree />}
+        {leftPanelTab === 'system' && <SystemPanel />}
       </div>
     </div>
   );

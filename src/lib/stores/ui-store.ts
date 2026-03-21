@@ -11,7 +11,7 @@ interface UiState {
   deviceMode: DeviceMode;
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
-  leftPanelTab: 'blocks' | 'layers';
+  leftPanelTab: 'blocks' | 'layers' | 'system';
   rightPanelTab: 'properties' | 'style' | 'animation' | 'shape' | 'responsive' | 'position' | 'tools' | 'gradient' | 'effects';
   hiddenRightPanelTabs: string[];
   aiPanelOpen: boolean;
@@ -28,7 +28,7 @@ interface UiState {
   setDeviceMode: (mode: DeviceMode) => void;
   setLeftPanelOpen: (open: boolean) => void;
   setRightPanelOpen: (open: boolean) => void;
-  setLeftPanelTab: (tab: 'blocks' | 'layers') => void;
+  setLeftPanelTab: (tab: 'blocks' | 'layers' | 'system') => void;
   setRightPanelTab: (tab: UiState['rightPanelTab']) => void;
   toggleHiddenRightPanelTab: (tab: string) => void;
   setAiPanelOpen: (open: boolean) => void;

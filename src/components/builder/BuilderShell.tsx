@@ -12,6 +12,8 @@ import { PreviewMode } from './PreviewMode';
 import { LeftPanel } from '@/components/panels/LeftPanel';
 import { RightPanel } from '@/components/panels/RightPanel';
 import { AiPanel } from '@/components/ai/AiPanel';
+import { AdminMenu } from './AdminMenu';
+import { HelpCenter } from '@/components/help/HelpCenter';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { usePageStore, loadAutosave, clearAutosave, setAutosaveContext } from '@/lib/stores/page-store';
 import { createBlock, type BlockType } from '@/lib/types';
@@ -294,6 +296,9 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           <AiPanel />
         </div>
       </div>
+
+      {/* Help Center */}
+      <HelpCenter />
     </DndContext>
   );
 }
