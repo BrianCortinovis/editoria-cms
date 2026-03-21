@@ -236,10 +236,10 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           saving={saving}
         />
 
-        <div className="flex-1 flex overflow-hidden">
-          {/* Left Panel - Fixed width */}
-          {leftPanelOpen ? (
-            <div className="w-[280px] shrink-0 h-full relative">
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Left Panel - Fixed width or hidden */}
+          {leftPanelOpen && (
+            <div className="w-[280px] shrink-0 h-full relative border-r" style={{ borderColor: 'var(--c-border)' }}>
               <LeftPanel />
               <button
                 onClick={() => setLeftPanelOpen(false)}
@@ -250,49 +250,55 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
                 <ChevronLeft size={14} />
               </button>
             </div>
-          ) : (
-            <button
-              onClick={() => setLeftPanelOpen(true)}
-              className="w-8 shrink-0 flex items-center justify-center border-r"
-              style={{ background: 'var(--c-bg-1)', borderColor: 'var(--c-border)', color: 'var(--c-text-2)' }}
-              title="Apri blocchi"
-            >
-              <PanelLeft size={14} />
-            </button>
           )}
 
           {/* Canvas - Fills remaining space */}
-          <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
+          <div className="flex-1 min-w-0 min-h-0 overflow-hidden relative">
             <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
               <Canvas />
             </SortableContext>
+
+            {/* Toggle button for left panel - when closed */}
+            {!leftPanelOpen && (
+              <button
+                onClick={() => setLeftPanelOpen(true)}
+                className="absolute top-4 left-4 p-2 rounded-lg z-10 transition-all hover:scale-110"
+                style={{ background: 'var(--c-bg-1)', color: 'var(--c-text-0)', border: '1px solid var(--c-border)' }}
+                title="Apri blocchi"
+              >
+                <PanelLeft size={16} />
+              </button>
+            )}
+
+            {/* Toggle button for right panel - when closed */}
+            {!rightPanelOpen && (
+              <button
+                onClick={() => setRightPanelOpen(true)}
+                className="absolute top-4 right-4 p-2 rounded-lg z-10 transition-all hover:scale-110"
+                style={{ background: 'var(--c-bg-1)', color: 'var(--c-text-0)', border: '1px solid var(--c-border)' }}
+                title="Apri proprietà"
+              >
+                <PanelRight size={16} />
+              </button>
+            )}
           </div>
 
-          {/* Right Panel - Fixed width */}
-          {rightPanelOpen ? (
-            <div className="w-[340px] shrink-0 h-full relative">
+          {/* Right Panel - Fixed width or hidden */}
+          {rightPanelOpen && (
+            <div className="w-[340px] shrink-0 h-full relative border-l" style={{ borderColor: 'var(--c-border)' }}>
               <RightPanel />
               <button
                 onClick={() => setRightPanelOpen(false)}
-                className="absolute top-2 left-2 p-1 rounded text-zinc-500 z-10"
+                className="absolute top-2 left-2 p-1 rounded z-10"
                 style={{ background: 'var(--c-bg-2)' }}
                 title="Chiudi pannello"
               >
                 <ChevronRight size={14} />
               </button>
             </div>
-          ) : (
-            <button
-              onClick={() => setRightPanelOpen(true)}
-              className="w-8 shrink-0 flex items-center justify-center border-l"
-              style={{ background: 'var(--c-bg-1)', borderColor: 'var(--c-border)', color: 'var(--c-text-2)' }}
-              title="Apri proprieta"
-            >
-              <PanelRight size={14} />
-            </button>
           )}
 
-          {/* AI Panel - Fixed width, outside main layout */}
+          {/* AI Panel */}
           <AiPanel />
         </div>
       </div>
