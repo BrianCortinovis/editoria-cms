@@ -161,9 +161,12 @@ function DividerSection({ label, config, block, position }: { label: string; con
     { value: 'diagonal', label: 'Diagonale' },
     { value: 'wave', label: 'Onda' },
     { value: 'zigzag', label: 'Zigzag' },
+    { value: 'zigzag-smooth', label: 'Zigzag Arrotondato' },
     { value: 'curve', label: 'Curva' },
     { value: 'triangle', label: 'Triangolo' },
     { value: 'arrow', label: 'Freccia' },
+    { value: 'staircase', label: 'Scalini' },
+    { value: 'cloud', label: 'Nuvola' },
   ];
 
   const updateConfig = (newConfig: DividerConfig | null) => {
@@ -190,11 +193,34 @@ function DividerSection({ label, config, block, position }: { label: string; con
       {config && (
         <>
           <Slider label="Altezza" value={config.height} onChange={(v) => updateConfig({ ...config, height: v })} min={20} max={200} suffix="px" />
+          <Slider
+            label="Opacità"
+            value={(config.opacity ?? 1) * 100}
+            onChange={(v) => updateConfig({ ...config, opacity: v / 100 })}
+            min={0}
+            max={100}
+            suffix="%"
+          />
           <ColorPicker label="Colore" value={config.color} onChange={(v) => updateConfig({ ...config, color: v })} />
           <div className="flex gap-4">
             <Toggle label="Ribalta" checked={config.flip} onChange={(v) => updateConfig({ ...config, flip: v })} size="sm" />
             <Toggle label="Inverti" checked={config.invert} onChange={(v) => updateConfig({ ...config, invert: v })} size="sm" />
           </div>
+
+          {/* Blend Mode */}
+          <Toggle
+            label="Fusione sezione"
+            checked={config.blendWithSection || false}
+            onChange={(v) => updateConfig({ ...config, blendWithSection: v })}
+            size="sm"
+          />
+          {config.blendWithSection && (
+            <ColorPicker
+              label="Colore fusione"
+              value={config.blendColor || '#000000'}
+              onChange={(v) => updateConfig({ ...config, blendColor: v })}
+            />
+          )}
         </>
       )}
     </div>
