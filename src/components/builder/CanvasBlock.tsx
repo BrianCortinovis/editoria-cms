@@ -138,7 +138,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
   const blockRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 0, h: 0 });
   const [resizing, setResizing] = useState(false);
-  const [toolbarPos, setToolbarPos] = useState<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center' | 'bottom-center'>('top-left');
+  const [toolbarPos, setToolbarPos] = useState<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center' | 'bottom-center' | 'center-center'>('top-left');
   // Store initial style values and rendered width when resize starts
   const initStyleRef = useRef(block.style);
   const initRenderedWidthRef = useRef(0);
@@ -452,7 +452,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
   if (block.style.backdropFilter) (wrapperStyle as Record<string, string>).backdropFilter = block.style.backdropFilter;
   if (block.style.mixBlendMode) (wrapperStyle as Record<string, string>).mixBlendMode = block.style.mixBlendMode;
 
-  if (hasClipPath) {
+  if (hasClipPath && block.shape) {
     (wrapperStyle as Record<string, string>).clipPath = block.shape.value;
     // Ensure overflow is hidden when clip-path is applied so shape renders correctly
     wrapperStyle.overflow = 'hidden';
@@ -471,28 +471,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
       style={{ position: 'relative' }}
     >
       {/* Selection outline overlay - OUTSIDE the clipped wrapper so it's not hidden */}
-      {selected && !isDragging && hasClipPath && block.shape?.value && (
-        <svg
-          className="absolute pointer-events-none z-40"
-          style={{
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            overflow: 'visible',
-          }}
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-        >
-          <polygon
-            points={clipPathToPolygonPoints(block.shape.value)}
-            fill="none"
-            stroke="#3b82f6"
-            strokeWidth="1"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      )}
+      {selected && !isDragging && hasClipPath && block.shape?.value && renderShapeOutline(block.shape.value)}
 
       <div
         data-block-id={block.id}
@@ -564,7 +543,8 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
               toolbarPos === 'bottom-left' && 'bottom-2 left-2',
               toolbarPos === 'bottom-right' && 'bottom-2 right-2',
               toolbarPos === 'top-center' && 'top-2 left-1/2 -translate-x-1/2',
-              toolbarPos === 'bottom-center' && 'bottom-2 left-1/2 -translate-x-1/2'
+              toolbarPos === 'bottom-center' && 'bottom-2 left-1/2 -translate-x-1/2',
+              toolbarPos === 'center-center' && 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2'
             )}
             onClick={(e) => e.stopPropagation()}
           >
@@ -578,6 +558,11 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
                 const handleMouseMove = (mv: MouseEvent) => {
                   const dx = mv.clientX - start.x;
                   const dy = mv.clientY - start.y;
+
+                  // If already at center-center, keep it there (allows free positioning)
+                  if (toolbarPos === 'center-center') {
+                    return;
+                  }
 
                   // Simple logic: if moved more horizontally, position changes left/right
                   // if moved vertically, position changes top/bottom
@@ -758,6 +743,16 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
                 }}
                 title="Bottom-Right"
               >↘</button>
+              <button
+                onClick={() => setToolbarPos('center-center')}
+                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
+                style={{
+                  background: toolbarPos === 'center-center' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
+                  color: 'white',
+                  transform: toolbarPos === 'center-center' ? 'scale(1.1)' : 'scale(0.9)'
+                }}
+                title="Center"
+              >⊙</button>
             </div>
           </div>
 
@@ -2567,9 +2562,95 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
 }
 
 // ================================================================
+// RENDER SHAPE OUTLINE - Creates appropriate SVG for shape selection
+// ================================================================
+function renderShapeOutline(clipPathValue: string) {
+  // Check for circle - match: circle(50% at 50% 50%)
+  if (clipPathValue.includes('circle(')) {
+    return (
+      <svg
+        className="absolute pointer-events-none z-40"
+        style={{
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          overflow: 'visible',
+        }}
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        <circle
+          cx="50"
+          cy="50"
+          r="50"
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth="0.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  // Check for ellipse - match: ellipse(50% 35% at 50% 50%)
+  if (clipPathValue.includes('ellipse(')) {
+    return (
+      <svg
+        className="absolute pointer-events-none z-40"
+        style={{
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          overflow: 'visible',
+        }}
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        <ellipse
+          cx="50"
+          cy="50"
+          rx="50"
+          ry="35"
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth="0.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  // Default to polygon for polygon() clip-path
+  return (
+    <svg
+      className="absolute pointer-events-none z-40"
+      style={{
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        overflow: 'visible',
+      }}
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+    >
+      <polygon
+        points={clipPathToPolygonPoints(clipPathValue)}
+        fill="none"
+        stroke="#3b82f6"
+        strokeWidth="1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// ================================================================
 // CLIP-PATH TO SVG POLYGON CONVERTER
 // ================================================================
-// Converts polygon() and circle() clip-path to SVG points
+// Converts polygon() clip-path to SVG points
 function clipPathToPolygonPoints(clipPathValue: string): string {
   // Match polygon(x1 y1, x2 y2, ...) format
   const polygonMatch = clipPathValue.match(/polygon\((.*?)\)/);
