@@ -10,8 +10,11 @@ export type BlockType =
   | 'timeline' | 'quote' | 'accordion' | 'tabs' | 'map'
   | 'code' | 'table' | 'divider' | 'counter' | 'comparison'
   | 'custom-html' | 'slideshow' | 'carousel'
+  // Editorial blocks
   | 'article-grid' | 'article-hero' | 'article-list' | 'article-featured'
-  | 'category-list' | 'tag-cloud' | 'trending-articles';
+  | 'category-list' | 'tag-cloud' | 'trending-articles'
+  | 'category-nav' | 'author-bio' | 'banner-zone' | 'breaking-ticker'
+  | 'event-list' | 'newsletter-signup' | 'search-bar';
 
 export type BlockCategory =
   | 'layout' | 'content' | 'media'
