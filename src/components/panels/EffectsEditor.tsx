@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { usePageStore } from '@/lib/stores/page-store';
-import type { Block, GlassmorphismEffect, NoiseEffect, GrainEffect } from '@/lib/types';
+import type { Block, GlassmorphismEffect } from '@/lib/types';
 import { AIModal } from '@/components/ai/AIModal';
 
 interface EffectsEditorProps {
@@ -15,8 +15,6 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
   const effects = block.style.effects || {};
 
   const [openGlass, setOpenGlass] = useState(true);
-  const [openNoise, setOpenNoise] = useState(false);
-  const [openGrain, setOpenGrain] = useState(false);
   const [aiModalOpen, setAiModalOpen] = useState(false);
 
   const glassmorphism = effects.glassmorphism || {
@@ -26,19 +24,6 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
     bgOpacity: 0.1,
     bgColor: '#ffffff',
     borderOpacity: 0.2,
-  };
-
-  const noise = effects.noise || {
-    enabled: false,
-    opacity: 0.3,
-    frequency: 0.8,
-    type: 'fractalNoise' as const,
-  };
-
-  const grain = effects.grain || {
-    enabled: false,
-    opacity: 0.2,
-    size: 2,
   };
 
   const updateEffects = (newEffects: Partial<typeof effects>) => {
@@ -59,20 +44,6 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
 
   const applyGlassPreset = (preset: Partial<GlassmorphismEffect>) => {
     updateGlass({ ...preset, enabled: true });
-  };
-
-  const updateNoise = (updates: Partial<NoiseEffect>) => {
-    const currentNoise = block.style.effects?.noise || noise;
-    updateEffects({
-      noise: { ...currentNoise, ...updates },
-    });
-  };
-
-  const updateGrain = (updates: Partial<GrainEffect>) => {
-    const currentGrain = block.style.effects?.grain || grain;
-    updateEffects({
-      grain: { ...currentGrain, ...updates },
-    });
   };
 
   const contextData = JSON.stringify({
@@ -253,155 +224,6 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
             <Sparkles size={16} />
             Suggerisci glassmorphism
           </button>
-        </div>
-      )}
-
-      {/* Noise Section */}
-      <div
-        onClick={() => setOpenNoise(!openNoise)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium cursor-pointer"
-        style={{ color: 'var(--c-text-0)' }}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenNoise(!openNoise); }}
-      >
-        <span className="flex items-center gap-2">
-          {openNoise ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          Rumore
-        </span>
-      </div>
-
-      {openNoise && (
-        <div className="p-4 space-y-4" style={{ borderTop: '1px solid var(--c-border)' }}>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={noise.enabled}
-              onChange={(e) => updateNoise({ enabled: e.target.checked })}
-              className="w-4 h-4"
-            />
-            <span className="text-xs font-medium" style={{ color: 'var(--c-text-1)' }}>
-              Abilita Rumore
-            </span>
-          </label>
-
-          {noise.enabled && (
-            <>
-              <div>
-                <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-                  Opacità: {(noise.opacity * 100).toFixed(0)}%
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={noise.opacity}
-                  onChange={(e) => updateNoise({ opacity: Number(e.target.value) })}
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-                  Frequenza: {noise.frequency.toFixed(2)}
-                </label>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="2"
-                  step="0.1"
-                  value={noise.frequency}
-                  onChange={(e) => updateNoise({ frequency: Number(e.target.value) })}
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-                  Tipo
-                </label>
-                <select
-                  value={noise.type}
-                  onChange={(e) => updateNoise({ type: e.target.value as 'fractalNoise' | 'turbulence' })}
-                  className="w-full px-2 py-1 rounded text-xs"
-                  style={{
-                    background: 'var(--c-bg-2)',
-                    borderColor: 'var(--c-border)',
-                    color: 'var(--c-text-0)',
-                  }}
-                >
-                  <option value="fractalNoise">Frattale</option>
-                  <option value="turbulence">Turbolenza</option>
-                </select>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Grain Section */}
-      <div
-        onClick={() => setOpenGrain(!openGrain)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium cursor-pointer"
-        style={{ color: 'var(--c-text-0)' }}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenGrain(!openGrain); }}
-      >
-        <span className="flex items-center gap-2">
-          {openGrain ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          Grana
-        </span>
-      </div>
-
-      {openGrain && (
-        <div className="p-4 space-y-4" style={{ borderTop: '1px solid var(--c-border)' }}>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={grain.enabled}
-              onChange={(e) => updateGrain({ enabled: e.target.checked })}
-              className="w-4 h-4"
-            />
-            <span className="text-xs font-medium" style={{ color: 'var(--c-text-1)' }}>
-              Abilita Grana
-            </span>
-          </label>
-
-          {grain.enabled && (
-            <>
-              <div>
-                <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-                  Opacità: {(grain.opacity * 100).toFixed(0)}%
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={grain.opacity}
-                  onChange={(e) => updateGrain({ opacity: Number(e.target.value) })}
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-                  Dimensione: {grain.size}px
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="5"
-                  step="1"
-                  value={grain.size}
-                  onChange={(e) => updateGrain({ size: Number(e.target.value) })}
-                  className="w-full"
-                />
-              </div>
-            </>
-          )}
         </div>
       )}
 
