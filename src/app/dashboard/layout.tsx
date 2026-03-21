@@ -29,6 +29,9 @@ const pageTitles: Record<string, string> = {
   "/dashboard/impostazioni": "Impostazioni",
 };
 
+// Pages that should be fullscreen (no padding)
+const fullscreenPages = ["/dashboard/editor"];
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -41,7 +44,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return "Dashboard";
   };
 
-  const isEditor = typeof window !== "undefined" && window.location.pathname === "/dashboard/editor";
+  const getCurrentPath = () => {
+    if (typeof window === "undefined") return "";
+    return window.location.pathname;
+  };
+
+  const isFullscreen = typeof window !== "undefined" && fullscreenPages.includes(getCurrentPath());
 
   return (
     <AuthProvider>
@@ -49,8 +57,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="lg:ml-[82px] flex-1 flex flex-col overflow-hidden">
           <Topbar title={getTitle()} onMenuClick={() => setSidebarOpen(true)} />
-          <main className={`flex-1 overflow-hidden ${isEditor ? "" : "p-4 sm:p-5"} w-full h-full`}>
-            <div className={isEditor ? "h-full w-full" : "max-w-[1400px] mx-auto h-full overflow-auto"}>
+          <main className={`flex-1 overflow-hidden ${isFullscreen ? "" : "p-4 sm:p-5"} w-full h-full`}>
+            <div className={isFullscreen ? "h-full w-full" : "max-w-[1400px] mx-auto h-full overflow-auto"}>
               {children}
             </div>
           </main>
