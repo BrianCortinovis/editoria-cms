@@ -14,7 +14,7 @@ export async function getTenantIdFromSlug(slug: string): Promise<string | null> 
   }
 
   try {
-    const { createServiceRoleClient } = await import('./supabase/server');
+    const { createServiceRoleClient } = await import('@/lib/supabase/server');
     const supabase = await createServiceRoleClient();
 
     const { data, error } = await supabase

@@ -9,7 +9,7 @@ import { Select } from '@/components/ui/select';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { Slider } from '@/components/ui/slider';
 import { Toggle } from '@/components/ui/toggle';
-import { AiButton } from '@/components/ai/AiButton';
+import AIButton from '@/components/ai/AIButton';
 import { cn } from '@/lib/utils/cn';
 import {
   ChevronDown, ChevronRight, MousePointer, Move, Magnet, Ruler,
