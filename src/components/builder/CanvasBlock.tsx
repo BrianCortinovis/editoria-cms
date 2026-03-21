@@ -686,10 +686,16 @@ function HeroContent({ block }: { block: Block }) {
 
 function TextContent({ block, isEditing }: { block: Block; isEditing: boolean }) {
   const p = block.props as { content: string; dropCap?: boolean; columns?: number };
+  const blockStyle = buildCssFromBlockStyle(block);
+
   return (
     <div
       className={cn('prose prose-zinc dark:prose-invert max-w-none', p.dropCap && 'first-letter:text-5xl first-letter:font-bold first-letter:float-left first-letter:mr-2', p.columns && p.columns > 1 && `columns-${p.columns} gap-8`)}
-      style={isEditing ? { outline: 'none', minHeight: 40 } : undefined}
+      style={{
+        ...blockStyle,
+        outline: isEditing ? 'none' : undefined,
+        minHeight: isEditing ? 40 : undefined,
+      }}
       contentEditable={isEditing} suppressContentEditableWarning
       dangerouslySetInnerHTML={{ __html: p.content || '<p>Inserisci testo...</p>' }}
     />
