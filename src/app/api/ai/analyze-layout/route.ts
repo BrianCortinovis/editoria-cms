@@ -45,6 +45,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "tenant_id and files array required" }, { status: 400 });
     }
 
+    // Verify user has access to this tenant
+    const { data: userTenants } = await supabase
+      .from("user_tenants")
+      .select("tenant_id")
+      .eq("user_id", user.id);
+
+    if (!userTenants?.some(ut => ut.tenant_id === tenant_id)) {
+      return NextResponse.json({ error: "Forbidden: no access to this tenant" }, { status: 403 });
+    }
+
     const { data: tenant } = await supabase.from("tenants").select("settings").eq("id", tenant_id).single();
     if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 

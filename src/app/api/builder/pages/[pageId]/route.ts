@@ -9,6 +9,11 @@ export async function GET(
   const { pageId } = await params;
   const supabase = await createServerSupabaseClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { data, error } = await supabase
     .from("site_pages")
     .select("*")
@@ -17,6 +22,16 @@ export async function GET(
 
   if (error || !data) {
     return NextResponse.json({ error: "Page not found" }, { status: 404 });
+  }
+
+  // Verify user has access to this page's tenant
+  const { data: userTenants } = await supabase
+    .from("user_tenants")
+    .select("tenant_id")
+    .eq("user_id", user.id);
+
+  if (!userTenants?.some(ut => ut.tenant_id === data.tenant_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   return NextResponse.json({ page: data });
@@ -38,22 +53,34 @@ export async function PUT(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Get page and verify user access to page's tenant
+  const { data: page, error: pageError } = await supabase
+    .from("site_pages")
+    .select("tenant_id, blocks, meta")
+    .eq("id", pageId)
+    .single();
+
+  if (pageError || !page) {
+    return NextResponse.json({ error: "Page not found" }, { status: 404 });
+  }
+
+  const { data: userTenants } = await supabase
+    .from("user_tenants")
+    .select("tenant_id")
+    .eq("user_id", user.id);
+
+  if (!userTenants?.some(ut => ut.tenant_id === page.tenant_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   // Save revision before updating
   if (blocks) {
-    const { data: current } = await supabase
-      .from("site_pages")
-      .select("blocks, meta")
-      .eq("id", pageId)
-      .single();
-
-    if (current) {
-      await supabase.from("site_page_revisions").insert({
-        page_id: pageId,
-        blocks: current.blocks,
-        meta: current.meta,
-        changed_by: user.id,
-      });
-    }
+    await supabase.from("site_page_revisions").insert({
+      page_id: pageId,
+      blocks: page.blocks,
+      meta: page.meta,
+      changed_by: user.id,
+    });
   }
 
   const update: Record<string, unknown> = {};
@@ -87,6 +114,31 @@ export async function DELETE(
 ) {
   const { pageId } = await params;
   const supabase = await createServerSupabaseClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Get page and verify user access to page's tenant
+  const { data: page } = await supabase
+    .from("site_pages")
+    .select("tenant_id")
+    .eq("id", pageId)
+    .single();
+
+  if (!page) {
+    return NextResponse.json({ error: "Page not found" }, { status: 404 });
+  }
+
+  const { data: userTenants } = await supabase
+    .from("user_tenants")
+    .select("tenant_id")
+    .eq("user_id", user.id);
+
+  if (!userTenants?.some(ut => ut.tenant_id === page.tenant_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const { error } = await supabase
     .from("site_pages")

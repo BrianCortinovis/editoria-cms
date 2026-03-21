@@ -12,6 +12,21 @@ export async function GET(request: Request) {
 
   const supabase = await createServerSupabaseClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Verify user has access to this tenant
+  const { data: userTenants, error: tenantError } = await supabase
+    .from("user_tenants")
+    .select("tenant_id")
+    .eq("user_id", user.id);
+
+  if (tenantError || !userTenants?.some(ut => ut.tenant_id === tenantId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { data, error } = await supabase
     .from("site_pages")
     .select("id, title, slug, page_type, is_published, sort_order, created_at, updated_at")
@@ -40,6 +55,16 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Verify user has access to the requested tenant
+  const { data: userTenants, error: tenantError } = await supabase
+    .from("user_tenants")
+    .select("tenant_id")
+    .eq("user_id", user.id);
+
+  if (tenantError || !userTenants?.some(ut => ut.tenant_id === tenant_id)) {
+    return NextResponse.json({ error: "Forbidden: no access to this tenant" }, { status: 403 });
   }
 
   const { data, error } = await supabase
