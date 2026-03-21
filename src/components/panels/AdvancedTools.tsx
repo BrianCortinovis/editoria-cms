@@ -110,7 +110,7 @@ export function OverlayEditor({ block }: OverlayEditorProps) {
           />
         </div>
         <div className="pt-4">
-          <AiButton blockId={block.id} fieldName="overlayText" fieldValue={overlayText} size="sm" />
+          <AIButton blockId={block.id} fieldName="overlayText" fieldValue={overlayText} size="sm" />
         </div>
       </div>
 
@@ -344,7 +344,7 @@ export function ShapeTools({ block }: { block: Block }) {
           />
         </div>
         <div className="pt-4">
-          <AiButton blockId={block.id} fieldName="clip-path" fieldValue={currentClipPath} size="sm" />
+          <AIButton blockId={block.id} fieldName="clip-path" fieldValue={currentClipPath} size="sm" />
         </div>
       </div>
     </div>
