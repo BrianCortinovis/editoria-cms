@@ -11,6 +11,7 @@ export async function resolveBlockData(
 ): Promise<unknown[]> {
   const supabase = await createServiceRoleClient();
   const { endpoint, params = {} } = dataSource;
+  const p = params as Record<string, string | undefined>;
 
   switch (endpoint) {
     case 'articles': {
@@ -20,8 +21,6 @@ export async function resolveBlockData(
         .eq('tenant_id', tenantId)
         .eq('status', 'published')
         .order('published_at', { ascending: false });
-
-      const p = params as Record<string, string | undefined>;
       if (p.category) {
         const { data: cat } = await supabase
           .from('categories')
