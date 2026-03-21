@@ -52,6 +52,42 @@ export function AIModal({
     setResult('');
 
     try {
+      const finalPrompt = prompt.replace('{context}', contextData);
+
+      // In development, mock a response for testing
+      if (process.env.NODE_ENV === 'development') {
+        await new Promise(r => setTimeout(r, 800)); // Simulate API delay
+
+        // Generate a mock response based on the prompt
+        let mockResponse = '';
+        if (finalPrompt.includes('glassmorphism')) {
+          mockResponse = JSON.stringify({
+            enabled: true,
+            blur: 12,
+            saturation: 100,
+            bgOpacity: 0.15,
+            bgColor: '#ffffff',
+            borderOpacity: 0.2,
+          }, null, 2);
+        } else if (finalPrompt.includes('gradient')) {
+          mockResponse = JSON.stringify({
+            type: 'linear',
+            angle: 135,
+            stops: [
+              { color: '#667eea', position: 0 },
+              { color: '#764ba2', position: 100 },
+            ],
+          }, null, 2);
+        } else {
+          mockResponse = JSON.stringify({ success: true, message: 'Mock response per testing locale' }, null, 2);
+        }
+
+        setResult(mockResponse);
+        setSubmitted(true);
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch('/api/ai/freeform', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -59,7 +95,7 @@ export function AIModal({
           tenant_id: tenant.id,
           task: 'seo',
           system: systemPrompt || 'Sei un assistente editoriale per un CMS giornalistico italiano. Rispondi in modo conciso e utile.',
-          prompt: prompt.replace('{context}', contextData),
+          prompt: finalPrompt,
         }),
       });
 
