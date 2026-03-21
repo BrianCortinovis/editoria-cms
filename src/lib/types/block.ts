@@ -9,7 +9,9 @@ export type BlockType =
   | 'social' | 'author-bio' | 'related-content' | 'newsletter'
   | 'timeline' | 'quote' | 'accordion' | 'tabs' | 'map'
   | 'code' | 'table' | 'divider' | 'counter' | 'comparison'
-  | 'custom-html' | 'slideshow' | 'carousel';
+  | 'custom-html' | 'slideshow' | 'carousel'
+  | 'article-grid' | 'article-hero' | 'article-list' | 'article-featured'
+  | 'category-list' | 'tag-cloud' | 'trending-articles';
 
 export type BlockCategory =
   | 'layout' | 'content' | 'media'
