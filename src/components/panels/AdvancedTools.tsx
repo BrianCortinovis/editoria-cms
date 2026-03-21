@@ -9,7 +9,6 @@ import { Select } from '@/components/ui/select';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { Slider } from '@/components/ui/slider';
 import { Toggle } from '@/components/ui/toggle';
-import AIButton from '@/components/ai/AIButton';
 import { cn } from '@/lib/utils/cn';
 import {
   ChevronDown, ChevronRight, MousePointer, Move, Magnet, Ruler,
@@ -110,7 +109,6 @@ export function OverlayEditor({ block }: OverlayEditorProps) {
           />
         </div>
         <div className="pt-4">
-          <AIButton blockId={block.id} fieldName="overlayText" fieldValue={overlayText} size="sm" />
         </div>
       </div>
 
@@ -344,7 +342,6 @@ export function ShapeTools({ block }: { block: Block }) {
           />
         </div>
         <div className="pt-4">
-          <AIButton blockId={block.id} fieldName="clip-path" fieldValue={currentClipPath} size="sm" />
         </div>
       </div>
     </div>

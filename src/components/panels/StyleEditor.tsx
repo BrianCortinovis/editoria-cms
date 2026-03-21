@@ -7,7 +7,6 @@ import { Select } from '@/components/ui/select';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { Slider } from '@/components/ui/slider';
 import { Toggle } from '@/components/ui/toggle';
-import AIButton from '@/components/ai/AIButton';
 import { useState } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -356,7 +355,6 @@ export function StyleEditor({ block }: StyleEditorProps) {
             className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 min-h-[80px] resize-y"
             placeholder="/* CSS aggiuntivo */"
           />
-          <AIButton blockId={block.id} fieldName="customCss" fieldValue={s.customCss || ''} size="sm" />
         </div>
       </Section>
     </div>
