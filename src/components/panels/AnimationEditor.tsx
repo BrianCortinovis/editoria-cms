@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { usePageStore } from '@/lib/stores/page-store';
 import type { Block, BlockAnimation, AnimationTrigger, AnimationEffect } from '@/lib/types';
-import AIButton from '@/components/ai/AIButton';
+import { AIModal } from '@/components/ai/AIModal';
 
 interface AnimationEditorProps {
   block: Block;
@@ -45,9 +45,9 @@ export function AnimationEditor({ block }: AnimationEditorProps) {
   };
 
   const [open, setOpen] = useState(false);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   const updateAnimation = (updates: Partial<BlockAnimation>) => {
-    // Use current animation from block prop, not stale closure value
     const currentAnimation = block.animation || animation;
     updateBlock(block.id, {
       animation: { ...currentAnimation, ...updates },
@@ -74,69 +74,15 @@ export function AnimationEditor({ block }: AnimationEditorProps) {
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           Animazioni
         </span>
-        {open && (
-          <AIButton
-            blockId={block.id}
-            fieldName="animation"
-            contextData={contextData}
-            actions={[
-              {
-                id: 'suggest-animation-elegant',
-                label: 'Elegante',
-                prompt: 'Suggest an elegant animation for this block: {context}. Return JSON with trigger, effect, duration (100-3000), delay, easing.',
-              },
-              {
-                id: 'suggest-animation-energetic',
-                label: 'Energetica',
-                prompt: 'Suggest an energetic/fun animation for this block: {context}. Return JSON with trigger, effect, duration, delay, easing.',
-              },
-              {
-                id: 'suggest-animation-subtle',
-                label: 'Sottile',
-                prompt: 'Suggest a subtle animation for this block: {context}. Return JSON with trigger, effect, duration (200-600), delay, easing.',
-              },
-            ]}
-            onCommand={(cmd: any) => {
-              if (cmd.action === 'updateAnimation') {
-                const updates: Partial<BlockAnimation> = {};
-                if (cmd.trigger) updates.trigger = cmd.trigger;
-                if (cmd.effect) updates.effect = cmd.effect;
-                if (cmd.duration) updates.duration = cmd.duration;
-                if (cmd.delay !== undefined) updates.delay = cmd.delay;
-                if (cmd.easing) updates.easing = cmd.easing;
-                updateAnimation(updates);
-              }
-            }}
-            compact
-          />
-        )}
       </div>
 
       {open && (
         <div className="p-4 space-y-4" style={{ borderTop: '1px solid var(--c-border)' }}>
           {/* Trigger Selector */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold block" style={{ color: 'var(--c-text-1)' }}>
-                Trigger
-              </label>
-              <AIButton
-                blockId={block.id}
-                fieldName="animation-trigger"
-                contextData={JSON.stringify({ blockType: block.type })}
-                actions={[
-                  {
-                    id: 'suggest-trigger',
-                    label: 'Suggerisci',
-                    prompt: 'Suggest the best animation trigger (entrance, scroll, or hover) for this block type. Return JSON with just "trigger" field.',
-                  },
-                ]}
-                onCommand={(cmd: any) => {
-                  if (cmd.trigger) updateAnimation({ trigger: cmd.trigger });
-                }}
-                compact
-              />
-            </div>
+            <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
+              Trigger
+            </label>
             <div className="flex gap-2">
               {(['entrance', 'scroll', 'hover'] as const).map((trigger) => (
                 <button
@@ -156,27 +102,9 @@ export function AnimationEditor({ block }: AnimationEditorProps) {
 
           {/* Effect Grid */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold block" style={{ color: 'var(--c-text-1)' }}>
-                Effetto
-              </label>
-              <AIButton
-                blockId={block.id}
-                fieldName="animation-effect"
-                contextData={JSON.stringify({ trigger: animation.trigger, blockType: block.type })}
-                actions={[
-                  {
-                    id: 'suggest-effect',
-                    label: 'Suggerisci',
-                    prompt: 'Suggest the best animation effect for this {trigger} trigger and block type: {context}. Return JSON with "effect" field from: fade-in, slide-up, slide-down, slide-left, slide-right, zoom-in, zoom-out, rotate, bounce, flip.',
-                  },
-                ]}
-                onCommand={(cmd: any) => {
-                  if (cmd.effect) updateAnimation({ effect: cmd.effect });
-                }}
-                compact
-              />
-            </div>
+            <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
+              Effetto
+            </label>
             <div className="grid grid-cols-4 gap-1">
               {ANIMATION_EFFECTS.map((effect) => (
                 <button
@@ -203,15 +131,19 @@ export function AnimationEditor({ block }: AnimationEditorProps) {
                               ? 'Zoom +'
                               : effect === 'zoom-out'
                                 ? 'Zoom -'
-                                : effect === 'none'
-                                  ? 'Nessuno'
-                                  : effect}
+                                : effect === 'rotate'
+                                  ? 'Ruota'
+                                  : effect === 'bounce'
+                                    ? 'Rimbalzo'
+                                    : effect === 'flip'
+                                      ? 'Capovolgi'
+                                      : 'Nessuno'}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Duration Slider */}
+          {/* Duration */}
           <div>
             <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
               Durata: {animation.duration}ms
@@ -227,7 +159,7 @@ export function AnimationEditor({ block }: AnimationEditorProps) {
             />
           </div>
 
-          {/* Delay Slider */}
+          {/* Delay */}
           <div>
             <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
               Ritardo: {animation.delay}ms
@@ -235,53 +167,56 @@ export function AnimationEditor({ block }: AnimationEditorProps) {
             <input
               type="range"
               min="0"
-              max="2000"
-              step="100"
+              max="1000"
+              step="50"
               value={animation.delay}
               onChange={(e) => updateAnimation({ delay: Number(e.target.value) })}
               className="w-full"
             />
           </div>
 
-          {/* Easing Selector */}
+          {/* Easing */}
           <div>
             <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
               Easing
             </label>
-            <div className="space-y-1">
-              {EASING_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => updateAnimation({ easing: option.value })}
-                  className="w-full px-3 py-1.5 text-xs font-medium text-left rounded transition-colors"
-                  style={{
-                    background: animation.easing === option.value ? 'var(--c-accent)' : 'var(--c-bg-2)',
-                    color: animation.easing === option.value ? 'white' : 'var(--c-text-1)',
-                  }}
-                >
-                  {option.label}
-                </button>
+            <select
+              value={animation.easing}
+              onChange={(e) => updateAnimation({ easing: e.target.value })}
+              className="w-full px-2 py-1 rounded text-xs"
+              style={{
+                background: 'var(--c-bg-2)',
+                borderColor: 'var(--c-border)',
+                color: 'var(--c-text-0)',
+              }}
+            >
+              {EASING_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
-          {/* Scroll Threshold (per scroll trigger) */}
-          {animation.trigger === 'scroll' && (
-            <div>
-              <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-                Soglia di scroll: 50%
-              </label>
-              <input type="range" min="0" max="100" value={50} disabled className="w-full opacity-50" />
-              <small style={{ color: 'var(--c-text-2)' }}>Scatta quando il blocco è al 50% visibile</small>
-            </div>
-          )}
+          {/* AI Suggestions Row */}
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={() => setAiModalOpen(true)}
+              className="w-full px-3 py-2 rounded text-sm font-medium flex items-center justify-center gap-2"
+              style={{ background: 'var(--c-accent)', color: 'white' }}
+            >
+              <Sparkles size={16} />
+              Suggerisci animazione
+            </button>
+          </div>
 
-          {/* AI Button */}
-          <AIButton
-            blockId={block.id}
-            fieldName="animation"
-            fieldValue={contextData}
-            onResult={(result) => {
+          <AIModal
+            isOpen={aiModalOpen}
+            onClose={() => setAiModalOpen(false)}
+            defaultPrompt="Suggest a beautiful animation for this block type: {context}. Return a pure JSON object matching BlockAnimation type with trigger, effect, duration (100-3000), delay, easing."
+            contextData={contextData}
+            title="Suggerisci Animazione"
+            onApply={(result) => {
               try {
                 const parsed = JSON.parse(result) as BlockAnimation;
                 updateAnimation(parsed);
@@ -289,27 +224,6 @@ export function AnimationEditor({ block }: AnimationEditorProps) {
                 console.error('Invalid animation response:', result);
               }
             }}
-            actions={[
-              {
-                id: 'suggest-animation',
-                label: 'Animazione elegante',
-                prompt:
-                  'Suggest an elegant animation for this block type: {context}. Return a pure JSON object matching BlockAnimation type with smooth easing.',
-              },
-              {
-                id: 'suggest-animation',
-                label: 'Animazione energetica',
-                prompt:
-                  'Suggest an energetic, lively animation for this block type: {context}. Return a pure JSON object matching BlockAnimation type with bounce or spring easing.',
-              },
-              {
-                id: 'suggest-animation',
-                label: 'Animazione sottile',
-                prompt:
-                  'Suggest a subtle, minimal animation for this block type: {context}. Return a pure JSON object matching BlockAnimation type with short duration and fade effect.',
-              },
-            ]}
-            compact
           />
         </div>
       )}

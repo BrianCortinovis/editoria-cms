@@ -76,7 +76,7 @@ export default function ArticoliPage() {
 
     const { data } = await query.limit(50);
     if (data) {
-      setArticles(data as Article[]);
+      setArticles(data as unknown as Article[]);
     }
     setLoading(false);
   }, [currentTenant, filterStatus, search]);

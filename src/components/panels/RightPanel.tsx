@@ -162,8 +162,6 @@ export function RightPanel() {
 }
 
 // === Properties Editor ===
-import type { Block } from '@/lib/types';
-
 function PropertiesEditor({ block, projectPalette }: { block: Block; projectPalette: string[] }) {
   const { updateBlockProps } = usePageStore();
 
@@ -305,18 +303,18 @@ function DividerSection({ label, config, block, position }: { label: string; con
             <>
               <ColorPicker
                 label="Colore inizio"
-                value={config.gradient.colorStart || config.color}
-                onChange={(v) => updateConfig({ ...config, gradient: { ...config.gradient, colorStart: v } })}
+                value={config.gradient?.colorStart || config.color}
+                onChange={(v) => updateConfig({ ...config, gradient: { enabled: true, colorStart: v, colorEnd: config.gradient?.colorEnd || 'transparent', direction: config.gradient?.direction || 'vertical' } })}
               />
               <ColorPicker
                 label="Colore fine"
-                value={config.gradient.colorEnd || 'transparent'}
-                onChange={(v) => updateConfig({ ...config, gradient: { ...config.gradient, colorEnd: v } })}
+                value={config.gradient?.colorEnd || 'transparent'}
+                onChange={(v) => updateConfig({ ...config, gradient: { enabled: true, colorStart: config.gradient?.colorStart || config.color, colorEnd: v, direction: config.gradient?.direction || 'vertical' } })}
               />
               <Select
                 label="Direzione sfumatura"
-                value={config.gradient.direction || 'vertical'}
-                onChange={(e) => updateConfig({ ...config, gradient: { ...config.gradient, direction: e.target.value as 'vertical' | 'horizontal' | 'diagonal' } })}
+                value={config.gradient?.direction || 'vertical'}
+                onChange={(e) => updateConfig({ ...config, gradient: { enabled: true, colorStart: config.gradient?.colorStart || config.color, colorEnd: config.gradient?.colorEnd || 'transparent', direction: e.target.value as 'vertical' | 'horizontal' | 'diagonal' } })}
                 options={[
                   { value: 'vertical', label: 'Verticale' },
                   { value: 'horizontal', label: 'Orizzontale' },
