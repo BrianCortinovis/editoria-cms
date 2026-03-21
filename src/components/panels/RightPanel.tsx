@@ -13,15 +13,30 @@ import { Input } from '@/components/ui/input';
 import { Toggle } from '@/components/ui/toggle';
 import AIButton from '@/components/ai/AIButton';
 import type { AICommand } from '@/components/ai/AIButton';
+import type { Block } from '@/lib/types';
 
 export function RightPanel() {
   const { rightPanelTab, setRightPanelTab, hiddenRightPanelTabs, toggleHiddenRightPanelTab } = useUiStore();
-  const { selectedBlockId, getSelectedBlock, updateBlock, updateBlockProps } = usePageStore();
+  const { selectedBlockId, updateBlock, updateBlockProps } = usePageStore();
+  const blocks = usePageStore((s) => s.blocks);
+
+  // Find the selected block from the blocks array
+  const findBlock = (blocks: Block[], id: string): Block | null => {
+    for (const block of blocks) {
+      if (block.id === id) return block;
+      if (block.children.length > 0) {
+        const found = findBlock(block.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const block = selectedBlockId ? findBlock(blocks, selectedBlockId) : null;
+
   const projectPalette = useUiStore((s) => s.projectPalette);
   const setProjectPalette = useUiStore((s) => s.setProjectPalette);
   const [showTabMenu, setShowTabMenu] = useState(false);
-
-  const block = getSelectedBlock();
 
   const tabs = [
     { id: 'properties' as const, icon: Settings2, label: 'Props' },
