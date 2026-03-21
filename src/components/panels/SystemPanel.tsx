@@ -86,9 +86,9 @@ export function SystemPanel() {
   ];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full w-full">
       {/* Tabs */}
-      <div className="flex overflow-x-auto border-b" style={{ borderColor: 'var(--c-border)' }}>
+      <div className="flex overflow-x-auto border-b shrink-0" style={{ borderColor: 'var(--c-border)' }}>
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -106,7 +106,7 @@ export function SystemPanel() {
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-4">
+      <div className="flex-1 overflow-y-auto p-3 space-y-4 min-h-0">
         {activeTab === 'overview' && (
           <div className="space-y-3">
             <div className="p-3 rounded-lg" style={{ background: 'var(--c-bg-1)' }}>
