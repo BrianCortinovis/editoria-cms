@@ -138,6 +138,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
   const blockRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 0, h: 0 });
   const [resizing, setResizing] = useState(false);
+  const [toolbarPos, setToolbarPos] = useState<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center' | 'bottom-center'>('top-left');
   // Store initial style values and rendered width when resize starts
   const initStyleRef = useRef(block.style);
   const initRenderedWidthRef = useRef(0);
@@ -499,14 +500,58 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
           <ResizeHandle dir="sw" onDrag={handleResize} />
 
           {/* ================================================================ */}
-          {/* TOOLBAR - Fixed inside block, big buttons */}
+          {/* TOOLBAR - Draggable position on borders */}
           {/* ================================================================ */}
           <div
-            className="absolute top-2 left-2 right-2 flex items-center gap-1 z-50"
+            className={cn(
+              "absolute flex items-center gap-1 z-50 group",
+              toolbarPos === 'top-left' && 'top-2 left-2',
+              toolbarPos === 'top-right' && 'top-2 right-2',
+              toolbarPos === 'bottom-left' && 'bottom-2 left-2',
+              toolbarPos === 'bottom-right' && 'bottom-2 right-2',
+              toolbarPos === 'top-center' && 'top-2 left-1/2 -translate-x-1/2',
+              toolbarPos === 'bottom-center' && 'bottom-2 left-1/2 -translate-x-1/2'
+            )}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Main toolbar bar */}
-            <div className="flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg" style={{ background: 'var(--c-accent)' }}>
+            <div className="flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg cursor-move" style={{ background: 'var(--c-accent)' }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                const start = { x: e.clientX, y: e.clientY };
+
+                const handleMouseMove = (mv: MouseEvent) => {
+                  const dx = mv.clientX - start.x;
+                  const dy = mv.clientY - start.y;
+
+                  // Simple logic: if moved more horizontally, position changes left/right
+                  // if moved vertically, position changes top/bottom
+                  if (Math.abs(dx) > 30) {
+                    if (dx > 0) {
+                      setToolbarPos(toolbarPos.includes('top') ? 'top-right' : 'bottom-right');
+                    } else {
+                      setToolbarPos(toolbarPos.includes('top') ? 'top-left' : 'bottom-left');
+                    }
+                  } else if (Math.abs(dy) > 30) {
+                    if (dy > 0) {
+                      setToolbarPos(toolbarPos.includes('left') ? 'bottom-left' : toolbarPos.includes('right') ? 'bottom-right' : 'bottom-center');
+                    } else {
+                      setToolbarPos(toolbarPos.includes('left') ? 'top-left' : toolbarPos.includes('right') ? 'top-right' : 'top-center');
+                    }
+                  }
+                };
+
+                const handleMouseUp = () => {
+                  document.removeEventListener('mousemove', handleMouseMove);
+                  document.removeEventListener('mouseup', handleMouseUp);
+                };
+
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+              }}
+              title="Trascina per spostare toolbar"
+            >
               {/* Drag handle - free movement */}
               <button onMouseDown={handleFreeDragStart} className="p-2 cursor-grab active:cursor-grabbing rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Trascina per spostare liberamente">
                 <Move size={20} />
@@ -595,6 +640,70 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
               <button onClick={() => removeBlock(block.id)} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,59,48,0.2)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Elimina (Delete)">
                 <Trash2 size={18} />
               </button>
+            </div>
+
+            {/* Toolbar position buttons - show on hover */}
+            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => setToolbarPos('top-left')}
+                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
+                style={{
+                  background: toolbarPos === 'top-left' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
+                  color: 'white',
+                  transform: toolbarPos === 'top-left' ? 'scale(1.1)' : 'scale(0.9)'
+                }}
+                title="Top-Left"
+              >↖</button>
+              <button
+                onClick={() => setToolbarPos('top-center')}
+                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
+                style={{
+                  background: toolbarPos === 'top-center' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
+                  color: 'white',
+                  transform: toolbarPos === 'top-center' ? 'scale(1.1)' : 'scale(0.9)'
+                }}
+                title="Top-Center"
+              >⬆</button>
+              <button
+                onClick={() => setToolbarPos('top-right')}
+                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
+                style={{
+                  background: toolbarPos === 'top-right' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
+                  color: 'white',
+                  transform: toolbarPos === 'top-right' ? 'scale(1.1)' : 'scale(0.9)'
+                }}
+                title="Top-Right"
+              >↗</button>
+              <button
+                onClick={() => setToolbarPos('bottom-left')}
+                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
+                style={{
+                  background: toolbarPos === 'bottom-left' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
+                  color: 'white',
+                  transform: toolbarPos === 'bottom-left' ? 'scale(1.1)' : 'scale(0.9)'
+                }}
+                title="Bottom-Left"
+              >↙</button>
+              <button
+                onClick={() => setToolbarPos('bottom-center')}
+                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
+                style={{
+                  background: toolbarPos === 'bottom-center' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
+                  color: 'white',
+                  transform: toolbarPos === 'bottom-center' ? 'scale(1.1)' : 'scale(0.9)'
+                }}
+                title="Bottom-Center"
+              >⬇</button>
+              <button
+                onClick={() => setToolbarPos('bottom-right')}
+                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
+                style={{
+                  background: toolbarPos === 'bottom-right' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
+                  color: 'white',
+                  transform: toolbarPos === 'bottom-right' ? 'scale(1.1)' : 'scale(0.9)'
+                }}
+                title="Bottom-Right"
+              >↘</button>
             </div>
           </div>
 
