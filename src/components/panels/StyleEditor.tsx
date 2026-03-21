@@ -12,26 +12,44 @@ import { cn } from '@/lib/utils/cn';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { GradientEditor } from './GradientEditor';
 import { EffectsEditor } from './EffectsEditor';
+import AIButton from '@/components/ai/AIButton';
 
 interface StyleEditorProps {
   block: Block;
 }
 
-function Section({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+function Section({ title, defaultOpen = false, children, blockId, fieldName, contextData }: { title: string; defaultOpen?: boolean; children: React.ReactNode; blockId?: string; fieldName?: string; contextData?: string }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border-b pb-3 mb-3" style={{ borderColor: 'var(--c-border)' }}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 w-full text-xs font-semibold uppercase tracking-wider mb-2 transition-colors"
+        className="flex items-center justify-between w-full transition-colors"
         style={{ color: 'var(--c-text-1)' }}
         onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--c-text-0)')}
         onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--c-text-1)')}
       >
-        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-        {title}
+        <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+          {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          {title}
+        </span>
+        {open && blockId && fieldName && contextData && (
+          <AIButton
+            blockId={blockId}
+            fieldName={fieldName}
+            contextData={contextData}
+            actions={[
+              {
+                id: `suggest-${fieldName}`,
+                label: 'Suggerisci',
+                prompt: `Suggest styling improvements for the ${title} section of this block: {context}. Return JSON with relevant CSS properties.`,
+              },
+            ]}
+            compact
+          />
+        )}
       </button>
-      {open && <div className="space-y-3">{children}</div>}
+      {open && <div className="space-y-3 mt-3">{children}</div>}
     </div>
   );
 }
@@ -89,7 +107,13 @@ export function StyleEditor({ block }: StyleEditorProps) {
   return (
     <div>
       {/* Layout */}
-      <Section title="Layout" defaultOpen>
+      <Section
+        title="Layout"
+        defaultOpen
+        blockId={block.id}
+        fieldName="layout"
+        contextData={JSON.stringify({ layout: s.layout, blockType: block.type })}
+      >
         <Select
           label="Display"
           value={s.layout.display}
@@ -148,7 +172,12 @@ export function StyleEditor({ block }: StyleEditorProps) {
       </Section>
 
       {/* Background */}
-      <Section title="Sfondo">
+      <Section
+        title="Sfondo"
+        blockId={block.id}
+        fieldName="background"
+        contextData={JSON.stringify({ background: s.background, blockType: block.type })}
+      >
         <Select
           label="Tipo"
           value={s.background.type}
@@ -186,7 +215,12 @@ export function StyleEditor({ block }: StyleEditorProps) {
       <EffectsEditor block={block} />
 
       {/* Typography */}
-      <Section title="Tipografia">
+      <Section
+        title="Tipografia"
+        blockId={block.id}
+        fieldName="typography"
+        contextData={JSON.stringify({ typography: s.typography, blockType: block.type })}
+      >
         <Input label="Font Family" value={s.typography.fontFamily || ''} onChange={(e) => updateTypo({ fontFamily: e.target.value })} placeholder="Inter, sans-serif" />
         <Input label="Dimensione" value={s.typography.fontSize || ''} onChange={(e) => updateTypo({ fontSize: e.target.value })} placeholder="16px" />
         <Select
@@ -219,7 +253,12 @@ export function StyleEditor({ block }: StyleEditorProps) {
       </Section>
 
       {/* Border */}
-      <Section title="Bordo">
+      <Section
+        title="Bordo"
+        blockId={block.id}
+        fieldName="border"
+        contextData={JSON.stringify({ border: s.border, blockType: block.type })}
+      >
         <Input label="Spessore" value={s.border.width || ''} onChange={(e) => updateBorder({ width: e.target.value })} placeholder="1px" />
         <Select
           label="Stile"

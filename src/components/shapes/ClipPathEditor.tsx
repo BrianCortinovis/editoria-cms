@@ -138,6 +138,34 @@ export function ClipPathEditor({ block }: ClipPathEditorProps) {
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           Forma Personalizzata
         </span>
+        {open && (
+          <AIButton
+            blockId={block.id}
+            fieldName="clippath"
+            contextData={JSON.stringify({ blockType: block.type, currentClipPath })}
+            actions={[
+              {
+                id: 'suggest-organic-shape',
+                label: 'Organica',
+                prompt: 'Suggest an organic clip-path shape for this block. Return JSON with type (polygon|circle), value (CSS clip-path string). Make it natural and flowing.',
+              },
+              {
+                id: 'suggest-geometric-shape',
+                label: 'Geometrica',
+                prompt: 'Suggest a geometric clip-path shape for this block. Return JSON with type, value. Make it structured and precise.',
+              },
+            ]}
+            onCommand={(cmd: any) => {
+              if (cmd.action === 'updateClipPath' && cmd.value) {
+                updateBlockShape(block.id, {
+                  type: 'clip-path',
+                  value: cmd.value,
+                });
+              }
+            }}
+            compact
+          />
+        )}
       </button>
 
       {open && (
