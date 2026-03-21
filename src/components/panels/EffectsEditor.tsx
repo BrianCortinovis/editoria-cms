@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { usePageStore } from '@/lib/stores/page-store';
-import type { Block, GlassmorphismEffect, NoiseEffect, GrainEffect } from '@/lib/types';
+import type { Block, GlassmorphismEffect } from '@/lib/types';
 import AIButton from '@/components/ai/AIButton';
 
 interface EffectsEditorProps {
@@ -15,9 +15,6 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
   const effects = block.style.effects || {};
 
   const [openGlass, setOpenGlass] = useState(true);
-  const [openNoise, setOpenNoise] = useState(false);
-  const [openGrain, setOpenGrain] = useState(false);
-  const [openParallax, setOpenParallax] = useState(false);
 
   const glassmorphism = effects.glassmorphism || {
     enabled: false,
@@ -26,19 +23,6 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
     bgOpacity: 0.1,
     bgColor: '#ffffff',
     borderOpacity: 0.2,
-  };
-
-  const noise = effects.noise || {
-    enabled: false,
-    opacity: 0.1,
-    frequency: 1,
-    type: 'fractalNoise' as const,
-  };
-
-  const grain = effects.grain || {
-    enabled: false,
-    opacity: 0.15,
-    size: 2,
   };
 
   const updateEffects = (newEffects: Partial<typeof effects>) => {
@@ -54,22 +38,6 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
     const currentGlassmorphism = block.style.effects?.glassmorphism || glassmorphism;
     updateEffects({
       glassmorphism: { ...currentGlassmorphism, ...updates },
-    });
-  };
-
-  const updateNoise = (updates: Partial<NoiseEffect>) => {
-    // Use current noise from block prop
-    const currentNoise = block.style.effects?.noise || noise;
-    updateEffects({
-      noise: { ...currentNoise, ...updates },
-    });
-  };
-
-  const updateGrain = (updates: Partial<GrainEffect>) => {
-    // Use current grain from block prop
-    const currentGrain = block.style.effects?.grain || grain;
-    updateEffects({
-      grain: { ...currentGrain, ...updates },
     });
   };
 
@@ -288,235 +256,6 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
             ]}
             compact
           />
-        </div>
-      )}
-
-      {/* Noise Section */}
-      <div
-        onClick={() => setOpenNoise(!openNoise)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium cursor-pointer"
-        style={{ color: 'var(--c-text-0)' }}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenNoise(!openNoise); }}
-      >
-        <span className="flex items-center gap-2">
-          {openNoise ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          Noise
-        </span>
-        {openNoise && (
-          <AIButton
-            blockId={block.id}
-            fieldName="noise"
-            contextData={JSON.stringify({ blockType: block.type })}
-            actions={[
-              {
-                id: 'suggest-noise',
-                label: 'Suggerisci',
-                prompt: 'Suggest noise effect settings. Return JSON with type (fractalNoise|turbulence), opacity (0-1), frequency (0.5-5).',
-              },
-            ]}
-            onCommand={(cmd: any) => {
-              if (cmd.action === 'updateEffects' && cmd.noise) {
-                updateNoise(cmd.noise);
-              }
-            }}
-            compact
-          />
-        )}
-      </div>
-
-      {openNoise && (
-        <div className="p-4 space-y-4" style={{ borderTop: '1px solid var(--c-border)' }}>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={noise.enabled}
-              onChange={(e) => updateNoise({ enabled: e.target.checked })}
-              className="w-4 h-4"
-            />
-            <span className="text-xs font-medium" style={{ color: 'var(--c-text-1)' }}>
-              Abilita Noise
-            </span>
-          </label>
-
-          {noise.enabled && (
-            <>
-              <div>
-                <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-                  Tipo
-                </label>
-                <div className="flex gap-2">
-                  {(['fractalNoise', 'turbulence'] as const).map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => updateNoise({ type })}
-                      className="px-3 py-1.5 rounded text-xs font-medium transition-colors"
-                      style={{
-                        background: noise.type === type ? 'var(--c-accent)' : 'var(--c-bg-2)',
-                        color: noise.type === type ? 'white' : 'var(--c-text-1)',
-                      }}
-                    >
-                      {type === 'fractalNoise' ? 'Frattale' : 'Turbolenza'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-                  Opacità: {(noise.opacity * 100).toFixed(0)}%
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={noise.opacity}
-                  onChange={(e) => updateNoise({ opacity: Number(e.target.value) })}
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-                  Frequenza: {noise.frequency.toFixed(2)}
-                </label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="5"
-                  step="0.1"
-                  value={noise.frequency}
-                  onChange={(e) => updateNoise({ frequency: Number(e.target.value) })}
-                  className="w-full"
-                />
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Grain Section */}
-      <div
-        onClick={() => setOpenGrain(!openGrain)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium cursor-pointer"
-        style={{ color: 'var(--c-text-0)' }}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenGrain(!openGrain); }}
-      >
-        <span className="flex items-center gap-2">
-          {openGrain ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          Grain
-        </span>
-        {openGrain && (
-          <AIButton
-            blockId={block.id}
-            fieldName="grain"
-            contextData={JSON.stringify({ blockType: block.type })}
-            actions={[
-              {
-                id: 'suggest-grain',
-                label: 'Suggerisci',
-                prompt: 'Suggest grain effect settings. Return JSON with opacity (0-1) and size (1-10).',
-              },
-            ]}
-            onCommand={(cmd: any) => {
-              if (cmd.action === 'updateEffects' && cmd.grain) {
-                updateGrain(cmd.grain);
-              }
-            }}
-            compact
-          />
-        )}
-      </div>
-
-      {openGrain && (
-        <div className="p-4 space-y-4" style={{ borderTop: '1px solid var(--c-border)' }}>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={grain.enabled}
-              onChange={(e) => updateGrain({ enabled: e.target.checked })}
-              className="w-4 h-4"
-            />
-            <span className="text-xs font-medium" style={{ color: 'var(--c-text-1)' }}>
-              Abilita Grain
-            </span>
-          </label>
-
-          {grain.enabled && (
-            <>
-              <div>
-                <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-                  Opacità: {(grain.opacity * 100).toFixed(0)}%
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={grain.opacity}
-                  onChange={(e) => updateGrain({ opacity: Number(e.target.value) })}
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-                  Dimensione: {grain.size}px
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  step="0.5"
-                  value={grain.size}
-                  onChange={(e) => updateGrain({ size: Number(e.target.value) })}
-                  className="w-full"
-                />
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Parallax Section */}
-      <div
-        onClick={() => setOpenParallax(!openParallax)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium cursor-pointer"
-        style={{ color: 'var(--c-text-0)' }}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenParallax(!openParallax); }}
-      >
-        <span className="flex items-center gap-2">
-          {openParallax ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          Parallax
-        </span>
-      </div>
-
-      {openParallax && (
-        <div className="p-4 space-y-4" style={{ borderTop: '1px solid var(--c-border)' }}>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={block.style.background.parallax || false}
-              onChange={(e) =>
-                updateBlockStyle(block.id, {
-                  background: {
-                    ...block.style.background,
-                    parallax: e.target.checked,
-                  },
-                })
-              }
-              className="w-4 h-4"
-            />
-            <span className="text-xs font-medium" style={{ color: 'var(--c-text-1)' }}>
-              Abilita Parallax
-            </span>
-          </label>
         </div>
       )}
     </div>
