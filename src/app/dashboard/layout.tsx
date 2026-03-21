@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import AuthProvider from "@/components/layout/AuthProvider";
@@ -34,6 +34,12 @@ const fullscreenPages = ["/dashboard/editor"];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const path = window.location.pathname;
+    setIsFullscreen(fullscreenPages.includes(path));
+  }, []);
 
   const getTitle = () => {
     if (typeof window === "undefined") return "Dashboard";
@@ -44,21 +50,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return "Dashboard";
   };
 
-  const getCurrentPath = () => {
-    if (typeof window === "undefined") return "";
-    return window.location.pathname;
-  };
-
-  const isFullscreen = typeof window !== "undefined" && fullscreenPages.includes(getCurrentPath());
-
   return (
     <AuthProvider>
       <div className="h-screen flex flex-col" style={{ background: "var(--c-bg-0)" }}>
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="lg:ml-[82px] flex-1 flex flex-col overflow-hidden">
           <Topbar title={getTitle()} onMenuClick={() => setSidebarOpen(true)} />
-          <main className={`flex-1 overflow-hidden ${isFullscreen ? "" : "p-4 sm:p-5"} w-full h-full`}>
-            <div className={isFullscreen ? "h-full w-full" : "max-w-[1400px] mx-auto h-full overflow-auto"}>
+          <main className={`flex-1 overflow-hidden ${isFullscreen ? "" : "p-2 sm:p-3"} w-full h-full`}>
+            <div className={isFullscreen ? "h-full w-full" : "w-full h-full overflow-auto"}>
               {children}
             </div>
           </main>
