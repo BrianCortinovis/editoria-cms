@@ -10,7 +10,7 @@ export async function resolveBlockData(
   dataSource: DataSource
 ): Promise<unknown[]> {
   const supabase = await createServiceRoleClient();
-  const { endpoint, params } = dataSource;
+  const { endpoint, params = {} } = dataSource;
 
   switch (endpoint) {
     case 'articles': {
@@ -21,17 +21,18 @@ export async function resolveBlockData(
         .eq('status', 'published')
         .order('published_at', { ascending: false });
 
-      if (params.category) {
+      const p = params as Record<string, string | undefined>;
+      if (p.category) {
         const { data: cat } = await supabase
           .from('categories')
           .select('id')
           .eq('tenant_id', tenantId)
-          .eq('slug', params.category)
+          .eq('slug', p.category)
           .single();
         if (cat) query = query.eq('category_id', cat.id);
       }
-      if (params.featured === 'true') query = query.eq('is_featured', true);
-      if (params.limit) query = query.limit(parseInt(params.limit));
+      if (p.featured === 'true') query = query.eq('is_featured', true);
+      if (p.limit) query = query.limit(parseInt(p.limit));
 
       const { data } = await query;
       return data || [];
