@@ -116,6 +116,8 @@ export default function LayoutPage() {
   const [parsing, setParsing] = useState(false);
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<LayoutSlot | null>(null);
+  const [importUrl, setImportUrl] = useState("");
+  const [importingUrl, setImportingUrl] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const aiFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -181,6 +183,87 @@ export default function LayoutPage() {
   }, [currentTenant, selectedPage]);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleImportFromUrl = async () => {
+    if (!importUrl.trim()) {
+      toast.error("Inserisci un URL");
+      return;
+    }
+    if (!currentTenant) return;
+
+    setImportingUrl(true);
+    try {
+      const res = await fetch("/api/layout/import-from-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: importUrl, selector: "body" }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.slots || data.slots.length === 0) {
+        toast.error(data.error || "Nessun blocco trovato");
+        setImportingUrl(false);
+        return;
+      }
+
+      // Save slots to database
+      const supabase = createClient();
+      let tmpl = templates.find(t => t.page_type === selectedPage);
+
+      if (!tmpl) {
+        const { data: newTmpl } = await supabase.from("layout_templates").insert({
+          tenant_id: currentTenant.id,
+          name: `${currentTenant.name} — ${SITE_PAGES.find(p => p.page_type === selectedPage)?.label || selectedPage}`,
+          page_type: selectedPage,
+        }).select("*").single();
+
+        if (newTmpl) {
+          tmpl = newTmpl as LayoutTemplate;
+          setTemplates(prev => [...prev, newTmpl as LayoutTemplate]);
+        }
+      }
+
+      if (!tmpl) {
+        toast.error("Errore creazione template");
+        setImportingUrl(false);
+        return;
+      }
+
+      // Insert slots
+      const slotsToInsert = data.slots.map((s: any, idx: number) => ({
+        template_id: tmpl!.id,
+        slot_key: s.slot_key,
+        label: s.label,
+        description: s.description || "",
+        content_type: s.content_type,
+        max_items: s.max_items,
+        sort_by: s.sort_by || "published_at",
+        sort_index: idx,
+        category_id: null,
+        layout_tag: s.layout?.tag || "div",
+        layout_display: s.layout?.display || "block",
+        layout_width: s.layout?.width || "100%",
+        layout_height: s.layout?.height || "auto",
+        layout_grid_cols: s.layout?.grid_cols || 1,
+      }));
+
+      const { error } = await supabase.from("layout_slots").insert(slotsToInsert);
+
+      if (error) {
+        toast.error("Errore salvataggio slot");
+      } else {
+        toast.success(`${data.slots.length} blocchi importati!`);
+        setImportUrl("");
+        await load();
+      }
+    } catch (error) {
+      toast.error("Errore importazione URL");
+      console.error(error);
+    } finally {
+      setImportingUrl(false);
+    }
+  };
 
   const resetSlotForm = () => {
     setSlotKey(""); setSlotLabel(""); setSlotDescription(""); setSlotContentType("articles");
@@ -429,14 +512,15 @@ export default function LayoutPage() {
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => fileInputRef.current?.click()} disabled={parsing}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50"
               style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}>
-              {parsing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />} Importa
+              {parsing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5" />} Importa File
             </button>
             <input ref={fileInputRef} type="file" // @ts-expect-error webkitdirectory
             webkitdirectory="" directory="" multiple className="hidden" onChange={handleFolderUpload} />
+
             {aiActive && (
               <>
                 <button onClick={() => aiFileInputRef.current?.click()} disabled={aiAnalyzing}
@@ -448,6 +532,28 @@ export default function LayoutPage() {
             webkitdirectory="" directory="" multiple className="hidden" onChange={handleAIAnalyze} />
               </>
             )}
+
+            {/* Import from URL */}
+            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg" style={{ background: "var(--c-bg-2)" }}>
+              <input
+                type="url"
+                placeholder="https://example.com"
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleImportFromUrl()}
+                className="text-xs px-1.5 rounded bg-transparent outline-none"
+                style={{ color: "var(--c-text-1)", width: "200px" }}
+              />
+              <button
+                onClick={handleImportFromUrl}
+                disabled={importingUrl || !importUrl.trim()}
+                className="flex items-center gap-1 px-2 py-1 text-white rounded text-xs font-medium transition disabled:opacity-50"
+                style={{ background: "var(--c-accent)" }}
+              >
+                {importingUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileQuestion className="w-3 h-3" />}
+              </button>
+            </div>
+
             <button onClick={() => { resetSlotForm(); setShowNewSlot(true); setActiveTab("moduli"); }}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-white rounded-lg text-xs font-semibold transition"
               style={{ background: "var(--c-accent)" }}>
