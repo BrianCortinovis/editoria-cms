@@ -169,41 +169,47 @@ export function AiPanel() {
         </button>
       </div>
 
-      {/* Provider & Model Selectors */}
-      <div className="px-3 sm:px-4 pt-3 pb-3 space-y-2 border-b" style={{ borderColor: 'var(--c-border)' }}>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <span className="text-xs font-medium sm:flex-1" style={{ color: 'var(--c-text-2)' }}>
-            Provider:
-          </span>
-          <select
-            value={selectedProvider}
-            onChange={(e) => handleProviderChange(e.target.value as AIProvider)}
-            className="text-xs px-2 py-1.5 rounded border w-full sm:flex-1"
-            style={{ background: 'var(--c-bg-0)', borderColor: 'var(--c-border)', color: 'var(--c-text-0)' }}
+      {/* Provider Tabs */}
+      <div className="px-3 sm:px-4 pt-2 flex gap-1 border-b overflow-x-auto" style={{ borderColor: 'var(--c-border)' }}>
+        {PROVIDERS.map((provider) => (
+          <button
+            key={provider.value}
+            onClick={() => handleProviderChange(provider.value)}
+            className={`px-2 sm:px-3 py-2 text-xs font-medium rounded-t border-b-2 transition whitespace-nowrap ${
+              selectedProvider === provider.value
+                ? 'border-b-2'
+                : 'border-b-2 opacity-60'
+            }`}
+            style={{
+              borderBottomColor: selectedProvider === provider.value ? 'var(--c-accent)' : 'transparent',
+              color: selectedProvider === provider.value ? 'var(--c-accent)' : 'var(--c-text-2)',
+              background: selectedProvider === provider.value ? 'var(--c-bg-2)' : 'transparent',
+            }}
           >
-            {PROVIDERS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <span className="text-xs font-medium sm:flex-1" style={{ color: 'var(--c-text-2)' }}>
-            Modello:
-          </span>
-          <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            className="text-xs px-2 py-1.5 rounded border w-full sm:flex-1"
-            style={{ background: 'var(--c-bg-0)', borderColor: 'var(--c-border)', color: 'var(--c-text-0)' }}
-          >
-            {currentProviderModels.map((model) => (
-              <option key={model} value={model}>
-                {model}
-              </option>
-            ))}
-          </select>
+            {provider.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Models for Selected Provider */}
+      <div className="px-3 sm:px-4 py-3 border-b" style={{ borderColor: 'var(--c-border)' }}>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {currentProviderModels.map((model) => (
+            <button
+              key={model}
+              onClick={() => setSelectedModel(model)}
+              className={`text-xs px-2 py-1.5 rounded border transition ${
+                selectedModel === model ? 'font-semibold' : ''
+              }`}
+              style={{
+                background: selectedModel === model ? 'var(--c-accent)' : 'var(--c-bg-2)',
+                borderColor: selectedModel === model ? 'var(--c-accent)' : 'var(--c-border)',
+                color: selectedModel === model ? '#fff' : 'var(--c-text-0)',
+              }}
+            >
+              {model.split('-').slice(-2).join('-')}
+            </button>
+          ))}
         </div>
       </div>
 
