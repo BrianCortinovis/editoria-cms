@@ -49,8 +49,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="lg:ml-[82px] flex-1 flex flex-col overflow-hidden">
           <Topbar title={getTitle()} onMenuClick={() => setSidebarOpen(true)} />
-          <main className="flex-1 overflow-hidden w-full h-full" style={isEditor ? { padding: 0, margin: 0 } : {}}>
-            <div className={!isEditor ? "p-4 sm:p-5 max-w-[1400px] mx-auto h-full overflow-auto" : "h-full w-full"}>
+          <main className={`flex-1 overflow-hidden ${isEditor ? "" : "p-4 sm:p-5"} w-full h-full`}>
+            <div className={isEditor ? "h-full w-full" : "max-w-[1400px] mx-auto h-full overflow-auto"}>
               {children}
             </div>
           </main>
