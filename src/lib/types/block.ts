@@ -121,6 +121,11 @@ export interface ResponsiveOverrides {
 }
 
 // === Core Block ===
+export interface DataSource {
+  endpoint: string;
+  params?: Record<string, unknown>;
+}
+
 export interface Block {
   id: string;
   type: BlockType;
@@ -133,7 +138,7 @@ export interface Block {
   children: Block[];
   locked: boolean;
   hidden: boolean;
-  dataSource?: string; // Optional data source for dynamic content
+  dataSource?: DataSource; // Optional data source for dynamic content
 }
 
 // === Block Definition (Registry) ===
@@ -145,7 +150,7 @@ export interface BlockDefinition {
   category: BlockCategory;
   defaultProps: Record<string, unknown>;
   defaultStyle: Partial<BlockStyle>;
-  defaultDataSource?: string;
+  defaultDataSource?: DataSource;
   supportsChildren: boolean;
   maxChildren?: number;
   allowedChildTypes?: BlockType[];
