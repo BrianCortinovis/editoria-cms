@@ -351,7 +351,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           {/* Title */}
           <div className="relative group">
             <div className="absolute right-1 top-2 z-10 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-              <AIFieldHelper fieldLabel="Titolo articolo" currentValue={title} context={body?.slice(0, 300)} onApply={setTitle} />
+              <AIFieldHelper fieldName="Titolo articolo" fieldValue={title} context={body?.slice(0, 300)} onGenerate={setTitle} />
             </div>
             <input
               type="text"
@@ -366,7 +366,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           {/* Subtitle */}
           <div className="relative group">
             <div className="absolute right-1 top-1 z-10 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-              <AIFieldHelper fieldLabel="Sottotitolo" currentValue={subtitle} context={title} onApply={setSubtitle} />
+              <AIFieldHelper fieldName="Sottotitolo" fieldValue={subtitle} context={title} onGenerate={setSubtitle} />
             </div>
             <input
               type="text"
@@ -381,7 +381,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           {/* Summary */}
           <div className="relative group">
             <div className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-              <AIFieldHelper fieldLabel="Sommario / Lead" currentValue={summary} context={`${title}\n${body?.slice(0, 500)}`} onApply={setSummary} />
+              <AIFieldHelper fieldName="Sommario / Lead" fieldValue={summary} context={`${title}\n${body?.slice(0, 500)}`} onGenerate={setSummary} />
             </div>
             <textarea
               value={summary}
@@ -403,13 +403,13 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                   <X className="w-4 h-4" />
                 </button>
                 <div className="absolute top-2 right-12 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <AIFieldHelper fieldLabel="URL immagine copertina" currentValue={coverImageUrl} context={title} onApply={setCoverImageUrl} />
+                  <AIFieldHelper fieldName="URL immagine copertina" fieldValue={coverImageUrl} context={title} onGenerate={setCoverImageUrl} />
                 </div>
               </div>
             ) : (
               <div className="relative">
                 <div className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <AIFieldHelper fieldLabel="URL immagine copertina" currentValue="" context={`Titolo: ${title}. Suggerisci un URL di immagine Unsplash o Pexels gratuita pertinente.`} onApply={setCoverImageUrl} />
+                  <AIFieldHelper fieldName="URL immagine copertina" fieldValue="" context={`Titolo: ${title}. Suggerisci un URL di immagine Unsplash o Pexels gratuita pertinente.`} onGenerate={setCoverImageUrl} />
                 </div>
                 <label className="flex flex-col items-center justify-center py-8 cursor-pointer transition"
                   onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
@@ -430,10 +430,10 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             <TiptapEditor content={body} onChange={setBody} />
             <div className="flex justify-end px-3 py-2" style={{ borderTop: "1px solid var(--c-border)" }}>
               <AIFieldHelper
-                fieldLabel="Corpo dell'articolo"
-                currentValue={body?.slice(0, 200) || ""}
+                fieldName="Corpo dell'articolo"
+                fieldValue={body?.slice(0, 200) || ""}
                 context={`Titolo: ${title}\nSottotitolo: ${subtitle}\nSommario: ${summary}`}
-                onApply={(v) => setBody(body + "\n" + v)}
+                onGenerate={(v) => setBody(body + "\n" + v)}
               />
             </div>
           </div>
@@ -473,7 +473,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Slug URL</h3>
               <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                <AIFieldHelper fieldLabel="Slug URL" currentValue={slug} context={title} onApply={(v) => { setSlugManual(true); setSlug(v); }} />
+                <AIFieldHelper fieldName="Slug URL" fieldValue={slug} context={title} onGenerate={(v) => { setSlugManual(true); setSlug(v); }} />
               </div>
             </div>
             <input
@@ -491,10 +491,10 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
               <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Categoria</h3>
               <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                 <AIFieldHelper
-                  fieldLabel="Categoria articolo"
-                  currentValue={categories.find(c => c.id === categoryId)?.name || "nessuna"}
+                  fieldName="Categoria articolo"
+                  fieldValue={categories.find(c => c.id === categoryId)?.name || "nessuna"}
                   context={`Titolo: ${title}\nSommario: ${summary}\nCategorie disponibili: ${categories.map(c => c.name).join(", ")}`}
-                  onApply={(suggestion) => {
+                  onGenerate={(suggestion) => {
                     const match = categories.find(c => c.name.toLowerCase() === suggestion.toLowerCase().trim());
                     if (match) setCategoryId(match.id);
                     else toast.success(`Suggerimento IA: "${suggestion}" — selezionala manualmente se esiste`);
@@ -521,10 +521,10 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
               <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Tag</h3>
               <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                 <AIFieldHelper
-                  fieldLabel="Tag articolo"
-                  currentValue={selectedTags.map(id => tags.find(t => t.id === id)?.name).filter(Boolean).join(", ")}
+                  fieldName="Tag articolo"
+                  fieldValue={selectedTags.map(id => tags.find(t => t.id === id)?.name).filter(Boolean).join(", ")}
                   context={`Titolo: ${title}\nSommario: ${summary}\nTag disponibili: ${tags.map(t => t.name).join(", ")}`}
-                  onApply={(suggestion) => {
+                  onGenerate={(suggestion) => {
                     toast.success(`Tag suggeriti dall'IA: ${suggestion}`);
                   }}
                 />
@@ -613,7 +613,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Meta Title</label>
                   <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-                    <AIFieldHelper fieldLabel="Meta Title SEO" currentValue={metaTitle} context={`Titolo: ${title}\nSommario: ${summary}`} onApply={setMetaTitle} />
+                    <AIFieldHelper fieldName="Meta Title SEO" fieldValue={metaTitle} context={`Titolo: ${title}\nSommario: ${summary}`} onGenerate={setMetaTitle} />
                   </div>
                 </div>
                 <input
@@ -632,7 +632,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Meta Description</label>
                   <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-                    <AIFieldHelper fieldLabel="Meta Description SEO" currentValue={metaDescription} context={`Titolo: ${title}\nSommario: ${summary}\nCorpo: ${body?.slice(0, 300)}`} onApply={setMetaDescription} />
+                    <AIFieldHelper fieldName="Meta Description SEO" fieldValue={metaDescription} context={`Titolo: ${title}\nSommario: ${summary}\nCorpo: ${body?.slice(0, 300)}`} onGenerate={setMetaDescription} />
                   </div>
                 </div>
                 <textarea

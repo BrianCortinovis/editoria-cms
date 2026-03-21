@@ -10,7 +10,7 @@ interface AIFieldProps {
   type?: "text" | "email" | "url" | "tel" | "number" | "date" | "datetime-local";
   multiline?: boolean;
   rows?: number;
-  context?: string;
+  context?: Record<string, any>;
   disabled?: boolean;
   className?: string;
   /** If false, hides the AI button */
@@ -38,10 +38,11 @@ export default function AIField({
         </label>
         {showAI && (
           <AIFieldHelper
-            fieldLabel={label}
-            currentValue={value}
+            fieldName={label}
+            fieldValue={value}
             context={context}
-            onApply={onChange}
+            onGenerate={onChange}
+            compact={true}
           />
         )}
       </div>

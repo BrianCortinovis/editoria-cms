@@ -8,13 +8,13 @@ interface AIFieldHelperProps {
   fieldName: string;
   fieldValue?: string;
   fieldType?: 'text' | 'textarea' | 'title' | 'description' | 'meta' | 'custom';
-  context?: Record<string, any>;
+  context?: Record<string, any> | string;
   onGenerate?: (result: string) => void;
   className?: string;
   compact?: boolean;
 }
 
-export function AIFieldHelper({
+export const AIFieldHelper = ({
   fieldName,
   fieldValue,
   fieldType = 'text',
@@ -22,7 +22,7 @@ export function AIFieldHelper({
   onGenerate,
   className = '',
   compact = false,
-}: AIFieldHelperProps) {
+}: AIFieldHelperProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState('');
@@ -135,4 +135,6 @@ export function AIFieldHelper({
       )}
     </>
   );
-}
+};
+
+export default AIFieldHelper;

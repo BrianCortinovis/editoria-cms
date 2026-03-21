@@ -80,6 +80,10 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
+    if (!profile) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    }
+
     // Update AI settings
     const { error } = await supabase
       .from('ai_settings')

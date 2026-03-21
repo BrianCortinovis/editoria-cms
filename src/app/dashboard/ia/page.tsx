@@ -115,7 +115,7 @@ export default function IASettingsPage() {
                     <p className="text-sm text-zinc-500">{model.provider.toUpperCase()}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant={model.isActive ? 'default' : 'outline'} size="sm">
+                    <Button variant={model.isActive ? 'primary' : 'outline'} size="sm">
                       {model.isActive ? 'Attivo' : 'Inattivo'}
                     </Button>
                   </div>
