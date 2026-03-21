@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { DEVICE_WIDTHS } from '@/lib/config/breakpoints';
 import { generateDividerSvg, dividerToClipPath, generateDividerGradientMask } from '@/lib/shapes/dividers';
+import { FreeTransformOverlay } from './FreeTransformOverlay';
 
 interface CanvasBlockProps {
   block: Block;
@@ -127,7 +128,7 @@ function ResizeHandle({ dir, onDrag }: {
 // ================================================================
 export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps) {
   const {
-    selectBlock, removeBlock, duplicateBlock, updateBlock, updateBlockStyle,
+    selectBlock, removeBlock, duplicateBlock, updateBlock, updateBlockStyle, updateBlockShape,
     hoveredBlockId, hoverBlock, setEditingBlock, editingBlockId, moveBlock, blocks
   } = usePageStore();
   const { setRightPanelOpen, setRightPanelTab, zoom, deviceMode } = useUiStore();
@@ -139,6 +140,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
   const [dims, setDims] = useState({ w: 0, h: 0 });
   const [resizing, setResizing] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center' | 'bottom-center' | 'center-center'>('top-left');
+  const [freeTransformActive, setFreeTransformActive] = useState(false);
   // Store initial style values and rendered width when resize starts
   const initStyleRef = useRef(block.style);
   const initRenderedWidthRef = useRef(0);
@@ -663,6 +665,26 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
                 <Settings2 size={18} />
               </button>
 
+              {/* Free Transform - only show if block has shape */}
+              {block.shape?.type === 'clip-path' && block.shape?.value && (
+                <button
+                  onClick={() => setFreeTransformActive(!freeTransformActive)}
+                  className="p-2 rounded-lg transition-colors"
+                  style={{
+                    color: 'var(--c-bg-0)',
+                    background: freeTransformActive ? 'rgba(0,0,0,0.3)' : 'transparent'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
+                  onMouseLeave={(e) => !freeTransformActive && (e.currentTarget.style.background = 'transparent')}
+                  title="Trasformazione Libera"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {/* Diagonal arrows icon for free transform */}
+                    <path d="M3 3h5v5M21 21h-5v-5M8 8l8 8M3 21l18-18" />
+                  </svg>
+                </button>
+              )}
+
               {/* Visibility */}
               <button onClick={() => updateBlock(block.id, { hidden: !block.hidden })} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title={block.hidden ? 'Mostra' : 'Nascondi'}>
                 {block.hidden ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -781,6 +803,20 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
             borderRight: `${Math.min(parseInt(block.style.layout.padding.right) || 0, 60)}px solid rgba(59,130,246,0.06)`,
             borderRadius: block.style.border.radius,
           }} />
+
+          {/* Free Transform Overlay - shows when active */}
+          {freeTransformActive && block.shape?.type === 'clip-path' && block.shape?.value && (
+            <FreeTransformOverlay
+              block={block}
+              onUpdateClipPath={(newClipPath) => {
+                updateBlockShape(block.id, {
+                  type: 'clip-path',
+                  value: newClipPath,
+                });
+              }}
+              onClose={() => setFreeTransformActive(false)}
+            />
+          )}
         </>
       )}
 
