@@ -121,9 +121,11 @@ export interface ResponsiveOverrides {
 }
 
 // === Core Block ===
-export interface DataSource {
+export interface DataSource extends Record<string, unknown> {
   endpoint: string;
   params?: Record<string, unknown>;
+  // Allow additional properties for extended data source config
+  [key: string]: unknown;
 }
 
 export interface Block {
