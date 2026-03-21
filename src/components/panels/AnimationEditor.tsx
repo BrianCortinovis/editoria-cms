@@ -69,15 +69,69 @@ export function AnimationEditor({ block }: AnimationEditorProps) {
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           Animazioni
         </span>
+        {open && (
+          <AIButton
+            blockId={block.id}
+            fieldName="animation"
+            contextData={contextData}
+            actions={[
+              {
+                id: 'suggest-animation-elegant',
+                label: 'Elegante',
+                prompt: 'Suggest an elegant animation for this block: {context}. Return JSON with trigger, effect, duration (100-3000), delay, easing.',
+              },
+              {
+                id: 'suggest-animation-energetic',
+                label: 'Energetica',
+                prompt: 'Suggest an energetic/fun animation for this block: {context}. Return JSON with trigger, effect, duration, delay, easing.',
+              },
+              {
+                id: 'suggest-animation-subtle',
+                label: 'Sottile',
+                prompt: 'Suggest a subtle animation for this block: {context}. Return JSON with trigger, effect, duration (200-600), delay, easing.',
+              },
+            ]}
+            onCommand={(cmd: any) => {
+              if (cmd.action === 'updateAnimation') {
+                const updates: Partial<BlockAnimation> = {};
+                if (cmd.trigger) updates.trigger = cmd.trigger;
+                if (cmd.effect) updates.effect = cmd.effect;
+                if (cmd.duration) updates.duration = cmd.duration;
+                if (cmd.delay !== undefined) updates.delay = cmd.delay;
+                if (cmd.easing) updates.easing = cmd.easing;
+                updateAnimation(updates);
+              }
+            }}
+            compact
+          />
+        )}
       </button>
 
       {open && (
         <div className="p-4 space-y-4" style={{ borderTop: '1px solid var(--c-border)' }}>
           {/* Trigger Selector */}
           <div>
-            <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-              Trigger
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold block" style={{ color: 'var(--c-text-1)' }}>
+                Trigger
+              </label>
+              <AIButton
+                blockId={block.id}
+                fieldName="animation-trigger"
+                contextData={JSON.stringify({ blockType: block.type })}
+                actions={[
+                  {
+                    id: 'suggest-trigger',
+                    label: 'Suggerisci',
+                    prompt: 'Suggest the best animation trigger (entrance, scroll, or hover) for this block type. Return JSON with just "trigger" field.',
+                  },
+                ]}
+                onCommand={(cmd: any) => {
+                  if (cmd.trigger) updateAnimation({ trigger: cmd.trigger });
+                }}
+                compact
+              />
+            </div>
             <div className="flex gap-2">
               {(['entrance', 'scroll', 'hover'] as const).map((trigger) => (
                 <button
@@ -97,9 +151,27 @@ export function AnimationEditor({ block }: AnimationEditorProps) {
 
           {/* Effect Grid */}
           <div>
-            <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-              Effetto
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold block" style={{ color: 'var(--c-text-1)' }}>
+                Effetto
+              </label>
+              <AIButton
+                blockId={block.id}
+                fieldName="animation-effect"
+                contextData={JSON.stringify({ trigger: animation.trigger, blockType: block.type })}
+                actions={[
+                  {
+                    id: 'suggest-effect',
+                    label: 'Suggerisci',
+                    prompt: 'Suggest the best animation effect for this {trigger} trigger and block type: {context}. Return JSON with "effect" field from: fade-in, slide-up, slide-down, slide-left, slide-right, zoom-in, zoom-out, rotate, bounce, flip.',
+                  },
+                ]}
+                onCommand={(cmd: any) => {
+                  if (cmd.effect) updateAnimation({ effect: cmd.effect });
+                }}
+                compact
+              />
+            </div>
             <div className="grid grid-cols-4 gap-1">
               {ANIMATION_EFFECTS.map((effect) => (
                 <button

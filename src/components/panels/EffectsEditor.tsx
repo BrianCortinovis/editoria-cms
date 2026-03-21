@@ -87,6 +87,26 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
           {openGlass ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           Glassmorphism
         </span>
+        {openGlass && (
+          <AIButton
+            blockId={block.id}
+            fieldName="glassmorphism"
+            contextData={contextData}
+            actions={[
+              {
+                id: 'suggest-glass',
+                label: 'Suggerisci',
+                prompt: 'Suggest beautiful glassmorphism settings for this block: {context}. Return pure JSON with blur, saturation, bgOpacity, bgColor, borderOpacity.',
+              },
+            ]}
+            onCommand={(cmd: any) => {
+              if (cmd.action === 'updateEffects' && cmd.glassmorphism) {
+                updateGlass(cmd.glassmorphism);
+              }
+            }}
+            compact
+          />
+        )}
       </button>
 
       {openGlass && (
@@ -270,6 +290,26 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
           {openNoise ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           Noise
         </span>
+        {openNoise && (
+          <AIButton
+            blockId={block.id}
+            fieldName="noise"
+            contextData={JSON.stringify({ blockType: block.type })}
+            actions={[
+              {
+                id: 'suggest-noise',
+                label: 'Suggerisci',
+                prompt: 'Suggest noise effect settings. Return JSON with type (fractalNoise|turbulence), opacity (0-1), frequency (0.5-5).',
+              },
+            ]}
+            onCommand={(cmd: any) => {
+              if (cmd.action === 'updateEffects' && cmd.noise) {
+                updateNoise(cmd.noise);
+              }
+            }}
+            compact
+          />
+        )}
       </button>
 
       {openNoise && (
@@ -353,6 +393,26 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
           {openGrain ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           Grain
         </span>
+        {openGrain && (
+          <AIButton
+            blockId={block.id}
+            fieldName="grain"
+            contextData={JSON.stringify({ blockType: block.type })}
+            actions={[
+              {
+                id: 'suggest-grain',
+                label: 'Suggerisci',
+                prompt: 'Suggest grain effect settings. Return JSON with opacity (0-1) and size (1-10).',
+              },
+            ]}
+            onCommand={(cmd: any) => {
+              if (cmd.action === 'updateEffects' && cmd.grain) {
+                updateGrain(cmd.grain);
+              }
+            }}
+            compact
+          />
+        )}
       </button>
 
       {openGrain && (

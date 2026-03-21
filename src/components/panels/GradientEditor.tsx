@@ -78,6 +78,34 @@ export function GradientEditor({ block }: GradientEditorProps) {
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           Gradiente Avanzato
         </span>
+        {open && (
+          <AIButton
+            blockId={block.id}
+            fieldName="gradient"
+            contextData={contextData}
+            actions={[
+              {
+                id: 'suggest-gradient',
+                label: 'Suggerisci',
+                prompt: 'Suggest a beautiful gradient for this block type: {context}. Return pure JSON matching AdvancedGradient type.',
+              },
+            ]}
+            onCommand={(cmd: any) => {
+              if (cmd.action === 'updateGradient') {
+                const updates: Partial<typeof gradient> = {};
+                if (cmd.type) updates.type = cmd.type;
+                if (cmd.angle !== undefined) updates.angle = cmd.angle;
+                if (cmd.stops) updates.stops = cmd.stops;
+                if (cmd.animated !== undefined) updates.animated = cmd.animated;
+                if (cmd.animationDuration) updates.animationDuration = cmd.animationDuration;
+                if (cmd.scrollDriven !== undefined) updates.scrollDriven = cmd.scrollDriven;
+                if (cmd.hoverDriven !== undefined) updates.hoverDriven = cmd.hoverDriven;
+                updateGradient(updates);
+              }
+            }}
+            compact
+          />
+        )}
       </button>
 
       {open && (
@@ -123,9 +151,30 @@ export function GradientEditor({ block }: GradientEditorProps) {
 
           {/* Stops List */}
           <div>
-            <label className="text-xs font-semibold mb-2 block" style={{ color: 'var(--c-text-1)' }}>
-              Colori ({gradient.stops.length})
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold block" style={{ color: 'var(--c-text-1)' }}>
+                Colori ({gradient.stops.length})
+              </label>
+              <AIButton
+                blockId={block.id}
+                fieldName="gradient-colors"
+                contextData={JSON.stringify({ type: gradient.type, angle: gradient.angle })}
+                actions={[
+                  {
+                    id: 'color-suggestion',
+                    label: 'Suggerisci colori',
+                    prompt: 'Suggest 2-3 beautiful colors for a gradient. Return JSON with array of colors like ["#ff3333", "#2196f3"]. Context: {context}',
+                  },
+                ]}
+                onCommand={(cmd: any) => {
+                  if (Array.isArray(cmd.stops)) {
+                    const stops = cmd.stops;
+                    updateGradient({ stops });
+                  }
+                }}
+                compact
+              />
+            </div>
             <div className="space-y-2">
               {gradient.stops.map((stop, idx) => (
                 <div key={idx} className="flex items-center gap-2 p-2 rounded" style={{ background: 'var(--c-bg-2)' }}>

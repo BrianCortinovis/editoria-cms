@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuthStore } from "@/lib/store";
 import { isModuleActive } from "@/lib/modules";
 import { useAIStatus } from "@/lib/ai-status";
+import { parseAICommand, type AICommand } from "@/lib/ai/command-parser";
 import toast from "react-hot-toast";
 import { Sparkles, Loader2, Copy, Check, X } from "lucide-react";
 
@@ -12,6 +13,8 @@ interface AIAction {
   label: string;
   prompt: string; // user prompt — {context} will be replaced with contextData
 }
+
+export type { AICommand } from "@/lib/ai/command-parser";
 
 interface AIButtonProps {
   /** Actions available in this context */
@@ -24,6 +27,8 @@ interface AIButtonProps {
   systemPrompt?: string;
   /** Callback when AI generates a result (new interface) */
   onResult?: (result: string) => void;
+  /** Callback when AI generates a parsed command (tool calling) */
+  onCommand?: (command: AICommand) => void;
   /** Callback when AI generates a result the user wants to apply (legacy interface) */
   onApply?: (actionId: string, result: string) => void;
   /** Block ID for context */
@@ -34,7 +39,7 @@ interface AIButtonProps {
   compact?: boolean;
 }
 
-export default function AIButton({ actions, fieldValue, contextData: contextDataProp, systemPrompt, onResult, onApply, compact }: AIButtonProps) {
+export default function AIButton({ actions, fieldValue, contextData: contextDataProp, systemPrompt, onResult, onCommand, onApply, compact }: AIButtonProps) {
   const { currentTenant } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
@@ -68,12 +73,18 @@ export default function AIButton({ actions, fieldValue, contextData: contextData
       const result = data.text;
       setResults(prev => ({ ...prev, [action.id]: result }));
 
-      // If onResult callback is provided, call it automatically
-      if (onResult) {
+      // Try to parse as command first
+      const command = parseAICommand(result);
+      if (command && onCommand) {
+        onCommand(command);
+        toast.success(`Comando eseguito con ${data.provider}`);
+      } else if (onResult) {
+        // Fall back to onResult callback
         onResult(result);
+        toast.success(`Generato con ${data.provider}`);
+      } else {
+        toast.success(`Generato con ${data.provider}`);
       }
-
-      toast.success(`Generato con ${data.provider}`);
       useAIStatus.getState().set({ message: `${action.label} completato`, provider: data.provider || "" });
       setTimeout(() => useAIStatus.getState().clear(), 3000);
     } catch {

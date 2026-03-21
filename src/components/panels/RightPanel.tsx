@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils/cn';
 import { Paintbrush, Settings2, Pentagon, Smartphone, Move, Palette, Layers, MousePointerClick, Sparkles, Settings, Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Toggle } from '@/components/ui/toggle';
+import AIButton from '@/components/ai/AIButton';
+import type { AICommand } from '@/components/ai/AIButton';
 
 export function RightPanel() {
   const { rightPanelTab, setRightPanelTab, hiddenRightPanelTabs, toggleHiddenRightPanelTab } = useUiStore();
@@ -223,8 +225,38 @@ function DividerSection({ label, config, block, position }: { label: string; con
   };
 
   return (
-    <div className="space-y-2">
-      <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--c-text-1)' }}>{label}</h4>
+    <div className="space-y-2 border rounded-lg p-3" style={{ borderColor: 'var(--c-border)' }}>
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--c-text-1)' }}>{label}</h4>
+        <AIButton
+          blockId={block.id}
+          fieldName={`divider-${position}`}
+          contextData={JSON.stringify({ position, blockType: block.type, currentConfig: config })}
+          actions={[
+            {
+              id: 'suggest-divider',
+              label: 'Suggerisci',
+              prompt: `Suggest a beautiful divider shape for the ${position} of this block: {context}. Return JSON with shape, height (20-200), color (hex), opacity (0-1), flip (boolean).`,
+            },
+          ]}
+          onCommand={(cmd: AICommand) => {
+            if (cmd.action === 'updateDivider' && cmd.position === position) {
+              const newConfig: DividerConfig = {
+                shape: cmd.shape as DividerShape || config?.shape || 'wave',
+                height: cmd.height ?? config?.height ?? 80,
+                flip: cmd.flip ?? config?.flip ?? false,
+                invert: config?.invert ?? false,
+                color: cmd.gradient?.stops?.[0]?.color || cmd.gradient?.stops?.[1]?.color || config?.color || '#ffffff',
+                opacity: cmd.opacity ?? config?.opacity,
+                blendWithSection: config?.blendWithSection,
+                blendColor: config?.blendColor,
+              };
+              updateConfig(newConfig);
+            }
+          }}
+          compact
+        />
+      </div>
       <Select
         label="Forma"
         value={config?.shape || 'none'}
