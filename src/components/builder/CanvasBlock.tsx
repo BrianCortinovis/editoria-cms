@@ -468,16 +468,43 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
 
   return (
     <div
-      data-block-id={block.id}
-      ref={(node) => { setNodeRef(node); (blockRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
-      style={wrapperStyle}
-      className={cn('sb-block-wrapper', selected && 'sb-selected', isEditing && 'sb-editing', isHovered && !selected && 'sb-hovered')}
-      onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
-      onMouseEnter={() => hoverBlock(block.id)}
-      onMouseLeave={() => hoverBlock(null)}
-      {...attributes}
+      style={{ position: 'relative' }}
     >
+      {/* Selection outline overlay - OUTSIDE the clipped wrapper so it's not hidden */}
+      {selected && !isDragging && hasClipPath && block.shape?.value && (
+        <svg
+          className="absolute pointer-events-none z-40"
+          style={{
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            overflow: 'visible',
+          }}
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+        >
+          <polygon
+            points={clipPathToPolygonPoints(block.shape.value)}
+            fill="none"
+            stroke="#3b82f6"
+            strokeWidth="1"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )}
+
+      <div
+        data-block-id={block.id}
+        ref={(node) => { setNodeRef(node); (blockRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
+        style={wrapperStyle}
+        className={cn('sb-block-wrapper', selected && 'sb-selected', isEditing && 'sb-editing', isHovered && !selected && 'sb-hovered')}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        onMouseEnter={() => hoverBlock(block.id)}
+        onMouseLeave={() => hoverBlock(null)}
+        {...attributes}
+      >
       {/* Top divider - hidden when using clip-path */}
       {/* {block.shape?.topDivider && (
         <div dangerouslySetInnerHTML={{ __html: generateDividerSvg(block.shape.topDivider.shape, 1440, block.shape.topDivider.height, block.shape.topDivider.color, block.shape.topDivider.flip, block.shape.topDivider.invert) }} style={{ marginBottom: -1 }} />
@@ -505,24 +532,8 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
       {/* ================================================================ */}
       {selected && !isDragging && (
         <>
-          {/* Selection border - rectangular or shape outline */}
-          {hasClipPath && block.shape?.value ? (
-            // SVG overlay that draws the shape outline
-            <svg
-              className="absolute inset-0 pointer-events-none z-40"
-              style={{ width: '100%', height: '100%', overflow: 'visible' }}
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-            >
-              <polygon
-                points={clipPathToPolygonPoints(block.shape.value)}
-                fill="none"
-                stroke="var(--c-accent)"
-                strokeWidth="0.5"
-              />
-            </svg>
-          ) : (
-            // Regular rectangular border for non-shaped blocks
+          {/* Selection border for non-shaped blocks (rectangular) */}
+          {!hasClipPath && (
             <div
               className="absolute inset-0 pointer-events-none border-2 z-40"
               style={{
@@ -787,6 +798,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }
