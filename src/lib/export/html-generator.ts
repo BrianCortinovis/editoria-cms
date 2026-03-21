@@ -53,6 +53,59 @@ ${options.customCss || ''}
 </head>
 <body>
 ${html}
+<script>
+// Animation Runtime
+(function() {
+  function initializeAnimations() {
+    const entranceElements = document.querySelectorAll('[data-animate="entrance"]');
+    entranceElements.forEach(el => {
+      const effect = el.getAttribute('data-effect') || 'fade-in';
+      const duration = parseInt(el.getAttribute('data-duration') || '600');
+      const delay = parseInt(el.getAttribute('data-delay') || '0');
+      const easing = el.getAttribute('data-easing') || 'ease-out';
+      setTimeout(() => {
+        el.style.animation = effect + ' ' + duration + 'ms ' + easing + ' forwards';
+      }, delay);
+    });
+
+    const scrollElements = document.querySelectorAll('[data-animate="scroll"]');
+    const observerOptions = { threshold: 0.5, rootMargin: '0px' };
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const effect = entry.target.getAttribute('data-effect') || 'fade-in';
+          const duration = parseInt(entry.target.getAttribute('data-duration') || '600');
+          const delay = parseInt(entry.target.getAttribute('data-delay') || '0');
+          const easing = entry.target.getAttribute('data-easing') || 'ease-out';
+          setTimeout(() => {
+            entry.target.style.animation = effect + ' ' + duration + 'ms ' + easing + ' forwards';
+          }, delay);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, observerOptions);
+    scrollElements.forEach(el => observer.observe(el));
+
+    const hoverElements = document.querySelectorAll('[data-animate="hover"]');
+    hoverElements.forEach(el => {
+      const effect = el.getAttribute('data-effect') || 'zoom-in';
+      const duration = parseInt(el.getAttribute('data-duration') || '300');
+      const easing = el.getAttribute('data-easing') || 'ease-out';
+      el.addEventListener('mouseenter', () => {
+        el.style.animation = effect + ' ' + duration + 'ms ' + easing + ' forwards';
+      });
+      el.addEventListener('mouseleave', () => {
+        el.style.animation = 'none';
+      });
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeAnimations);
+  } else {
+    initializeAnimations();
+  }
+})();
+</script>
 ${options.customJs ? `<script>\n${options.customJs}\n</script>` : ''}
 </body>
 </html>`;
@@ -169,10 +222,17 @@ function blockToCss(block: Block): string {
   return css;
 }
 
+function getAnimationDataAttributes(block: Block): string {
+  if (!block.animation) return '';
+  const anim = block.animation;
+  return ` data-animate="${anim.trigger}" data-effect="${anim.effect}" data-duration="${anim.duration}" data-delay="${anim.delay}" data-easing="${anim.easing}"`;
+}
+
 function blockToHtml(block: Block): string {
   if (block.hidden) return '';
 
   const cls = `sb-${block.id}`;
+  const animAttrs = getAnimationDataAttributes(block);
   let html = '';
 
   // Top divider
@@ -223,7 +283,15 @@ function blockToHtml(block: Block): string {
       html += customHtmlToHtml(block, cls);
       break;
     default:
-      html += `  <div class="${cls}">${escapeHtml(block.label || block.type)}</div>\n`;
+      html += `  <div class="${cls}"${animAttrs}>${escapeHtml(block.label || block.type)}</div>\n`;
+  }
+
+  // Inject animation attributes into first opening tag if not already present
+  if (animAttrs && html && !html.includes('data-animate=')) {
+    const tagMatch = html.match(/(<[a-z]+[^>]*?>)/i);
+    if (tagMatch) {
+      html = html.replace(tagMatch[0], tagMatch[0].slice(0, -1) + animAttrs + '>');
+    }
   }
 
   // Bottom divider
