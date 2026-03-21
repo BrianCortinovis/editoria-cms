@@ -41,13 +41,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return "Dashboard";
   };
 
+  const isEditorPage = typeof window !== "undefined" && window.location.pathname === "/dashboard/editor";
+
   return (
     <AuthProvider>
-      <div className="min-h-screen" style={{ background: "var(--c-bg-0)" }}>
+      <div className="min-h-screen flex flex-col" style={{ background: "var(--c-bg-0)" }}>
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="lg:ml-[82px]">
+        <div className="lg:ml-[82px] flex-1 flex flex-col">
           <Topbar title={getTitle()} onMenuClick={() => setSidebarOpen(true)} />
-          <main className="p-4 sm:p-5 max-w-[1400px] mx-auto">{children}</main>
+          <main className={isEditorPage ? "flex-1 overflow-hidden" : "p-4 sm:p-5 max-w-[1400px] mx-auto"}>{children}</main>
         </div>
       </div>
     </AuthProvider>
