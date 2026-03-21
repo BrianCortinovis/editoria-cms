@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Trash2, Sparkles } from 'lucide-react';
 import { usePageStore } from '@/lib/stores/page-store';
 import type { Block } from '@/lib/types';
-import AIButton from '@/components/ai/AIButton';
+import { AIModal } from '@/components/ai/AIModal';
 
 interface Point {
   x: number;
@@ -37,6 +37,7 @@ export function ClipPathEditor({ block }: ClipPathEditorProps) {
   const [selectedPointIdx, setSelectedPointIdx] = useState<number | null>(null);
   const [drawingMode, setDrawingMode] = useState(false);
   const [isBezierMode, setIsBezierMode] = useState(false);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   // Generate polygon CSS from points
   const generatePolygonCss = (pts: Point[]): string => {
@@ -129,44 +130,19 @@ export function ClipPathEditor({ block }: ClipPathEditorProps) {
 
   return (
     <div className="border-b" style={{ borderColor: 'var(--c-border)' }}>
-      <button
+      <div
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium"
+        className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium cursor-pointer"
         style={{ color: 'var(--c-text-0)' }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpen(!open); }}
       >
         <span className="flex items-center gap-2">
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           Forma Personalizzata
         </span>
-        {open && (
-          <AIButton
-            blockId={block.id}
-            fieldName="clippath"
-            contextData={JSON.stringify({ blockType: block.type, currentClipPath })}
-            actions={[
-              {
-                id: 'suggest-organic-shape',
-                label: 'Organica',
-                prompt: 'Suggest an organic clip-path shape for this block. Return JSON with type (polygon|circle), value (CSS clip-path string). Make it natural and flowing.',
-              },
-              {
-                id: 'suggest-geometric-shape',
-                label: 'Geometrica',
-                prompt: 'Suggest a geometric clip-path shape for this block. Return JSON with type, value. Make it structured and precise.',
-              },
-            ]}
-            onCommand={(cmd: any) => {
-              if (cmd.action === 'updateClipPath' && cmd.value) {
-                updateBlockShape(block.id, {
-                  type: 'clip-path',
-                  value: cmd.value,
-                });
-              }
-            }}
-            compact
-          />
-        )}
-      </button>
+      </div>
 
       {open && (
         <div className="p-4 space-y-4" style={{ borderTop: '1px solid var(--c-border)' }}>
@@ -393,37 +369,44 @@ export function ClipPathEditor({ block }: ClipPathEditorProps) {
             />
           </div>
 
-          {/* AI Button */}
-          <AIButton
-            blockId={block.id}
-            fieldName="clipPath"
-            fieldValue={contextData}
-            onResult={(result) => {
+          {/* AI Suggestion */}
+          <button
+            onClick={() => setAiModalOpen(true)}
+            className="w-full px-3 py-2 rounded text-sm font-medium flex items-center justify-center gap-2"
+            style={{ background: 'var(--c-accent)', color: 'white' }}
+          >
+            <Sparkles size={16} />
+            Suggerisci forma
+          </button>
+
+          <AIModal
+            isOpen={aiModalOpen}
+            onClose={() => setAiModalOpen(false)}
+            defaultPrompt="Suggest a beautiful clip-path shape for this block: {context}. Return JSON with shape (organic|geometric) and CSS value (polygon or path)."
+            contextData={contextData}
+            title="Suggerisci Forma"
+            onApply={(result) => {
               try {
-                // Result should be clip-path CSS value
-                if (result.includes('polygon(') || result.includes('path(')) {
+                const parsed = JSON.parse(result) as { shape?: string; value?: string } | string;
+                const value = typeof parsed === 'string' ? parsed : (parsed.value || result);
+                if (value && (value.includes('polygon(') || value.includes('path(') || value.includes('circle('))) {
+                  updateBlockShape(block.id, {
+                    type: 'clip-path',
+                    value,
+                  });
+                }
+              } catch {
+                // If not valid JSON, try using raw result as clip-path value
+                if (result && (result.includes('polygon(') || result.includes('path(') || result.includes('circle('))) {
                   updateBlockShape(block.id, {
                     type: 'clip-path',
                     value: result,
                   });
+                } else {
+                  console.error('Invalid clip-path response:', result);
                 }
-              } catch {
-                console.error('Invalid clip-path response:', result);
               }
             }}
-            actions={[
-              {
-                id: 'suggest-clip-path',
-                label: 'Forma Organica',
-                prompt: 'Generate an organic, natural-looking clip-path shape for this block: {context}. Return only the clip-path CSS value (polygon or path).',
-              },
-              {
-                id: 'suggest-clip-path',
-                label: 'Forma Geometrica',
-                prompt: 'Generate a complex geometric clip-path shape for this block: {context}. Return only the clip-path CSS value.',
-              },
-            ]}
-            compact
           />
         </div>
       )}
