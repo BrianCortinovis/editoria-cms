@@ -29,13 +29,12 @@ function LayerItem({ block, depth = 0 }: { block: Block; depth?: number }) {
       <div
         className={cn(
           'flex items-center gap-1 px-2 py-1 cursor-pointer transition-colors rounded-md mx-1',
-          isSelected && 'text-blue-600',
           block.hidden && 'opacity-40'
         )}
         style={{
           paddingLeft: 8 + depth * 16,
-          background: isSelected ? 'rgba(59, 130, 246, 0.1)' : isHovered ? 'var(--c-bg-1)' : '',
-          color: isSelected ? '#3b82f6' : 'var(--c-text-0)',
+          background: isSelected ? 'var(--c-accent-soft)' : isHovered ? 'var(--c-bg-1)' : '',
+          color: isSelected ? 'var(--c-accent)' : 'var(--c-text-0)',
         }}
         onClick={() => selectBlock(block.id)}
         onMouseEnter={() => hoverBlock(block.id)}

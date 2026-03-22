@@ -314,10 +314,10 @@ export function StyleEditor({ block }: StyleEditorProps) {
               key={f.label}
               onClick={() => updateBlockStyle(block.id, { filter: f.val })}
               className={cn('px-1.5 py-0.5 text-[9px] rounded transition-colors')}
-              style={s.filter === f.val ? { background: '#3b82f6', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+              style={s.filter === f.val ? { background: 'var(--c-accent)', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
               onMouseEnter={(e) => {
                 if (s.filter !== f.val) {
-                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                  e.currentTarget.style.background = 'var(--c-accent-soft)';
                 }
               }}
               onMouseLeave={(e) => {
@@ -344,10 +344,10 @@ export function StyleEditor({ block }: StyleEditorProps) {
               key={f.label}
               onClick={() => updateBlockStyle(block.id, { backdropFilter: f.val })}
               className={cn('px-1.5 py-0.5 text-[9px] rounded transition-colors')}
-              style={s.backdropFilter === f.val ? { background: '#3b82f6', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+              style={s.backdropFilter === f.val ? { background: 'var(--c-accent)', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
               onMouseEnter={(e) => {
                 if (s.backdropFilter !== f.val) {
-                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                  e.currentTarget.style.background = 'var(--c-accent-soft)';
                 }
               }}
               onMouseLeave={(e) => {
@@ -404,10 +404,10 @@ export function StyleEditor({ block }: StyleEditorProps) {
               key={f.label}
               onClick={() => updateBlockStyle(block.id, { textShadow: f.val })}
               className={cn('px-1.5 py-0.5 text-[9px] rounded transition-colors')}
-              style={s.textShadow === f.val ? { background: '#3b82f6', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+              style={s.textShadow === f.val ? { background: 'var(--c-accent)', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
               onMouseEnter={(e) => {
                 if (s.textShadow !== f.val) {
-                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                  e.currentTarget.style.background = 'var(--c-accent-soft)';
                 }
               }}
               onMouseLeave={(e) => {
@@ -438,10 +438,10 @@ export function StyleEditor({ block }: StyleEditorProps) {
               key={f.label}
               onClick={() => updateBlockStyle(block.id, { shadow: f.val })}
               className={cn('px-1.5 py-0.5 text-[9px] rounded transition-colors')}
-              style={s.shadow === f.val ? { background: '#3b82f6', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+              style={s.shadow === f.val ? { background: 'var(--c-accent)', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
               onMouseEnter={(e) => {
                 if (s.shadow !== f.val) {
-                  e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                  e.currentTarget.style.background = 'var(--c-accent-soft)';
                 }
               }}
               onMouseLeave={(e) => {
