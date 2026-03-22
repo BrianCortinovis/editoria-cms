@@ -51,9 +51,6 @@ export function Slider({
         )}
         style={{
           background: 'var(--c-bg-3)',
-          // @ts-expect-error - CSS custom properties in style
-          '--slider-thumb-bg': 'var(--c-accent)',
-          '--slider-thumb-hover': 'var(--c-accent-hover)',
         } as React.CSSProperties}
       />
     </div>

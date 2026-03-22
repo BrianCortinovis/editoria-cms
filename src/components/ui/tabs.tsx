@@ -100,7 +100,6 @@ export const TabsTrigger = forwardRef<HTMLButtonElement, TabsTriggerProps>(
           background: 'var(--c-bg-0)',
           color: 'var(--c-text-0)',
           boxShadow: '0 1px 2px var(--c-accent-soft)',
-          focusOutlineOffset: '1px',
         } : {
           color: 'var(--c-text-2)',
         }}

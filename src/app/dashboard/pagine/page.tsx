@@ -55,7 +55,8 @@ export default function PaginePage() {
       .from('page_hierarchy_view')
       .select('id, title, slug, parent_id, path, depth, seo_slug, breadcrumb, status, sort_order, created_at, updated_at')
       .eq('tenant_id', currentTenant.id)
-      .order('parent_id, sort_order', { ascending: [true, true] });
+      .order('parent_id', { ascending: true })
+      .order('sort_order', { ascending: true });
 
     if (!error && data) {
       setPages(data);

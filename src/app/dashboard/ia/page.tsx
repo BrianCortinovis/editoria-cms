@@ -120,10 +120,10 @@ export default function IAPage() {
 
   const checkProviderStatus = async (providerKey: string) => {
     // Dummy status check - in production would test API key
-    const apiKey = settings[`${providerKey}_api_key`];
+    const apiKey = settings[`${providerKey}_api_key` as keyof AISettings];
     if (!apiKey) {
       setStatuses(prev => ({ ...prev, [providerKey]: 'inactive' }));
-    } else if (apiKey.length < 10) {
+    } else if ((apiKey as string).length < 10) {
       setStatuses(prev => ({ ...prev, [providerKey]: 'error' }));
     } else {
       setStatuses(prev => ({ ...prev, [providerKey]: 'active' }));

@@ -31,7 +31,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             background: 'var(--c-bg-3)',
             borderColor: error ? 'var(--c-danger)' : 'var(--c-border)',
             color: 'var(--c-text-0)',
-            focusRingColor: error ? 'var(--c-danger)' : 'var(--c-accent)',
           }}
           {...props}
         />
