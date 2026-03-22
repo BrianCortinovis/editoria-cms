@@ -137,11 +137,23 @@ export default function IAPage() {
     const supabase = createClient();
 
     try {
+      // Load current settings to preserve other config
+      const { data: tenantData } = await supabase
+        .from('tenants')
+        .select('settings')
+        .eq('id', currentTenant.id)
+        .single();
+
+      const currentSettings = tenantData?.settings || {};
+      const currentModuleConfig = currentSettings.module_config || {};
+
       const { error } = await supabase
         .from('tenants')
         .update({
           settings: {
+            ...currentSettings,
             module_config: {
+              ...currentModuleConfig,
               ai_assistant: {
                 claude_api_key: settings.claude_api_key,
                 claude_model: settings.claude_model,
