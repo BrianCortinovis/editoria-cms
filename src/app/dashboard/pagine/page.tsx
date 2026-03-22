@@ -19,7 +19,13 @@ interface SitePage {
   id: string;
   title: string;
   slug: string;
+  parent_id: string | null;
+  path: string;
+  depth: number;
+  seo_slug: string;
+  breadcrumb: Array<{ title: string; slug: string }>;
   status: 'draft' | 'published' | 'archived';
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +37,7 @@ export default function PaginePage() {
   const [showNewPage, setShowNewPage] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState('');
   const [newPageSlug, setNewPageSlug] = useState('');
+  const [newPageParentId, setNewPageParentId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   // Load pages
@@ -45,10 +52,10 @@ export default function PaginePage() {
     const supabase = createClient();
 
     const { data, error } = await supabase
-      .from('site_pages')
-      .select('id, title, slug, status, created_at, updated_at')
+      .from('page_hierarchy_view')
+      .select('id, title, slug, parent_id, path, depth, seo_slug, breadcrumb, status, sort_order, created_at, updated_at')
       .eq('tenant_id', currentTenant.id)
-      .order('created_at', { ascending: false });
+      .order('parent_id, sort_order', { ascending: [true, true] });
 
     if (!error && data) {
       setPages(data);
@@ -68,16 +75,19 @@ export default function PaginePage() {
         tenant_id: currentTenant.id,
         title: newPageTitle,
         slug: newPageSlug,
+        parent_id: newPageParentId,
         status: 'draft',
         blocks: [],
+        sort_order: 0,
       })
       .select()
       .single();
 
     if (!error && data) {
-      setPages([data, ...pages]);
+      await loadPages();
       setNewPageTitle('');
       setNewPageSlug('');
+      setNewPageParentId(null);
       setShowNewPage(false);
     }
     setCreating(false);
@@ -153,13 +163,13 @@ export default function PaginePage() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>
-                  Titolo Pagina
+                  Titolo Pagina *
                 </label>
                 <input
                   type="text"
                   value={newPageTitle}
                   onChange={(e) => setNewPageTitle(e.target.value)}
-                  placeholder="Es: Homepage, Chi Siamo, Contatti..."
+                  placeholder="Es: Chi Siamo, Team, Contatti..."
                   className="w-full px-3 py-2 rounded-lg border transition focus:outline-none"
                   style={{
                     background: 'var(--c-bg-0)',
@@ -173,13 +183,13 @@ export default function PaginePage() {
 
               <div>
                 <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>
-                  URL Slug
+                  URL Slug *
                 </label>
                 <input
                   type="text"
                   value={newPageSlug}
                   onChange={(e) => setNewPageSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                  placeholder="es: homepage, chi-siamo, contatti..."
+                  placeholder="es: chi-siamo, team, contatti..."
                   className="w-full px-3 py-2 rounded-lg border transition focus:outline-none"
                   style={{
                     background: 'var(--c-bg-0)',
@@ -190,7 +200,37 @@ export default function PaginePage() {
                   onBlur={(e) => e.currentTarget.style.borderColor = 'var(--c-border)'}
                 />
                 <p className="text-[11px] mt-1" style={{ color: 'var(--c-text-2)' }}>
-                  URL: /{currentTenant?.slug || 'slug'}/{newPageSlug || 'slug'}
+                  URL: /{currentTenant?.slug || 'slug'}/{newPageParentId ? pages.find(p => p.id === newPageParentId)?.slug + '/' : ''}{newPageSlug || 'slug'}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>
+                  Pagina Genitrice (opzionale)
+                </label>
+                <select
+                  value={newPageParentId || ''}
+                  onChange={(e) => setNewPageParentId(e.target.value || null)}
+                  className="w-full px-3 py-2 rounded-lg border transition focus:outline-none"
+                  style={{
+                    background: 'var(--c-bg-0)',
+                    borderColor: 'var(--c-border)',
+                    color: 'var(--c-text-0)',
+                  }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = 'var(--c-accent)'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = 'var(--c-border)'}
+                >
+                  <option value="">Nessuna (pagina root)</option>
+                  {pages
+                    .filter(p => p.id !== newPageParentId && p.depth < 3)
+                    .map(p => (
+                      <option key={p.id} value={p.id}>
+                        {'  '.repeat(p.depth)} {p.title}
+                      </option>
+                    ))}
+                </select>
+                <p className="text-[11px] mt-1" style={{ color: 'var(--c-text-2)' }}>
+                  Max 3 livelli di profondità per SEO
                 </p>
               </div>
             </div>
@@ -239,17 +279,19 @@ export default function PaginePage() {
               <div
                 key={page.id}
                 className="p-4 flex items-center justify-between hover:bg-opacity-50 transition"
+                style={{ paddingLeft: `${page.depth * 20 + 16}px` }}
                 onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
                 <div className="flex-1 min-w-0">
                   <h3 className="font-medium" style={{ color: 'var(--c-text-0)' }}>
+                    {page.depth > 0 && <span style={{ color: 'var(--c-text-2)' }}>└ </span>}
                     {page.title}
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
                     <Globe className="w-3 h-3" style={{ color: 'var(--c-text-2)' }} />
-                    <p className="text-sm" style={{ color: 'var(--c-text-2)' }}>
-                      /valbrembana-web/{page.slug}
+                    <p className="text-sm font-mono" style={{ color: 'var(--c-text-2)' }}>
+                      {page.path}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 mt-2">
