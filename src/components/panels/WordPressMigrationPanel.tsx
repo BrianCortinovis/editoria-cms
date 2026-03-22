@@ -125,10 +125,12 @@ export function WordPressMigrationPanel() {
             key={id}
             onClick={() => setActiveTab(id)}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors border-b-2',
-              activeTab === id ? 'border-blue-500' : 'border-transparent'
+              'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors border-b-2'
             )}
-            style={{ color: activeTab === id ? '#3b82f6' : 'var(--c-text-1)' }}
+            style={{
+              borderColor: activeTab === id ? 'var(--c-accent)' : 'transparent',
+              color: activeTab === id ? 'var(--c-accent)' : 'var(--c-text-1)',
+            }}
           >
             <Icon size={14} />
             {label}
@@ -195,7 +197,7 @@ export function WordPressMigrationPanel() {
                 disabled={isProcessing}
                 className="w-full py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
                 style={{
-                  background: '#3b82f6',
+                  background: 'var(--c-accent)',
                   color: 'white',
                 }}
               >
@@ -259,7 +261,7 @@ export function WordPressMigrationPanel() {
                     <div className="w-full h-2 rounded-full" style={{ background: 'var(--c-bg-2)' }}>
                       <div
                         className="h-full rounded-full transition-all"
-                        style={{ width: `${job.progress}%`, background: '#3b82f6' }}
+                        style={{ width: `${job.progress}%`, background: 'var(--c-accent)' }}
                       />
                     </div>
                   )}
@@ -271,7 +273,7 @@ export function WordPressMigrationPanel() {
                   )}
 
                   {job.status === 'failed' && (
-                    <p className="text-xs" style={{ color: '#ef4444' }}>
+                    <p className="text-xs" style={{ color: 'var(--c-danger)' }}>
                       ✗ Migration failed
                     </p>
                   )}

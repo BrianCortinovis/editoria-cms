@@ -15,7 +15,7 @@ interface MiniChartProps {
   color?: string;
 }
 
-function MiniChart({ data, height = 40, color = '#3b82f6' }: MiniChartProps) {
+function MiniChart({ data, height = 40, color = 'var(--c-accent)' }: MiniChartProps) {
   if (data.length < 2) return null;
 
   const maxValue = Math.max(...data.map(d => d.value));
@@ -94,10 +94,12 @@ export function SystemPanel() {
             key={id}
             onClick={() => setActiveTab(id)}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2',
-              activeTab === id ? 'border-blue-500' : 'border-transparent'
+              'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors border-b-2'
             )}
-            style={{ color: activeTab === id ? '#3b82f6' : 'var(--c-text-1)' }}
+            style={{
+              borderColor: activeTab === id ? 'var(--c-accent)' : 'transparent',
+              color: activeTab === id ? 'var(--c-accent)' : 'var(--c-text-1)',
+            }}
           >
             <Icon size={14} />
             {label}
@@ -135,7 +137,7 @@ export function SystemPanel() {
           <div className="space-y-3">
             <div className="p-3 rounded-lg" style={{ background: 'var(--c-bg-1)' }}>
               <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--c-text-0)' }}>CPU Usage (last 20s)</h3>
-              <MiniChart data={cpuData} color="#3b82f6" />
+              <MiniChart data={cpuData} color="var(--c-accent)" />
               <p className="text-xs mt-2" style={{ color: 'var(--c-text-1)' }}>
                 Current: {cpuData.length > 0 ? Math.round(cpuData[cpuData.length - 1].value) : 0}%
               </p>
