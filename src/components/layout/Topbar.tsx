@@ -81,28 +81,24 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
         </div>
 
         {/* AI Provider & Model Selector */}
-        <div className="hidden sm:flex items-center gap-1.5">
+        <div className="hidden sm:flex items-center gap-2">
           <div className="relative">
             <button
               onClick={() => setShowProviderMenu(!showProviderMenu)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition border"
               style={{
                 background: 'var(--c-bg-2)',
-                color: 'var(--c-accent)',
-                border: '1px solid var(--c-border)',
+                color: 'var(--c-text-0)',
+                borderColor: 'var(--c-border)',
               }}
             >
-              <Sparkles size={14} />
-              {aiProvider === 'claude' && '🧠'}
-              {aiProvider === 'openai' && '⚡'}
-              {aiProvider === 'gemini' && '✨'}
               <span>{currentProviderData?.label}</span>
               <ChevronDown size={12} />
             </button>
 
             {showProviderMenu && (
               <div
-                className="absolute top-full mt-2 left-0 rounded-lg shadow-lg overflow-hidden z-50"
+                className="absolute top-full mt-2 left-0 rounded-lg shadow-lg overflow-hidden z-50 min-w-max"
                 style={{ background: 'var(--c-bg-1)', border: '1px solid var(--c-border)' }}
               >
                 {providers.map((p) => (
@@ -113,14 +109,14 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
                       setSelectedModel(p.models[0]);
                       setShowProviderMenu(false);
                     }}
-                    className="w-full text-left px-3 py-2 text-xs hover:opacity-70 transition"
+                    className="w-full text-left px-3 py-2 text-xs hover:opacity-70 transition border-b last:border-b-0"
                     style={{
-                      background: aiProvider === p.value ? 'var(--c-bg-2)' : 'transparent',
-                      color: aiProvider === p.value ? 'var(--c-accent)' : 'var(--c-text-1)',
-                      borderBottom: '1px solid var(--c-border)',
+                      background: aiProvider === p.value ? 'var(--c-accent)' : 'transparent',
+                      color: aiProvider === p.value ? '#fff' : 'var(--c-text-1)',
+                      borderColor: 'var(--c-border)',
                     }}
                   >
-                    {p.value === 'claude' && '🧠'} {p.value === 'openai' && '⚡'} {p.value === 'gemini' && '✨'} {p.label}
+                    {p.label}
                   </button>
                 ))}
               </div>
@@ -147,13 +143,14 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
 
           {selectedField && (
             <span
-              className="text-xs px-2 py-1.5 rounded-lg font-medium"
+              className="text-xs px-3 py-1.5 rounded-lg font-medium"
               style={{
-                background: 'var(--c-accent-soft)',
+                background: 'var(--c-bg-2)',
                 color: 'var(--c-accent)',
+                border: '1px solid var(--c-border)',
               }}
             >
-              📍 {selectedField.label || selectedField.name}
+              {selectedField.label || selectedField.name}
             </span>
           )}
         </div>
