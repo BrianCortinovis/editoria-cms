@@ -1,6 +1,7 @@
 'use client';
 
 import { forwardRef, type InputHTMLAttributes } from 'react';
+import { useFieldContextStore } from '@/lib/stores/field-context-store';
 import { cn } from '@/lib/utils/cn';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -11,6 +12,37 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, id, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
+    const { setSelectedField, updatePageContext } = useFieldContextStore();
+
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+      const element = e.currentTarget;
+      setSelectedField({
+        id: element.id || element.name || 'unknown',
+        name: element.name || element.id || 'unknown',
+        value: element.value || '',
+        type: (element.getAttribute('type') || 'text') as any,
+        label: label || element.getAttribute('aria-label') || undefined,
+        placeholder: element.getAttribute('placeholder') || undefined,
+      });
+
+      // Collect page context
+      const form = element.closest('form') || element.closest('[data-form]') || document;
+      const allFields: Record<string, string> = {};
+      const inputs = form.querySelectorAll('input[name], textarea[name], select[name]');
+      inputs.forEach((input: any) => {
+        if (input.name && input.value) {
+          allFields[input.name] = input.value;
+        }
+      });
+
+      updatePageContext({
+        allFields,
+        pageName: document.title,
+      });
+
+      props.onFocus?.(e);
+    };
+
     return (
       <div className="flex flex-col gap-1">
         {label && (
@@ -32,6 +64,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             borderColor: error ? 'var(--c-danger)' : 'var(--c-border)',
             color: 'var(--c-text-0)',
           }}
+          onFocus={handleFocus}
           {...props}
         />
         {error && <span className="text-xs" style={{ color: 'var(--c-danger)' }}>{error}</span>}
