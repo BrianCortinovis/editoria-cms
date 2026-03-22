@@ -75,33 +75,38 @@ export const AIFieldHelper = ({
     <>
       <button
         onClick={() => setOpen(true)}
-        className={`inline-flex items-center justify-center p-1.5 rounded text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors ${className}`}
+        className={`inline-flex items-center justify-center p-1.5 rounded transition-colors ${className}`}
+        style={{ color: 'var(--c-accent)' }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--c-accent-soft)')}
+        onMouseLeave={(e) => (e.currentTarget.style.background = '')}
       >
         <Sparkles size={compact ? 16 : 18} />
       </button>
 
       {open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl max-w-2xl w-full">
-            <div className="p-6 border-b border-zinc-200 dark:border-zinc-800">
+          <div className="rounded-lg shadow-xl max-w-2xl w-full" style={{ background: 'var(--c-bg-1)' }}>
+            <div className="p-6 border-b" style={{ borderColor: 'var(--c-border)' }}>
               <div className="flex items-center gap-2">
-                <Wand2 size={20} className="text-blue-600" />
-                <h2 className="text-lg font-semibold">Genera Contenuto</h2>
+                <Wand2 size={20} style={{ color: 'var(--c-accent)' }} />
+                <h2 className="text-lg font-semibold" style={{ color: 'var(--c-text-0)' }}>Genera Contenuto</h2>
               </div>
-              <p className="text-sm text-zinc-500 mt-1">Campo: {fieldName}</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--c-text-2)' }}>Campo: {fieldName}</p>
             </div>
 
             <div className="p-6 space-y-4">
               <div>
-                <label className="text-sm font-medium block mb-2">Stile</label>
+                <label className="text-sm font-medium block mb-2" style={{ color: 'var(--c-text-1)' }}>Stile</label>
                 <div className="flex gap-2">
                   {['auto', 'journalist', 'publication'].map((s) => (
                     <button
                       key={s}
                       onClick={() => setStyle(s as any)}
-                      className={`px-3 py-2 rounded text-sm font-medium ${
-                        style === s ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800'
-                      }`}
+                      className="px-3 py-2 rounded text-sm font-medium transition-colors"
+                      style={{
+                        background: style === s ? 'var(--c-accent)' : 'var(--c-bg-2)',
+                        color: style === s ? 'white' : 'var(--c-text-1)',
+                      }}
                     >
                       {s === 'auto' ? 'Auto' : s === 'journalist' ? 'Giornalista' : 'Rivista'}
                     </button>
@@ -111,12 +116,12 @@ export const AIFieldHelper = ({
 
               {result ? (
                 <div>
-                  <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded text-sm">{result}</div>
+                  <div className="p-3 rounded text-sm" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-0)' }}>{result}</div>
                   <div className="flex gap-2 mt-4">
-                    <button onClick={applyResult} className="flex-1 bg-blue-600 text-white py-2 rounded">
+                    <button onClick={applyResult} className="flex-1 text-white py-2 rounded transition-colors" style={{ background: 'var(--c-accent)' }}>
                       Applica
                     </button>
-                    <button onClick={() => setResult('')} className="flex-1 bg-zinc-200 dark:bg-zinc-700 py-2 rounded">
+                    <button onClick={() => setResult('')} className="flex-1 py-2 rounded transition-colors" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-0)' }}>
                       Cancella
                     </button>
                   </div>
@@ -125,7 +130,8 @@ export const AIFieldHelper = ({
                 <button
                   onClick={generateContent}
                   disabled={loading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-400 text-white py-2 rounded font-medium flex items-center justify-center gap-2"
+                  className="w-full text-white py-2 rounded font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                  style={{ background: 'var(--c-accent)' }}
                 >
                   {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                   {loading ? 'Generazione...' : 'Genera'}
@@ -133,8 +139,8 @@ export const AIFieldHelper = ({
               )}
             </div>
 
-            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
-              <button onClick={() => setOpen(false)} className="w-full text-zinc-600 hover:text-zinc-900">
+            <div className="p-4 border-t" style={{ borderColor: 'var(--c-border)' }}>
+              <button onClick={() => setOpen(false)} className="w-full transition-colors" style={{ color: 'var(--c-text-1)' }} onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--c-text-0)')} onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--c-text-1)')}>
                 Chiudi
               </button>
             </div>

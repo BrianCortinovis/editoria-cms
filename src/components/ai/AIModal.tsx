@@ -131,8 +131,8 @@ export function AIModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div
-        className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
-        style={{ background: 'var(--c-bg-0)', color: 'var(--c-text-0)' }}
+        className="rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+        style={{ background: 'var(--c-bg-1)', color: 'var(--c-text-0)' }}
       >
         {/* Header */}
         <div
