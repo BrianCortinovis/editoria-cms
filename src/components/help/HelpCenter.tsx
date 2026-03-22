@@ -70,7 +70,7 @@ export function HelpCenter() {
           'flex items-center justify-center font-semibold'
         )}
         style={{
-          background: isOpen ? '#3b82f6' : '#1e40af',
+          background: isOpen ? 'var(--c-accent)' : 'var(--c-accent-hover)',
           color: 'white',
           borderRadius: '50%',
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
@@ -98,8 +98,10 @@ export function HelpCenter() {
                 <>
                   <button
                     onClick={() => setSelectedArticle(null)}
-                    className="text-sm mb-2"
-                    style={{ color: '#3b82f6' }}
+                    className="text-sm mb-2 transition-colors"
+                    style={{ color: 'var(--c-accent)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--c-accent-hover)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--c-accent)')}
                   >
                     ← Back to articles
                   </button>
@@ -174,8 +176,10 @@ export function HelpCenter() {
                 <>
                   <button
                     onClick={() => setSelectedArticle(null)}
-                    className="text-xs mb-2"
-                    style={{ color: '#3b82f6' }}
+                    className="text-xs mb-2 transition-colors"
+                    style={{ color: 'var(--c-accent)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--c-accent-hover)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--c-accent)')}
                   >
                     ← Back
                   </button>
