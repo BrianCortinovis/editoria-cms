@@ -125,8 +125,17 @@ export async function POST(request: NextRequest) {
       { system: systemPrompt, prompt: userPrompt, model: resolvedProvider.model }
     );
 
+    // Parse JSON response from AI (prompts instruct AI to return JSON)
+    let parsedResult: unknown = result.text;
+    try {
+      parsedResult = JSON.parse(result.text);
+    } catch (e) {
+      // If not valid JSON, keep as string (some prompts may return plain text)
+      console.warn('AI response was not valid JSON', { provider: result.provider });
+    }
+
     return NextResponse.json({
-      result: result.text,
+      result: parsedResult,
       provider: result.provider,
       model: result.model,
     });

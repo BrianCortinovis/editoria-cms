@@ -5,6 +5,7 @@ import { useAuthStore } from "@/lib/store";
 import { isModuleActive } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/client";
 import { useAIStatus } from "@/lib/ai-status";
+import { parseAIResponse } from "@/lib/utils/parse";
 import toast from "react-hot-toast";
 import {
   Sparkles,
@@ -104,16 +105,8 @@ export default function AIPanel({
         return;
       }
 
-      // Parse JSON response if result is a string
-      let parsedResult = data.result;
-      if (typeof parsedResult === 'string') {
-        try {
-          parsedResult = JSON.parse(parsedResult);
-        } catch (e) {
-          // If not valid JSON, keep as string
-        }
-      }
-
+      // Parse AI response (handles both pre-parsed and stringified JSON)
+      const parsedResult = parseAIResponse(data.result);
       setResults(prev => ({ ...prev, [action]: parsedResult }));
       toast.success(`${action.toUpperCase()} generato con ${data.provider}`);
       aiStatus.set({ message: `${actionLabels[action] || action} completato`, provider: data.provider || "" });
