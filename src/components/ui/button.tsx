@@ -29,7 +29,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           };
         case 'danger':
           return {
-            background: '#dc2626',
+            background: 'var(--c-danger)',
             color: 'white',
           };
         case 'outline':

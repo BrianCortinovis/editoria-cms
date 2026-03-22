@@ -59,9 +59,10 @@ export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
     <div
       ref={ref}
       className={cn(
-        'flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg w-full',
+        'flex items-center gap-1 p-1 rounded-lg w-full',
         className
       )}
+      style={{ background: 'var(--c-bg-2)' }}
       role="tablist"
     >
       {children}
@@ -91,13 +92,28 @@ export const TabsTrigger = forwardRef<HTMLButtonElement, TabsTriggerProps>(
         onClick={() => !disabled && onTabChange(value)}
         className={cn(
           'px-3 py-2 text-sm font-medium rounded-md transition-all duration-150',
-          'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1',
+          'focus:outline-none focus:ring-2 focus:ring-offset-1',
           'disabled:opacity-50 disabled:cursor-not-allowed',
-          isActive
-            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm'
-            : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100',
           className
         )}
+        style={isActive ? {
+          background: 'var(--c-bg-0)',
+          color: 'var(--c-text-0)',
+          boxShadow: '0 1px 2px var(--c-accent-soft)',
+          focusOutlineOffset: '1px',
+        } : {
+          color: 'var(--c-text-2)',
+        }}
+        onMouseEnter={(e) => {
+          if (!isActive && !disabled) {
+            (e.currentTarget as HTMLButtonElement).style.color = 'var(--c-text-0)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isActive && !disabled) {
+            (e.currentTarget as HTMLButtonElement).style.color = 'var(--c-text-2)';
+          }
+        }}
       >
         {children}
       </button>

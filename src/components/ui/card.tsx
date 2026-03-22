@@ -11,10 +11,11 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn(
-        'rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-sm',
-        className
-      )}
+      className={cn('rounded-lg border shadow-sm', className)}
+      style={{
+        borderColor: 'var(--c-border)',
+        background: 'var(--c-bg-1)',
+      }}
       {...props}
     />
   )
@@ -29,7 +30,8 @@ export const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('p-6 border-b border-zinc-200 dark:border-zinc-700', className)}
+      className={cn('p-6 border-b', className)}
+      style={{ borderColor: 'var(--c-border)' }}
       {...props}
     />
   )
@@ -44,7 +46,8 @@ export const CardTitle = forwardRef<HTMLHeadingElement, CardTitleProps>(
   ({ className, ...props }, ref) => (
     <h2
       ref={ref}
-      className={cn('text-lg font-semibold text-zinc-900 dark:text-zinc-100', className)}
+      className={cn('text-lg font-semibold', className)}
+      style={{ color: 'var(--c-text-0)' }}
       {...props}
     />
   )
@@ -59,7 +62,8 @@ export const CardDescription = forwardRef<HTMLParagraphElement, CardDescriptionP
   ({ className, ...props }, ref) => (
     <p
       ref={ref}
-      className={cn('text-sm text-zinc-500 dark:text-zinc-400 mt-1', className)}
+      className={cn('text-sm mt-1', className)}
+      style={{ color: 'var(--c-text-2)' }}
       {...props}
     />
   )

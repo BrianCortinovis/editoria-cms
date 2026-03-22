@@ -41,7 +41,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
       />
       <div
         className={cn(
-          'relative bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700',
+          'relative rounded-xl shadow-2xl border',
           'max-h-[90vh] overflow-y-auto',
           {
             'w-full max-w-sm': size === 'sm',
@@ -50,13 +50,20 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
             'w-full max-w-4xl': size === 'xl',
           }
         )}
+        style={{
+          background: 'var(--c-bg-1)',
+          borderColor: 'var(--c-border)',
+        }}
       >
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-700">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{title}</h2>
+          <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--c-border)' }}>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--c-text-0)' }}>{title}</h2>
             <button
               onClick={onClose}
-              className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
+              className="p-1 rounded-lg"
+              style={{ color: 'var(--c-text-2)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--c-bg-2)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '')}
             >
               <X size={18} />
             </button>

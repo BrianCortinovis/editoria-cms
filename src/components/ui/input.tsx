@@ -14,7 +14,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="flex flex-col gap-1">
         {label && (
-          <label htmlFor={inputId} className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          <label htmlFor={inputId} className="text-xs font-medium" style={{ color: 'var(--c-text-1)' }}>
             {label}
           </label>
         )}
@@ -23,17 +23,19 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           id={inputId}
           className={cn(
             'w-full px-3 py-2 text-sm rounded-lg transition-colors',
-            'bg-white dark:bg-zinc-800',
-            'border border-zinc-300 dark:border-zinc-600',
-            'text-zinc-900 dark:text-zinc-100',
-            'placeholder:text-zinc-400 dark:placeholder:text-zinc-500',
-            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-            error && 'border-red-500 focus:ring-red-500',
+            'border',
+            'focus:outline-none focus:ring-2 focus:ring-offset-1',
             className
           )}
+          style={{
+            background: 'var(--c-bg-3)',
+            borderColor: error ? 'var(--c-danger)' : 'var(--c-border)',
+            color: 'var(--c-text-0)',
+            focusRingColor: error ? 'var(--c-danger)' : 'var(--c-accent)',
+          }}
           {...props}
         />
-        {error && <span className="text-xs text-red-500">{error}</span>}
+        {error && <span className="text-xs" style={{ color: 'var(--c-danger)' }}>{error}</span>}
       </div>
     );
   }

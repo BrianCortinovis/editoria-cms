@@ -18,21 +18,24 @@ export function Toggle({ checked, onChange, label, size = 'md' }: ToggleProps) {
         onClick={() => onChange(!checked)}
         className={cn(
           'relative inline-flex shrink-0 rounded-full transition-colors duration-200',
-          'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1',
-          checked ? 'bg-blue-600' : 'bg-zinc-300 dark:bg-zinc-600',
+          'focus:outline-none focus:ring-2 focus:ring-offset-1',
           size === 'sm' ? 'h-5 w-9' : 'h-6 w-11'
         )}
+        style={{
+          background: checked ? 'var(--c-accent)' : 'var(--c-bg-3)',
+        }}
       >
         <span
           className={cn(
-            'inline-block rounded-full bg-white shadow-sm transform transition-transform duration-200',
+            'inline-block rounded-full shadow-sm transform transition-transform duration-200',
             size === 'sm' ? 'h-4 w-4 mt-0.5 ml-0.5' : 'h-5 w-5 mt-0.5 ml-0.5',
             checked && (size === 'sm' ? 'translate-x-4' : 'translate-x-5')
           )}
+          style={{ background: 'var(--c-bg-0)' }}
         />
       </button>
       {label && (
-        <span className="text-sm text-zinc-700 dark:text-zinc-300">{label}</span>
+        <span className="text-sm" style={{ color: 'var(--c-text-0)' }}>{label}</span>
       )}
     </label>
   );
