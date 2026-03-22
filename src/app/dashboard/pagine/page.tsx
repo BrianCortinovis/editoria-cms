@@ -128,7 +128,7 @@ export default function PaginePage() {
             Pagine Sito
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--c-text-2)' }}>
-            Gestisci tutte le pagine di Valbrembana Web
+            Gestisci tutte le pagine del sito
           </p>
         </div>
         <button
@@ -190,7 +190,7 @@ export default function PaginePage() {
                   onBlur={(e) => e.currentTarget.style.borderColor = 'var(--c-border)'}
                 />
                 <p className="text-[11px] mt-1" style={{ color: 'var(--c-text-2)' }}>
-                  URL: /valbrembana-web/{newPageSlug || 'slug'}
+                  URL: /{currentTenant?.slug || 'slug'}/{newPageSlug || 'slug'}
                 </p>
               </div>
             </div>

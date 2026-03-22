@@ -76,22 +76,10 @@ interface SitePage {
   icon: typeof Home;
 }
 
-const SITE_PAGES: SitePage[] = [
+const DEFAULT_PAGE_TYPES: SitePage[] = [
   { id: "homepage", page_type: "homepage", label: "Homepage", icon: Home },
   { id: "article", page_type: "article", label: "Pagina Articolo", icon: Newspaper },
   { id: "category", page_type: "category", label: "Pagina Categoria", icon: FileText },
-  { id: "about", page_type: "about", label: "Chi Siamo", icon: Info },
-  { id: "contact", page_type: "contact", label: "Contatti", icon: Phone },
-  { id: "events", page_type: "events", label: "Pagina Eventi", icon: Calendar },
-  { id: "meteo", page_type: "meteo", label: "Meteo", icon: FileText },
-  { id: "webcam", page_type: "webcam", label: "Webcam", icon: FileText },
-  { id: "ski", page_type: "ski", label: "Sci", icon: FileText },
-  { id: "trekking", page_type: "trekking", label: "Trekking", icon: FileText },
-  { id: "accommodation", page_type: "accommodation", label: "Dove Alloggiare", icon: Home },
-  { id: "restaurant", page_type: "restaurant", label: "Dove Mangiare", icon: FileText },
-  { id: "activities", page_type: "activities", label: "Attività", icon: FileText },
-  { id: "alpine", page_type: "alpine", label: "Alpini", icon: FileText },
-  { id: "map", page_type: "map", label: "Mappa", icon: Map },
   { id: "other", page_type: "other", label: "Altra Pagina", icon: FileQuestion },
 ];
 
@@ -106,6 +94,7 @@ const contentTypeLabels: Record<string, string> = {
 export default function LayoutPage() {
   const { currentTenant } = useAuthStore();
   const [templates, setTemplates] = useState<LayoutTemplate[]>([]);
+  const [sitePages, setSitePages] = useState<SitePage[]>([]);
   const [selectedPage, setSelectedPage] = useState<string>("homepage");
   const [slots, setSlots] = useState<LayoutSlot[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -142,6 +131,26 @@ export default function LayoutPage() {
     if (!currentTenant) return;
     const supabase = createClient();
 
+    // Load all site pages for this tenant
+    const { data: pagesData } = await supabase.from("site_pages")
+      .select("id, title, slug").eq("tenant_id", currentTenant.id).order("created_at");
+
+    if (pagesData && pagesData.length > 0) {
+      const pages = pagesData.map((p: any) => ({
+        id: p.id,
+        page_type: p.slug,
+        label: p.title,
+        icon: FileQuestion,
+      }));
+      setSitePages(pages);
+      if (!pages.find(p => p.page_type === selectedPage)) {
+        setSelectedPage(pages[0].page_type);
+      }
+    } else {
+      setSitePages(DEFAULT_PAGE_TYPES);
+      setSelectedPage("homepage");
+    }
+
     // Load all templates for this tenant
     const { data: tmplData } = await supabase.from("layout_templates")
       .select("*").eq("tenant_id", currentTenant.id);
@@ -153,7 +162,7 @@ export default function LayoutPage() {
     if (!tmpl) {
       const { data: newTmpl } = await supabase.from("layout_templates").insert({
         tenant_id: currentTenant.id,
-        name: `${currentTenant.name} — ${SITE_PAGES.find(p => p.page_type === selectedPage)?.label || selectedPage}`,
+        name: `${currentTenant.name} — ${sitePages.find(p => p.page_type === selectedPage)?.label || selectedPage}`,
         page_type: selectedPage,
       }).select("*").single();
       if (newTmpl) {
@@ -216,7 +225,7 @@ export default function LayoutPage() {
       if (!tmpl) {
         const { data: newTmpl } = await supabase.from("layout_templates").insert({
           tenant_id: currentTenant.id,
-          name: `${currentTenant.name} — ${SITE_PAGES.find(p => p.page_type === selectedPage)?.label || selectedPage}`,
+          name: `${currentTenant.name} — ${sitePages.find(p => p.page_type === selectedPage)?.label || selectedPage}`,
           page_type: selectedPage,
         }).select("*").single();
 
@@ -343,7 +352,7 @@ export default function LayoutPage() {
           if (!tmpl) {
             const { data: newTmpl } = await supabase.from("layout_templates").insert({
               tenant_id: currentTenant!.id,
-              name: `${currentTenant!.name} — ${SITE_PAGES.find(p => p.page_type === page)?.label || page}`,
+              name: `${currentTenant!.name} — ${sitePages.find(p => p.page_type === page)?.label || page}`,
               page_type: page,
             }).select("*").single();
             if (newTmpl) { tmpl = newTmpl as LayoutTemplate; setTemplates(prev => [...prev, newTmpl as LayoutTemplate]); }
@@ -472,7 +481,7 @@ export default function LayoutPage() {
       <div className="w-48 shrink-0 hidden lg:block">
         <p className="text-[10px] font-semibold uppercase mb-2" style={{ color: "var(--c-text-3)" }}>Pagine sito</p>
         <div className="space-y-0.5">
-          {SITE_PAGES.map(page => {
+          {sitePages.map(page => {
             const Icon = page.icon;
             const hasSlots = templates.some(t => t.page_type === page.page_type);
             return (
