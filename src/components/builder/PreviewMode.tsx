@@ -117,7 +117,7 @@ function PreviewVideo({ p }: { p: any }) {
       {Array.isArray(p.chapters) && p.chapters.length > 0 && (
         <div style={{ display: 'flex', gap: 1, height: 4, background: '#e5e7eb', borderRadius: 2, overflow: 'hidden', marginTop: 4 }}>
           {p.chapters.map((_: any, i: number) => (
-            <div key={i} style={{ flex: 1, background: i === 0 ? '#3b82f6' : '#d1d5db' }} />
+            <div key={i} style={{ flex: 1, background: i === 0 ? 'var(--c-accent)' : 'var(--c-bg-2)' }} />
           ))}
         </div>
       )}
@@ -174,7 +174,7 @@ function PreviewSlideshow({ p }: { p: any }) {
                 padding: '10px 24px', borderRadius: 6, fontSize: 14, fontWeight: 600,
                 ...(btn.style === 'secondary'
                   ? { border: '2px solid #fff', color: '#fff', background: 'transparent' }
-                  : { background: '#3b82f6', color: '#fff' })
+                  : { background: 'var(--c-accent)', color: '#fff' })
               }}>{btn.text}</span>
             ))}
           </div>
@@ -326,7 +326,7 @@ function PreviewBlock({ block }: { block: Block }) {
           <p style={{ marginBottom: 16, color: '#666' }}>{String(p.subtitle || '')}</p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', maxWidth: 400, margin: '0 auto' }}>
             <input type="email" placeholder="Email" style={{ flex: 1, padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd' }} readOnly />
-            <button style={{ padding: '8px 20px', borderRadius: 6, background: '#3b82f6', color: '#fff', border: 'none', cursor: 'pointer' }}>
+            <button style={{ padding: '8px 20px', borderRadius: 6, background: 'var(--c-accent)', color: '#fff', border: 'none', cursor: 'pointer' }}>
               {String(p.buttonText || 'Iscriviti')}
             </button>
           </div>

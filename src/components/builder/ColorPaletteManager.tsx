@@ -37,7 +37,7 @@ interface ColorPaletteManagerProps {
 }
 
 export function ColorPaletteManager({ currentPalette, onChange }: ColorPaletteManagerProps) {
-  const [newColor, setNewColor] = useState('#3b82f6');
+  const [newColor, setNewColor] = useState('#7c8aaa');
   const [copiedColor, setCopiedColor] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [showAll, setShowAll] = useState(false);

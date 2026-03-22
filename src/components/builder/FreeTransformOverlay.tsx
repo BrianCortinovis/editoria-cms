@@ -206,7 +206,7 @@ export function FreeTransformOverlay({ block, onUpdateClipPath, onClose }: FreeT
             cy={`${center.y}%`}
             r={`${Math.sqrt(Math.pow(points[0].x - center.x, 2) + Math.pow(points[0].y - center.y, 2))}%`}
             fill="none"
-            stroke="#3b82f6"
+            stroke="var(--c-accent)"
             strokeWidth="1"
             opacity="0.5"
           />
@@ -218,7 +218,7 @@ export function FreeTransformOverlay({ block, onUpdateClipPath, onClose }: FreeT
             rx={`${Math.abs(points[0].x - center.x)}%`}
             ry={`${Math.abs(points[2].y - center.y)}%`}
             fill="none"
-            stroke="#3b82f6"
+            stroke="var(--c-accent)"
             strokeWidth="1"
             opacity="0.5"
           />
@@ -227,7 +227,7 @@ export function FreeTransformOverlay({ block, onUpdateClipPath, onClose }: FreeT
           <polygon
             points={points.map(p => `${p.x}%,${p.y}%`).join(' ')}
             fill="none"
-            stroke="#3b82f6"
+            stroke="var(--c-accent)"
             strokeWidth="1"
             opacity="0.5"
           />

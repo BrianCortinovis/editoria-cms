@@ -1827,7 +1827,7 @@ function CarouselContent({ block }: { block: Block }) {
             <div style={{
               position: 'absolute', top: 10, right: 10, zIndex: 4,
               padding: '3px 8px', borderRadius: '4px',
-              background: badge === 'BREAKING' ? '#dc2626' : badge === 'NEW' ? '#059669' : 'rgba(0,0,0,0.7)',
+              background: badge === 'BREAKING' ? 'var(--c-danger)' : badge === 'NEW' ? 'var(--c-success)' : 'rgba(0,0,0,0.7)',
               color: '#ffffff', fontSize: '9px', fontWeight: 800,
               letterSpacing: '0.08em', textTransform: 'uppercase',
             }}>
@@ -2620,7 +2620,7 @@ function renderShapeOutline(clipPathValue: string) {
           cy="50"
           r="50"
           fill="none"
-          stroke="#3b82f6"
+          stroke="var(--c-accent)"
           strokeWidth="0.8"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -2649,7 +2649,7 @@ function renderShapeOutline(clipPathValue: string) {
           rx="50"
           ry="35"
           fill="none"
-          stroke="#3b82f6"
+          stroke="var(--c-accent)"
           strokeWidth="0.8"
           strokeLinecap="round"
           strokeLinejoin="round"
