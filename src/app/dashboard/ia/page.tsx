@@ -155,13 +155,13 @@ export default function IAPage() {
             module_config: {
               ...currentModuleConfig,
               ai_assistant: {
-                claude_api_key: settings.claude_api_key,
+                claude_api_key: settings.claude_api_key.trim(),
                 claude_model: settings.claude_model,
-                openai_api_key: settings.openai_api_key,
+                openai_api_key: settings.openai_api_key.trim(),
                 openai_model: settings.openai_model,
-                gemini_api_key: settings.gemini_api_key,
+                gemini_api_key: settings.gemini_api_key.trim(),
                 gemini_model: settings.gemini_model,
-                ollama_url: settings.ollama_url,
+                ollama_url: settings.ollama_url.trim(),
                 ollama_model: settings.ollama_model,
               },
             },
