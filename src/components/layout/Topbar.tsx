@@ -16,13 +16,35 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
   const [showProviderMenu, setShowProviderMenu] = useState(false);
 
   const providers = [
-    { value: 'claude', label: 'Claude', models: ['claude-sonnet-4-20250514', 'claude-opus-4-20250805'] },
-    { value: 'openai', label: 'GPT-4o', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'] },
-    { value: 'gemini', label: 'Gemini', models: ['gemini-2.0-flash', 'gemini-1.5-pro'] },
+    {
+      value: 'claude',
+      label: 'Claude',
+      models: [
+        { id: 'claude-sonnet-4-20250514', name: 'Sonnet' },
+        { id: 'claude-opus-4-20250805', name: 'Opus' },
+      ]
+    },
+    {
+      value: 'openai',
+      label: 'GPT-4o',
+      models: [
+        { id: 'gpt-4o', name: 'GPT-4o' },
+        { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+        { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
+      ]
+    },
+    {
+      value: 'gemini',
+      label: 'Gemini',
+      models: [
+        { id: 'gemini-2.0-flash', name: 'Flash 2.0' },
+        { id: 'gemini-1.5-pro', name: 'Pro 1.5' },
+      ]
+    },
   ] as const;
 
   const currentProviderData = providers.find(p => p.value === aiProvider);
-  const [selectedModel, setSelectedModel] = useState(currentProviderData?.models[0] || '');
+  const [selectedModel, setSelectedModel] = useState(currentProviderData?.models[0]?.id || '');
 
   return (
     <header className="sticky top-0 z-30 flex flex-col"
@@ -106,7 +128,7 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
                     key={p.value}
                     onClick={() => {
                       setAiProvider(p.value as any);
-                      setSelectedModel(p.models[0]);
+                      setSelectedModel(p.models[0].id);
                       setShowProviderMenu(false);
                     }}
                     className="w-full text-left px-3 py-2 text-xs hover:opacity-70 transition border-b last:border-b-0"
@@ -127,7 +149,7 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
           <select
             value={selectedModel}
             onChange={(e) => setSelectedModel(e.target.value)}
-            className="text-xs rounded-lg px-2 py-1.5 border focus:outline-none min-w-[180px]"
+            className="text-xs rounded-lg px-2 py-1.5 border focus:outline-none"
             style={{
               background: 'var(--c-bg-2)',
               color: 'var(--c-text-0)',
@@ -135,8 +157,8 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
             }}
           >
             {currentProviderData?.models.map((model) => (
-              <option key={model} value={model}>
-                {model}
+              <option key={model.id} value={model.id}>
+                {model.name}
               </option>
             ))}
           </select>
