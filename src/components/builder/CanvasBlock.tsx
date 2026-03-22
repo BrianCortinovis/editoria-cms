@@ -2674,7 +2674,7 @@ function renderShapeOutline(clipPathValue: string) {
       <polygon
         points={clipPathToPolygonPoints(clipPathValue)}
         fill="none"
-        stroke="#3b82f6"
+        stroke="var(--c-accent)"
         strokeWidth="1"
         strokeLinecap="round"
         strokeLinejoin="round"

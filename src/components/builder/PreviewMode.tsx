@@ -266,7 +266,7 @@ function PreviewCarousel({ p }: { p: any }) {
               {Array.isArray(item.buttons) && item.buttons.length > 0 && (
                 <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
                   {item.buttons.map((btn: any) => (
-                    <span key={btn.id} style={{ padding: '6px 16px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: btn.style === 'secondary' ? 'transparent' : '#3b82f6', color: btn.style === 'secondary' ? '#3b82f6' : '#fff', border: btn.style === 'secondary' ? '1px solid #3b82f6' : 'none' }}>{btn.text}</span>
+                    <span key={btn.id} style={{ padding: '6px 16px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: btn.style === 'secondary' ? 'transparent' : 'var(--c-accent)', color: btn.style === 'secondary' ? 'var(--c-accent)' : '#fff', border: btn.style === 'secondary' ? '1px solid var(--c-accent)' : 'none' }}>{btn.text}</span>
                   ))}
                 </div>
               )}
