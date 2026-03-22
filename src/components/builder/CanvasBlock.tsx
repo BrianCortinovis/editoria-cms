@@ -3,6 +3,8 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useAuthStore } from '@/lib/store';
+import { useEditorBlockPreviewData } from '@/lib/editor/cms-integration';
 import { usePageStore } from '@/lib/stores/page-store';
 import { useUiStore } from '@/lib/stores/ui-store';
 import type { Block } from '@/lib/types';
@@ -16,6 +18,7 @@ import {
 import { DEVICE_WIDTHS } from '@/lib/config/breakpoints';
 import { generateDividerSvg, dividerToClipPath, generateDividerGradientMask } from '@/lib/shapes/dividers';
 import { FreeTransformOverlay } from './FreeTransformOverlay';
+import { normalizeFooterConfig } from '@/lib/site/footer';
 
 interface CanvasBlockProps {
   block: Block;
@@ -838,22 +841,45 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
 // BLOCK CONTENT RENDERERS
 // ================================================================
 function BlockContent({ block, isEditing }: { block: Block; isEditing: boolean }) {
+  const { currentTenant } = useAuthStore();
+  const { data: previewData, loading: previewLoading } = useEditorBlockPreviewData(currentTenant?.id, block.dataSource);
+
   switch (block.type) {
     case 'hero': return <HeroContent block={block} />;
     case 'text': return <TextContent block={block} isEditing={isEditing} />;
     case 'divider': return <DividerContent block={block} />;
     case 'banner-ad': return <BannerAdContent block={block} />;
     case 'quote': return <QuoteContent block={block} />;
-    case 'navigation': return <NavigationContent block={block} />;
-    case 'footer': return <FooterContent block={block} />;
-    case 'newsletter': return <NewsletterContent block={block} />;
+    case 'navigation': return <NavigationContent block={block} data={previewData} loading={previewLoading} />;
+    case 'footer': return <FooterContent block={block} data={previewData} loading={previewLoading} />;
+    case 'newsletter': return <NewsletterContent block={block} data={previewData} loading={previewLoading} />;
+    case 'newsletter-signup': return <NewsletterContent block={block} data={previewData} loading={previewLoading} compactDefault />;
     case 'counter': return <CounterContent block={block} />;
     case 'image-gallery': return <ImageGalleryContent block={block} />;
+    case 'audio': return <AudioContent block={block} />;
     case 'video': return <VideoContent block={block} />;
+    case 'comparison': return <ComparisonContent block={block} />;
     case 'carousel': return <CarouselContent block={block} />;
     case 'accordion': return <AccordionContent block={block} />;
+    case 'tabs': return <TabsContent block={block} />;
+    case 'table': return <TableContent block={block} />;
+    case 'code': return <CodeContent block={block} isEditing={isEditing} />;
+    case 'custom-html': return <CustomHtmlContent block={block} />;
+    case 'timeline': return <TimelineContent block={block} />;
+    case 'map': return <MapContent block={block} />;
+    case 'social': return <SocialContent block={block} />;
+    case 'related-content': return <RelatedContentPreview block={block} />;
+    case 'sidebar': return <SidebarContent block={block} />;
     case 'author-bio': return <AuthorBioContent block={block} />;
     case 'slideshow': return <SlideshowContent block={block} />;
+    case 'article-grid': return <ArticleGridPreview block={block} data={previewData} loading={previewLoading} />;
+    case 'article-hero': return <ArticleHeroPreview block={block} data={previewData} loading={previewLoading} />;
+    case 'breaking-ticker': return <BreakingTickerPreview data={previewData} loading={previewLoading} />;
+    case 'category-nav': return <CategoryNavPreview data={previewData} loading={previewLoading} />;
+    case 'event-list': return <EventListPreview data={previewData} loading={previewLoading} />;
+    case 'banner-zone': return <BannerZonePreview block={block} data={previewData} loading={previewLoading} />;
+    case 'search-bar': return <SearchBarPreview block={block} />;
+    case 'cms-form': return <CmsFormPreview block={block} data={previewData} loading={previewLoading} />;
     case 'section': case 'container': case 'columns': return null;
     default:
       return (
@@ -874,6 +900,279 @@ function HeroContent({ block }: { block: Block }) {
         <h1 className="text-4xl md:text-5xl font-bold mb-4">{(p.title as string) || 'Titolo Hero'}</h1>
         {p.subtitle && <p className="text-xl opacity-80 mb-8">{p.subtitle as string}</p>}
         {p.ctaText && <button className="px-8 py-3 rounded-lg font-medium transition-colors" style={{ background: 'var(--c-accent)', color: 'var(--c-bg-0)' }}>{p.ctaText as string}</button>}
+      </div>
+    </div>
+  );
+}
+
+interface PreviewArticle {
+  id: string;
+  title: string;
+  slug: string;
+  summary?: string | null;
+  cover_image_url?: string | null;
+  published_at?: string | null;
+  reading_time_minutes?: number | null;
+  categories?: Array<{ name: string; slug: string; color: string | null }> | null;
+}
+
+interface PreviewCategory {
+  id: string;
+  name: string;
+  slug: string;
+  color: string | null;
+}
+
+interface PreviewEvent {
+  id: string;
+  title: string;
+  starts_at: string;
+  location: string | null;
+}
+
+interface PreviewBanner {
+  id: string;
+  name: string;
+  position: string;
+  type: string;
+}
+
+interface PreviewFormField {
+  name: string;
+  label?: string;
+  type?: string;
+  required?: boolean;
+}
+
+interface PreviewForm {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  fields: PreviewFormField[];
+}
+
+interface PreviewBreaking {
+  id: string;
+  text: string;
+}
+
+function PreviewLoading({ label }: { label: string }) {
+  return (
+    <div className="rounded-lg border border-dashed p-4 text-xs" style={{ borderColor: 'var(--c-border)', color: 'var(--c-text-2)' }}>
+      Caricamento preview CMS: {label}
+    </div>
+  );
+}
+
+function ArticleHeroPreview({ block, data, loading }: { block: Block; data: unknown[]; loading: boolean }) {
+  const article = (data as PreviewArticle[])[0];
+  const category = article?.categories?.[0];
+
+  if (loading) return <PreviewLoading label="hero articolo" />;
+
+  return (
+    <div
+      className="relative rounded-xl overflow-hidden min-h-[260px] flex items-end"
+      style={{
+        background: article?.cover_image_url
+          ? `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.7)), url(${article.cover_image_url}) center/cover`
+          : 'linear-gradient(135deg, #0f172a, #1d4ed8)',
+      }}
+    >
+      <div className="absolute top-3 left-3 text-[10px] uppercase tracking-[0.2em] px-2 py-1 rounded-full" style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}>
+        article-hero
+      </div>
+      <div className="p-6 relative z-10">
+        {category && (
+          <span className="text-[11px] font-semibold uppercase px-2 py-1 rounded-full" style={{ background: category.color || '#ef4444', color: '#fff' }}>
+            {category.name}
+          </span>
+        )}
+        <h2 className="text-3xl font-bold mt-3" style={{ color: '#fff' }}>
+          {article?.title || String(block.props.articleSlug || 'Articolo in evidenza')}
+        </h2>
+        <p className="mt-2 text-sm max-w-2xl" style={{ color: 'rgba(255,255,255,0.86)' }}>
+          {article?.summary || 'Preview collegata al CMS: seleziona un articolo o usa l\'articolo featured del tenant.'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ArticleGridPreview({ block, data, loading }: { block: Block; data: unknown[]; loading: boolean }) {
+  const articles = (data as PreviewArticle[]).slice(0, 6);
+  const columns = Number(block.props.columns || 3);
+
+  if (loading) return <PreviewLoading label="griglia articoli" />;
+
+  return (
+    <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(columns, 3))}, minmax(0, 1fr))` }}>
+      {(articles.length > 0 ? articles : new Array(Math.max(1, Math.min(columns, 3))).fill(null)).map((article, index) => (
+        <div key={article?.id || index} className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+          <div
+            className="h-32"
+            style={{
+              background: article?.cover_image_url
+                ? `url(${article.cover_image_url}) center/cover`
+                : 'linear-gradient(135deg, rgba(59,130,246,0.18), rgba(16,185,129,0.18))',
+            }}
+          />
+          <div className="p-4">
+            <div className="text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--c-text-2)' }}>
+              {article?.categories?.[0]?.name || 'Categoria'}
+            </div>
+            <h3 className="mt-2 text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
+              {article?.title || 'Articolo CMS'}
+            </h3>
+            <p className="mt-2 text-xs leading-5" style={{ color: 'var(--c-text-2)' }}>
+              {article?.summary || 'Questo blocco mostrerà gli articoli reali del CMS secondo i filtri configurati.'}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BreakingTickerPreview({ data, loading }: { data: unknown[]; loading: boolean }) {
+  const items = (data as PreviewBreaking[]).slice(0, 3);
+  if (loading) return <PreviewLoading label="breaking news" />;
+
+  return (
+    <div className="rounded-lg px-4 py-3 flex items-center gap-3 overflow-hidden" style={{ background: '#991b1b', color: '#fff' }}>
+      <span className="text-[10px] font-bold uppercase tracking-[0.22em]">Breaking</span>
+      <div className="text-sm whitespace-nowrap overflow-hidden text-ellipsis">
+        {items.length > 0 ? items.map((item) => item.text).join(' • ') : 'Le breaking news attive del CMS appariranno qui.'}
+      </div>
+    </div>
+  );
+}
+
+function CategoryNavPreview({ data, loading }: { data: unknown[]; loading: boolean }) {
+  const categories = (data as PreviewCategory[]).slice(0, 8);
+  if (loading) return <PreviewLoading label="navigazione categorie" />;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {(categories.length > 0 ? categories : [{ id: 'placeholder', name: 'Categoria', slug: 'categoria', color: null }]).map((category) => (
+        <span
+          key={category.id}
+          className="px-3 py-1.5 rounded-full text-xs font-medium"
+          style={{
+            background: category.color ? `${category.color}22` : 'var(--c-bg-2)',
+            color: category.color || 'var(--c-text-1)',
+          }}
+        >
+          {category.name}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function EventListPreview({ data, loading }: { data: unknown[]; loading: boolean }) {
+  const events = (data as PreviewEvent[]).slice(0, 4);
+  if (loading) return <PreviewLoading label="eventi" />;
+
+  return (
+    <div className="space-y-3">
+      {(events.length > 0 ? events : [{ id: 'placeholder', title: 'Evento redazionale', starts_at: new Date().toISOString(), location: 'Sede evento' }]).map((event) => (
+        <div key={event.id} className="rounded-lg border px-4 py-3" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+          <div className="text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--c-text-2)' }}>
+            {new Date(event.starts_at).toLocaleDateString('it-IT')}
+          </div>
+          <div className="mt-1 text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>{event.title}</div>
+          <div className="mt-1 text-xs" style={{ color: 'var(--c-text-2)' }}>{event.location || 'Localita da definire'}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BannerZonePreview({ block, data, loading }: { block: Block; data: unknown[]; loading: boolean }) {
+  const banner = (data as PreviewBanner[])[0];
+  if (loading) return <PreviewLoading label="banner zone" />;
+
+  return (
+    <div className="rounded-xl border-2 border-dashed min-h-[120px] flex flex-col items-center justify-center text-center px-4" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+      <div className="text-[10px] uppercase tracking-[0.24em]" style={{ color: 'var(--c-text-2)' }}>
+        banner-zone
+      </div>
+      <div className="mt-2 text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
+        {banner?.name || `Posizione: ${String(block.props.position || 'sidebar')}`}
+      </div>
+      <div className="mt-1 text-xs" style={{ color: 'var(--c-text-2)' }}>
+        {banner ? `${banner.position} · ${banner.type}` : 'Mostrerà i banner attivi del CMS per questa posizione.'}
+      </div>
+    </div>
+  );
+}
+
+function SearchBarPreview({ block }: { block: Block }) {
+  return (
+    <div className="flex gap-2 max-w-xl">
+      <input
+        readOnly
+        placeholder={String(block.props.placeholder || 'Cerca articoli...')}
+        className="flex-1 rounded-lg border px-4 py-3 text-sm"
+        style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)', color: 'var(--c-text-1)' }}
+      />
+      <button className="rounded-lg px-4 py-3 text-sm font-medium" style={{ background: 'var(--c-accent)', color: 'white' }}>
+        Cerca
+      </button>
+    </div>
+  );
+}
+
+function CmsFormPreview({ block, data, loading }: { block: Block; data: unknown[]; loading: boolean }) {
+  const forms = data as PreviewForm[];
+  const selectedSlug = String(block.props.formSlug || '');
+  const form = forms.find((item) => item.slug === selectedSlug) || forms[0];
+
+  if (loading) return <PreviewLoading label="form CMS" />;
+
+  return (
+    <div className="rounded-xl border p-5" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em]" style={{ color: 'var(--c-text-3)' }}>
+            cms-form
+          </div>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--c-text-0)' }}>
+            {form?.name || 'Form CMS non collegato'}
+          </h3>
+          <p className="text-xs mt-1" style={{ color: 'var(--c-text-2)' }}>
+            {form?.description || 'Seleziona uno slug form nel pannello proprieta per collegare il modulo Form del CMS.'}
+          </p>
+        </div>
+        {form?.slug && (
+          <span className="text-[11px] px-2 py-1 rounded-full" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-2)' }}>
+            {form.slug}
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        {(form?.fields || []).slice(0, 5).map((field) => (
+          <div key={field.name} className="space-y-1">
+            <div className="text-xs font-medium" style={{ color: 'var(--c-text-1)' }}>
+              {field.label || field.name}
+              {field.required ? ' *' : ''}
+            </div>
+            <div className="h-10 rounded-lg border" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-2)' }} />
+          </div>
+        ))}
+        {!form?.fields?.length && (
+          <div className="text-xs" style={{ color: 'var(--c-text-2)' }}>
+            Nessun campo disponibile o modulo non inizializzato sul database dev.
+          </div>
+        )}
+        <div className="pt-2">
+          <div className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium" style={{ background: 'var(--c-accent)', color: 'white' }}>
+            {String(block.props.submitButtonText || 'Invia')}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -924,41 +1223,179 @@ function QuoteContent({ block }: { block: Block }) {
   );
 }
 
-function NavigationContent({ block }: { block: Block }) {
-  const p = block.props as { logo: { value: string }; items: { id: string; label: string }[]; ctaButton?: { text: string } };
+function NavigationContent({ block, data, loading }: { block: Block; data: unknown[]; loading: boolean }) {
+  const p = block.props as {
+    mode?: string;
+    logo?: { value: string };
+    logoText?: string;
+    items?: { id?: string; label: string; url?: string }[];
+    ctaButton?: { text: string };
+    ctaText?: string;
+    layout?: string;
+    variant?: string;
+  };
+  const items = p.mode === 'global' && Array.isArray(data) && data.length > 0
+    ? (data as Array<{ id?: string; label: string; url?: string }>)
+    : (p.items || []);
+  const isVertical = p.layout === 'vertical' || p.variant === 'sidebar';
+
+  if (loading) {
+    return <PreviewLoading label="navigazione CMS" />;
+  }
+
   return (
-    <nav className="flex items-center justify-between w-full">
-      <span className="text-lg font-bold">{p.logo?.value || 'Logo'}</span>
-      <div className="flex items-center gap-6">
-        {p.items?.map((item) => <span key={item.id} className="text-sm cursor-pointer transition-colors" style={{ color: 'var(--c-text-1)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--c-accent)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--c-text-1)'}>{item.label}</span>)}
-        {p.ctaButton?.text && <button className="px-4 py-2 text-sm rounded-lg" style={{ background: 'var(--c-accent)', color: 'var(--c-bg-0)' }}>{p.ctaButton.text}</button>}
+    <nav className={`flex w-full ${isVertical ? 'flex-col items-stretch gap-4' : 'items-center justify-between gap-6'}`}>
+      <span className="text-lg font-bold">{p.logoText || p.logo?.value || 'Logo'}</span>
+      <div className={`flex ${isVertical ? 'flex-col items-stretch gap-3' : 'items-center gap-6 flex-wrap'}`}>
+        {items.map((item, index) => (
+          <span
+            key={item.id || `${item.label}-${index}`}
+            className={`text-sm cursor-pointer transition-colors ${p.variant === 'pills' ? 'px-3 py-2 rounded-full' : ''} ${p.variant === 'sidebar' ? 'px-3 py-2 border-l-2' : ''}`}
+            style={{
+              color: 'var(--c-text-1)',
+              background: p.variant === 'pills' ? 'var(--c-bg-2)' : undefined,
+              borderColor: p.variant === 'sidebar' ? 'var(--c-accent)' : undefined,
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--c-accent)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--c-text-1)'}
+          >
+            {item.label}
+          </span>
+        ))}
+        {(p.ctaText || p.ctaButton?.text) && <button className="px-4 py-2 text-sm rounded-lg" style={{ background: 'var(--c-accent)', color: 'var(--c-bg-0)' }}>{p.ctaText || p.ctaButton?.text}</button>}
       </div>
     </nav>
   );
 }
 
-function FooterContent({ block }: { block: Block }) {
-  const p = block.props as { columns: { title: string }[]; copyright: string };
+function FooterContent({ block, data, loading }: { block: Block; data: unknown[]; loading: boolean }) {
+  const mode = String(block.props.mode || 'global');
+  const footer = mode === 'global'
+    ? normalizeFooterConfig((data as unknown[])[0] || {})
+    : normalizeFooterConfig(block.props);
+
+  if (loading) {
+    return <PreviewLoading label="footer CMS" />;
+  }
+
   return (
     <div>
       <div className="grid grid-cols-3 gap-8 mb-8">
-        {p.columns?.map((col, i) => <div key={i}><h4 className="font-semibold mb-3">{col.title}</h4><div className="text-sm opacity-60">Contenuto...</div></div>)}
+        {(footer.columns || []).map((col, i) => (
+          <div key={i}>
+            <h4 className="font-semibold mb-3">{col.title}</h4>
+            <div className="text-sm opacity-60">{col.text || `${col.links?.length || 0} link` || 'Contenuto...'}</div>
+          </div>
+        ))}
       </div>
-      <div className="text-center text-sm opacity-50 pt-4 border-t border-white/10">{p.copyright}</div>
+      {footer.newsletter.enabled && (
+        <div className="mb-6 text-sm rounded-lg px-4 py-3" style={{ background: 'var(--c-bg-2)' }}>
+          {footer.newsletter.title || 'Newsletter footer'}
+        </div>
+      )}
+      <div className="text-center text-sm opacity-50 pt-4 border-t border-white/10">{footer.copyright}</div>
     </div>
   );
 }
 
-function NewsletterContent({ block }: { block: Block }) {
-  const p = block.props as { title: string; description: string; placeholder: string; buttonText: string };
+interface PreviewNewsletter {
+  enabled: boolean;
+  title: string;
+  description: string;
+  buttonText: string;
+  placeholder: string;
+  privacyText: string;
+  formSlug: string;
+  compact: boolean;
+  mode: 'form' | 'provider';
+  placements: {
+    homepage: boolean;
+    articleInline: boolean;
+    articleFooter: boolean;
+    categoryHeader: boolean;
+    footer: boolean;
+    stickyBar: boolean;
+  };
+  digest: {
+    enabled: boolean;
+    frequency: string;
+  };
+  provider: {
+    provider: string;
+    audienceLabel: string;
+  };
+}
+
+function NewsletterContent({
+  block,
+  data,
+  loading,
+  compactDefault = false,
+}: {
+  block: Block;
+  data: unknown[];
+  loading: boolean;
+  compactDefault?: boolean;
+}) {
+  if (loading) return <PreviewLoading label="newsletter" />;
+
+  const globalData = (data[0] && typeof data[0] === 'object') ? (data[0] as PreviewNewsletter) : null;
+  const isGlobal = String(block.props.mode || 'global') === 'global' && globalData;
+  const p = isGlobal
+    ? globalData
+    : {
+        title: String(block.props.title || 'Newsletter'),
+        description: String(block.props.description || ''),
+        placeholder: String(block.props.placeholder || 'La tua email'),
+        buttonText: String(block.props.buttonText || 'Iscriviti'),
+        privacyText: String(block.props.privacyText || ''),
+        formSlug: String(block.props.formSlug || ''),
+        compact: Boolean(block.props.compact),
+        mode: String(block.props.mode || 'form'),
+        placements: { homepage: false, articleInline: false, articleFooter: false, categoryHeader: false, footer: false, stickyBar: false },
+        digest: { enabled: false, frequency: 'weekly' },
+        provider: { provider: 'custom', audienceLabel: '' },
+        enabled: true,
+      };
+  const compact = compactDefault || p.compact;
+
   return (
-    <div className="text-center max-w-md mx-auto">
-      <h3 className="text-2xl font-bold mb-2">{p.title}</h3>
-      <p className="text-sm opacity-70 mb-6" style={{ color: 'var(--c-text-1)' }}>{p.description}</p>
-      <div className="flex gap-2">
+    <div className={`${compact ? 'max-w-none' : 'text-center max-w-md mx-auto'} rounded-xl border p-5`} style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--c-text-3)' }}>
+          {isGlobal ? 'newsletter globale' : 'newsletter custom'}
+        </div>
+        <div className="text-[11px] px-2 py-1 rounded-full" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-2)' }}>
+          {p.mode === 'provider' ? `provider · ${p.provider.provider}` : (p.formSlug ? `form · ${p.formSlug}` : 'form locale')}
+        </div>
+      </div>
+      <h3 className="text-2xl font-bold mb-2" style={{ color: 'var(--c-text-0)' }}>{p.title}</h3>
+      <p className="text-sm opacity-70 mb-4" style={{ color: 'var(--c-text-1)' }}>{p.description}</p>
+      <div className="flex gap-2 flex-wrap">
         <input className="flex-1 px-4 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)', color: 'var(--c-text-0)' }} placeholder={p.placeholder} readOnly />
         <button className="px-6 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--c-accent)', color: 'var(--c-bg-0)' }}>{p.buttonText}</button>
       </div>
+      {p.privacyText && (
+        <div className="mt-3 text-xs" style={{ color: 'var(--c-text-2)' }}>
+          {p.privacyText}
+        </div>
+      )}
+      {isGlobal && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {Object.entries(p.placements)
+            .filter(([, enabled]) => Boolean(enabled))
+            .map(([key]) => (
+              <span key={key} className="text-[11px] px-2 py-1 rounded-full" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-2)' }}>
+                {key}
+              </span>
+            ))}
+          {p.digest.enabled && (
+            <span className="text-[11px] px-2 py-1 rounded-full" style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--c-success)' }}>
+              digest {p.digest.frequency}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1374,6 +1811,21 @@ function ImageGalleryContent({ block }: { block: Block }) {
   );
 }
 
+function AudioContent({ block }: { block: Block }) {
+  const p = block.props as { title?: string; artist?: string; coverImage?: string };
+  return (
+    <div className="flex items-center gap-4 rounded-xl border p-4" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+      <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0" style={{ background: p.coverImage ? `center / cover no-repeat url(${p.coverImage})` : 'linear-gradient(135deg, #1d4ed8, #7c3aed)' }} />
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--c-text-3)' }}>audio</div>
+        <div className="text-lg font-semibold mt-1" style={{ color: 'var(--c-text-0)' }}>{p.title || 'Titolo audio'}</div>
+        {p.artist && <div className="text-sm mt-1" style={{ color: 'var(--c-text-2)' }}>{p.artist}</div>}
+        <div className="mt-3 h-10 rounded-lg border" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)' }} />
+      </div>
+    </div>
+  );
+}
+
 function VideoContent({ block }: { block: Block }) {
   const p = block.props as any;
   const source: string = p.source || 'youtube';
@@ -1652,6 +2104,26 @@ function VideoContent({ block }: { block: Block }) {
           {caption}
         </p>
       )}
+    </div>
+  );
+}
+
+function ComparisonContent({ block }: { block: Block }) {
+  const p = block.props as { beforeLabel?: string; afterLabel?: string; initialPosition?: number };
+  return (
+    <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'var(--c-border)' }}>
+      <div className="relative aspect-[16/9]">
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #cbd5e1, #94a3b8)' }} />
+        <div className="absolute inset-y-0 left-0" style={{ width: `${p.initialPosition || 50}%`, background: 'linear-gradient(135deg, #0f172a, #334155)' }} />
+        <div className="absolute inset-y-0" style={{ left: `${p.initialPosition || 50}%`, width: 2, background: '#fff' }} />
+        <div className="absolute left-4 bottom-4 px-3 py-1 rounded-full text-xs" style={{ background: 'rgba(15,23,42,0.75)', color: '#fff' }}>{p.beforeLabel || 'Prima'}</div>
+        <div className="absolute right-4 bottom-4 px-3 py-1 rounded-full text-xs" style={{ background: 'rgba(15,23,42,0.75)', color: '#fff' }}>{p.afterLabel || 'Dopo'}</div>
+      </div>
+      <div className="p-4">
+        <div className="h-2 rounded-full" style={{ background: 'var(--c-bg-2)' }}>
+          <div className="h-full rounded-full" style={{ width: `${p.initialPosition || 50}%`, background: 'var(--c-accent)' }} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -2037,6 +2509,235 @@ function AccordionContent({ block }: { block: Block }) {
   return (
     <div style={{ borderTop: `1px solid var(--c-border)` }}>
       {p.items?.map((item) => <div key={item.id} className="py-3" style={{ borderBottom: `1px solid var(--c-border)` }}><div className="font-medium flex items-center justify-between cursor-pointer" style={{ color: 'var(--c-text-0)' }}>{item.title}<span style={{ color: 'var(--c-text-2)' }}>+</span></div></div>)}
+    </div>
+  );
+}
+
+function TabsContent({ block }: { block: Block }) {
+  const tabs = ((block.props.tabs as Array<{ id: string; title: string; content?: string }>) || []).filter((tab) => tab?.id && tab?.title);
+  const activeTabId = String(block.props.activeTab || tabs[0]?.id || '');
+  const [activeTab, setActiveTab] = useState(activeTabId);
+  const currentTab = tabs.find((tab) => tab.id === activeTab) || tabs[0];
+  const variant = String(block.props.style || 'default');
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        {tabs.map((tab) => {
+          const isActive = tab.id === currentTab?.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setActiveTab(tab.id);
+              }}
+              className="px-3 py-2 text-sm font-medium rounded-full transition-colors"
+              style={{
+                background: isActive ? 'var(--c-accent)' : variant === 'pills' ? 'var(--c-bg-2)' : 'transparent',
+                color: isActive ? 'white' : 'var(--c-text-1)',
+                border: variant === 'underline' && isActive ? '1px solid var(--c-accent)' : '1px solid var(--c-border)',
+                borderRadius: variant === 'underline' ? '12px' : '999px',
+              }}
+            >
+              {tab.title}
+            </button>
+          );
+        })}
+      </div>
+      <div
+        className="rounded-xl border p-4 text-sm leading-6"
+        style={{ borderColor: 'var(--c-border)', color: 'var(--c-text-1)', background: 'var(--c-bg-1)' }}
+        dangerouslySetInnerHTML={{ __html: currentTab?.content || '<p>Contenuto scheda.</p>' }}
+      />
+    </div>
+  );
+}
+
+function TableContent({ block }: { block: Block }) {
+  const headers = (block.props.headers as string[]) || [];
+  const rows = (block.props.rows as string[][]) || [];
+  const striped = Boolean(block.props.striped);
+
+  return (
+    <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--c-border)' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '360px' }}>
+        {headers.length > 0 && (
+          <thead style={{ background: 'var(--c-bg-2)' }}>
+            <tr>
+              {headers.map((header, index) => (
+                <th key={`${header}-${index}`} style={{ padding: '12px 14px', textAlign: 'left', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--c-text-2)' }}>
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr key={`row-${rowIndex}`} style={{ background: striped && rowIndex % 2 === 1 ? 'var(--c-bg-1)' : 'transparent' }}>
+              {row.map((cell, cellIndex) => (
+                <td key={`cell-${rowIndex}-${cellIndex}`} style={{ padding: '12px 14px', borderTop: '1px solid var(--c-border)', color: 'var(--c-text-1)' }}>
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CodeContent({ block, isEditing }: { block: Block; isEditing: boolean }) {
+  const code = String(block.props.code || '');
+  const language = String(block.props.language || 'text');
+  const showLineNumbers = block.props.showLineNumbers !== false;
+  const lines = code.split('\n');
+
+  return (
+    <div className="overflow-hidden rounded-xl border" style={{ borderColor: 'var(--c-border)', background: '#0f172a', color: '#e2e8f0' }}>
+      <div className="flex items-center justify-between px-4 py-3 text-xs uppercase tracking-[0.18em]" style={{ background: '#111827', color: '#94a3b8' }}>
+        <span>{language}</span>
+        <span>{lines.length} righe</span>
+      </div>
+      <pre
+        className="overflow-x-auto p-4 text-sm leading-6"
+        style={{ margin: 0, outline: isEditing ? '1px solid rgba(255,255,255,0.12)' : undefined }}
+      >
+        <code>
+          {lines.map((line, index) => (
+            <span key={index} style={{ display: 'grid', gridTemplateColumns: showLineNumbers ? '36px 1fr' : '1fr', gap: '0.75rem' }}>
+              {showLineNumbers && <span style={{ opacity: 0.4, textAlign: 'right' }}>{index + 1}</span>}
+              <span>{line || ' '}</span>
+            </span>
+          ))}
+        </code>
+      </pre>
+    </div>
+  );
+}
+
+function CustomHtmlContent({ block }: { block: Block }) {
+  const html = String(block.props.html || '');
+  const css = String(block.props.css || '');
+  const js = String(block.props.js || '');
+  const sandboxed = block.props.sandboxed !== false;
+  const srcDoc = `<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>body{margin:0;font-family:system-ui,sans-serif;}${css}</style>
+  </head>
+  <body>
+    ${html}
+    ${js ? `<script>${js}<\/script>` : ''}
+  </body>
+</html>`;
+
+  return (
+    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+      <div className="px-4 py-2 text-[11px] uppercase tracking-[0.18em]" style={{ color: 'var(--c-text-2)', background: 'var(--c-bg-2)' }}>
+        custom-html
+      </div>
+      <iframe
+        title={String(block.label || 'HTML custom')}
+        srcDoc={srcDoc}
+        sandbox={sandboxed ? 'allow-scripts allow-same-origin allow-forms' : undefined}
+        style={{ width: '100%', minHeight: '220px', border: 'none', background: 'white' }}
+      />
+    </div>
+  );
+}
+
+function TimelineContent({ block }: { block: Block }) {
+  const events = ((block.props.events as Array<{ id: string; date: string; title: string; description?: string }>) || []).filter((event) => event?.title);
+  const lineColor = String(block.props.lineColor || 'var(--c-accent)');
+
+  return (
+    <div className="relative pl-8">
+      <div className="absolute top-0 bottom-0 left-3 w-px" style={{ background: lineColor }} />
+      <div className="space-y-6">
+        {events.map((event) => (
+          <div key={event.id} className="relative">
+            <div className="absolute left-[-1.45rem] top-1 h-3.5 w-3.5 rounded-full border-2" style={{ background: lineColor, borderColor: 'var(--c-bg-0)' }} />
+            <div className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: lineColor }}>
+              {event.date}
+            </div>
+            <div className="mt-1 text-base font-semibold" style={{ color: 'var(--c-text-0)' }}>
+              {event.title}
+            </div>
+            {event.description && (
+              <div className="mt-1 text-sm leading-6" style={{ color: 'var(--c-text-2)' }}>
+                {event.description}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MapContent({ block }: { block: Block }) {
+  const p = block.props as { address?: string; height?: string };
+  return (
+    <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'var(--c-border)' }}>
+      <div className="flex items-center justify-center" style={{ minHeight: p.height || '260px', background: 'linear-gradient(135deg, #dbeafe, #bfdbfe)' }}>
+        <div className="text-center">
+          <div className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>Mappa</div>
+          <div className="text-xs mt-1" style={{ color: 'var(--c-text-2)' }}>{p.address || 'Indirizzo'}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SocialContent({ block }: { block: Block }) {
+  const platforms = ((block.props.platforms as Array<{ id?: string; platform: string; enabled?: boolean }>) || []).filter((item) => item.enabled !== false);
+  return (
+    <div className="flex flex-wrap gap-3 justify-center">
+      {platforms.map((item, index) => (
+        <div key={item.id || index} className="w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold uppercase" style={{ background: 'var(--c-accent)', color: 'white' }}>
+          {item.platform.slice(0, 2)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RelatedContentPreview({ block }: { block: Block }) {
+  const p = block.props as { title?: string; items?: Array<{ id?: string; title: string; excerpt?: string }> };
+  return (
+    <div className="space-y-4">
+      <div className="text-lg font-semibold" style={{ color: 'var(--c-text-0)' }}>{p.title || 'Contenuti correlati'}</div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {(p.items || []).slice(0, 3).map((item, index) => (
+          <div key={item.id || index} className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+            <div className="aspect-[16/9]" style={{ background: `linear-gradient(135deg, hsl(${index * 55}, 70%, 78%), hsl(${index * 55 + 30}, 60%, 64%))` }} />
+            <div className="p-4">
+              <div className="font-semibold" style={{ color: 'var(--c-text-0)' }}>{item.title}</div>
+              {item.excerpt && <div className="text-sm mt-2" style={{ color: 'var(--c-text-2)' }}>{item.excerpt}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SidebarContent({ block }: { block: Block }) {
+  const widgets = ((block.props.widgets as Array<{ id?: string; title: string }>) || []).slice(0, 4);
+  return (
+    <div className="space-y-4">
+      {widgets.map((widget, index) => (
+        <div key={widget.id || index} className="rounded-xl border p-4" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+          <div className="text-xs uppercase tracking-[0.18em]" style={{ color: 'var(--c-text-3)' }}>widget</div>
+          <div className="mt-2 font-semibold" style={{ color: 'var(--c-text-0)' }}>{widget.title}</div>
+        </div>
+      ))}
     </div>
   );
 }

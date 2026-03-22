@@ -8,11 +8,14 @@ const newsletterBlock: BlockDefinition = {
   icon: 'Mail',
   category: 'interactive',
   defaultProps: {
+    mode: 'global',
     title: 'Iscriviti alla Newsletter',
     description: 'Ricevi le ultime novità direttamente nella tua casella di posta.',
     placeholder: 'La tua email',
     buttonText: 'Iscriviti',
     successMessage: 'Grazie per l\'iscrizione!',
+    privacyText: 'Iscrivendoti accetti le comunicazioni editoriali della testata.',
+    formSlug: '',
     formAction: '',
     layout: 'inline',
   },
@@ -33,6 +36,10 @@ const newsletterBlock: BlockDefinition = {
     typography: {
       textAlign: 'center',
     },
+  },
+  defaultDataSource: {
+    endpoint: 'site-newsletter',
+    params: {},
   },
   supportsChildren: false,
 };

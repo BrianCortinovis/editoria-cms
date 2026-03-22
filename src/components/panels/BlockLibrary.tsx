@@ -3,8 +3,8 @@
 import { useState, useMemo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { usePageStore } from '@/lib/stores/page-store';
-import { getAllBlockDefinitions, BLOCK_CATEGORIES, getBlockDefinition } from '@/lib/blocks/registry';
-import { createBlock, createDefaultStyle, type BlockDefinition, type BlockType } from '@/lib/types';
+import { getAllBlockDefinitions, BLOCK_CATEGORIES } from '@/lib/blocks/registry';
+import { createBlock, type BlockDefinition } from '@/lib/types';
 import { generateId } from '@/lib/utils/id';
 import { cn } from '@/lib/utils/cn';
 import { Search } from 'lucide-react';
@@ -31,6 +31,9 @@ function DraggableBlockItem({ definition }: { definition: BlockDefinition }) {
       definition.defaultStyle
     );
     block.id = generateId();
+    if (definition.defaultDataSource) {
+      block.dataSource = JSON.parse(JSON.stringify(definition.defaultDataSource));
+    }
     addBlock(block);
   };
 

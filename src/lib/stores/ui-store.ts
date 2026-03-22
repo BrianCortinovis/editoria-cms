@@ -11,7 +11,7 @@ interface UiState {
   deviceMode: DeviceMode;
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
-  leftPanelTab: 'blocks' | 'layers' | 'system';
+  leftPanelTab: 'blocks' | 'layers';
   rightPanelTab: 'properties' | 'style' | 'animation' | 'shape' | 'responsive' | 'position' | 'tools' | 'gradient' | 'effects';
   hiddenRightPanelTabs: string[];
   aiPanelOpen: boolean;
@@ -28,7 +28,7 @@ interface UiState {
   setDeviceMode: (mode: DeviceMode) => void;
   setLeftPanelOpen: (open: boolean) => void;
   setRightPanelOpen: (open: boolean) => void;
-  setLeftPanelTab: (tab: 'blocks' | 'layers' | 'system') => void;
+  setLeftPanelTab: (tab: 'blocks' | 'layers') => void;
   setRightPanelTab: (tab: UiState['rightPanelTab']) => void;
   toggleHiddenRightPanelTab: (tab: string) => void;
   setAiPanelOpen: (open: boolean) => void;
@@ -89,6 +89,14 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'editoria-ui-store',
+      version: 2,
+      migrate: (persistedState) => {
+        const state = (persistedState || {}) as Partial<UiState> & { leftPanelTab?: string };
+        return {
+          ...state,
+          leftPanelTab: state.leftPanelTab === 'layers' ? 'layers' : 'blocks',
+        };
+      },
     }
   )
 );

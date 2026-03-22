@@ -3,11 +3,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
   DndContext, pointerWithin, useSensor, useSensors, PointerSensor,
-  type DragStartEvent, type DragEndEvent,
+  type DragEndEvent,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Canvas } from './Canvas';
 import { PreviewMode } from './PreviewMode';
+import { Toolbar } from './Toolbar';
 import { LeftPanel } from '@/components/panels/LeftPanel';
 import { RightPanel } from '@/components/panels/RightPanel';
 import { AiPanel } from '@/components/ai/AiPanel';
@@ -37,11 +38,12 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
   const { blocks, setBlocks, addBlock } = usePageStore();
   const [saving, setSaving] = useState(false);
   const [recovered, setRecovered] = useState(false);
+  const pageApiUrl = `/api/builder/pages/${pageId}`;
 
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      await fetch(`/api/projects/${projectId}/pages/${pageId}`, {
+      await fetch(pageApiUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ blocks }),
@@ -52,7 +54,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
     } finally {
       setSaving(false);
     }
-  }, [projectId, pageId, blocks]);
+  }, [pageApiUrl, projectId, pageId, blocks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -67,10 +69,10 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
   useEffect(() => {
     const autosave = loadAutosave(projectId, pageId);
 
-    fetch(`/api/projects/${projectId}/pages/${pageId}`)
+    fetch(pageApiUrl)
       .then((r) => r.json())
       .then((data) => {
-        const serverBlocks = data.blocks || [];
+        const serverBlocks = data.page?.blocks || [];
         // Use autosave ONLY if server has nothing (empty page) and autosave has content
         if (serverBlocks.length === 0 && autosave && autosave.blocks.length > 0) {
           setBlocks(autosave.blocks);
@@ -90,7 +92,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           setTimeout(() => setRecovered(false), 5000);
         }
       });
-  }, [projectId, pageId, setBlocks]);
+  }, [pageApiUrl, projectId, pageId, setBlocks]);
 
   // Warn before leaving with unsaved work
   useEffect(() => {
@@ -109,6 +111,11 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
       // Escape: Exit preview
       if (e.key === 'Escape' && previewMode) {
         setPreviewMode(false);
+      }
+      // Ctrl/Cmd+S: Save page
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && !previewMode) {
+        e.preventDefault();
+        void handleSave();
       }
       // Delete/Backspace: Delete selected block
       if ((e.key === 'Delete' || e.key === 'Backspace') && !previewMode) {
@@ -157,7 +164,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
   }, [handleSave, previewMode, setPreviewMode]);
 
   // Drag handlers
-  const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = () => {
     // drag started
   };
 
@@ -172,6 +179,9 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
       if (def) {
         const block = createBlock(def.type, def.label, def.defaultProps, def.defaultStyle);
         block.id = generateId();
+        if (def.defaultDataSource) {
+          block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
+        }
         addBlock(block);
       }
     }
@@ -190,7 +200,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${projectName}.html`;
+        a.download = data.filename || `${projectName}.html`;
         a.click();
         URL.revokeObjectURL(url);
       }
@@ -211,6 +221,14 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
       onDragEnd={handleDragEnd}
     >
       <div className="h-full w-full flex flex-col" style={{ background: "var(--c-bg-0)" }}>
+        <Toolbar
+          projectId={projectId}
+          onSave={() => void handleSave()}
+          onPreview={handlePreview}
+          onExport={() => void handleExport()}
+          saving={saving}
+        />
+
         {/* Recovered work notification */}
         {recovered && (
           <div className="text-sm text-center py-2 px-4 flex items-center justify-center gap-2 shrink-0 z-[100]" style={{ background: 'var(--c-success)', color: 'white' }}>

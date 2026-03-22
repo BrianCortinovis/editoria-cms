@@ -14,7 +14,7 @@ export type BlockType =
   | 'article-grid' | 'article-hero' | 'article-list' | 'article-featured'
   | 'category-list' | 'tag-cloud' | 'trending-articles'
   | 'category-nav' | 'author-bio' | 'banner-zone' | 'breaking-ticker'
-  | 'event-list' | 'newsletter-signup' | 'search-bar';
+  | 'event-list' | 'newsletter-signup' | 'search-bar' | 'cms-form';
 
 export type BlockCategory =
   | 'layout' | 'content' | 'media'

@@ -1,9 +1,11 @@
 import type { Block } from '@/lib/types/block';
 
 interface GalleryImage {
-  url: string;
+  url?: string;
+  src?: string;
   alt?: string;
   caption?: string;
+  type?: string;
 }
 
 interface Props {
@@ -12,7 +14,10 @@ interface Props {
 }
 
 export function RenderImageGallery({ block, style }: Props) {
-  const images = (block.props.images as GalleryImage[]) || [];
+  const images = ((block.props.items as GalleryImage[]) || (block.props.images as GalleryImage[]) || []).map((item) => ({
+    ...item,
+    url: item.url || item.src || '',
+  }));
   const columns = (block.props.columns as number) || 3;
   const gap = (block.props.gap as string) || '0.5rem';
   const aspectRatio = (block.props.aspectRatio as string) || '1/1';

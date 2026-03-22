@@ -22,14 +22,7 @@ import {
   ScanLine,
   Sparkles,
   Pencil,
-  ArrowRight,
-  Home,
-  Info,
-  Phone,
   FileQuestion,
-  Map,
-  Newspaper,
-  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -73,15 +66,26 @@ interface SitePage {
   id: string;
   page_type: string;
   label: string;
-  icon: typeof Home;
+  icon: typeof FileQuestion;
 }
 
-const DEFAULT_PAGE_TYPES: SitePage[] = [
-  { id: "homepage", page_type: "homepage", label: "Homepage", icon: Home },
-  { id: "article", page_type: "article", label: "Pagina Articolo", icon: Newspaper },
-  { id: "category", page_type: "category", label: "Pagina Categoria", icon: FileText },
-  { id: "other", page_type: "other", label: "Altra Pagina", icon: FileQuestion },
-];
+interface ImportedSlot {
+  slot_key: string;
+  label: string;
+  description?: string | null;
+  content_type?: string;
+  max_items?: number;
+  sort_by?: string;
+  layout?: {
+    tag?: string;
+    display?: string;
+    width?: string;
+    height?: string;
+    grid_cols?: number;
+    classes?: string;
+  };
+  page?: string;
+}
 
 const contentTypeIcons: Record<string, typeof FileText> = {
   articles: FileText, events: Calendar, breaking_news: Zap, banners: Megaphone, media: ImageIcon,
@@ -95,17 +99,15 @@ export default function LayoutPage() {
   const { currentTenant } = useAuthStore();
   const [templates, setTemplates] = useState<LayoutTemplate[]>([]);
   const [sitePages, setSitePages] = useState<SitePage[]>([]);
-  const [selectedPage, setSelectedPage] = useState<string>("homepage");
+  const [selectedPage, setSelectedPage] = useState<string>("");
   const [slots, setSlots] = useState<LayoutSlot[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"zone" | "moduli" | "preview">("zone");
-  const [previewSplit, setPreviewSplit] = useState(50); // split percentage
   const [showNewSlot, setShowNewSlot] = useState(false);
   const [editingSlot, setEditingSlot] = useState<LayoutSlot | null>(null);
   const [parsing, setParsing] = useState(false);
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<LayoutSlot | null>(null);
   const [importUrl, setImportUrl] = useState("");
   const [importingUrl, setImportingUrl] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -131,24 +133,24 @@ export default function LayoutPage() {
     if (!currentTenant) return;
     const supabase = createClient();
 
-    // Load all site pages for this tenant
+    // Load real CMS pages only.
     const { data: pagesData } = await supabase.from("site_pages")
-      .select("id, title, slug").eq("tenant_id", currentTenant.id).order("created_at");
+      .select("id, title, slug")
+      .eq("tenant_id", currentTenant.id)
+      .order("sort_order")
+      .order("created_at");
 
-    if (pagesData && pagesData.length > 0) {
-      const pages = pagesData.map((p: any) => ({
+    const pages = (pagesData || []).map((p: { id: string; title: string; slug: string }) => ({
         id: p.id,
         page_type: p.slug,
         label: p.title,
         icon: FileQuestion,
       }));
-      setSitePages(pages);
-      if (!pages.find(p => p.page_type === selectedPage)) {
-        setSelectedPage(pages[0].page_type);
-      }
-    } else {
-      setSitePages(DEFAULT_PAGE_TYPES);
-      setSelectedPage("homepage");
+    const nextSelectedPage = pages.find((page) => page.page_type === selectedPage)?.page_type || pages[0]?.page_type || "";
+
+    setSitePages(pages);
+    if (nextSelectedPage !== selectedPage) {
+      setSelectedPage(nextSelectedPage);
     }
 
     // Load all templates for this tenant
@@ -157,20 +159,16 @@ export default function LayoutPage() {
 
     if (tmplData) setTemplates(tmplData as LayoutTemplate[]);
 
-    // Ensure selected page template exists
-    let tmpl = tmplData?.find(t => t.page_type === selectedPage);
-    if (!tmpl) {
-      const { data: newTmpl } = await supabase.from("layout_templates").insert({
-        tenant_id: currentTenant.id,
-        name: `${currentTenant.name} — ${sitePages.find(p => p.page_type === selectedPage)?.label || selectedPage}`,
-        page_type: selectedPage,
-      }).select("*").single();
-      if (newTmpl) {
-        tmpl = newTmpl;
-        setTemplates(prev => [...prev, newTmpl as LayoutTemplate]);
-      }
+    if (!nextSelectedPage) {
+      setSlots([]);
+      const { data: cats } = await supabase.from("categories").select("id, name, slug, color")
+        .eq("tenant_id", currentTenant.id).order("sort_order");
+      if (cats) setCategories(cats as Category[]);
+      setLoading(false);
+      return;
     }
 
+    const tmpl = tmplData?.find((template) => template.page_type === nextSelectedPage);
     if (tmpl) {
       const { data: slotData } = await supabase.from("layout_slots")
         .select("*, categories(name, color)")
@@ -185,6 +183,8 @@ export default function LayoutPage() {
           category_color: s.categories?.color ?? null,
         })));
       }
+    } else {
+      setSlots([]);
     }
 
     const { data: cats } = await supabase.from("categories").select("id, name, slug, color")
@@ -222,7 +222,10 @@ export default function LayoutPage() {
       toast.error("Inserisci un URL");
       return;
     }
-    if (!currentTenant) return;
+    if (!currentTenant || !selectedPage) {
+      toast.error("Crea o seleziona prima una pagina reale nel CMS");
+      return;
+    }
 
     setImportingUrl(true);
     try {
@@ -264,7 +267,7 @@ export default function LayoutPage() {
       }
 
       // Insert slots
-      const slotsToInsert = data.slots.map((s: any, idx: number) => ({
+      const slotsToInsert = (data.slots as ImportedSlot[]).map((s, idx: number) => ({
         template_id: tmpl!.id,
         slot_key: s.slot_key,
         label: s.label,
@@ -315,10 +318,23 @@ export default function LayoutPage() {
   };
 
   const handleSaveSlot = async () => {
-    if (!currentTenant || !slotKey.trim() || !slotLabel.trim()) { toast.error("Chiave e nome obbligatori"); return; }
+    if (!currentTenant || !selectedPage || !slotKey.trim() || !slotLabel.trim()) { toast.error("Seleziona una pagina e compila chiave e nome"); return; }
     const supabase = createClient();
-    const tmpl = templates.find(t => t.page_type === selectedPage);
-    if (!tmpl) return;
+    let tmpl = templates.find(t => t.page_type === selectedPage);
+    if (!tmpl) {
+      const currentPage = sitePages.find((page) => page.page_type === selectedPage);
+      const { data: newTemplate, error } = await supabase.from("layout_templates").insert({
+        tenant_id: currentTenant.id,
+        name: `${currentTenant.name} — ${currentPage?.label || selectedPage}`,
+        page_type: selectedPage,
+      }).select("*").single();
+      if (error || !newTemplate) {
+        toast.error("Impossibile creare il layout per questa pagina");
+        return;
+      }
+      tmpl = newTemplate as LayoutTemplate;
+      setTemplates((prev) => [...prev, tmpl!]);
+    }
 
     const payload = {
       template_id: tmpl.id, slot_key: slotKey.trim().toLowerCase().replace(/\s+/g, "-"),
@@ -352,6 +368,11 @@ export default function LayoutPage() {
   const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0) return;
+    if (!selectedPage || !currentTenant) {
+      toast.error("Crea o seleziona prima una pagina reale nel CMS");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     setParsing(true);
     const filesToParse: { path: string; content: string }[] = [];
     for (const file of Array.from(fileList)) {
@@ -367,20 +388,23 @@ export default function LayoutPage() {
       if (data.slots?.length > 0) {
         const supabase = createClient();
         let totalAdded = 0;
-        // Get or create templates for each detected page
-        const detectedPages: string[] = data.detected_pages || [selectedPage];
-        for (const page of detectedPages) {
-          let tmpl = templates.find(t => t.page_type === page);
-          if (!tmpl) {
-            const { data: newTmpl } = await supabase.from("layout_templates").insert({
-              tenant_id: currentTenant!.id,
-              name: `${currentTenant!.name} — ${sitePages.find(p => p.page_type === page)?.label || page}`,
-              page_type: page,
-            }).select("*").single();
-            if (newTmpl) { tmpl = newTmpl as LayoutTemplate; setTemplates(prev => [...prev, newTmpl as LayoutTemplate]); }
+        let tmpl = templates.find(t => t.page_type === selectedPage);
+        if (!tmpl) {
+          const currentPage = sitePages.find((page) => page.page_type === selectedPage);
+          const { data: newTmpl } = await supabase.from("layout_templates").insert({
+            tenant_id: currentTenant!.id,
+            name: `${currentTenant!.name} — ${currentPage?.label || selectedPage}`,
+            page_type: selectedPage,
+          }).select("*").single();
+          if (newTmpl) {
+            tmpl = newTmpl as LayoutTemplate;
+            setTemplates(prev => [...prev, newTmpl as LayoutTemplate]);
           }
-          if (!tmpl) continue;
-          const pageSlots = (data.pages?.[page] || data.slots.filter((s: { page?: string }) => (s.page || selectedPage) === page));
+        }
+        if (tmpl) {
+          const pageSlots = data.pages?.[selectedPage]
+            || data.slots.filter((s: { page?: string }) => (s.page || selectedPage) === selectedPage)
+            || data.slots;
           let pageOrder = 0;
           for (const s of pageSlots) {
             const existingSlots = await supabase.from("layout_slots").select("id").eq("template_id", tmpl.id).eq("slot_key", s.slot_key);
@@ -397,7 +421,7 @@ export default function LayoutPage() {
             totalAdded++;
           }
         }
-        toast.success(`${totalAdded} slot importati in ${detectedPages.length} pagine: ${detectedPages.join(", ")}`);
+        toast.success(`${totalAdded} slot importati nella pagina selezionata`);
         load();
       } else { toast.error("Nessun slot trovato. Aggiungi data-cms-slot al codice."); }
     } catch { toast.error("Errore nel parsing"); }
@@ -408,6 +432,11 @@ export default function LayoutPage() {
   const handleAIAnalyze = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
     if (!fileList || !currentTenant) return;
+    if (!selectedPage) {
+      toast.error("Crea o seleziona prima una pagina reale nel CMS");
+      if (aiFileInputRef.current) aiFileInputRef.current.value = "";
+      return;
+    }
     setAiAnalyzing(true);
     useAIStatus.getState().set({ message: "Analisi IA layout in corso...", provider: "" });
     const files: { path: string; content: string }[] = [];
@@ -423,50 +452,45 @@ export default function LayoutPage() {
     try {
       const res = await fetch("/api/ai/analyze-layout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenant_id: currentTenant.id, files }) });
       const data = await res.json();
-      // New format: data.pages is a dict of page_type -> slots[]
-      const aiPages = data.pages || (data.slots ? { [selectedPage]: data.slots } : null);
-      if (aiPages && Object.keys(aiPages).length > 0) {
+      const selectedPageSlots = data.pages?.[selectedPage] || data.slots || [];
+      if (selectedPageSlots.length > 0) {
         const supabase = createClient();
         let totalAdded = 0;
-        const pageNames: string[] = [];
-
-        for (const [page, pageSlots] of Object.entries(aiPages)) {
-          if (!Array.isArray(pageSlots) || pageSlots.length === 0) continue;
-          pageNames.push(page);
-
-          // Get or create template for this page
-          let tmpl = templates.find(t => t.page_type === page);
-          if (!tmpl) {
-            const { data: newTmpl } = await supabase.from("layout_templates").insert({
-              tenant_id: currentTenant!.id,
-              name: `${currentTenant!.name} — ${page}`,
-              page_type: page,
-            }).select("*").single();
-            if (newTmpl) { tmpl = newTmpl as LayoutTemplate; setTemplates(prev => [...prev, newTmpl as LayoutTemplate]); }
-          }
-          if (!tmpl) continue;
-
-          let order = 0;
-          for (const s of pageSlots as Array<Record<string, unknown>>) {
-            const slotKey = s.slot_key as string;
-            const existing = await supabase.from("layout_slots").select("id").eq("template_id", tmpl.id).eq("slot_key", slotKey);
-            if (existing.data && existing.data.length > 0) continue;
-            const cat = categories.find(c => slotKey.includes(c.slug));
-            await supabase.from("layout_slots").insert({
-              template_id: tmpl.id, slot_key: slotKey, label: (s.label as string) || slotKey,
-              description: (s.description as string) || null,
-              content_type: (s.content_type as string) || "articles",
-              category_id: cat?.id ?? null, max_items: (s.max_items as number) || 6,
-              sort_by: "published_at", sort_order: "desc", sort_index: order++,
-              layout_width: (s.layout_width as string) || "full",
-              layout_height: (s.layout_height as string) || "auto",
-              layout_grid_cols: (s.grid_cols as number) || 1,
-            });
-            totalAdded++;
+        let tmpl = templates.find(t => t.page_type === selectedPage);
+        if (!tmpl) {
+          const currentPage = sitePages.find((page) => page.page_type === selectedPage);
+          const { data: newTmpl } = await supabase.from("layout_templates").insert({
+            tenant_id: currentTenant!.id,
+            name: `${currentTenant!.name} — ${currentPage?.label || selectedPage}`,
+            page_type: selectedPage,
+          }).select("*").single();
+          if (newTmpl) {
+            tmpl = newTmpl as LayoutTemplate;
+            setTemplates(prev => [...prev, newTmpl as LayoutTemplate]);
           }
         }
-        toast.success(`IA: ${totalAdded} slot in ${pageNames.length} pagine (${data.provider})`);
-        useAIStatus.getState().set({ message: `Layout analizzato: ${totalAdded} slot in ${pageNames.length} pagine`, provider: data.provider || "" });
+        if (!tmpl) throw new Error("Template non creato");
+
+        let order = 0;
+        for (const s of selectedPageSlots as Array<Record<string, unknown>>) {
+          const slotKey = s.slot_key as string;
+          const existing = await supabase.from("layout_slots").select("id").eq("template_id", tmpl.id).eq("slot_key", slotKey);
+          if (existing.data && existing.data.length > 0) continue;
+          const cat = categories.find(c => slotKey.includes(c.slug));
+          await supabase.from("layout_slots").insert({
+            template_id: tmpl.id, slot_key: slotKey, label: (s.label as string) || slotKey,
+            description: (s.description as string) || null,
+            content_type: (s.content_type as string) || "articles",
+            category_id: cat?.id ?? null, max_items: (s.max_items as number) || 6,
+            sort_by: "published_at", sort_order: "desc", sort_index: order++,
+            layout_width: (s.layout_width as string) || "full",
+            layout_height: (s.layout_height as string) || "auto",
+            layout_grid_cols: (s.grid_cols as number) || 1,
+          });
+          totalAdded++;
+        }
+        toast.success(`IA: ${totalAdded} slot nella pagina selezionata (${data.provider})`);
+        useAIStatus.getState().set({ message: `Layout analizzato: ${totalAdded} slot nella pagina selezionata`, provider: data.provider || "" });
         setTimeout(() => useAIStatus.getState().clear(), 5000);
         if (data.analysis) toast.success(data.analysis, { duration: 5000 });
         load();
@@ -487,7 +511,6 @@ export default function LayoutPage() {
     } else if (slot.content_type === "banners") {
       window.location.href = "/dashboard/banner";
     } else {
-      setSelectedSlot(slots.find(s => s.id === slot.id) || null);
       setActiveTab("moduli");
       startEditSlot(slots.find(s => s.id === slot.id)!);
     }
@@ -502,14 +525,19 @@ export default function LayoutPage() {
       {/* Left: Site tree */}
       <div className="w-48 shrink-0 hidden lg:block">
         <p className="text-[10px] font-semibold uppercase mb-2" style={{ color: "var(--c-text-3)" }}>Pagine sito</p>
-        <div className="space-y-0.5">
-          {sitePages.map(page => {
+        {sitePages.length === 0 ? (
+          <div className="rounded-xl border p-3 text-xs" style={{ borderColor: "var(--c-border)", color: "var(--c-text-3)" }}>
+            Nessuna pagina reale creata.
+          </div>
+        ) : (
+          <div className="space-y-0.5">
+            {sitePages.map(page => {
             const Icon = page.icon;
             const hasSlots = templates.some(t => t.page_type === page.page_type);
             return (
               <button
                 key={page.id}
-                onClick={() => { setSelectedPage(page.page_type); load(); }}
+                onClick={() => setSelectedPage(page.page_type)}
                 className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition text-left"
                 style={{
                   background: selectedPage === page.page_type ? "var(--c-accent-soft)" : "transparent",
@@ -521,12 +549,31 @@ export default function LayoutPage() {
                 {hasSlots && <div className="w-1.5 h-1.5 rounded-full ml-auto" style={{ background: "var(--c-accent)" }} />}
               </button>
             );
-          })}
-        </div>
+            })}
+          </div>
+        )}
       </div>
 
       {/* Main content */}
       <div className="flex-1 min-w-0">
+        {!selectedPage ? (
+          <div className="rounded-2xl border p-8 text-center" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)" }}>
+            <LayoutTemplate className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
+            <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>Il layout parte da pagine reali</h2>
+            <p className="text-sm max-w-xl mx-auto" style={{ color: "var(--c-text-2)" }}>
+              Qui non vengono piu create pagine fittizie. Crea prima una pagina nel CMS, poi torna qui per costruirne il layout.
+            </p>
+            <Link
+              href="/dashboard/pagine"
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg text-sm font-medium text-white"
+              style={{ background: "var(--c-accent)" }}
+            >
+              <Plus className="w-4 h-4" />
+              Vai a Pagine
+            </Link>
+          </div>
+        ) : (
+        <>
         {/* Tabs + Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-1 rounded-lg p-0.5" style={{ background: "var(--c-bg-2)" }}>
@@ -782,6 +829,8 @@ export default function LayoutPage() {
               </div>
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
     </div>

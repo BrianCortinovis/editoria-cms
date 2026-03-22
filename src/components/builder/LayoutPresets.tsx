@@ -272,6 +272,9 @@ export function LayoutPresets({ open, onClose }: LayoutPresetsProps) {
         }
       }
       block.id = generateId();
+      if (def.defaultDataSource) {
+        block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
+      }
       return block;
     }).filter(Boolean);
 
@@ -290,6 +293,9 @@ export function LayoutPresets({ open, onClose }: LayoutPresetsProps) {
         if (!def) return null;
         const block = createBlock(def.type, cell.label || def.label, def.defaultProps, def.defaultStyle);
         block.id = generateId();
+        if (def.defaultDataSource) {
+          block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
+        }
         return block;
       } else {
         // Multiple cells = columns container
@@ -307,6 +313,9 @@ export function LayoutPresets({ open, onClose }: LayoutPresetsProps) {
           if (!def) return createBlock('section', cell.label || 'Cella', {});
           const child = createBlock(def.type, cell.label || def.label, def.defaultProps, def.defaultStyle);
           child.id = generateId();
+          if (def.defaultDataSource) {
+            child.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
+          }
           child.style.layout.width = `${(100 / row.cells.length) * cell.colSpan}%`;
           return child;
         });
@@ -333,7 +342,7 @@ export function LayoutPresets({ open, onClose }: LayoutPresetsProps) {
           prompt: aiPrompt,
           systemPrompt: `Sei un designer AI. L'utente descrive il sito che vuole. Tu DEVI rispondere con un JSON array di blocchi da creare.
 
-BLOCCHI DISPONIBILI: navigation, hero, text, image-gallery, video, audio, slideshow, carousel, comparison, divider, banner-ad, footer, sidebar, social, author-bio, related-content, newsletter, timeline, quote, accordion, tabs, table, code, map, counter, custom-html, section, container, columns.
+BLOCCHI DISPONIBILI: navigation, hero, text, image-gallery, video, audio, slideshow, carousel, comparison, divider, banner-ad, banner-zone, footer, sidebar, social, author-bio, related-content, newsletter, newsletter-signup, cms-form, timeline, quote, accordion, tabs, table, code, map, counter, custom-html, section, container, columns, article-grid, article-hero, category-nav, event-list, search-bar, breaking-ticker.
 
 FORMATO RISPOSTA (SOLO JSON, nessun testo):
 [
@@ -354,7 +363,7 @@ REGOLE:
       const data = await response.json();
       if (data.content) {
         // Parse and execute
-        let cleaned = data.content.trim().replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
+        const cleaned = data.content.trim().replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
         try {
           const actions = JSON.parse(cleaned.match(/\[[\s\S]*\]/)?.[0] || cleaned);
           if (Array.isArray(actions)) {
@@ -368,6 +377,9 @@ REGOLE:
                 if (a.style.layout) block.style.layout = { ...block.style.layout, ...a.style.layout, padding: a.style.layout?.padding ? { ...block.style.layout.padding, ...a.style.layout.padding } : block.style.layout.padding, margin: a.style.layout?.margin ? { ...block.style.layout.margin, ...a.style.layout.margin } : block.style.layout.margin };
               }
               block.id = generateId();
+              if (def.defaultDataSource) {
+                block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
+              }
               return block;
             }).filter(Boolean);
 

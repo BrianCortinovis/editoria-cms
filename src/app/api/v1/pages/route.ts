@@ -19,9 +19,9 @@ export async function GET(request: NextRequest) {
 
     const { data: pages, error } = await supabase
       .from('site_pages')
-      .select('id, title, slug, status, created_at, updated_at, blocks, meta')
+      .select('id, title, slug, is_published, created_at, updated_at, blocks, meta')
       .eq('tenant_id', tenantData.id)
-      .eq('status', 'published')
+      .eq('is_published', true)
       .order('updated_at', { ascending: false });
 
     if (error) throw error;
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, title, slug, blocks, meta, tenant_id, status } = body;
+    const { id, title, slug, blocks, meta, tenant_id, is_published } = body;
 
     // Verify user has access to this tenant
     const { data: access } = await supabase
@@ -62,7 +62,14 @@ export async function POST(request: NextRequest) {
     if (id) {
       const { data: page, error } = await supabase
         .from('site_pages')
-        .update({ title, slug, blocks: blocks || [], meta: meta || {}, status: status || 'draft', updated_at: new Date().toISOString() })
+        .update({
+          title,
+          slug,
+          blocks: blocks || [],
+          meta: meta || {},
+          is_published: Boolean(is_published),
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', id)
         .eq('tenant_id', tenant_id)
         .select()
@@ -79,7 +86,7 @@ export async function POST(request: NextRequest) {
           slug,
           blocks: blocks || [],
           meta: meta || {},
-          status: status || 'draft',
+          is_published: Boolean(is_published),
         }])
         .select()
         .single();

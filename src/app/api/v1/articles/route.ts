@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { getTenantFromRequest } from '@/lib/cache/tenant-context';
 import { getCacheHeadersWithSecurity } from '@/lib/cache/cache-headers';
+import { enrichArticlesWithCategories } from '@/lib/articles/taxonomy';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('articles')
-      .select('*, author:profiles(full_name, avatar_url), categories:article_categories(category:categories(name, slug, color))', {
+      .select('*, author:profiles(full_name, avatar_url), categories:categories(name, slug, color), article_tags(tags(name, slug))', {
         count: 'exact',
       })
       .eq('tenant_id', tenant.tenantId)
@@ -49,8 +50,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const enrichedArticles = await enrichArticlesWithCategories(
+      supabase as never,
+      tenant.tenantId,
+      (articles || []) as unknown as Array<{ id: string; category_id?: string | null; categories?: { id?: string; name: string; slug: string; color: string | null } | null }>
+    );
+
     return NextResponse.json(
-      { articles, total: count || 0 },
+      { articles: enrichedArticles, total: count || 0 },
       {
         headers: getCacheHeadersWithSecurity('ARTICLES_LIST'),
       }

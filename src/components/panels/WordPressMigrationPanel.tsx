@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Upload, Settings, History, CheckCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { useAuthStore } from '@/lib/store';
 
 interface MigrationJob {
   id: string;
@@ -15,6 +16,7 @@ interface MigrationJob {
 }
 
 export function WordPressMigrationPanel() {
+  const { currentTenant, user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'upload' | 'config' | 'history'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -75,6 +77,8 @@ export function WordPressMigrationPanel() {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('tenant_id', currentTenant?.id || '');
+      formData.append('default_author_id', user?.id || '');
       Object.entries(config).forEach(([key, value]) => {
         formData.append(key, String(value));
       });
@@ -100,7 +104,7 @@ export function WordPressMigrationPanel() {
       ));
 
       setFile(null);
-    } catch (error) {
+    } catch {
       setJobs(prev => prev.map(j => j.id === jobId
         ? { ...j, status: 'failed', progress: 0 }
         : j
@@ -194,14 +198,14 @@ export function WordPressMigrationPanel() {
             {file && (
               <button
                 onClick={handleStartMigration}
-                disabled={isProcessing}
+                disabled={isProcessing || !currentTenant || !user}
                 className="w-full py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
                 style={{
                   background: 'var(--c-accent)',
                   color: 'white',
                 }}
               >
-                {isProcessing ? 'Processing...' : 'Start Migration'}
+                {isProcessing ? 'Processing...' : !currentTenant ? 'Seleziona una testata' : 'Start Migration'}
               </button>
             )}
           </div>

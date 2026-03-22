@@ -1,5 +1,9 @@
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { enrichArticlesWithCategories, fetchArticleIdsForCategory } from '@/lib/articles/taxonomy';
 import type { DataSource } from '@/lib/types/block';
+import { getNavigationMenu, type SiteMenuKey } from '@/lib/site/navigation';
+import { normalizeFooterConfig } from '@/lib/site/footer';
+import { normalizeNewsletterConfig } from '@/lib/site/newsletter';
 
 /**
  * Resolve data for a data-bound block at render time.
@@ -17,24 +21,39 @@ export async function resolveBlockData(
     case 'articles': {
       let query = supabase
         .from('articles')
-        .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, is_featured, profiles!articles_author_id_fkey(full_name, avatar_url), categories(name, slug, color)')
+        .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, is_featured, category_id, profiles!articles_author_id_fkey(full_name, avatar_url), categories(name, slug, color)')
         .eq('tenant_id', tenantId)
         .eq('status', 'published')
         .order('published_at', { ascending: false });
-      if (p.category) {
+      if (p.slug) {
+        query = query.eq('slug', p.slug);
+      }
+      const categorySlug = p.category || p.categorySlug;
+      if (categorySlug) {
         const { data: cat } = await supabase
           .from('categories')
           .select('id')
           .eq('tenant_id', tenantId)
-          .eq('slug', p.category)
+          .eq('slug', categorySlug)
           .single();
-        if (cat) query = query.eq('category_id', cat.id);
+        if (cat) {
+          const matchedIds = await fetchArticleIdsForCategory(supabase as never, cat.id);
+          if (matchedIds && matchedIds.length > 0) {
+            query = query.in('id', matchedIds);
+          } else {
+            query = query.eq('category_id', cat.id);
+          }
+        }
       }
       if (p.featured === 'true') query = query.eq('is_featured', true);
       if (p.limit) query = query.limit(parseInt(p.limit));
 
       const { data } = await query;
-      return data || [];
+      return enrichArticlesWithCategories(
+        supabase as never,
+        tenantId,
+        (data || []) as unknown as Array<{ id: string; category_id?: string | null; categories?: { name: string; slug: string; color: string | null } | null }>
+      );
     }
 
     case 'categories': {
@@ -88,6 +107,72 @@ export async function resolveBlockData(
         .eq('tenant_id', tenantId)
         .order('name');
       return data || [];
+    }
+
+    case 'forms': {
+      let query = supabase
+        .from('site_forms')
+        .select('id, name, slug, description, success_message, fields, is_active')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('name');
+
+      if (p.slug) {
+        query = query.eq('slug', p.slug);
+      }
+
+      if (p.limit) {
+        query = query.limit(parseInt(p.limit, 10));
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        return [];
+      }
+
+      return data || [];
+    }
+
+    case 'site-navigation': {
+      const { data, error } = await supabase
+        .from('site_config')
+        .select('navigation')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      if (error) {
+        return [];
+      }
+
+      return getNavigationMenu(data?.navigation, (p.menu as SiteMenuKey | undefined) || 'primary');
+    }
+
+    case 'site-footer': {
+      const { data, error } = await supabase
+        .from('site_config')
+        .select('footer')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      if (error) {
+        return [];
+      }
+
+      return [normalizeFooterConfig(data?.footer)];
+    }
+
+    case 'site-newsletter': {
+      const { data, error } = await supabase
+        .from('site_config')
+        .select('footer')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      if (error) {
+        return [];
+      }
+
+      return [normalizeNewsletterConfig(data?.footer)];
     }
 
     default:

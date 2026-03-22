@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { resolveTenant, getPublishedPage } from '@/lib/site/tenant-resolver';
 import { SiteLayout } from '@/components/render/SiteLayout';
 import { BlockRenderer } from '@/components/render/BlockRenderer';
+import { buildTenantPublicUrl } from '@/lib/site/public-url';
 
 export const revalidate = 60;
 
@@ -48,5 +49,8 @@ export async function generateMetadata({ params }: Props) {
   return {
     title: resolved.tenant.name,
     description: `${resolved.tenant.name} - Testata giornalistica`,
+    alternates: {
+      canonical: buildTenantPublicUrl(resolved.tenant, '/'),
+    },
   };
 }

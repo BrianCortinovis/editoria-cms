@@ -24,5 +24,5 @@ export const BLOCK_CATEGORIES = [
   { id: 'media', label: 'Media', icon: 'Image' },
   { id: 'editorial', label: 'Editoriale', icon: 'Newspaper' },
   { id: 'interactive', label: 'Interattivo', icon: 'MousePointer' },
-  { id: 'monetization', label: 'Monetizzazione', icon: 'DollarSign' },
+  { id: 'monetization', label: 'ADV', icon: 'DollarSign' },
 ] as const;

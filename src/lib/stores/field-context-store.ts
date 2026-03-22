@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 
-type SupportedFieldElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+type SupportedFieldElement =
+  | HTMLInputElement
+  | HTMLTextAreaElement
+  | HTMLSelectElement
+  | HTMLButtonElement;
 
 interface FieldOption {
   value: string;
@@ -11,11 +15,26 @@ export interface SelectedField {
   id: string;
   name: string;
   value: string;
-  type: 'text' | 'textarea' | 'select' | 'email' | 'number' | 'url' | 'password' | 'date' | 'datetime-local' | 'tel' | 'other';
+  type:
+    | 'text'
+    | 'textarea'
+    | 'select'
+    | 'email'
+    | 'number'
+    | 'url'
+    | 'password'
+    | 'date'
+    | 'datetime-local'
+    | 'tel'
+    | 'checkbox'
+    | 'radio'
+    | 'switch'
+    | 'other';
   label?: string;
   placeholder?: string;
-  htmlTag?: 'input' | 'textarea' | 'select';
+  htmlTag?: 'input' | 'textarea' | 'select' | 'button';
   options?: FieldOption[];
+  checked?: boolean;
 }
 
 export interface PageContext {
@@ -46,12 +65,10 @@ interface FieldContextStore {
 
 const UNSUPPORTED_INPUT_TYPES = new Set([
   'button',
-  'checkbox',
   'color',
   'file',
   'hidden',
   'image',
-  'radio',
   'range',
   'reset',
   'submit',
@@ -61,6 +78,21 @@ let activeFieldElement: SupportedFieldElement | null = null;
 
 function normalizeText(value?: string | null) {
   return value?.replace(/\s+/g, ' ').trim() || '';
+}
+
+function isSwitchButtonElement(element: EventTarget | null): element is HTMLButtonElement {
+  return element instanceof HTMLButtonElement && element.getAttribute('role') === 'switch';
+}
+
+function getFieldIdentity(element: SupportedFieldElement) {
+  const fallbackLabel = inferFieldLabel(element) || 'unknown';
+  const baseId = element.id || element.getAttribute('name') || element.getAttribute('data-field-name');
+  const baseName = element.getAttribute('name') || element.id || element.getAttribute('data-field-name');
+
+  return {
+    id: baseId || fallbackLabel,
+    name: baseName || fallbackLabel,
+  };
 }
 
 function inferFieldLabel(element: SupportedFieldElement) {
@@ -90,21 +122,63 @@ function inferFieldLabel(element: SupportedFieldElement) {
 }
 
 function collectFieldOptions(element: SupportedFieldElement): FieldOption[] | undefined {
-  if (!(element instanceof HTMLSelectElement)) {
-    return undefined;
+  if (element instanceof HTMLSelectElement) {
+    const options = Array.from(element.options)
+      .map((option) => ({
+        value: option.value,
+        label: normalizeText(option.textContent) || option.value,
+      }))
+      .filter((option) => option.value || option.label);
+
+    return options.length > 0 ? options : undefined;
   }
 
-  const options = Array.from(element.options)
-    .map((option) => ({
-      value: option.value,
-      label: normalizeText(option.textContent) || option.value,
-    }))
-    .filter((option) => option.value || option.label);
+  if (element instanceof HTMLInputElement && element.type === 'radio' && element.name) {
+    const scopeRoot = element.form || document;
+    const radioOptions = Array.from(scopeRoot.querySelectorAll(`input[type="radio"][name="${CSS.escape(element.name)}"]`))
+      .filter((radio): radio is HTMLInputElement => radio instanceof HTMLInputElement)
+      .map((radio) => ({
+        value: radio.value,
+        label: inferFieldLabel(radio) || radio.value,
+      }));
 
-  return options.length > 0 ? options : undefined;
+    return radioOptions.length > 0 ? radioOptions : undefined;
+  }
+
+  if (element instanceof HTMLInputElement && element.type === 'checkbox') {
+    return [
+      { value: 'true', label: 'Attivo' },
+      { value: 'false', label: 'Disattivo' },
+    ];
+  }
+
+  if (isSwitchButtonElement(element)) {
+    return [
+      { value: 'true', label: 'Attivo' },
+      { value: 'false', label: 'Disattivo' },
+    ];
+  }
+
+  return undefined;
+}
+
+function getFieldValue(element: SupportedFieldElement) {
+  if (element instanceof HTMLInputElement && (element.type === 'checkbox' || element.type === 'radio')) {
+    return element.checked ? (element.value || 'true') : element.type === 'checkbox' ? 'false' : '';
+  }
+
+  if (isSwitchButtonElement(element)) {
+    return element.getAttribute('aria-checked') === 'true' ? 'true' : 'false';
+  }
+
+  return element.value || '';
 }
 
 function extractFieldType(element: SupportedFieldElement): SelectedField['type'] {
+  if (isSwitchButtonElement(element)) {
+    return 'switch';
+  }
+
   if (element instanceof HTMLTextAreaElement) {
     return 'textarea';
   }
@@ -123,6 +197,8 @@ function extractFieldType(element: SupportedFieldElement): SelectedField['type']
     || type === 'date'
     || type === 'datetime-local'
     || type === 'tel'
+    || type === 'checkbox'
+    || type === 'radio'
   ) {
     return type;
   }
@@ -131,32 +207,47 @@ function extractFieldType(element: SupportedFieldElement): SelectedField['type']
 }
 
 function buildSelectedField(element: SupportedFieldElement): SelectedField {
+  const identity = getFieldIdentity(element);
+  const checked = element instanceof HTMLInputElement
+    ? (element.type === 'checkbox' || element.type === 'radio' ? element.checked : undefined)
+    : isSwitchButtonElement(element)
+      ? element.getAttribute('aria-checked') === 'true'
+      : undefined;
+
   return {
-    id: element.id || element.name || 'unknown',
-    name: element.name || element.id || 'unknown',
-    value: element.value || '',
+    id: identity.id,
+    name: identity.name,
+    value: getFieldValue(element),
     type: extractFieldType(element),
     label: inferFieldLabel(element),
     placeholder: element.getAttribute('placeholder') || undefined,
-    htmlTag: element instanceof HTMLTextAreaElement ? 'textarea' : element instanceof HTMLSelectElement ? 'select' : 'input',
+    htmlTag: element instanceof HTMLTextAreaElement
+      ? 'textarea'
+      : element instanceof HTMLSelectElement
+        ? 'select'
+        : isSwitchButtonElement(element)
+          ? 'button'
+          : 'input',
     options: collectFieldOptions(element),
+    checked,
   };
 }
 
 function collectPageContext(element: SupportedFieldElement): PageContext {
   const formElement = element.closest('form') || element.closest('[data-form]') || document;
   const allFields: Record<string, string> = {};
-  const inputs = formElement.querySelectorAll('input, textarea, select');
+  const inputs = formElement.querySelectorAll('input, textarea, select, button[role="switch"]');
 
   inputs.forEach((input) => {
     if (!isFillableFieldElement(input)) {
       return;
     }
 
-    const key = input.name || input.id || inferFieldLabel(input) || input.getAttribute('placeholder') || input.tagName.toLowerCase();
-    const value = input.value;
+    const identity = getFieldIdentity(input);
+    const key = identity.name || identity.id || inferFieldLabel(input) || input.getAttribute('placeholder') || input.tagName.toLowerCase();
+    const value = getFieldValue(input);
 
-    if (key && value) {
+    if (key && value !== '') {
       allFields[key] = value;
     }
   });
@@ -171,6 +262,21 @@ function collectPageContext(element: SupportedFieldElement): PageContext {
 }
 
 function setNativeElementValue(element: SupportedFieldElement, value: string) {
+  if (element instanceof HTMLInputElement && element.type === 'checkbox') {
+    setCheckableElementState(element, shouldEnableBooleanValue(value));
+    return;
+  }
+
+  if (element instanceof HTMLInputElement && element.type === 'radio') {
+    setRadioElementValue(element, value);
+    return;
+  }
+
+  if (isSwitchButtonElement(element)) {
+    setSwitchButtonValue(element, value);
+    return;
+  }
+
   const normalizedValue = element instanceof HTMLSelectElement
     ? resolveSelectValue(element, value)
     : value;
@@ -186,6 +292,55 @@ function setNativeElementValue(element: SupportedFieldElement, value: string) {
 
   element.dispatchEvent(new Event('input', { bubbles: true }));
   element.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function shouldEnableBooleanValue(value: string) {
+  const normalized = normalizeText(value).toLowerCase();
+  return ['true', '1', 'yes', 'si', 'sì', 'on', 'enabled', 'attivo', 'abilita', 'abilitato'].includes(normalized);
+}
+
+function setCheckableElementState(element: HTMLInputElement, nextChecked: boolean) {
+  const prototype = Object.getPrototypeOf(element) as { constructor?: { name?: string } };
+  const checkedSetter = Object.getOwnPropertyDescriptor(prototype, 'checked')?.set;
+
+  if (checkedSetter) {
+    checkedSetter.call(element, nextChecked);
+  } else {
+    element.checked = nextChecked;
+  }
+
+  element.dispatchEvent(new Event('input', { bubbles: true }));
+  element.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function setRadioElementValue(element: HTMLInputElement, value: string) {
+  const scopeRoot = element.form || document;
+  const compactValue = normalizeText(value).toLowerCase();
+  const options = Array.from(scopeRoot.querySelectorAll(`input[type="radio"][name="${CSS.escape(element.name)}"]`))
+    .filter((radio): radio is HTMLInputElement => radio instanceof HTMLInputElement);
+
+  const match = options.find((radio) => {
+    const optionValue = normalizeText(radio.value).toLowerCase();
+    const optionLabel = normalizeText(inferFieldLabel(radio)).toLowerCase();
+    return optionValue === compactValue || optionLabel === compactValue;
+  });
+
+  if (!match) {
+    return;
+  }
+
+  options.forEach((radio) => {
+    setCheckableElementState(radio, radio === match);
+  });
+}
+
+function setSwitchButtonValue(element: HTMLButtonElement, value: string) {
+  const nextChecked = shouldEnableBooleanValue(value);
+  const currentChecked = element.getAttribute('aria-checked') === 'true';
+
+  if (currentChecked !== nextChecked) {
+    element.click();
+  }
 }
 
 function resolveSelectValue(element: HTMLSelectElement, value: string) {
@@ -221,7 +376,7 @@ function findSelectedElement(field: SelectedField | null) {
   }
 
   if (field.name && field.name !== 'unknown') {
-    const byName = document.querySelector(`[name="${CSS.escape(field.name)}"]`);
+    const byName = document.querySelector(`[name="${CSS.escape(field.name)}"], [data-field-name="${CSS.escape(field.name)}"]`);
     if (isFillableFieldElement(byName)) {
       return byName;
     }
@@ -248,6 +403,10 @@ export function isFillableFieldElement(target: EventTarget | null): target is Su
   }
 
   if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
+    return !target.disabled;
+  }
+
+  if (isSwitchButtonElement(target)) {
     return !target.disabled;
   }
 
@@ -304,8 +463,8 @@ export const useFieldContextStore = create<FieldContextStore>((set, get) => ({
 
     const current = get().selectedField;
     const sameField = current
-      && current.id === (element.id || element.name || 'unknown')
-      && current.name === (element.name || element.id || 'unknown');
+      && current.id === getFieldIdentity(element).id
+      && current.name === getFieldIdentity(element).name;
 
     if (!sameField && activeFieldElement !== element) {
       return;

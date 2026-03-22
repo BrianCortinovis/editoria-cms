@@ -1,5 +1,6 @@
 import type { Block, BlockStyle } from '@/lib/types/block';
 import { resolveBlockData } from '@/lib/site/block-data-resolver';
+import { buildCssGradient } from '@/lib/shapes/gradients';
 import { RenderArticleGrid } from './blocks/RenderArticleGrid';
 import { RenderArticleHero } from './blocks/RenderArticleHero';
 import { RenderBreakingTicker } from './blocks/RenderBreakingTicker';
@@ -18,11 +19,25 @@ import { RenderCounter } from './blocks/RenderCounter';
 import { RenderNavigation } from './blocks/RenderNavigation';
 import { RenderFooter } from './blocks/RenderFooter';
 import { RenderSearchBar } from './blocks/RenderSearchBar';
+import { RenderCmsForm } from './blocks/RenderCmsForm';
 import { RenderAuthorBio } from './blocks/RenderAuthorBio';
 import { RenderImageGallery } from './blocks/RenderImageGallery';
 import { RenderTimeline } from './blocks/RenderTimeline';
 import { RenderCarousel } from './blocks/RenderCarousel';
+import { RenderTabs } from './blocks/RenderTabs';
+import { RenderTable } from './blocks/RenderTable';
+import { RenderCode } from './blocks/RenderCode';
+import { RenderCustomHtml } from './blocks/RenderCustomHtml';
+import { RenderAudio } from './blocks/RenderAudio';
+import { RenderComparison } from './blocks/RenderComparison';
+import { RenderMap } from './blocks/RenderMap';
+import { RenderRelatedContent } from './blocks/RenderRelatedContent';
+import { RenderSidebar } from './blocks/RenderSidebar';
+import { RenderSocial } from './blocks/RenderSocial';
+import { RenderSlideshow } from './blocks/RenderSlideshow';
+import { RenderBannerAd } from './blocks/RenderBannerAd';
 import { RenderGeneric } from './blocks/RenderGeneric';
+import { RenderBlockFrame } from './RenderBlockFrame';
 
 interface BlockRendererProps {
   blocks: Block[];
@@ -57,10 +72,17 @@ function blockStyleToCSS(style: BlockStyle): React.CSSProperties {
   if (style.background?.type === 'gradient' && style.background.value) {
     css.background = style.background.value;
   }
+  if (style.background?.advancedGradient) {
+    css.backgroundImage = buildCssGradient(style.background.advancedGradient);
+  }
   if (style.background?.type === 'image' && style.background.value) {
     css.backgroundImage = `url(${style.background.value})`;
     css.backgroundSize = style.background.size || 'cover';
     css.backgroundPosition = style.background.position || 'center';
+    css.backgroundRepeat = style.background.repeat || 'no-repeat';
+    if (style.background.parallax) {
+      css.backgroundAttachment = 'fixed';
+    }
   }
 
   if (style.typography) {
@@ -68,8 +90,10 @@ function blockStyleToCSS(style: BlockStyle): React.CSSProperties {
     if (style.typography.fontSize) css.fontSize = style.typography.fontSize;
     if (style.typography.fontWeight) css.fontWeight = style.typography.fontWeight;
     if (style.typography.lineHeight) css.lineHeight = style.typography.lineHeight;
+    if (style.typography.letterSpacing) css.letterSpacing = style.typography.letterSpacing;
     if (style.typography.color) css.color = style.typography.color;
     if (style.typography.textAlign) css.textAlign = style.typography.textAlign as React.CSSProperties['textAlign'];
+    if (style.typography.textTransform) css.textTransform = style.typography.textTransform as React.CSSProperties['textTransform'];
   }
 
   if (style.border) {
@@ -81,6 +105,26 @@ function blockStyleToCSS(style: BlockStyle): React.CSSProperties {
 
   if (style.shadow) css.boxShadow = style.shadow;
   if (style.opacity !== undefined) css.opacity = style.opacity;
+  if (style.transform) css.transform = style.transform;
+  if (style.transition) css.transition = style.transition;
+  if (style.filter) css.filter = style.filter;
+  if (style.backdropFilter) {
+    css.backdropFilter = style.backdropFilter;
+    (css as Record<string, unknown>).WebkitBackdropFilter = style.backdropFilter;
+  }
+  if (style.mixBlendMode) css.mixBlendMode = style.mixBlendMode as React.CSSProperties['mixBlendMode'];
+  if (style.textShadow) css.textShadow = style.textShadow;
+  if (style.layout?.position) css.position = style.layout.position as React.CSSProperties['position'];
+  if (style.layout?.zIndex !== undefined) css.zIndex = style.layout.zIndex;
+  if (style.effects?.glassmorphism?.enabled) {
+    const glass = style.effects.glassmorphism;
+    css.backgroundColor = `color-mix(in srgb, ${glass.bgColor} ${Math.round(glass.bgOpacity * 100)}%, transparent)`;
+    css.backdropFilter = `blur(${glass.blur}px) saturate(${glass.saturation}%)`;
+    (css as Record<string, unknown>).WebkitBackdropFilter = `blur(${glass.blur}px) saturate(${glass.saturation}%)`;
+    css.borderColor = `rgba(255,255,255,${glass.borderOpacity})`;
+    css.borderStyle = css.borderStyle || 'solid';
+    css.borderWidth = css.borderWidth || '1px';
+  }
 
   return css;
 }
@@ -95,58 +139,120 @@ async function RenderBlock({ block, tenantId, tenantSlug }: { block: Block; tena
   }
 
   const style = blockStyleToCSS(block.style);
+  let content: React.ReactNode;
 
   // Route to specialized renderers
   switch (block.type) {
     // Editorial data-bound blocks
     case 'article-grid':
-      return <RenderArticleGrid block={block} data={data} style={style} tenantSlug={tenantSlug} />;
+      content = <RenderArticleGrid block={block} data={data} style={style} tenantSlug={tenantSlug} />;
+      break;
     case 'article-hero':
-      return <RenderArticleHero block={block} data={data} style={style} tenantSlug={tenantSlug} />;
+      content = <RenderArticleHero block={block} data={data} style={style} tenantSlug={tenantSlug} />;
+      break;
     case 'breaking-ticker':
-      return <RenderBreakingTicker block={block} data={data} style={style} />;
+      content = <RenderBreakingTicker block={block} data={data} style={style} />;
+      break;
     case 'category-nav':
-      return <RenderCategoryNav block={block} data={data} style={style} tenantSlug={tenantSlug} />;
+      content = <RenderCategoryNav block={block} data={data} style={style} tenantSlug={tenantSlug} />;
+      break;
     case 'event-list':
-      return <RenderEventList block={block} data={data} style={style} />;
+      content = <RenderEventList block={block} data={data} style={style} />;
+      break;
     case 'banner-zone':
-      return <RenderBannerZone block={block} data={data} style={style} />;
+      content = <RenderBannerZone block={block} data={data} style={style} />;
+      break;
     case 'newsletter-signup':
-      return <RenderNewsletterSignup block={block} data={data} style={style} />;
+      content = <RenderNewsletterSignup block={block} data={data} style={style} tenantSlug={tenantSlug} />;
+      break;
     // Content blocks
     case 'text':
-      return <RenderText block={block} style={style} />;
+      content = <RenderText block={block} style={style} />;
+      break;
     case 'hero':
-      return <RenderHero block={block} style={style} />;
+      content = <RenderHero block={block} style={style} />;
+      break;
     case 'quote':
-      return <RenderQuote block={block} style={style} />;
+      content = <RenderQuote block={block} style={style} />;
+      break;
     case 'newsletter':
-      return <RenderNewsletter block={block} style={style} />;
+      content = <RenderNewsletter block={block} data={data} style={style} tenantSlug={tenantSlug} />;
+      break;
     case 'accordion':
-      return <RenderAccordion block={block} style={style} />;
+      content = <RenderAccordion block={block} style={style} />;
+      break;
     case 'video':
-      return <RenderVideo block={block} style={style} />;
+      content = <RenderVideo block={block} style={style} />;
+      break;
     case 'divider':
-      return <RenderDivider block={block} style={style} />;
+      content = <RenderDivider block={block} style={style} />;
+      break;
     case 'counter':
-      return <RenderCounter block={block} style={style} />;
+      content = <RenderCounter block={block} style={style} />;
+      break;
     case 'navigation':
-      return <RenderNavigation block={block} style={style} />;
+      content = <RenderNavigation block={block} data={data} style={style} />;
+      break;
     case 'footer':
-      return <RenderFooter block={block} style={style} />;
+      content = <RenderFooter block={block} data={data} style={style} />;
+      break;
     case 'search-bar':
-      return <RenderSearchBar block={block} style={style} tenantSlug={tenantSlug} />;
+      content = <RenderSearchBar block={block} style={style} tenantSlug={tenantSlug} />;
+      break;
+    case 'cms-form':
+      content = <RenderCmsForm block={block} data={data} style={style} tenantSlug={tenantSlug} />;
+      break;
     case 'author-bio':
-      return <RenderAuthorBio block={block} style={style} />;
+      content = <RenderAuthorBio block={block} style={style} />;
+      break;
     case 'image-gallery':
-      return <RenderImageGallery block={block} style={style} />;
+      content = <RenderImageGallery block={block} style={style} />;
+      break;
     case 'timeline':
-      return <RenderTimeline block={block} style={style} />;
+      content = <RenderTimeline block={block} style={style} />;
+      break;
     case 'carousel':
-      return <RenderCarousel block={block} style={style} />;
+      content = <RenderCarousel block={block} style={style} />;
+      break;
+    case 'tabs':
+      content = <RenderTabs block={block} style={style} />;
+      break;
+    case 'table':
+      content = <RenderTable block={block} style={style} />;
+      break;
+    case 'code':
+      content = <RenderCode block={block} style={style} />;
+      break;
+    case 'custom-html':
+      content = <RenderCustomHtml block={block} style={style} />;
+      break;
+    case 'audio':
+      content = <RenderAudio block={block} style={style} />;
+      break;
+    case 'comparison':
+      content = <RenderComparison block={block} style={style} />;
+      break;
+    case 'map':
+      content = <RenderMap block={block} style={style} />;
+      break;
+    case 'related-content':
+      content = <RenderRelatedContent block={block} data={data} style={style} tenantSlug={tenantSlug} />;
+      break;
+    case 'sidebar':
+      content = <RenderSidebar block={block} style={style} tenantSlug={tenantSlug} />;
+      break;
+    case 'social':
+      content = <RenderSocial block={block} style={style} />;
+      break;
+    case 'slideshow':
+      content = <RenderSlideshow block={block} style={style} />;
+      break;
+    case 'banner-ad':
+      content = <RenderBannerAd block={block} style={style} />;
+      break;
     // Layout/container blocks — render children
     default:
-      return (
+      content = (
         <RenderGeneric block={block} style={style}>
           {block.children.length > 0 && (
             <>
@@ -157,7 +263,14 @@ async function RenderBlock({ block, tenantId, tenantSlug }: { block: Block; tena
           )}
         </RenderGeneric>
       );
+      break;
   }
+
+  return (
+    <RenderBlockFrame block={block} style={style}>
+      {content}
+    </RenderBlockFrame>
+  );
 }
 
 function collectResponsiveCSS(blocks: Block[]): string {

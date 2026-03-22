@@ -11,14 +11,77 @@ import {
 } from 'lucide-react';
 import type { Block } from '@/lib/types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function PreviewGallery({ p }: { p: any }) {
-  const items = Array.isArray(p.items) ? p.items : Array.isArray(p.images) ? p.images : [];
-  const cols = p.columns || 3;
-  const gap = p.gap || '12px';
-  const radius = p.borderRadius || '8px';
-  const ratio = p.aspectRatio || '4/3';
-  const layout = p.layout || 'grid';
+interface PreviewGalleryItem {
+  id?: string | number;
+  src?: string;
+  alt?: string;
+  type?: string;
+  badge?: string;
+  caption?: string;
+  overlay?: {
+    enabled?: boolean;
+    color?: string;
+    title?: string;
+    description?: string;
+  };
+}
+
+interface PreviewSlideButton {
+  id?: string | number;
+  text?: string;
+  style?: string;
+}
+
+interface PreviewSlide {
+  image?: string;
+  title?: string;
+  description?: string;
+  overlay?: {
+    enabled?: boolean;
+    color?: string;
+    position?: string;
+  };
+  textStyle?: {
+    color?: string;
+    titleSize?: string;
+    titleWeight?: string | number;
+    descSize?: string;
+  };
+  buttons?: PreviewSlideButton[];
+}
+
+interface PreviewCarouselItem {
+  id?: string | number;
+  image?: string;
+  badge?: string;
+  category?: string;
+  title?: string;
+  excerpt?: string;
+  description?: string;
+  author?: string;
+  date?: string;
+  buttons?: PreviewSlideButton[];
+}
+
+function PreviewGallery({ p }: { p: Record<string, unknown> }) {
+  const config = p as {
+    items?: PreviewGalleryItem[];
+    images?: PreviewGalleryItem[];
+    columns?: number;
+    gap?: string;
+    borderRadius?: string;
+    aspectRatio?: string;
+    layout?: string;
+    objectFit?: string;
+    showCaptions?: boolean;
+    captionPosition?: string;
+  };
+  const items = Array.isArray(config.items) ? config.items : Array.isArray(config.images) ? config.images : [];
+  const cols = config.columns || 3;
+  const gap = config.gap || '12px';
+  const radius = config.borderRadius || '8px';
+  const ratio = config.aspectRatio || '4/3';
+  const layout = config.layout || 'grid';
 
   if (items.length === 0) {
     return (
@@ -40,7 +103,7 @@ function PreviewGallery({ p }: { p: any }) {
 
   return (
     <div style={gridStyle}>
-      {items.map((item: any, i: number) => {
+      {items.map((item, i: number) => {
         const isMosaic = layout === 'mosaic' && i === 0;
         return (
           <div key={item.id || i} style={{
@@ -50,7 +113,7 @@ function PreviewGallery({ p }: { p: any }) {
             ...(layout === 'filmstrip' ? { minWidth: 280, height: 200, flexShrink: 0, scrollSnapAlign: 'start' } : {}),
           }}>
             {item.src ? (
-              <img src={item.src} alt={item.alt || ''} style={{ width: '100%', height: '100%', objectFit: p.objectFit || 'cover' }} />
+              <img src={item.src} alt={item.alt || ''} style={{ width: '100%', height: '100%', objectFit: (config.objectFit || 'cover') as React.CSSProperties['objectFit'] }} />
             ) : (
               <div style={{ width: '100%', height: '100%', background: `linear-gradient(135deg, hsl(${i * 60}, 60%, 80%), hsl(${i * 60 + 30}, 70%, 65%))`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {item.type === 'video' ? (
@@ -73,7 +136,7 @@ function PreviewGallery({ p }: { p: any }) {
                 {item.overlay.description && <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{item.overlay.description}</div>}
               </div>
             )}
-            {p.showCaptions && item.caption && p.captionPosition === 'below' && (
+            {config.showCaptions && item.caption && config.captionPosition === 'below' && (
               <div style={{ padding: '8px 0', fontSize: 12, color: '#666' }}>{item.caption}</div>
             )}
           </div>
@@ -83,17 +146,31 @@ function PreviewGallery({ p }: { p: any }) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function PreviewVideo({ p }: { p: any }) {
-  const ratio = p.aspectRatio || '16/9';
-  const overlay = p.overlay || {};
-  const btnSize = p.overlay?.playButtonSize === 'small' ? 48 : p.overlay?.playButtonSize === 'medium' ? 64 : 80;
+function PreviewVideo({ p }: { p: Record<string, unknown> }) {
+  const config = p as {
+    aspectRatio?: string;
+    poster?: string;
+    objectFit?: string;
+    source?: string;
+    caption?: string;
+    overlay?: {
+      enabled?: boolean;
+      title?: string;
+      description?: string;
+      playButtonSize?: string;
+      playButtonStyle?: string;
+    };
+    chapters?: unknown[];
+  };
+  const ratio = config.aspectRatio || '16/9';
+  const overlay = config.overlay || {};
+  const btnSize = overlay.playButtonSize === 'small' ? 48 : overlay.playButtonSize === 'medium' ? 64 : 80;
 
   return (
     <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 8 }}>
       <div style={{ aspectRatio: ratio, position: 'relative' }}>
-        {p.poster ? (
-          <img src={p.poster} alt="" style={{ width: '100%', height: '100%', objectFit: p.objectFit || 'cover' }} />
+        {config.poster ? (
+          <img src={config.poster} alt="" style={{ width: '100%', height: '100%', objectFit: (config.objectFit || 'cover') as React.CSSProperties['objectFit'] }} />
         ) : (
           <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #1a1a2e, #16213e, #0f3460)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
             {/* Play button */}
@@ -114,22 +191,28 @@ function PreviewVideo({ p }: { p: any }) {
         </div>
       </div>
       {/* Chapters */}
-      {Array.isArray(p.chapters) && p.chapters.length > 0 && (
+      {Array.isArray(config.chapters) && config.chapters.length > 0 && (
         <div style={{ display: 'flex', gap: 1, height: 4, background: '#e5e7eb', borderRadius: 2, overflow: 'hidden', marginTop: 4 }}>
-          {p.chapters.map((_: any, i: number) => (
+          {config.chapters.map((_, i: number) => (
             <div key={i} style={{ flex: 1, background: i === 0 ? 'var(--c-accent)' : 'var(--c-bg-2)' }} />
           ))}
         </div>
       )}
-      {p.caption && <div style={{ padding: '8px 0', fontSize: 13, color: '#666' }}>{p.caption}</div>}
+      {config.caption && <div style={{ padding: '8px 0', fontSize: 13, color: '#666' }}>{config.caption}</div>}
     </div>
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function PreviewSlideshow({ p }: { p: any }) {
-  const slides = Array.isArray(p.slides) ? p.slides : [];
-  const height = p.height || '500px';
+function PreviewSlideshow({ p }: { p: Record<string, unknown> }) {
+  const config = p as {
+    slides?: PreviewSlide[];
+    height?: string;
+    objectFit?: string;
+    showDots?: boolean;
+    showArrows?: boolean;
+  };
+  const slides = Array.isArray(config.slides) ? config.slides : [];
+  const height = config.height || '500px';
 
   if (slides.length === 0) {
     return (
@@ -155,7 +238,7 @@ function PreviewSlideshow({ p }: { p: any }) {
   return (
     <div style={{ position: 'relative', width: '100%', height, overflow: 'hidden', borderRadius: 8 }}>
       {slide.image ? (
-        <img src={slide.image} alt="" style={{ width: '100%', height: '100%', objectFit: p.objectFit || 'cover' }} />
+        <img src={slide.image} alt="" style={{ width: '100%', height: '100%', objectFit: (config.objectFit || 'cover') as React.CSSProperties['objectFit'] }} />
       ) : (
         <div style={{ width: '100%', height: '100%', background: `linear-gradient(135deg, hsl(${220}, 70%, 50%), hsl(${280}, 60%, 40%))` }} />
       )}
@@ -169,7 +252,7 @@ function PreviewSlideshow({ p }: { p: any }) {
         {slide.description && <div style={{ fontSize: textStyle.descSize || '16px', opacity: 0.9, marginBottom: 16 }}>{slide.description}</div>}
         {Array.isArray(slide.buttons) && slide.buttons.length > 0 && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {slide.buttons.map((btn: any) => (
+            {slide.buttons.map((btn) => (
               <span key={btn.id} style={{
                 padding: '10px 24px', borderRadius: 6, fontSize: 14, fontWeight: 600,
                 ...(btn.style === 'secondary'
@@ -181,15 +264,15 @@ function PreviewSlideshow({ p }: { p: any }) {
         )}
       </div>
       {/* Dots */}
-      {p.showDots && slides.length > 1 && (
+      {config.showDots && slides.length > 1 && (
         <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6 }}>
-          {slides.map((_: any, i: number) => (
+          {slides.map((_, i: number) => (
             <div key={i} style={{ width: i === 0 ? 24 : 8, height: 8, borderRadius: 4, background: i === 0 ? '#fff' : 'rgba(255,255,255,0.5)', transition: 'width 0.3s' }} />
           ))}
         </div>
       )}
       {/* Arrows */}
-      {p.showArrows && slides.length > 1 && (
+      {config.showArrows && slides.length > 1 && (
         <>
           <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18 }}>‹</div>
           <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18 }}>›</div>
@@ -201,12 +284,22 @@ function PreviewSlideshow({ p }: { p: any }) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function PreviewCarousel({ p }: { p: any }) {
-  const items = Array.isArray(p.items) ? p.items : [];
-  const perView = p.slidesPerView || 3;
-  const space = p.spaceBetween || 20;
-  const cardStyle = p.cardStyle || 'elevated';
+function PreviewCarousel({ p }: { p: Record<string, unknown> }) {
+  const config = p as {
+    items?: PreviewCarouselItem[];
+    slidesPerView?: number;
+    spaceBetween?: number;
+    cardStyle?: string;
+    showArrows?: boolean;
+    showCategory?: boolean;
+    showExcerpt?: boolean;
+    showAuthor?: boolean;
+    showDate?: boolean;
+  };
+  const items = Array.isArray(config.items) ? config.items : [];
+  const perView = config.slidesPerView || 3;
+  const space = config.spaceBetween || 20;
+  const cardStyle = config.cardStyle || 'elevated';
 
   const cardBase: React.CSSProperties = {
     borderRadius: 12, overflow: 'hidden', flexShrink: 0,
@@ -236,7 +329,7 @@ function PreviewCarousel({ p }: { p: any }) {
   return (
     <div style={{ position: 'relative' }}>
       <div style={{ display: 'flex', gap: space, overflow: 'hidden' }}>
-        {items.map((item: any, i: number) => (
+        {items.map((item, i: number) => (
           <div key={item.id || i} style={cardBase}>
             {/* Image */}
             <div style={{ height: 180, position: 'relative', overflow: 'hidden' }}>
@@ -248,24 +341,24 @@ function PreviewCarousel({ p }: { p: any }) {
               {item.badge && (
                 <span style={{ position: 'absolute', top: 8, left: 8, background: '#e74c3c', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>{item.badge}</span>
               )}
-              {item.category && p.showCategory && (
+              {item.category && config.showCategory && (
                 <span style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, padding: '2px 8px', borderRadius: 4 }}>{item.category}</span>
               )}
             </div>
             {/* Content */}
             <div style={{ padding: 16 }}>
               <div style={{ fontWeight: 700, fontSize: 16, lineHeight: 1.3 }}>{item.title || 'Titolo'}</div>
-              {(item.excerpt || item.description) && p.showExcerpt !== false && (
+              {(item.excerpt || item.description) && config.showExcerpt !== false && (
                 <div style={{ fontSize: 13, color: '#666', marginTop: 6, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.excerpt || item.description}</div>
               )}
-              {item.author && p.showAuthor && (
+              {item.author && config.showAuthor && (
                 <div style={{ fontSize: 11, color: '#999', marginTop: 8 }}>
-                  {item.author}{item.date && p.showDate ? ` · ${item.date}` : ''}
+                  {item.author}{item.date && config.showDate ? ` · ${item.date}` : ''}
                 </div>
               )}
               {Array.isArray(item.buttons) && item.buttons.length > 0 && (
                 <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                  {item.buttons.map((btn: any) => (
+                  {item.buttons.map((btn) => (
                     <span key={btn.id} style={{ padding: '6px 16px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: btn.style === 'secondary' ? 'transparent' : 'var(--c-accent)', color: btn.style === 'secondary' ? 'var(--c-accent)' : '#fff', border: btn.style === 'secondary' ? '1px solid var(--c-accent)' : 'none' }}>{btn.text}</span>
                   ))}
                 </div>
@@ -275,7 +368,7 @@ function PreviewCarousel({ p }: { p: any }) {
         ))}
       </div>
       {/* Arrows */}
-      {p.showArrows && items.length > perView && (
+      {config.showArrows && items.length > perView && (
         <>
           <div style={{ position: 'absolute', left: -16, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: '50%', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>‹</div>
           <div style={{ position: 'absolute', right: -16, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, borderRadius: '50%', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>›</div>
@@ -347,6 +440,17 @@ function PreviewBlock({ block }: { block: Block }) {
       ) : block.type === 'table' ? (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            {Array.isArray(p.headers) && p.headers.length > 0 && (
+              <thead>
+                <tr>
+                  {p.headers.map((header: string, i: number) => (
+                    <th key={i} style={{ padding: '8px 12px', border: '1px solid #e5e7eb', textAlign: 'left', background: '#f8fafc' }}>
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            )}
             <tbody>
               {(Array.isArray(p.rows) ? p.rows : []).map((row: string[], ri: number) => (
                 <tr key={ri}>
@@ -357,6 +461,32 @@ function PreviewBlock({ block }: { block: Block }) {
               ))}
             </tbody>
           </table>
+        </div>
+      ) : block.type === 'tabs' ? (
+        <div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+            {(Array.isArray(p.tabs) ? p.tabs : []).map((tab: { id?: string; title?: string }, i: number) => (
+              <span key={tab.id || i} style={{ padding: '8px 12px', borderRadius: 999, background: i === 0 ? 'var(--c-accent)' : '#eef2f7', color: i === 0 ? '#fff' : '#334155', fontSize: 14 }}>
+                {tab.title || `Tab ${i + 1}`}
+              </span>
+            ))}
+          </div>
+          <div
+            style={{ padding: '16px', borderRadius: 12, border: '1px solid #e5e7eb' }}
+            dangerouslySetInnerHTML={{ __html: String((Array.isArray(p.tabs) ? p.tabs[0]?.content : '') || '<p>Contenuto tab.</p>') }}
+          />
+        </div>
+      ) : block.type === 'timeline' ? (
+        <div style={{ position: 'relative', paddingLeft: 28 }}>
+          <div style={{ position: 'absolute', left: 8, top: 0, bottom: 0, width: 2, background: String(p.lineColor || '#e63946') }} />
+          {(Array.isArray(p.events) ? p.events : []).map((event: { id?: string; date?: string; title?: string; description?: string }, i: number) => (
+            <div key={event.id || i} style={{ position: 'relative', marginBottom: 20 }}>
+              <div style={{ position: 'absolute', left: -20, top: 4, width: 12, height: 12, borderRadius: '50%', background: String(p.lineColor || '#e63946') }} />
+              <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', color: String(p.lineColor || '#e63946') }}>{event.date}</div>
+              <div style={{ fontWeight: 700, marginTop: 4 }}>{event.title}</div>
+              <div style={{ marginTop: 4, color: '#64748b' }}>{event.description}</div>
+            </div>
+          ))}
         </div>
       ) : block.type === 'map' ? (
         <div style={{ width: '100%', height: 300, background: '#e8f4f8', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: '#666' }}>

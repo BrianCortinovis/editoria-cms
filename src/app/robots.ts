@@ -1,7 +1,8 @@
 import type { MetadataRoute } from 'next';
+import { getAppBaseUrl } from '@/lib/site/public-url';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://valbremmbana.com';
+  const baseUrl = getAppBaseUrl();
 
   return {
     rules: [

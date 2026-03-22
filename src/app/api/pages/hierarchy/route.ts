@@ -4,10 +4,9 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 /**
  * GET /api/pages/hierarchy?tenant_id=xxx&parent_id=xxx&sort=order|updated
  *
- * Returns optimized page hierarchy with caching headers
- * - Uses materialized view for O(1) performance
- * - Includes breadcrumb, path, and SEO slug for frontend
- * - Supports parent filtering for breadcrumb navigation
+ * Returns page list with a hierarchy-compatible response shape.
+ * - Includes synthetic breadcrumb, path, and SEO slug fields for frontend compatibility
+ * - Parent filtering returns an empty list until hierarchy columns are enabled in the live schema
  */
 export async function GET(request: NextRequest) {
   try {
@@ -39,15 +38,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Query materialized view for performance
-    let query = supabase
-      .from('page_hierarchy_view')
-      .select('id, title, slug, parent_id, path, depth, seo_slug, breadcrumb, status, sort_order')
-      .eq('tenant_id', tenantId);
-
     if (parentId) {
-      query = query.eq('parent_id', parentId);
+      return NextResponse.json({ pages: [] });
     }
+
+    const query = supabase
+      .from('site_pages')
+      .select('id, title, slug, is_published, sort_order, updated_at')
+      .eq('tenant_id', tenantId);
 
     const { data, error } = await query.order(
       sort === 'updated' ? 'updated_at' : 'sort_order',
@@ -62,7 +60,16 @@ export async function GET(request: NextRequest) {
       'Content-Type': 'application/json',
     });
 
-    return NextResponse.json({ pages: data }, { headers });
+    const pages = (data || []).map((page) => ({
+      ...page,
+      parent_id: null,
+      path: `/${page.slug}`,
+      depth: 0,
+      seo_slug: page.slug,
+      breadcrumb: [{ title: page.title, slug: page.slug }],
+    }));
+
+    return NextResponse.json({ pages }, { headers });
   } catch (error) {
     console.error('Pages hierarchy error:', error);
     return NextResponse.json({ error: 'Failed to fetch pages' }, { status: 500 });

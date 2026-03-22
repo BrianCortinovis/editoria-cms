@@ -133,6 +133,7 @@ export interface Database {
           slug: string;
           description: string | null;
           color: string | null;
+          parent_id: string | null;
           sort_order: number;
           created_at: string;
         };
@@ -143,6 +144,7 @@ export interface Database {
           slug: string;
           description?: string | null;
           color?: string | null;
+          parent_id?: string | null;
           sort_order?: number;
           created_at?: string;
         };
@@ -151,6 +153,7 @@ export interface Database {
           slug?: string;
           description?: string | null;
           color?: string | null;
+          parent_id?: string | null;
           sort_order?: number;
         };
       };
@@ -185,6 +188,11 @@ export interface Database {
           body: string;
           cover_image_url: string | null;
           category_id: string | null;
+          legacy_wp_id: number | null;
+          legacy_permalink: string | null;
+          import_source: string | null;
+          imported_at: string | null;
+          import_metadata: Record<string, unknown> | null;
           author_id: string;
           status: ArticleStatus;
           is_featured: boolean;
@@ -211,6 +219,11 @@ export interface Database {
           body?: string;
           cover_image_url?: string | null;
           category_id?: string | null;
+          legacy_wp_id?: number | null;
+          legacy_permalink?: string | null;
+          import_source?: string | null;
+          imported_at?: string | null;
+          import_metadata?: Record<string, unknown> | null;
           author_id: string;
           status?: ArticleStatus;
           is_featured?: boolean;
@@ -231,6 +244,11 @@ export interface Database {
           body?: string;
           cover_image_url?: string | null;
           category_id?: string | null;
+          legacy_wp_id?: number | null;
+          legacy_permalink?: string | null;
+          import_source?: string | null;
+          imported_at?: string | null;
+          import_metadata?: Record<string, unknown> | null;
           status?: ArticleStatus;
           is_featured?: boolean;
           is_breaking?: boolean;
@@ -257,6 +275,23 @@ export interface Database {
           tag_id?: string;
         };
       };
+      article_categories: {
+        Row: {
+          article_id: string;
+          category_id: string;
+          created_at: string;
+        };
+        Insert: {
+          article_id: string;
+          category_id: string;
+          created_at?: string;
+        };
+        Update: {
+          article_id?: string;
+          category_id?: string;
+          created_at?: string;
+        };
+      };
       article_revisions: {
         Row: {
           id: string;
@@ -277,6 +312,183 @@ export interface Database {
         Update: {
           title?: string;
           body?: string;
+        };
+      };
+      article_comments: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          article_id: string;
+          parent_id: string | null;
+          author_name: string;
+          author_email: string;
+          author_url: string | null;
+          body: string;
+          status: string;
+          source: string;
+          ip_hash: string | null;
+          user_agent: string | null;
+          is_imported: boolean;
+          published_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          article_id: string;
+          parent_id?: string | null;
+          author_name: string;
+          author_email: string;
+          author_url?: string | null;
+          body: string;
+          status?: string;
+          source?: string;
+          ip_hash?: string | null;
+          user_agent?: string | null;
+          is_imported?: boolean;
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          parent_id?: string | null;
+          author_name?: string;
+          author_email?: string;
+          author_url?: string | null;
+          body?: string;
+          status?: string;
+          source?: string;
+          ip_hash?: string | null;
+          user_agent?: string | null;
+          is_imported?: boolean;
+          published_at?: string | null;
+          updated_at?: string;
+        };
+      };
+      article_authors: {
+        Row: {
+          article_id: string;
+          author_id: string;
+          role: string;
+          sort_order: number;
+          is_primary: boolean;
+          created_at: string;
+        };
+        Insert: {
+          article_id: string;
+          author_id: string;
+          role?: string;
+          sort_order?: number;
+          is_primary?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          role?: string;
+          sort_order?: number;
+          is_primary?: boolean;
+          created_at?: string;
+        };
+      };
+      site_forms: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: string;
+          slug: string;
+          description: string | null;
+          fields: Record<string, unknown>[];
+          recipient_emails: string[];
+          success_message: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          name: string;
+          slug: string;
+          description?: string | null;
+          fields?: Record<string, unknown>[];
+          recipient_emails?: string[];
+          success_message?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          slug?: string;
+          description?: string | null;
+          fields?: Record<string, unknown>[];
+          recipient_emails?: string[];
+          success_message?: string | null;
+          is_active?: boolean;
+          updated_at?: string;
+        };
+      };
+      form_submissions: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          form_id: string;
+          submitter_name: string | null;
+          submitter_email: string | null;
+          payload: Record<string, unknown>;
+          source_page: string | null;
+          ip_hash: string | null;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          form_id: string;
+          submitter_name?: string | null;
+          submitter_email?: string | null;
+          payload?: Record<string, unknown>;
+          source_page?: string | null;
+          ip_hash?: string | null;
+          status?: string;
+          created_at?: string;
+        };
+        Update: {
+          submitter_name?: string | null;
+          submitter_email?: string | null;
+          payload?: Record<string, unknown>;
+          source_page?: string | null;
+          ip_hash?: string | null;
+          status?: string;
+        };
+      };
+      redirects: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          source_path: string;
+          target_path: string;
+          status_code: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          source_path: string;
+          target_path: string;
+          status_code?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          source_path?: string;
+          target_path?: string;
+          status_code?: number;
+          is_active?: boolean;
+          updated_at?: string;
         };
       };
       media: {

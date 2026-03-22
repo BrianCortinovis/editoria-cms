@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Send } from 'lucide-react';
 
-const BLOCK_LIST = 'section, hero, text, columns, container, image-gallery, video, slideshow, carousel, quote, accordion, tabs, social, newsletter, banner-ad, related-content, author-bio, timeline, counter, divider';
+const BLOCK_LIST = 'section, hero, text, columns, container, image-gallery, video, slideshow, carousel, quote, accordion, tabs, social, newsletter, newsletter-signup, cms-form, banner-ad, banner-zone, related-content, author-bio, timeline, counter, divider, article-grid, article-hero, category-nav, event-list, search-bar, breaking-ticker';
 
 const EXAMPLE_PROMPTS = [
   'Fammi una home giornalistica con hero e sezioni di notizie',

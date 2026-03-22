@@ -12,6 +12,8 @@ import {
   Megaphone,
   Calendar,
   Zap,
+  MessageSquare,
+  FormInput,
   Settings,
   LogOut,
   ChevronDown,
@@ -28,15 +30,22 @@ import {
   Package,
   Globe,
   Sparkles,
+  Newspaper,
+  BadgeDollarSign,
+  Menu,
+  PanelBottom,
+  Mail,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { useThemeStore } from "@/lib/theme";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
-const mainNav = [
+export const mainNav = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/dashboard/pagine", label: "Pagine", icon: FileText },
+  { href: "/dashboard/menu", label: "Menu", icon: Menu },
+  { href: "/dashboard/footer", label: "Footer", icon: PanelBottom },
   { href: "/dashboard/editor", label: "Editor", icon: Globe },
   { href: "/dashboard/layout", label: "Layout", icon: LayoutTemplate },
   { href: "/dashboard/articoli", label: "Articoli", icon: FileText },
@@ -45,18 +54,27 @@ const mainNav = [
   { href: "/dashboard/tag", label: "Tag", icon: Tag },
 ];
 
-const editorialNav = [
+export const editorialNav = [
+  { href: "/dashboard/redazione", label: "Redazione", icon: Newspaper },
+  { href: "/dashboard/newsletter", label: "Newsletter", icon: Mail },
   { href: "/dashboard/breaking-news", label: "Breaking", icon: Zap },
   { href: "/dashboard/eventi", label: "Eventi", icon: Calendar },
-  { href: "/dashboard/banner", label: "Banner", icon: Megaphone },
-  { href: "/dashboard/inserzionisti", label: "Clienti", icon: Building2 },
+  { href: "/dashboard/commenti", label: "Commenti", icon: MessageSquare },
+  { href: "/dashboard/form", label: "Form", icon: FormInput },
 ];
 
-const systemNav = [
+export const advNav = [
+  { href: "/dashboard/adv", label: "ADV", icon: BadgeDollarSign },
+  { href: "/dashboard/banner", label: "Banner", icon: Megaphone },
+  { href: "/dashboard/inserzionisti", label: "Clienti", icon: Building2 },
+  { href: "/dashboard/contabilita", label: "Conti", icon: Receipt },
+];
+
+export const systemNav = [
   { href: "/dashboard/testata", label: "Testata", icon: Building2 },
   { href: "/dashboard/tecnico", label: "Tecnico", icon: Cpu },
-  { href: "/dashboard/contabilita", label: "Conti", icon: Receipt },
   { href: "/dashboard/seo", label: "SEO", icon: BarChart3 },
+  { href: "/dashboard/redirect", label: "Redirect", icon: Globe },
   { href: "/dashboard/ia", label: "IA", icon: Sparkles },
   { href: "/dashboard/gdpr", label: "GDPR", icon: Shield },
   { href: "/dashboard/utenti", label: "Team", icon: Users },
@@ -79,6 +97,16 @@ function NavItem({ href, label, icon: Icon, isActive, onClick }: {
       <Icon className="w-[20px] h-[20px] transition-all" strokeWidth={isActive ? 2 : 1.5} />
       <span className="text-[9px] font-medium leading-none tracking-wide">{label}</span>
     </Link>
+  );
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <div className="px-1 pt-2 pb-1">
+      <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-center" style={{ color: "var(--c-text-3)" }}>
+        {label}
+      </div>
+    </div>
   );
 }
 
@@ -144,10 +172,16 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-1.5 py-1 space-y-0.5">
+          <SectionLabel label="CMS" />
           {mainNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />)}
           <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
+          <SectionLabel label="Redazione" />
           {editorialNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />)}
           <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
+          <SectionLabel label="ADV" />
+          {advNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />)}
+          <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
+          <SectionLabel label="Sistema" />
           {systemNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />)}
         </nav>
 

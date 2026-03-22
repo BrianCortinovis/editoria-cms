@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import type { SiteMenuItem } from '@/lib/site/navigation';
 
 export interface ResolvedTenant {
   id: string;
@@ -10,7 +11,7 @@ export interface ResolvedTenant {
 
 export interface SiteConfig {
   theme: Record<string, unknown>;
-  navigation: Array<{ label: string; url: string; children?: Array<{ label: string; url: string }> }>;
+  navigation: SiteMenuItem[] | Record<string, unknown>;
   footer: Record<string, unknown>;
   favicon_url: string | null;
   og_defaults: Record<string, unknown>;
@@ -49,14 +50,28 @@ export async function resolveTenant(tenantSlug: string): Promise<{
  */
 export async function getPublishedPage(tenantId: string, slug: string) {
   const supabase = await createServiceRoleClient();
+  const normalizedSlug = slug.replace(/^\/+|\/+$/g, '');
+
+  if (!normalizedSlug) {
+    const { data: homepage } = await supabase
+      .from('site_pages')
+      .select('id, title, slug, page_type, meta, blocks, custom_css, updated_at')
+      .eq('tenant_id', tenantId)
+      .eq('is_published', true)
+      .eq('page_type', 'homepage')
+      .maybeSingle();
+
+    if (homepage) return homepage;
+    return null;
+  }
 
   const { data } = await supabase
     .from('site_pages')
     .select('id, title, slug, page_type, meta, blocks, custom_css, updated_at')
     .eq('tenant_id', tenantId)
-    .eq('slug', slug)
     .eq('is_published', true)
-    .single();
+    .eq('slug', normalizedSlug)
+    .maybeSingle();
 
   return data;
 }

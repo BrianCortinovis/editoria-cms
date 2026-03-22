@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { enrichArticlesWithCategories } from "@/lib/articles/taxonomy";
 
 export async function GET(
   request: Request,
@@ -37,10 +38,16 @@ export async function GET(
     return NextResponse.json({ error: "Article not found" }, { status: 404 });
   }
 
+  const [enrichedArticle] = await enrichArticlesWithCategories(
+    supabase as never,
+    tenant.id,
+    [article as unknown as { id: string; category_id?: string | null; categories?: { name: string; slug: string; color: string | null } | null }]
+  );
+
   // Increment view count (fire and forget)
   supabase.rpc("increment_view_count", { article_id: article.id }).then(() => {});
 
-  return NextResponse.json({ article }, {
+  return NextResponse.json({ article: enrichedArticle }, {
     headers: {
       "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
       "Access-Control-Allow-Origin": "*",

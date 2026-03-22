@@ -4,7 +4,6 @@
  */
 
 export function initializeAnimations() {
-  // Map of animationEffect names to CSS class keyframes
   const effectKeyframes: Record<string, { start: string; end: string }> = {
     'fade-in': {
       start: 'opacity: 0;',
@@ -50,7 +49,44 @@ export function initializeAnimations() {
 
   // Inject bounce keyframes if needed
   const style = document.createElement('style');
+  style.setAttribute('data-runtime-animations', 'true');
   style.textContent = `
+    @keyframes fade-in {
+      from { ${effectKeyframes['fade-in'].start} }
+      to { ${effectKeyframes['fade-in'].end} }
+    }
+    @keyframes slide-up {
+      from { ${effectKeyframes['slide-up'].start} }
+      to { ${effectKeyframes['slide-up'].end} }
+    }
+    @keyframes slide-down {
+      from { ${effectKeyframes['slide-down'].start} }
+      to { ${effectKeyframes['slide-down'].end} }
+    }
+    @keyframes slide-left {
+      from { ${effectKeyframes['slide-left'].start} }
+      to { ${effectKeyframes['slide-left'].end} }
+    }
+    @keyframes slide-right {
+      from { ${effectKeyframes['slide-right'].start} }
+      to { ${effectKeyframes['slide-right'].end} }
+    }
+    @keyframes zoom-in {
+      from { ${effectKeyframes['zoom-in'].start} }
+      to { ${effectKeyframes['zoom-in'].end} }
+    }
+    @keyframes zoom-out {
+      from { ${effectKeyframes['zoom-out'].start} }
+      to { ${effectKeyframes['zoom-out'].end} }
+    }
+    @keyframes rotate {
+      from { ${effectKeyframes.rotate.start} }
+      to { ${effectKeyframes.rotate.end} }
+    }
+    @keyframes flip {
+      from { ${effectKeyframes.flip.start} }
+      to { ${effectKeyframes.flip.end} }
+    }
     @keyframes bounce {
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-10px); }
@@ -101,24 +137,31 @@ export function initializeAnimations() {
 
   // Handle hover animations
   const hoverElements = document.querySelectorAll('[data-animate="hover"]');
+  const hoverCleanups: Array<() => void> = [];
   hoverElements.forEach((el) => {
     const effect = el.getAttribute('data-effect') || 'zoom-in';
     const duration = parseInt(el.getAttribute('data-duration') || '300');
     const easing = el.getAttribute('data-easing') || 'ease-out';
 
-    (el as HTMLElement).addEventListener('mouseenter', () => {
+    const onEnter = () => {
       (el as HTMLElement).style.animation = `${effect} ${duration}ms ${easing} forwards`;
-    });
+    };
 
-    (el as HTMLElement).addEventListener('mouseleave', () => {
+    const onLeave = () => {
       (el as HTMLElement).style.animation = 'none';
+    };
+
+    (el as HTMLElement).addEventListener('mouseenter', onEnter);
+    (el as HTMLElement).addEventListener('mouseleave', onLeave);
+    hoverCleanups.push(() => {
+      (el as HTMLElement).removeEventListener('mouseenter', onEnter);
+      (el as HTMLElement).removeEventListener('mouseleave', onLeave);
     });
   });
-}
 
-// Auto-initialize on page load
-if (typeof window !== 'undefined' && document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeAnimations);
-} else if (typeof window !== 'undefined') {
-  initializeAnimations();
+  return () => {
+    observer.disconnect();
+    hoverCleanups.forEach((cleanup) => cleanup());
+    style.remove();
+  };
 }

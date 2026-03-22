@@ -1,12 +1,34 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { resolveTenant } from '@/lib/site/tenant-resolver';
+import { buildTenantRedirectUrl, resolveRedirect } from '@/lib/site/redirects';
 import { SiteLayout } from '@/components/render/SiteLayout';
+import { ArticleComments } from '@/components/site/ArticleComments';
+import { enrichArticlesWithCategories } from '@/lib/articles/taxonomy';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { buildTenantPublicUrl } from '@/lib/site/public-url';
 
 export const revalidate = 300;
 
 interface Props {
   params: Promise<{ tenant: string; articleSlug: string }>;
+}
+
+interface SiteArticleRecord {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  slug: string;
+  summary: string | null;
+  body: string;
+  cover_image_url: string | null;
+  published_at: string | null;
+  reading_time_minutes: number;
+  meta_title: string | null;
+  meta_description: string | null;
+  og_image_url: string | null;
+  category_id?: string | null;
+  profiles?: { full_name: string; avatar_url: string | null; bio: string | null } | null;
+  categories?: { name: string; slug: string; color: string | null } | null;
 }
 
 export default async function ArticlePage({ params }: Props) {
@@ -20,38 +42,73 @@ export default async function ArticlePage({ params }: Props) {
 
   const { data: article } = await supabase
     .from('articles')
-    .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories(name, slug, color)')
+    .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, category_id, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories(name, slug, color)')
     .eq('tenant_id', tenant.id)
     .eq('slug', articleSlug)
     .eq('status', 'published')
     .single();
 
-  if (!article) notFound();
+  if (!article) {
+    const matchedRedirect = await resolveRedirect(tenant.id, `/articolo/${articleSlug}`);
+    if (matchedRedirect) {
+      redirect(buildTenantRedirectUrl(tenant.slug, matchedRedirect.targetPath));
+    }
+    notFound();
+  }
+
+  const [enrichedArticle] = await enrichArticlesWithCategories(
+    supabase as never,
+    tenant.id,
+    [article as unknown as SiteArticleRecord]
+  );
 
   // Increment view count
   await supabase.rpc('increment_view_count', { article_id: article.id });
 
-  const author = article.profiles as unknown as { full_name: string; avatar_url: string | null; bio: string | null } | null;
-  const category = article.categories as unknown as { name: string; slug: string; color: string | null } | null;
+  const author = enrichedArticle.profiles as unknown as { full_name: string; avatar_url: string | null; bio: string | null } | null;
+  const categories = (enrichedArticle.all_categories as Array<{ name: string; slug: string; color: string | null }> | undefined) || [];
+  const canonicalUrl = buildTenantPublicUrl(tenant, `/articolo/${articleSlug}`);
+  const articleSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'NewsArticle',
+    headline: enrichedArticle.meta_title || enrichedArticle.title,
+    description: enrichedArticle.meta_description || enrichedArticle.summary || '',
+    image: [enrichedArticle.og_image_url || enrichedArticle.cover_image_url].filter(Boolean),
+    datePublished: enrichedArticle.published_at,
+    dateModified: enrichedArticle.published_at,
+    mainEntityOfPage: canonicalUrl,
+    author: author?.full_name ? [{ '@type': 'Person', name: author.full_name }] : undefined,
+    publisher: {
+      '@type': 'Organization',
+      name: tenant.name,
+      logo: tenant.logo_url ? { '@type': 'ImageObject', url: tenant.logo_url } : undefined,
+    },
+  };
 
   return (
     <SiteLayout tenant={tenant} config={config}>
       <article style={{ maxWidth: '800px', margin: '0 auto', padding: 'var(--e-section-gap, 48px) 0' }}>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
         {/* Category */}
-        {category && (
-          <a
-            href={`/site/${tenantSlug}/categoria/${category.slug}`}
-            style={{
-              color: category.color || 'var(--e-color-primary)',
-              fontSize: '12px',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              textDecoration: 'none',
-            }}
-          >
-            {category.name}
-          </a>
+        {categories.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+            {categories.map((category) => (
+              <a
+                key={category.slug}
+                href={`/site/${tenantSlug}/categoria/${category.slug}`}
+                style={{
+                  color: category.color || 'var(--e-color-primary)',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  textDecoration: 'none',
+                }}
+              >
+                {category.name}
+              </a>
+            ))}
+          </div>
         )}
 
         {/* Title */}
@@ -67,9 +124,9 @@ export default async function ArticlePage({ params }: Props) {
         </h1>
 
         {/* Subtitle */}
-        {article.subtitle && (
+          {enrichedArticle.subtitle && (
           <p style={{ fontSize: '20px', color: 'var(--e-color-textSecondary)', marginTop: '12px', lineHeight: 1.4 }}>
-            {article.subtitle}
+            {enrichedArticle.subtitle}
           </p>
         )}
 
@@ -83,17 +140,17 @@ export default async function ArticlePage({ params }: Props) {
               <span style={{ fontWeight: 600 }}>{author.full_name}</span>
             </div>
           )}
-          {article.published_at && (
-            <time>{new Date(article.published_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}</time>
+          {enrichedArticle.published_at && (
+            <time>{new Date(enrichedArticle.published_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}</time>
           )}
-          <span>{article.reading_time_minutes} min di lettura</span>
+          <span>{enrichedArticle.reading_time_minutes} min di lettura</span>
         </div>
 
         {/* Cover image */}
-        {article.cover_image_url && (
+        {enrichedArticle.cover_image_url && (
           <img
-            src={article.cover_image_url}
-            alt={article.title}
+            src={enrichedArticle.cover_image_url}
+            alt={enrichedArticle.title}
             style={{ width: '100%', borderRadius: 'var(--e-border-radius, 8px)', marginTop: '32px' }}
           />
         )}
@@ -102,7 +159,7 @@ export default async function ArticlePage({ params }: Props) {
         <div
           className="prose prose-lg max-w-none"
           style={{ marginTop: '32px', lineHeight: 1.8, fontSize: '18px' }}
-          dangerouslySetInnerHTML={{ __html: article.body }}
+          dangerouslySetInnerHTML={{ __html: enrichedArticle.body }}
         />
 
         {/* Author bio */}
@@ -119,6 +176,11 @@ export default async function ArticlePage({ params }: Props) {
             <p style={{ fontSize: '14px', color: 'var(--e-color-textSecondary)', lineHeight: 1.6 }}>{author.bio}</p>
           </div>
         )}
+
+        <ArticleComments
+          tenantSlug={tenantSlug}
+          articleSlug={articleSlug}
+        />
       </article>
     </SiteLayout>
   );
@@ -139,13 +201,19 @@ export async function generateMetadata({ params }: Props) {
     .single();
 
   if (!article) return {};
+  const canonical = buildTenantPublicUrl(resolved.tenant, `/articolo/${articleSlug}`);
 
   return {
     title: article.meta_title || article.title,
     description: article.meta_description || '',
+    alternates: {
+      canonical,
+    },
     openGraph: {
       title: article.meta_title || article.title,
       description: article.meta_description || '',
+      type: 'article',
+      url: canonical,
       images: article.og_image_url || article.cover_image_url ? [{ url: article.og_image_url || article.cover_image_url }] : [],
     },
   };

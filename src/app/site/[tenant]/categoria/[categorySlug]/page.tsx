@@ -1,12 +1,28 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { resolveTenant } from '@/lib/site/tenant-resolver';
+import { buildTenantRedirectUrl, resolveRedirect } from '@/lib/site/redirects';
 import { SiteLayout } from '@/components/render/SiteLayout';
+import { enrichArticlesWithCategories, fetchArticleIdsForCategory } from '@/lib/articles/taxonomy';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { buildTenantPublicUrl } from '@/lib/site/public-url';
 
 export const revalidate = 120;
 
 interface Props {
   params: Promise<{ tenant: string; categorySlug: string }>;
+}
+
+interface CategoryPageArticleRecord {
+  id: string;
+  title: string;
+  slug: string;
+  summary: string | null;
+  cover_image_url: string | null;
+  published_at: string | null;
+  reading_time_minutes: number;
+  category_id?: string | null;
+  profiles?: { full_name: string } | null;
+  categories?: { name: string; slug: string; color: string | null } | null;
 }
 
 export default async function CategoryPage({ params }: Props) {
@@ -25,16 +41,35 @@ export default async function CategoryPage({ params }: Props) {
     .eq('slug', categorySlug)
     .single();
 
-  if (!category) notFound();
+  if (!category) {
+    const matchedRedirect = await resolveRedirect(tenant.id, `/categoria/${categorySlug}`);
+    if (matchedRedirect) {
+      redirect(buildTenantRedirectUrl(tenant.slug, matchedRedirect.targetPath));
+    }
+    notFound();
+  }
 
-  const { data: articles } = await supabase
+  const relatedArticleIds = await fetchArticleIdsForCategory(supabase as never, category.id);
+  let articleQuery = supabase
     .from('articles')
-    .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, profiles!articles_author_id_fkey(full_name)')
+    .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, category_id, profiles!articles_author_id_fkey(full_name), categories(name, slug, color)')
     .eq('tenant_id', tenant.id)
-    .eq('category_id', category.id)
     .eq('status', 'published')
     .order('published_at', { ascending: false })
     .limit(30);
+
+  if (relatedArticleIds && relatedArticleIds.length > 0) {
+    articleQuery = articleQuery.in('id', relatedArticleIds);
+  } else {
+    articleQuery = articleQuery.eq('category_id', category.id);
+  }
+
+  const { data: articles } = await articleQuery;
+  const enrichedArticles = await enrichArticlesWithCategories(
+    supabase as never,
+    tenant.id,
+    (articles || []) as unknown as CategoryPageArticleRecord[]
+  );
 
   return (
     <SiteLayout tenant={tenant} config={config}>
@@ -58,7 +93,7 @@ export default async function CategoryPage({ params }: Props) {
 
         {/* Articles grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
-          {(articles || []).map((article) => (
+          {enrichedArticles.map((article) => (
             <a
               key={article.id}
               href={`/site/${tenantSlug}/articolo/${article.slug}`}
@@ -112,8 +147,12 @@ export async function generateMetadata({ params }: Props) {
     .single();
 
   if (!category) return {};
+  const canonical = buildTenantPublicUrl(resolved.tenant, `/categoria/${categorySlug}`);
   return {
     title: `${category.name} - ${resolved.tenant.name}`,
     description: category.description || `Articoli nella categoria ${category.name}`,
+    alternates: {
+      canonical,
+    },
   };
 }

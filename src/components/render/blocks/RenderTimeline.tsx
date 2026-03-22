@@ -3,7 +3,9 @@ import type { Block } from '@/lib/types/block';
 interface TimelineItem {
   date: string;
   title: string;
-  content: string;
+  description?: string;
+  content?: string;
+  icon?: string;
 }
 
 interface Props {
@@ -12,33 +14,44 @@ interface Props {
 }
 
 export function RenderTimeline({ block, style }: Props) {
-  const items = (block.props.items as TimelineItem[]) || [];
+  const items = ((block.props.events as TimelineItem[]) || (block.props.items as TimelineItem[]) || []).filter((item) => item?.title);
+  const lineColor = String(block.props.lineColor || 'var(--e-color-primary, #8B0000)');
+  const layout = String(block.props.layout || 'stacked');
 
   return (
-    <div style={{ ...style, position: 'relative', paddingLeft: '2rem' }} data-block="timeline">
+    <div style={{ ...style, position: 'relative', paddingLeft: layout === 'alternating' ? '0' : '2rem' }} data-block="timeline">
       {/* Line */}
       <div
         style={{
           position: 'absolute',
-          left: '8px',
+          left: layout === 'alternating' ? '50%' : '8px',
           top: 0,
           bottom: 0,
           width: '2px',
-          backgroundColor: 'var(--e-color-border, #dee2e6)',
+          transform: layout === 'alternating' ? 'translateX(-50%)' : undefined,
+          backgroundColor: lineColor,
         }}
       />
       {items.map((item, i) => (
-        <div key={i} style={{ position: 'relative', marginBottom: '2rem' }}>
+        <div
+          key={i}
+          style={{
+            position: 'relative',
+            marginBottom: '2rem',
+            width: layout === 'alternating' ? 'calc(50% - 28px)' : '100%',
+            marginLeft: layout === 'alternating' && i % 2 === 1 ? 'calc(50% + 28px)' : undefined,
+          }}
+        >
           {/* Dot */}
           <div
             style={{
               position: 'absolute',
-              left: '-2rem',
+              left: layout === 'alternating' ? (i % 2 === 0 ? 'calc(100% + 20px)' : '-36px') : '-2rem',
               top: '0.25rem',
               width: '16px',
               height: '16px',
               borderRadius: '50%',
-              backgroundColor: 'var(--e-color-primary, #8B0000)',
+              backgroundColor: lineColor,
               border: '3px solid var(--e-color-background, #fff)',
             }}
           />
@@ -57,7 +70,7 @@ export function RenderTimeline({ block, style }: Props) {
             {item.title}
           </h3>
           <p style={{ color: 'var(--e-color-textSecondary)', lineHeight: '1.7', margin: 0 }}>
-            {item.content}
+            {item.description || item.content}
           </p>
         </div>
       ))}

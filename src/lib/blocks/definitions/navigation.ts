@@ -8,7 +8,10 @@ const navigationBlock: BlockDefinition = {
   icon: 'Menu',
   category: 'interactive',
   defaultProps: {
-    logo: { type: 'text', value: 'SiteName' },
+    mode: 'global',
+    menuKey: 'primary',
+    logoText: 'SiteName',
+    logoUrl: '',
     items: [
       { id: '1', label: 'Home', url: '/', children: [] },
       { id: '2', label: 'Chi Siamo', url: '/chi-siamo', children: [] },
@@ -18,10 +21,16 @@ const navigationBlock: BlockDefinition = {
       ]},
       { id: '4', label: 'Contatti', url: '/contatti', children: [] },
     ],
+    layout: 'horizontal',
+    variant: 'inline',
     sticky: true,
     transparent: false,
+    justify: 'space-between',
+    itemGap: 24,
+    showDescriptions: false,
     hamburgerBreakpoint: 768,
-    ctaButton: { text: '', url: '' },
+    ctaText: '',
+    ctaUrl: '',
   },
   defaultStyle: {
     layout: {
@@ -40,6 +49,10 @@ const navigationBlock: BlockDefinition = {
       value: '#ffffff',
     },
     shadow: '0 2px 8px rgba(0,0,0,0.1)',
+  },
+  defaultDataSource: {
+    endpoint: 'site-navigation',
+    params: { menu: 'primary' },
   },
   supportsChildren: false,
 };

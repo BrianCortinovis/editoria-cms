@@ -8,32 +8,40 @@ const footerBlock: BlockDefinition = {
   icon: 'PanelBottom',
   category: 'interactive',
   defaultProps: {
+    mode: 'global',
+    variant: 'columns',
+    logoUrl: '',
+    description: '',
     columns: [
       {
         title: 'Chi Siamo',
-        type: 'text',
-        content: '',
+        text: '',
+        links: [],
       },
       {
         title: 'Link Utili',
-        type: 'links',
         links: [],
       },
       {
         title: 'Contatti',
-        type: 'contact',
-        email: '',
-        phone: '',
-        address: '',
+        text: '',
+        links: [],
       },
     ],
+    links: [],
     copyright: '',
     socialLinks: [
       { platform: 'facebook', url: '#' },
       { platform: 'instagram', url: '#' },
       { platform: 'twitter', url: '#' },
     ],
-    showNewsletter: false,
+    newsletter: {
+      enabled: false,
+      title: 'Resta aggiornato',
+      description: '',
+      buttonText: 'Iscriviti',
+      formSlug: '',
+    },
   },
   defaultStyle: {
     layout: {
@@ -51,6 +59,10 @@ const footerBlock: BlockDefinition = {
       color: '#cccccc',
       fontSize: '14px',
     },
+  },
+  defaultDataSource: {
+    endpoint: 'site-footer',
+    params: {},
   },
   supportsChildren: false,
 };

@@ -1,5 +1,7 @@
 'use client';
 
+import { useRef } from 'react';
+import { useFieldContextStore } from '@/lib/stores/field-context-store';
 import { cn } from '@/lib/utils/cn';
 
 interface ToggleProps {
@@ -10,12 +12,33 @@ interface ToggleProps {
 }
 
 export function Toggle({ checked, onChange, label, size = 'md' }: ToggleProps) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const { captureFieldElement, syncFieldElement } = useFieldContextStore();
+
+  const refreshFieldContext = () => {
+    if (!buttonRef.current) {
+      return;
+    }
+
+    syncFieldElement(buttonRef.current);
+  };
+
   return (
     <label className="flex items-center gap-2 cursor-pointer select-none">
       <button
+        ref={buttonRef}
+        type="button"
         role="switch"
         aria-checked={checked}
-        onClick={() => onChange(!checked)}
+        aria-label={label}
+        data-field-name={label}
+        onFocus={(event) => {
+          captureFieldElement(event.currentTarget);
+        }}
+        onClick={() => {
+          onChange(!checked);
+          requestAnimationFrame(refreshFieldContext);
+        }}
         className={cn(
           'relative inline-flex shrink-0 rounded-full transition-colors duration-200',
           'focus:outline-none focus:ring-2 focus:ring-offset-1',

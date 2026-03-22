@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePageStore } from '@/lib/stores/page-store';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { StyleEditor } from './StyleEditor';
@@ -8,16 +8,19 @@ import { AnimationEditor } from './AnimationEditor';
 import { SnapGridSettings, OverlayEditor, ButtonEditor, ShapeTools, PositionSizeEditor } from './AdvancedTools';
 import { ColorPaletteManager } from '@/components/builder/ColorPaletteManager';
 import { cn } from '@/lib/utils/cn';
-import { Paintbrush, Settings2, Pentagon, Smartphone, Move, Palette, Layers, MousePointerClick, Sparkles, Settings, Eye, EyeOff } from 'lucide-react';
+import { Paintbrush, Settings2, Pentagon, Move, Palette, Layers, Settings, Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Toggle } from '@/components/ui/toggle';
+import { Textarea } from '@/components/ui/textarea';
 import AIButton from '@/components/ai/AIButton';
 import type { AICommand } from '@/components/ai/AIButton';
 import type { Block } from '@/lib/types';
+import { createClient } from '@/lib/supabase/client';
+import { useAuthStore } from '@/lib/store';
 
 export function RightPanel() {
   const { rightPanelTab, setRightPanelTab, hiddenRightPanelTabs, toggleHiddenRightPanelTab } = useUiStore();
-  const { selectedBlockId, updateBlock, updateBlockProps } = usePageStore();
+  const { selectedBlockId, updateBlock } = usePageStore();
   const blocks = usePageStore((s) => s.blocks);
 
   // Find the selected block from the blocks array
@@ -150,7 +153,7 @@ export function RightPanel() {
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto p-4">
-        {rightPanelTab === 'properties' && <PropertiesEditor block={block} projectPalette={projectPalette} />}
+        {rightPanelTab === 'properties' && <PropertiesEditor block={block} />}
         {rightPanelTab === 'style' && <StyleEditor block={block} />}
         {rightPanelTab === 'animation' && <AnimationEditor block={block} />}
         {rightPanelTab === 'shape' && <ShapeTabContent block={block} />}
@@ -162,12 +165,52 @@ export function RightPanel() {
 }
 
 // === Properties Editor ===
-function PropertiesEditor({ block, projectPalette }: { block: Block; projectPalette: string[] }) {
+function PropertiesEditor({ block }: { block: Block }) {
   const { updateBlockProps } = usePageStore();
+
+  if (block.type === 'navigation') {
+    return <NavigationProperties block={block} />;
+  }
+
+  if (block.type === 'footer') {
+    return <FooterProperties block={block} />;
+  }
+
+  if (block.type === 'cms-form') {
+    return <CmsFormProperties block={block} />;
+  }
+
+  if (block.type === 'newsletter' || block.type === 'newsletter-signup') {
+    return <NewsletterProperties block={block} />;
+  }
+
+  if (block.type === 'accordion') {
+    return <AccordionProperties block={block} />;
+  }
+
+  if (block.type === 'tabs') {
+    return <TabsProperties block={block} />;
+  }
+
+  if (block.type === 'table') {
+    return <TableProperties block={block} />;
+  }
+
+  if (block.type === 'timeline') {
+    return <TimelineProperties block={block} />;
+  }
+
+  if (block.type === 'code') {
+    return <CodeProperties block={block} />;
+  }
+
+  if (block.type === 'custom-html') {
+    return <CustomHtmlProperties block={block} />;
+  }
 
   const props = block.props as Record<string, unknown>;
   const editableFields = Object.entries(props).filter(
-    ([key, val]) => typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean'
+    ([, val]) => typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean'
   );
 
   return (
@@ -196,11 +239,639 @@ function PropertiesEditor({ block, projectPalette }: { block: Block; projectPale
   );
 }
 
+interface CmsFormOption {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+function NavigationProperties({ block }: { block: Block }) {
+  const { updateBlockProps, updateBlock } = usePageStore();
+  const mode = String(block.props.mode || 'global');
+  const menuKey = String(block.props.menuKey || 'primary');
+
+  const syncDataSource = (nextMode: string, nextMenuKey: string) => {
+    updateBlock(block.id, {
+      dataSource: nextMode === 'global'
+        ? {
+            endpoint: 'site-navigation',
+            params: { menu: nextMenuKey },
+          }
+        : undefined,
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <Select
+        label="Sorgente menu"
+        value={mode}
+        onChange={(event) => {
+          const nextMode = event.target.value;
+          updateBlockProps(block.id, { mode: nextMode });
+          syncDataSource(nextMode, menuKey);
+        }}
+        options={[
+          { value: 'global', label: 'Menu globale CMS' },
+          { value: 'custom', label: 'Menu custom blocco' },
+        ]}
+      />
+      <Select
+        label="Menu globale"
+        value={menuKey}
+        onChange={(event) => {
+          const nextMenuKey = event.target.value;
+          updateBlockProps(block.id, { menuKey: nextMenuKey });
+          syncDataSource(mode, nextMenuKey);
+        }}
+        options={[
+          { value: 'primary', label: 'Primary' },
+          { value: 'secondary', label: 'Secondario' },
+          { value: 'mobile', label: 'Mobile' },
+          { value: 'footer', label: 'Footer menu' },
+        ]}
+      />
+      <Select
+        label="Layout"
+        value={String(block.props.layout || 'horizontal')}
+        onChange={(event) => updateBlockProps(block.id, { layout: event.target.value })}
+        options={[
+          { value: 'horizontal', label: 'Orizzontale' },
+          { value: 'vertical', label: 'Verticale' },
+        ]}
+      />
+      <Select
+        label="Variante"
+        value={String(block.props.variant || 'inline')}
+        onChange={(event) => updateBlockProps(block.id, { variant: event.target.value })}
+        options={[
+          { value: 'inline', label: 'Inline' },
+          { value: 'pills', label: 'Pills' },
+          { value: 'underline', label: 'Underline' },
+          { value: 'sidebar', label: 'Sidebar' },
+          { value: 'floating', label: 'Floating' },
+        ]}
+      />
+      <Input
+        label="Logo testo"
+        value={String(block.props.logoText || '')}
+        onChange={(event) => updateBlockProps(block.id, { logoText: event.target.value })}
+      />
+      <Input
+        label="Logo URL"
+        value={String(block.props.logoUrl || '')}
+        onChange={(event) => updateBlockProps(block.id, { logoUrl: event.target.value })}
+      />
+      <Input
+        label="Testo CTA"
+        value={String(block.props.ctaText || '')}
+        onChange={(event) => updateBlockProps(block.id, { ctaText: event.target.value })}
+      />
+      <Input
+        label="URL CTA"
+        value={String(block.props.ctaUrl || '')}
+        onChange={(event) => updateBlockProps(block.id, { ctaUrl: event.target.value })}
+      />
+      <Input
+        label="Gap elementi"
+        type="number"
+        value={Number(block.props.itemGap || 24)}
+        onChange={(event) => updateBlockProps(block.id, { itemGap: Number(event.target.value) })}
+      />
+      <Toggle
+        label="Sticky"
+        checked={(block.props.sticky as boolean) ?? true}
+        onChange={(value) => updateBlockProps(block.id, { sticky: value })}
+      />
+      <Toggle
+        label="Mostra descrizioni"
+        checked={(block.props.showDescriptions as boolean) ?? false}
+        onChange={(value) => updateBlockProps(block.id, { showDescriptions: value })}
+      />
+      {mode === 'custom' && (
+        <p className="text-xs" style={{ color: 'var(--c-text-2)' }}>
+          In modalita custom il blocco usa le sue voci interne. Per una gestione editoriale centralizzata usa il modulo Menu del CMS.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function FooterProperties({ block }: { block: Block }) {
+  const { updateBlockProps, updateBlock } = usePageStore();
+  const mode = String(block.props.mode || 'global');
+
+  return (
+    <div className="space-y-3">
+      <Select
+        label="Sorgente footer"
+        value={mode}
+        onChange={(event) => {
+          const nextMode = event.target.value;
+          updateBlockProps(block.id, { mode: nextMode });
+          updateBlock(block.id, {
+            dataSource: nextMode === 'global'
+              ? {
+                  endpoint: 'site-footer',
+                  params: {},
+                }
+              : undefined,
+          });
+        }}
+        options={[
+          { value: 'global', label: 'Footer globale CMS' },
+          { value: 'custom', label: 'Footer custom blocco' },
+        ]}
+      />
+      <Select
+        label="Variante"
+        value={String(block.props.variant || 'columns')}
+        onChange={(event) => updateBlockProps(block.id, { variant: event.target.value })}
+        options={[
+          { value: 'columns', label: 'Colonne' },
+          { value: 'compact', label: 'Compatto' },
+          { value: 'minimal', label: 'Minimale' },
+        ]}
+      />
+      <Input
+        label="Logo URL"
+        value={String(block.props.logoUrl || '')}
+        onChange={(event) => updateBlockProps(block.id, { logoUrl: event.target.value })}
+      />
+      <Textarea
+        label="Descrizione"
+        value={String(block.props.description || '')}
+        onChange={(event) => updateBlockProps(block.id, { description: event.target.value })}
+        rows={4}
+      />
+      <Textarea
+        label="Copyright"
+        value={String(block.props.copyright || '')}
+        onChange={(event) => updateBlockProps(block.id, { copyright: event.target.value })}
+        rows={3}
+      />
+      <Toggle
+        label="Newsletter footer"
+        checked={Boolean((block.props.newsletter as { enabled?: boolean } | undefined)?.enabled)}
+        onChange={(value) =>
+          updateBlockProps(block.id, {
+            newsletter: {
+              ...(block.props.newsletter as Record<string, unknown> || {}),
+              enabled: value,
+            },
+          })
+        }
+      />
+      {mode === 'custom' && (
+        <p className="text-xs" style={{ color: 'var(--c-text-2)' }}>
+          Per una gestione centrale di colonne, link, social e newsletter usa la pagina Footer del CMS.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function CmsFormProperties({ block }: { block: Block }) {
+  const { currentTenant } = useAuthStore();
+  const { updateBlockProps, updateBlock } = usePageStore();
+  const [forms, setForms] = useState<CmsFormOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadForms = async () => {
+      if (!currentTenant?.id) {
+        if (!cancelled) {
+          setForms([]);
+        }
+        return;
+      }
+
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('site_forms')
+        .select('id, name, slug')
+        .eq('tenant_id', currentTenant.id)
+        .eq('is_active', true)
+        .order('name');
+
+      if (!cancelled) {
+        setForms(error ? [] : ((data || []) as CmsFormOption[]));
+      }
+    };
+
+    void loadForms();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentTenant?.id]);
+
+  const formSlug = String(block.props.formSlug || '');
+
+  const handleFormChange = (nextSlug: string) => {
+    updateBlockProps(block.id, { formSlug: nextSlug });
+    updateBlock(block.id, {
+      dataSource: {
+        endpoint: 'forms',
+        params: nextSlug ? { slug: nextSlug } : {},
+      },
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <Select
+        label="Form CMS"
+        value={formSlug}
+        onChange={(event) => handleFormChange(event.target.value)}
+        options={[
+          { value: '', label: forms.length > 0 ? 'Seleziona un form' : 'Nessun form disponibile' },
+          ...forms.map((form) => ({ value: form.slug, label: `${form.name} (${form.slug})` })),
+        ]}
+      />
+      <Input
+        label="Testo pulsante"
+        value={String(block.props.submitButtonText || '')}
+        placeholder="Invia"
+        onChange={(event) => updateBlockProps(block.id, { submitButtonText: event.target.value })}
+      />
+      <Select
+        label="Layout"
+        value={String(block.props.layout || 'stacked')}
+        onChange={(event) => updateBlockProps(block.id, { layout: event.target.value })}
+        options={[
+          { value: 'stacked', label: 'Stacked' },
+          { value: 'inline', label: 'Inline 2 colonne' },
+        ]}
+      />
+      <Toggle
+        label="Mostra titolo"
+        checked={(block.props.showTitle as boolean) ?? true}
+        onChange={(value) => updateBlockProps(block.id, { showTitle: value })}
+      />
+      <Toggle
+        label="Mostra descrizione"
+        checked={(block.props.showDescription as boolean) ?? true}
+        onChange={(value) => updateBlockProps(block.id, { showDescription: value })}
+      />
+      {forms.length === 0 && (
+        <p className="text-xs" style={{ color: 'var(--c-text-2)' }}>
+          Il blocco è pronto, ma il modulo Form del database dev non è ancora inizializzato oppure non contiene form attivi.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function NewsletterProperties({ block }: { block: Block }) {
+  const { updateBlockProps, updateBlock } = usePageStore();
+  const mode = String(block.props.mode || 'global');
+
+  const syncDataSource = (nextMode: string) => {
+    updateBlock(block.id, {
+      dataSource: nextMode === 'global'
+        ? {
+            endpoint: 'site-newsletter',
+            params: {},
+          }
+        : undefined,
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <Select
+        label="Sorgente newsletter"
+        value={mode}
+        onChange={(event) => {
+          const nextMode = event.target.value;
+          updateBlockProps(block.id, { mode: nextMode });
+          syncDataSource(nextMode);
+        }}
+        options={[
+          { value: 'global', label: 'Modulo Newsletter CMS' },
+          { value: 'custom', label: 'Config custom blocco' },
+        ]}
+      />
+      <Input
+        label="Titolo"
+        value={String(block.props.title || '')}
+        onChange={(event) => updateBlockProps(block.id, { title: event.target.value })}
+      />
+      <Textarea
+        label="Descrizione"
+        value={String(block.props.description || '')}
+        rows={4}
+        onChange={(event) => updateBlockProps(block.id, { description: event.target.value })}
+      />
+      <Input
+        label="Placeholder email"
+        value={String(block.props.placeholder || '')}
+        onChange={(event) => updateBlockProps(block.id, { placeholder: event.target.value })}
+      />
+      <Input
+        label="Testo bottone"
+        value={String(block.props.buttonText || '')}
+        onChange={(event) => updateBlockProps(block.id, { buttonText: event.target.value })}
+      />
+      <Input
+        label="Slug form CMS"
+        value={String(block.props.formSlug || '')}
+        onChange={(event) => updateBlockProps(block.id, { formSlug: event.target.value })}
+      />
+      <Input
+        label="Form action provider"
+        value={String(block.props.formAction || '')}
+        onChange={(event) => updateBlockProps(block.id, { formAction: event.target.value })}
+      />
+      <Textarea
+        label="Privacy text"
+        value={String(block.props.privacyText || '')}
+        rows={3}
+        onChange={(event) => updateBlockProps(block.id, { privacyText: event.target.value })}
+      />
+      <Textarea
+        label="Messaggio successo"
+        value={String(block.props.successMessage || '')}
+        rows={3}
+        onChange={(event) => updateBlockProps(block.id, { successMessage: event.target.value })}
+      />
+      <Select
+        label="Layout"
+        value={String(block.props.layout || 'inline')}
+        onChange={(event) => updateBlockProps(block.id, { layout: event.target.value })}
+        options={[
+          { value: 'inline', label: 'Inline' },
+          { value: 'stacked', label: 'Stacked' },
+        ]}
+      />
+      <Toggle
+        label="Compatto"
+        checked={Boolean(block.props.compact)}
+        onChange={(value) => updateBlockProps(block.id, { compact: value })}
+      />
+      {mode === 'global' && (
+        <p className="text-xs" style={{ color: 'var(--c-text-2)' }}>
+          Il blocco usa il modulo Newsletter del CMS. Per provider, digest, posizionamenti e segmenti vai nella nuova sezione Newsletter in sidebar.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function JsonTextareaField({
+  label,
+  value,
+  onValidChange,
+  rows = 8,
+  helpText,
+}: {
+  label: string;
+  value: unknown;
+  onValidChange: (nextValue: unknown) => void;
+  rows?: number;
+  helpText?: string;
+}) {
+  const [draft, setDraft] = useState(() => JSON.stringify(value, null, 2));
+  const [error, setError] = useState('');
+
+  return (
+    <div className="space-y-1.5">
+      <Textarea
+        label={label}
+        value={draft}
+        rows={rows}
+        onChange={(event) => {
+          const nextDraft = event.target.value;
+          setDraft(nextDraft);
+          try {
+            onValidChange(JSON.parse(nextDraft));
+            setError('');
+          } catch {
+            setError('JSON non valido');
+          }
+        }}
+      />
+      {helpText && (
+        <p className="text-xs" style={{ color: 'var(--c-text-2)' }}>
+          {helpText}
+        </p>
+      )}
+      {error && (
+        <p className="text-xs" style={{ color: '#dc2626' }}>
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function AccordionProperties({ block }: { block: Block }) {
+  const { updateBlockProps } = usePageStore();
+
+  return (
+    <div className="space-y-3">
+      <JsonTextareaField
+        key={`accordion-${JSON.stringify(block.props.items || [])}`}
+        label="Items accordion"
+        value={block.props.items || []}
+        rows={10}
+        helpText='Formato: [{"id":"1","title":"Domanda","content":"<p>Risposta</p>","open":false}]'
+        onValidChange={(value) => updateBlockProps(block.id, { items: value as unknown[] })}
+      />
+      <Toggle
+        label="Consenti multipli aperti"
+        checked={Boolean(block.props.allowMultiple)}
+        onChange={(value) => updateBlockProps(block.id, { allowMultiple: value })}
+      />
+    </div>
+  );
+}
+
+function TabsProperties({ block }: { block: Block }) {
+  const { updateBlockProps } = usePageStore();
+
+  return (
+    <div className="space-y-3">
+      <JsonTextareaField
+        key={`tabs-${JSON.stringify(block.props.tabs || [])}`}
+        label="Schede"
+        value={block.props.tabs || []}
+        rows={10}
+        helpText='Formato: [{"id":"1","title":"Tab","content":"<p>Contenuto</p>"}]'
+        onValidChange={(value) => updateBlockProps(block.id, { tabs: value as unknown[] })}
+      />
+      <Input
+        label="Tab attiva"
+        value={String(block.props.activeTab || '')}
+        onChange={(event) => updateBlockProps(block.id, { activeTab: event.target.value })}
+      />
+      <Select
+        label="Stile tab"
+        value={String(block.props.style || 'default')}
+        onChange={(event) => updateBlockProps(block.id, { style: event.target.value })}
+        options={[
+          { value: 'default', label: 'Default' },
+          { value: 'pills', label: 'Pills' },
+          { value: 'underline', label: 'Underline' },
+        ]}
+      />
+    </div>
+  );
+}
+
+function TableProperties({ block }: { block: Block }) {
+  const { updateBlockProps } = usePageStore();
+
+  return (
+    <div className="space-y-3">
+      <JsonTextareaField
+        key={`table-headers-${JSON.stringify(block.props.headers || [])}`}
+        label="Header colonne"
+        value={block.props.headers || []}
+        rows={4}
+        helpText='Formato: ["Colonna 1","Colonna 2"]'
+        onValidChange={(value) => updateBlockProps(block.id, { headers: value as unknown[] })}
+      />
+      <JsonTextareaField
+        key={`table-rows-${JSON.stringify(block.props.rows || [])}`}
+        label="Righe"
+        value={block.props.rows || []}
+        rows={10}
+        helpText='Formato: [["A1","B1"],["A2","B2"]]'
+        onValidChange={(value) => updateBlockProps(block.id, { rows: value as unknown[] })}
+      />
+      <Toggle
+        label="Righe alternate"
+        checked={block.props.striped !== false}
+        onChange={(value) => updateBlockProps(block.id, { striped: value })}
+      />
+      <Toggle
+        label="Bordi"
+        checked={block.props.bordered !== false}
+        onChange={(value) => updateBlockProps(block.id, { bordered: value })}
+      />
+      <Toggle
+        label="Hover righe"
+        checked={block.props.hoverable !== false}
+        onChange={(value) => updateBlockProps(block.id, { hoverable: value })}
+      />
+      <Toggle
+        label="Responsive"
+        checked={block.props.responsive !== false}
+        onChange={(value) => updateBlockProps(block.id, { responsive: value })}
+      />
+    </div>
+  );
+}
+
+function TimelineProperties({ block }: { block: Block }) {
+  const { updateBlockProps } = usePageStore();
+
+  return (
+    <div className="space-y-3">
+      <JsonTextareaField
+        key={`timeline-${JSON.stringify(block.props.events || [])}`}
+        label="Eventi timeline"
+        value={block.props.events || []}
+        rows={10}
+        helpText='Formato: [{"id":"1","date":"2026","title":"Evento","description":"Testo"}]'
+        onValidChange={(value) => updateBlockProps(block.id, { events: value as unknown[] })}
+      />
+      <Select
+        label="Layout"
+        value={String(block.props.layout || 'alternating')}
+        onChange={(event) => updateBlockProps(block.id, { layout: event.target.value })}
+        options={[
+          { value: 'alternating', label: 'Alternato' },
+          { value: 'stacked', label: 'Verticale' },
+        ]}
+      />
+      <Input
+        label="Colore linea"
+        value={String(block.props.lineColor || '#e63946')}
+        onChange={(event) => updateBlockProps(block.id, { lineColor: event.target.value })}
+      />
+    </div>
+  );
+}
+
+function CodeProperties({ block }: { block: Block }) {
+  const { updateBlockProps } = usePageStore();
+
+  return (
+    <div className="space-y-3">
+      <Input
+        label="Filename"
+        value={String(block.props.filename || '')}
+        onChange={(event) => updateBlockProps(block.id, { filename: event.target.value })}
+      />
+      <Input
+        label="Linguaggio"
+        value={String(block.props.language || '')}
+        onChange={(event) => updateBlockProps(block.id, { language: event.target.value })}
+      />
+      <Textarea
+        label="Codice"
+        value={String(block.props.code || '')}
+        rows={14}
+        onChange={(event) => updateBlockProps(block.id, { code: event.target.value })}
+      />
+      <JsonTextareaField
+        key={`highlight-${JSON.stringify(block.props.highlightLines || [])}`}
+        label="Highlight righe"
+        value={block.props.highlightLines || []}
+        rows={3}
+        helpText='Formato: [2,5,8]'
+        onValidChange={(value) => updateBlockProps(block.id, { highlightLines: value as unknown[] })}
+      />
+      <Toggle
+        label="Numeri riga"
+        checked={block.props.showLineNumbers !== false}
+        onChange={(value) => updateBlockProps(block.id, { showLineNumbers: value })}
+      />
+    </div>
+  );
+}
+
+function CustomHtmlProperties({ block }: { block: Block }) {
+  const { updateBlockProps } = usePageStore();
+
+  return (
+    <div className="space-y-3">
+      <Textarea
+        label="HTML"
+        value={String(block.props.html || '')}
+        rows={10}
+        onChange={(event) => updateBlockProps(block.id, { html: event.target.value })}
+      />
+      <Textarea
+        label="CSS"
+        value={String(block.props.css || '')}
+        rows={8}
+        onChange={(event) => updateBlockProps(block.id, { css: event.target.value })}
+      />
+      <Textarea
+        label="JavaScript"
+        value={String(block.props.js || '')}
+        rows={8}
+        onChange={(event) => updateBlockProps(block.id, { js: event.target.value })}
+      />
+      <Toggle
+        label="Sandbox iframe"
+        checked={block.props.sandboxed !== false}
+        onChange={(value) => updateBlockProps(block.id, { sandboxed: value })}
+      />
+    </div>
+  );
+}
+
 // === Shape Tab ===
 import { Select } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { ColorPicker } from '@/components/ui/color-picker';
-import type { DividerConfig, DividerShape, DividerGradient } from '@/lib/types';
+import type { DividerConfig, DividerShape } from '@/lib/types';
 
 function ShapeTabContent({ block }: { block: Block }) {
   return (

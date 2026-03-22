@@ -8,9 +8,14 @@ const newsletterSignupBlock: BlockDefinition = {
   icon: 'Mail',
   category: 'editorial',
   defaultProps: {
+    mode: 'global',
     title: 'Resta aggiornato',
     description: 'Iscriviti alla nostra newsletter per ricevere le notizie più importanti.',
     buttonText: 'Iscriviti',
+    placeholder: 'La tua email',
+    privacyText: 'Iscrivendoti accetti informative e comunicazioni editoriali.',
+    formSlug: '',
+    compact: false,
     style: 'inline',
   },
   defaultStyle: {
@@ -27,6 +32,10 @@ const newsletterSignupBlock: BlockDefinition = {
     background: { type: 'color', value: '#f8f9fa' },
     border: { radius: '12px' },
     typography: { textAlign: 'center' },
+  },
+  defaultDataSource: {
+    endpoint: 'site-newsletter',
+    params: {},
   },
   supportsChildren: false,
 };

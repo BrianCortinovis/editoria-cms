@@ -2,26 +2,48 @@
 
 import { useState } from 'react';
 import { Settings, Menu, X, Download, LogOut, HardDrive } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
 
 interface AdminMenuProps {
   projectId?: string;
 }
 
-function SettingsPanel({ onClose }: { onClose: () => void }) {
+function SettingsPanel({ onClose, projectId }: { onClose: () => void; projectId?: string }) {
   const handleBackup = () => {
-    // Placeholder: actual backup logic
-    alert('Backup initiated...');
+    window.location.href = '/dashboard/tecnico';
   };
 
-  const handleExport = () => {
-    // Placeholder: actual export logic
-    alert('Export started...');
+  const handleExport = async () => {
+    if (!projectId) {
+      window.location.href = '/dashboard/tecnico';
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/export/${projectId}`, { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok || !data.html) {
+        throw new Error(data.error || 'Export failed');
+      }
+
+      const blob = new Blob([data.html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = data.filename || 'page.html';
+      link.click();
+      URL.revokeObjectURL(url);
+      onClose();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Errore export');
+    }
   };
 
-  const handleLogout = () => {
-    // Placeholder: actual logout logic
-    window.location.href = '/logout';
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = '/auth/login';
   };
 
   return (
@@ -107,7 +129,7 @@ export function AdminMenu({ projectId }: AdminMenuProps) {
                 >
                   ← Back
                 </button>
-                <SettingsPanel onClose={() => setShowSettings(false)} />
+                <SettingsPanel projectId={projectId} onClose={() => setShowSettings(false)} />
               </>
             ) : (
               <div className="space-y-2">
@@ -144,7 +166,7 @@ export function AdminMenu({ projectId }: AdminMenuProps) {
           className="fixed top-12 right-4 w-56 rounded-lg shadow-lg z-40 p-3"
           style={{ background: 'var(--c-bg-0)', border: '1px solid var(--c-border)' }}
         >
-          <SettingsPanel onClose={() => setShowSettings(false)} />
+          <SettingsPanel projectId={projectId} onClose={() => setShowSettings(false)} />
         </div>
       )}
     </div>

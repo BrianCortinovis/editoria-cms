@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { enrichArticlesWithCategories, fetchArticleIdsForCategory, loadArticleCategoryIds } from "@/lib/articles/taxonomy";
 import { resolveProvider } from "@/lib/ai/resolver";
 import { callProvider } from "@/lib/ai/providers";
 import { isModuleActive, getModuleConfig } from "@/lib/modules";
@@ -9,6 +10,18 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
+
+interface RelatedArticle {
+  id: string;
+  title: string;
+  slug: string;
+  summary: string | null;
+  cover_image_url: string | null;
+  published_at: string | null;
+  reading_time_minutes: number;
+  category_id?: string | null;
+  categories?: { name: string; slug: string; color: string | null } | null;
+}
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
@@ -53,25 +66,72 @@ export async function GET(
   }
 
   const settings = (tenant.settings ?? {}) as Record<string, unknown>;
+  const sourceCategoryIds = await loadArticleCategoryIds(
+    supabase as never,
+    article.id,
+    article.category_id
+  );
 
-  // Fallback: same category articles
-  const { data: sameCatArticles } = await supabase
-    .from("articles")
-    .select("id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, categories(name, slug, color)")
-    .eq("tenant_id", tenant.id)
-    .eq("status", "published")
-    .neq("id", article.id)
-    .order("published_at", { ascending: false })
-    .limit(30);
+  let sameCatArticles: RelatedArticle[] = [];
+
+  if (sourceCategoryIds.length > 0) {
+    const relatedArticleIds = new Set<string>();
+    for (const categoryId of sourceCategoryIds) {
+      const matchedIds = await fetchArticleIdsForCategory(supabase as never, categoryId);
+      if (matchedIds) {
+        matchedIds.forEach((matchedId) => {
+          if (matchedId !== article.id) {
+            relatedArticleIds.add(matchedId);
+          }
+        });
+      }
+    }
+
+    if (relatedArticleIds.size > 0) {
+      const { data } = await supabase
+        .from("articles")
+        .select("id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, category_id, categories(name, slug, color)")
+        .eq("tenant_id", tenant.id)
+        .eq("status", "published")
+        .in("id", [...relatedArticleIds])
+        .order("published_at", { ascending: false })
+        .limit(30);
+      sameCatArticles = (data || []) as unknown as RelatedArticle[];
+    }
+  }
+
+  if (sameCatArticles.length === 0) {
+    let fallbackQuery = supabase
+      .from("articles")
+      .select("id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, category_id, categories(name, slug, color)")
+      .eq("tenant_id", tenant.id)
+      .eq("status", "published")
+      .neq("id", article.id)
+      .order("published_at", { ascending: false })
+      .limit(30);
+
+    if (article.category_id) {
+      fallbackQuery = fallbackQuery.eq("category_id", article.category_id);
+    }
+
+    const { data } = await fallbackQuery;
+    sameCatArticles = (data || []) as unknown as RelatedArticle[];
+  }
 
   if (!sameCatArticles || sameCatArticles.length === 0) {
     return NextResponse.json({ articles: [] }, { headers: CORS_HEADERS });
   }
 
+  const enrichedArticles = await enrichArticlesWithCategories(
+    supabase as never,
+    tenant.id,
+    sameCatArticles
+  );
+
   // If AI is not active, return same-category or recent articles
   if (!isModuleActive(settings, "ai_assistant")) {
     // Without AI, just return most recent articles
-    return NextResponse.json({ articles: sameCatArticles.slice(0, limit) }, {
+    return NextResponse.json({ articles: enrichedArticles.slice(0, limit) }, {
       headers: { ...CORS_HEADERS, "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
     });
   }
@@ -80,7 +140,7 @@ export async function GET(
   const config = getModuleConfig(settings, "ai_assistant");
   const { provider, apiKey, model } = resolveProvider(config, "related");
 
-  const articleList = sameCatArticles.map((a, i) => `${i}: ${a.title} — ${a.summary || ""}`).join("\n");
+  const articleList = enrichedArticles.map((a, i) => `${i}: ${a.title} — ${a.summary || ""}`).join("\n");
 
   const result = await callProvider(provider, apiKey, {
     system: "Sei un sistema di raccomandazione per una testata giornalistica. Dato un articolo di riferimento e una lista di altri articoli, identifica quelli più correlati per argomento. Rispondi SOLO con un array JSON di numeri interi ordinati per rilevanza, es: [3, 7, 1]",
@@ -92,14 +152,14 @@ export async function GET(
     const text = result.text.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
     const indices = JSON.parse(text) as number[];
     const related = indices
-      .filter((i) => i >= 0 && i < sameCatArticles.length)
+      .filter((i) => i >= 0 && i < enrichedArticles.length)
       .slice(0, limit)
-      .map((i) => sameCatArticles[i]);
+      .map((i) => enrichedArticles[i]);
 
     return NextResponse.json({ articles: related, provider }, {
       headers: { ...CORS_HEADERS, "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
     });
   } catch {
-    return NextResponse.json({ articles: sameCatArticles.slice(0, limit) }, { headers: CORS_HEADERS });
+    return NextResponse.json({ articles: enrichedArticles.slice(0, limit) }, { headers: CORS_HEADERS });
   }
 }

@@ -1,5 +1,39 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { fetchArticleIdsForCategory } from "@/lib/articles/taxonomy";
+
+interface LayoutSlotRow {
+  id: string;
+  slot_key: string;
+  label: string;
+  content_type: string;
+  category_id: string | null;
+  max_items: number;
+  sort_by: string;
+  sort_order: "asc" | "desc";
+  style_hint: string | null;
+  assignment_mode: string | null;
+  categories: { name: string; slug: string; color: string | null } | null;
+}
+
+interface PinnedArticleRow {
+  articles: {
+    id: string;
+    title: string;
+    subtitle: string | null;
+    slug: string;
+    summary: string | null;
+    cover_image_url: string | null;
+    is_featured: boolean;
+    is_premium: boolean;
+    reading_time_minutes: number;
+    published_at: string | null;
+    profiles: { full_name: string; avatar_url: string | null } | null;
+    categories: { name: string; slug: string; color: string | null } | null;
+  } | null;
+}
+
+type SlotArticle = NonNullable<PinnedArticleRow["articles"]>;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -38,7 +72,7 @@ export async function GET(request: Request) {
   // Get slots with their content
   const { data: slots } = await supabase
     .from("layout_slots")
-    .select("slot_key, label, content_type, category_id, max_items, sort_by, sort_order, style_hint, assignment_mode, categories(name, slug, color)")
+    .select("id, slot_key, label, content_type, category_id, max_items, sort_by, sort_order, style_hint, assignment_mode, categories(name, slug, color)")
     .eq("template_id", template.id)
     .order("sort_index");
 
@@ -48,15 +82,14 @@ export async function GET(request: Request) {
 
   // For each slot, fetch the actual content
   const slotsWithContent = await Promise.all(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    slots.map(async (slot: any) => {
+    ((slots || []) as unknown as LayoutSlotRow[]).map(async (slot) => {
       let content = null;
 
       if (slot.content_type === "articles") {
         const mode = slot.assignment_mode ?? "auto";
 
         // Step 1: Fetch pinned articles (for manual or mixed mode)
-        let pinned: any[] = [];
+        let pinned: SlotArticle[] = [];
         if (mode === "manual" || mode === "mixed") {
           const { data: pinnedData } = await supabase
             .from("slot_assignments")
@@ -65,7 +98,7 @@ export async function GET(request: Request) {
             )
             .eq("slot_id", slot.id)
             .order("pin_order");
-          pinned = pinnedData?.map((row: any) => row.articles) ?? [];
+          pinned = (pinnedData as PinnedArticleRow[] | null)?.map((row) => row.articles).filter(Boolean) as SlotArticle[] ?? [];
         }
 
         // Step 2: If mode is manual, stop here with pinned articles
@@ -74,7 +107,7 @@ export async function GET(request: Request) {
         } else {
           // Step 3: Auto-fill remaining slots (for auto or mixed mode)
           const remaining = slot.max_items - pinned.length;
-          let auto: any[] = [];
+          let auto: SlotArticle[] = [];
 
           if (remaining > 0 || mode === "auto") {
             const pinnedIds = pinned.map((a) => a.id);
@@ -89,7 +122,12 @@ export async function GET(request: Request) {
               .limit(mode === "auto" ? slot.max_items : remaining);
 
             if (slot.category_id) {
-              query = query.eq("category_id", slot.category_id);
+              const matchingArticleIds = await fetchArticleIdsForCategory(supabase as never, slot.category_id);
+              if (matchingArticleIds && matchingArticleIds.length > 0) {
+                query = query.in("id", matchingArticleIds);
+              } else {
+                query = query.eq("category_id", slot.category_id);
+              }
             }
 
             if (pinnedIds.length > 0) {
@@ -97,7 +135,7 @@ export async function GET(request: Request) {
             }
 
             const { data } = await query;
-            auto = data ?? [];
+            auto = (data ?? []) as unknown as SlotArticle[];
           }
 
           content = [...pinned, ...auto];

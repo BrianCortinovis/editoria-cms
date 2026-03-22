@@ -5,9 +5,10 @@ import {
   Eye, Download, Sparkles, Grid3X3, SquareDashed,
   PanelLeft, PanelRight, Trash,
   // Block tools
-  Type, Image, Columns3, Layers, Minus, Play, Music,
+  Type, Image, Columns3, Layers, Minus, Play,
   Megaphone, Quote, Mail, BarChart3, Code, Table, MapPin,
   Menu, PanelBottom, FileCode, GalleryHorizontal, LayoutTemplate,
+  FormInput,
   Maximize2, ScanLine
 } from 'lucide-react';
 import { LayoutPresets } from './LayoutPresets';
@@ -16,7 +17,6 @@ import { AdminMenu } from './AdminMenu';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { usePageStore } from '@/lib/stores/page-store';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils/cn';
 import type { DeviceMode } from '@/lib/config/breakpoints';
 import type { BlockType } from '@/lib/types';
 import { createBlock } from '@/lib/types';
@@ -26,7 +26,7 @@ import '@/lib/blocks/init';
 import { useState } from 'react';
 
 interface ToolbarProps {
-  projectName: string;
+  projectId: string;
   onSave: () => void;
   onPreview: () => void;
   onExport: () => void;
@@ -47,6 +47,7 @@ const QUICK_BLOCKS: { type: BlockType; icon: typeof Type; label: string; shortLa
   { type: 'banner-ad', icon: Megaphone, label: 'Banner ADV', shortLabel: 'ADV' },
   { type: 'quote', icon: Quote, label: 'Citazione', shortLabel: 'Cit' },
   { type: 'newsletter', icon: Mail, label: 'Newsletter', shortLabel: 'NL' },
+  { type: 'cms-form', icon: FormInput, label: 'Form CMS', shortLabel: 'Form' },
   { type: 'counter', icon: BarChart3, label: 'Contatori', shortLabel: 'Cnt' },
   { type: 'slideshow', icon: GalleryHorizontal, label: 'Slideshow', shortLabel: 'Sld' },
   { type: 'code', icon: Code, label: 'Codice', shortLabel: 'Cod' },
@@ -55,7 +56,7 @@ const QUICK_BLOCKS: { type: BlockType; icon: typeof Type; label: string; shortLa
   { type: 'custom-html', icon: FileCode, label: 'HTML Custom', shortLabel: 'HTM' },
 ];
 
-export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: ToolbarProps) {
+export function Toolbar({ projectId, onSave, onPreview, onExport, saving }: ToolbarProps) {
   const {
     deviceMode, setDeviceMode,
     showGrid, toggleGrid, gridSize, setGridSize, showOutlines, toggleOutlines,
@@ -67,7 +68,6 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
   const activeButtonStyle = { background: "var(--c-accent-soft)", color: "var(--c-accent)" };
 
   const { undo, redo, canUndo, canRedo, addBlock, setBlocks } = usePageStore();
-  const [showBlockTools, setShowBlockTools] = useState(false);
   const [showLayoutPresets, setShowLayoutPresets] = useState(false);
   const [aiModel, setAiModel] = useState<AiMode>('gemini');
 
@@ -76,6 +76,9 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
     if (def) {
       const block = createBlock(def.type, def.label, def.defaultProps, def.defaultStyle);
       block.id = generateId();
+      if (def.defaultDataSource) {
+        block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
+      }
       addBlock(block);
     }
   };
@@ -301,7 +304,7 @@ export function Toolbar({ projectName, onSave, onPreview, onExport, saving }: To
         </Button>
 
         {/* Admin Menu */}
-        <AdminMenu />
+        <AdminMenu projectId={projectId} />
 
       </div>
 

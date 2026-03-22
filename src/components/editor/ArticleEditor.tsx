@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
+import { loadArticleCategoryIds, syncArticleCategoryAssignments } from "@/lib/articles/taxonomy";
 import { useFieldContextStore } from "@/lib/stores/field-context-store";
 import TiptapEditor from "./TiptapEditor";
 import AIPanel from "./AIPanel";
@@ -44,6 +45,12 @@ interface AvailableSlot {
   label: string;
 }
 
+interface LayoutSlotRow extends AvailableSlot {
+  layout_templates?: {
+    tenant_id: string;
+  } | null;
+}
+
 interface ArticleEditorProps {
   articleId?: string;
 }
@@ -65,6 +72,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
   const [body, setBody] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [status, setStatus] = useState<ArticleStatus>("draft");
   const [isFeatured, setIsFeatured] = useState(false);
   const [isBreaking, setIsBreaking] = useState(false);
@@ -102,15 +110,6 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
   const [slotId, setSlotId] = useState("");
   const [slugManual, setSlugManual] = useState(false);
 
-  // Auto-generate slug from title
-  useEffect(() => {
-    if (!slugManual && isNew) {
-      setSlug(
-        slugify(title, { lower: true, strict: true, locale: "it" })
-      );
-    }
-  }, [title, slugManual, isNew]);
-
   // Load categories, tags, and available slots
   useEffect(() => {
     if (!currentTenant) return;
@@ -143,7 +142,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
       .in("assignment_mode", ["manual", "mixed"])
       .order("slot_key")
       .then(({ data }) => {
-        if (data) setAvailableSlots(data as any);
+        if (data) setAvailableSlots(data as unknown as LayoutSlotRow[]);
       });
   }, [currentTenant]);
 
@@ -167,6 +166,8 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
         setBody(data.body);
         setCoverImageUrl(data.cover_image_url ?? "");
         setCategoryId(data.category_id ?? "");
+          const categoryIds = await loadArticleCategoryIds(supabase, articleId!, data.category_id ?? null);
+        setSelectedCategoryIds(categoryIds);
         setStatus(data.status);
         setIsFeatured(data.is_featured);
         setIsBreaking(data.is_breaking);
@@ -265,6 +266,14 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
 
       // Update tags
       if (savedId) {
+        const normalizedCategoryIds = [...new Set([categoryId, ...selectedCategoryIds].filter(Boolean))];
+
+        try {
+          await syncArticleCategoryAssignments(supabase, savedId, normalizedCategoryIds);
+        } catch (categoryError) {
+          console.warn("Article categories sync failed:", categoryError);
+        }
+
         await supabase
           .from("article_tags")
           .delete()
@@ -320,12 +329,46 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
       currentTenant, user, title, subtitle, slug, summary, body,
       coverImageUrl, categoryId, status, isFeatured, isBreaking,
       isPremium, metaTitle, metaDescription, scheduledAt,
-      selectedTags, slotId, articleId, isNew, router,
+      selectedCategoryIds, selectedTags, slotId, articleId, isNew, router,
     ]
   );
 
   const canApprove = currentRole === "super_admin" || currentRole === "chief_editor";
   const canPublish = canApprove;
+
+  const handlePrimaryCategoryChange = (nextCategoryId: string) => {
+    setCategoryId(nextCategoryId);
+    setSelectedCategoryIds((prev) => {
+      const remaining = prev.filter((id) => id !== nextCategoryId);
+      return nextCategoryId ? [nextCategoryId, ...remaining] : remaining;
+    });
+  };
+
+  const handleAddSecondaryCategory = (nextCategoryId: string) => {
+    if (!nextCategoryId) {
+      return;
+    }
+
+    setSelectedCategoryIds((prev) => {
+      if (prev.includes(nextCategoryId)) {
+        return prev;
+      }
+
+      return categoryId ? [categoryId, ...prev.filter((id) => id !== categoryId), nextCategoryId] : [...prev, nextCategoryId];
+    });
+  };
+
+  const handleRemoveCategory = (categoryToRemove: string) => {
+    setSelectedCategoryIds((prev) => {
+      const next = prev.filter((id) => id !== categoryToRemove);
+
+      if (categoryToRemove === categoryId) {
+        setCategoryId(next[0] || "");
+      }
+
+      return next;
+    });
+  };
 
   if (loading) {
     return (
@@ -434,7 +477,13 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                const nextTitle = e.target.value;
+                setTitle(nextTitle);
+                if (!slugManual && isNew) {
+                  setSlug(slugify(nextTitle, { lower: true, strict: true, locale: "it" }));
+                }
+              }}
               placeholder="Titolo dell'articolo"
               className="w-full text-3xl font-bold font-serif border-0 bg-transparent focus:outline-none pr-10"
               style={{ color: "var(--c-text-0)" }}
@@ -566,31 +615,88 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           {/* Category */}
           <div className="rounded-lg p-4 group" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Categoria</h3>
+              <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Categorie</h3>
               <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                 <AIFieldHelper
-                  fieldName="Categoria articolo"
+                  fieldName="Categoria primaria articolo"
                   fieldValue={categories.find(c => c.id === categoryId)?.name || "nessuna"}
-                  context={`Titolo: ${title}\nSommario: ${summary}\nCategorie disponibili: ${categories.map(c => c.name).join(", ")}`}
+                  context={`Titolo: ${title}\nSommario: ${summary}\nCategorie disponibili: ${categories.map(c => c.name).join(", ")}\nCategorie già selezionate: ${selectedCategoryIds.map((id) => categories.find((c) => c.id === id)?.name).filter(Boolean).join(", ") || "nessuna"}`}
                   onGenerate={(suggestion) => {
                     const match = categories.find(c => c.name.toLowerCase() === suggestion.toLowerCase().trim());
-                    if (match) setCategoryId(match.id);
+                    if (match) handlePrimaryCategoryChange(match.id);
                     else toast.success(`Suggerimento IA: "${suggestion}" — selezionala manualmente se esiste`);
                   }}
                 />
               </div>
             </div>
+            <p className="text-xs mb-2" style={{ color: "var(--c-text-3)" }}>La categoria primaria è quella usata come principale nelle card e negli elenchi. Puoi aggiungere categorie secondarie come in WordPress.</p>
             <select
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
+              onChange={(e) => handlePrimaryCategoryChange(e.target.value)}
               className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
               style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}
             >
-              <option value="">Nessuna categoria</option>
+              <option value="">Nessuna categoria primaria</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
+
+            <div className="mt-3 space-y-2">
+              <p className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Categorie associate</p>
+              {selectedCategoryIds.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedCategoryIds.map((selectedId) => {
+                    const category = categories.find((cat) => cat.id === selectedId);
+                    if (!category) {
+                      return null;
+                    }
+
+                    const isPrimaryCategory = selectedId === categoryId;
+                    return (
+                      <span
+                        key={selectedId}
+                        className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium"
+                        style={{
+                          background: isPrimaryCategory ? "var(--c-accent-soft)" : "var(--c-bg-2)",
+                          color: isPrimaryCategory ? "var(--c-accent)" : "var(--c-text-1)",
+                        }}
+                      >
+                        {category.name}
+                        {isPrimaryCategory && <span>Primaria</span>}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCategory(selectedId)}
+                          className="opacity-70 hover:opacity-100"
+                          aria-label={`Rimuovi categoria ${category.name}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs" style={{ color: "var(--c-text-3)" }}>Nessuna categoria selezionata.</p>
+              )}
+
+              <select
+                defaultValue=""
+                onChange={(e) => {
+                  handleAddSecondaryCategory(e.target.value);
+                  e.target.value = "";
+                }}
+                className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}
+              >
+                <option value="">Aggiungi categoria secondaria</option>
+                {categories
+                  .filter((cat) => !selectedCategoryIds.includes(cat.id))
+                  .map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+              </select>
+            </div>
           </div>
 
           {/* Slot Assignment */}

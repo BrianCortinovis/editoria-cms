@@ -4,7 +4,7 @@ import { callAI } from '@/lib/ai/providers';
 import { resolveProvider } from '@/lib/ai/resolver';
 import type { AIMessage } from '@/lib/ai/providers';
 
-const BLOCK_LIST = 'section, hero, text, columns, container, image-gallery, video, slideshow, carousel, quote, accordion, tabs, social, newsletter, banner-ad, related-content, author-bio, timeline, counter, divider';
+const BLOCK_LIST = 'section, hero, text, columns, container, image-gallery, video, slideshow, carousel, quote, accordion, tabs, social, newsletter, newsletter-signup, cms-form, banner-ad, banner-zone, related-content, author-bio, timeline, counter, divider, article-grid, article-hero, category-nav, event-list, search-bar, breaking-ticker';
 
 interface TestCase {
   name: string;
