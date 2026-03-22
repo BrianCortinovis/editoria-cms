@@ -193,7 +193,29 @@ export default function LayoutPage() {
     setLoading(false);
   }, [currentTenant, selectedPage]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+
+    // Subscribe to real-time page changes
+    if (!currentTenant) return;
+    const supabase = createClient();
+
+    const subscription = supabase
+      .channel(`pages:${currentTenant.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'site_pages',
+        filter: `tenant_id=eq.${currentTenant.id}`,
+      }, async () => {
+        await load();
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [load, currentTenant]);
 
   const handleImportFromUrl = async () => {
     if (!importUrl.trim()) {
@@ -487,7 +509,7 @@ export default function LayoutPage() {
             return (
               <button
                 key={page.id}
-                onClick={() => { setSelectedPage(page.page_type); setLoading(true); }}
+                onClick={() => { setSelectedPage(page.page_type); load(); }}
                 className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition text-left"
                 style={{
                   background: selectedPage === page.page_type ? "var(--c-accent-soft)" : "transparent",
