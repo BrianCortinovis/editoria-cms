@@ -104,7 +104,17 @@ export default function AIPanel({
         return;
       }
 
-      setResults(prev => ({ ...prev, [action]: data.data }));
+      // Parse JSON response if result is a string
+      let parsedResult = data.result;
+      if (typeof parsedResult === 'string') {
+        try {
+          parsedResult = JSON.parse(parsedResult);
+        } catch (e) {
+          // If not valid JSON, keep as string
+        }
+      }
+
+      setResults(prev => ({ ...prev, [action]: parsedResult }));
       toast.success(`${action.toUpperCase()} generato con ${data.provider}`);
       aiStatus.set({ message: `${actionLabels[action] || action} completato`, provider: data.provider || "" });
       setTimeout(() => useAIStatus.getState().clear(), 3000);
