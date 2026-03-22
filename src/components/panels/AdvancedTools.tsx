@@ -59,10 +59,10 @@ export function SnapGridSettings() {
                 className={cn(
                   'px-2 py-0.5 rounded text-[10px] font-mono transition-colors'
                 )}
-                style={snapSize === v ? { background: '#3b82f6', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+                style={snapSize === v ? { background: 'var(--c-accent)', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
                 onMouseEnter={(e) => {
                   if (snapSize !== v) {
-                    e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                    e.currentTarget.style.background = 'var(--c-accent-soft)';
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -186,8 +186,8 @@ export function ButtonEditor({ block }: { block: Block }) {
       text: 'Click qui',
       url: '#',
       style: 'filled',
-      bgColor: '#3b82f6',
-      textColor: '#ffffff',
+      bgColor: 'var(--c-accent)',
+      textColor: 'white',
       borderRadius: '8px',
       size: 'md',
       icon: '',
@@ -212,7 +212,7 @@ export function ButtonEditor({ block }: { block: Block }) {
         <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--c-text-1)' }}>
           <MousePointerClick size={12} /> Pulsanti Interattivi
         </h4>
-        <button onClick={addButton} className="text-[10px] font-medium transition-colors" style={{ color: '#3b82f6' }} onMouseEnter={(e) => (e.currentTarget.style.color = '#1d4ed8')} onMouseLeave={(e) => (e.currentTarget.style.color = '#3b82f6')}>+ Aggiungi</button>
+        <button onClick={addButton} className="text-[10px] font-medium transition-colors" style={{ color: 'var(--c-accent)' }} onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--c-accent-hover)')} onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--c-accent)')}>+ Aggiungi</button>
       </div>
 
       {buttons.map((btn) => (
@@ -250,7 +250,7 @@ export function ButtonEditor({ block }: { block: Block }) {
             <div className="flex-1"><ColorPicker label="Testo" value={btn.textColor} onChange={(v) => updateButton(btn.id, { textColor: v })} /></div>
           </div>
           <Input label="Border Radius" value={btn.borderRadius} onChange={(e) => updateButton(btn.id, { borderRadius: e.target.value })} placeholder="8px" />
-          <button onClick={() => removeButton(btn.id)} className="text-[10px] transition-colors" style={{ color: '#ef4444' }} onMouseEnter={(e) => (e.currentTarget.style.color = '#dc2626')} onMouseLeave={(e) => (e.currentTarget.style.color = '#ef4444')}>Rimuovi pulsante</button>
+          <button onClick={() => removeButton(btn.id)} className="text-[10px] transition-colors" style={{ color: 'var(--c-danger)' }} onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}>Rimuovi pulsante</button>
         </div>
       ))}
     </div>
@@ -345,10 +345,10 @@ export function ShapeTools({ block }: { block: Block }) {
                   className={cn(
                     'flex flex-col items-center gap-1 p-2 rounded-lg text-[9px] transition-colors'
                   )}
-                  style={isActive ? { background: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6', boxShadow: '0 0 0 1px #3b82f6' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+                  style={isActive ? { background: 'var(--c-accent-soft)', color: 'var(--c-accent)', boxShadow: '0 0 0 1px var(--c-accent)' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
-                      e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                      e.currentTarget.style.background = 'var(--c-accent-soft)';
                     }
                   }}
                   onMouseLeave={(e) => {
