@@ -73,7 +73,7 @@ export default function IAPage() {
     openai_model: DEFAULT_MODELS.openai,
     gemini_api_key: '',
     gemini_model: DEFAULT_MODELS.gemini,
-    ollama_url: 'http://localhost:11434',
+    ollama_url: '',
     ollama_model: DEFAULT_MODELS.ollama,
   });
   const [saving, setSaving] = useState(false);
@@ -106,7 +106,7 @@ export default function IAPage() {
           openai_model: aiConfig.openai_model || DEFAULT_MODELS.openai,
           gemini_api_key: aiConfig.gemini_api_key || '',
           gemini_model: aiConfig.gemini_model || DEFAULT_MODELS.gemini,
-          ollama_url: aiConfig.ollama_url || 'http://localhost:11434',
+          ollama_url: aiConfig.ollama_url || '',
           ollama_model: aiConfig.ollama_model || DEFAULT_MODELS.ollama,
         }));
       }
@@ -322,7 +322,7 @@ export default function IAPage() {
                         ollama_url: e.target.value,
                       }))
                     }
-                    placeholder="http://localhost:11434"
+                    placeholder="es: http://192.168.1.100:11434"
                     className="w-full px-3 py-2 rounded-lg border text-sm"
                     style={{
                       background: 'var(--c-bg-0)',

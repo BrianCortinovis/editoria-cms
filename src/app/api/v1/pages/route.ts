@@ -4,7 +4,11 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
-    const tenant = request.nextUrl.searchParams.get('tenant') || 'valbrembana';
+    const tenant = request.nextUrl.searchParams.get('tenant');
+
+    if (!tenant) {
+      return NextResponse.json({ error: 'tenant parameter required' }, { status: 400 });
+    }
 
     const { data: tenantData } = await supabase
       .from('tenants').select('id').eq('slug', tenant).single();

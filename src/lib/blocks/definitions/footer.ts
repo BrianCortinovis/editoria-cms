@@ -12,27 +12,22 @@ const footerBlock: BlockDefinition = {
       {
         title: 'Chi Siamo',
         type: 'text',
-        content: 'Descrizione breve della tua azienda o progetto.',
+        content: '',
       },
       {
         title: 'Link Utili',
         type: 'links',
-        links: [
-          { label: 'Home', url: '/' },
-          { label: 'Servizi', url: '/servizi' },
-          { label: 'Blog', url: '/blog' },
-          { label: 'Contatti', url: '/contatti' },
-        ],
+        links: [],
       },
       {
         title: 'Contatti',
         type: 'contact',
-        email: 'info@example.com',
-        phone: '+39 000 000 0000',
-        address: 'Via Example 1, Milano',
+        email: '',
+        phone: '',
+        address: '',
       },
     ],
-    copyright: '© 2026 Il Tuo Sito. Tutti i diritti riservati.',
+    copyright: '',
     socialLinks: [
       { platform: 'facebook', url: '#' },
       { platform: 'instagram', url: '#' },

@@ -180,7 +180,7 @@ export default function ImpostazioniPage() {
                 <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Dominio sito pubblico</label>
                 <div className="relative mt-1">
                   <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--c-text-3)" }} />
-                  <input type="text" value={domain} onChange={e => setDomain(e.target.value)} placeholder="www.valbrembana.web"
+                  <input type="text" value={domain} onChange={e => setDomain(e.target.value)} placeholder="es: www.example.com"
                     className="w-full pl-10 pr-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
                     style={{ border: "1px solid var(--c-border)" }} />
                 </div>
@@ -189,7 +189,7 @@ export default function ImpostazioniPage() {
                 <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Logo URL</label>
                 <div className="relative mt-1">
                   <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--c-text-3)" }} />
-                  <input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://..."
+                  <input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://example.com/logo.png"
                     className="w-full pl-10 pr-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
                     style={{ border: "1px solid var(--c-border)" }} />
                 </div>
