@@ -127,7 +127,7 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
           <select
             value={selectedModel}
             onChange={(e) => setSelectedModel(e.target.value)}
-            className="text-xs rounded-lg px-2 py-1.5 border focus:outline-none"
+            className="text-xs rounded-lg px-2 py-1.5 border focus:outline-none min-w-[180px]"
             style={{
               background: 'var(--c-bg-2)',
               color: 'var(--c-text-0)',
@@ -136,7 +136,7 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
           >
             {currentProviderData?.models.map((model) => (
               <option key={model} value={model}>
-                {model.split('-').slice(-1)[0]}
+                {model}
               </option>
             ))}
           </select>
