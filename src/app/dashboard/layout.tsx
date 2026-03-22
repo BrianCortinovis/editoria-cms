@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import AuthProvider from "@/components/layout/AuthProvider";
+import { GlobalAiChat } from "@/components/ai/GlobalAiChat";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -22,6 +23,8 @@ const pageTitles: Record<string, string> = {
   "/dashboard/contabilita": "Contabilità",
   "/dashboard/seo": "SEO & Analytics",
   "/dashboard/ia": "IA & Intelligenza Artificiale",
+  "/dashboard/ai-debug": "AI Debug",
+  "/dashboard/ai-test": "AI Test",
   "/dashboard/gdpr": "GDPR & Compliance",
   "/dashboard/moduli": "Moduli Premium",
   "/dashboard/utenti": "Team",
@@ -59,6 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </main>
         </div>
       </div>
+      <GlobalAiChat />
     </AuthProvider>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
+import { SystemPanel } from "@/components/panels/SystemPanel";
 import {
   Cpu,
   Globe,
@@ -86,6 +87,11 @@ export default function TecnicoPage() {
 
   return (
     <div className="max-w-5xl space-y-6">
+      {/* System Panel */}
+      <div className="card" style={{ height: "500px", display: "flex", flexDirection: "column" }}>
+        <SystemPanel />
+      </div>
+
       {/* Resource Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <StatCard icon={FileText} label="Articoli" value={stats?.totalArticles ?? "—"} color="var(--c-accent)" />

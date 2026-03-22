@@ -6,13 +6,11 @@ import {
   type DragStartEvent, type DragEndEvent,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Toolbar } from './Toolbar';
 import { Canvas } from './Canvas';
 import { PreviewMode } from './PreviewMode';
 import { LeftPanel } from '@/components/panels/LeftPanel';
 import { RightPanel } from '@/components/panels/RightPanel';
 import { AiPanel } from '@/components/ai/AiPanel';
-import { AdminMenu } from './AdminMenu';
 import { HelpCenter } from '@/components/help/HelpCenter';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { usePageStore, loadAutosave, clearAutosave, setAutosaveContext } from '@/lib/stores/page-store';
@@ -32,13 +30,29 @@ interface BuilderShellProps {
 
 export function BuilderShell({ projectId, projectName, pageId }: BuilderShellProps) {
   const {
-    leftPanelOpen, rightPanelOpen, aiPanelOpen,
+    leftPanelOpen, rightPanelOpen,
     setLeftPanelOpen, setRightPanelOpen,
     previewMode, setPreviewMode,
   } = useUiStore();
   const { blocks, setBlocks, addBlock } = usePageStore();
   const [saving, setSaving] = useState(false);
   const [recovered, setRecovered] = useState(false);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      await fetch(`/api/projects/${projectId}/pages/${pageId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocks }),
+      });
+      clearAutosave(projectId, pageId);
+    } catch (error) {
+      console.error('Save error:', error);
+    } finally {
+      setSaving(false);
+    }
+  }, [projectId, pageId, blocks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -78,24 +92,6 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
       });
   }, [projectId, pageId, setBlocks]);
 
-  // Save
-  const handleSave = useCallback(async () => {
-    setSaving(true);
-    try {
-      await fetch(`/api/projects/${projectId}/pages/${pageId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blocks }),
-      });
-      // Clear autosave after successful server save
-      clearAutosave(projectId, pageId);
-    } catch (error) {
-      console.error('Save error:', error);
-    } finally {
-      setSaving(false);
-    }
-  }, [projectId, pageId, blocks]);
-
   // Warn before leaving with unsaved work
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -110,11 +106,6 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Ctrl/Cmd+S: Save
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        handleSave();
-      }
       // Escape: Exit preview
       if (e.key === 'Escape' && previewMode) {
         setPreviewMode(false);
@@ -228,13 +219,6 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
             <button onClick={() => setRecovered(false)} className="ml-2 underline opacity-80 hover:opacity-100">OK</button>
           </div>
         )}
-        <Toolbar
-          projectName={projectName}
-          onSave={handleSave}
-          onPreview={handlePreview}
-          onExport={handleExport}
-          saving={saving}
-        />
 
         <div className="flex-1 flex overflow-hidden relative">
           {/* Left Panel - Fixed width or hidden */}

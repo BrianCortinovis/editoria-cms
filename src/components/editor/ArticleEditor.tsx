@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
+import { useFieldContextStore } from "@/lib/stores/field-context-store";
 import TiptapEditor from "./TiptapEditor";
 import AIPanel from "./AIPanel";
 import AIFieldHelper from "@/components/ai/AIFieldHelper";
@@ -50,6 +51,7 @@ interface ArticleEditorProps {
 export default function ArticleEditor({ articleId }: ArticleEditorProps) {
   const router = useRouter();
   const { currentTenant, currentRole, user } = useAuthStore();
+  const { registerFieldSetter, unregisterFieldSetter } = useFieldContextStore();
   const isNew = !articleId;
 
   const [saving, setSaving] = useState(false);
@@ -71,6 +73,27 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
   const [metaDescription, setMetaDescription] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Register field setters for AI to use
+  useEffect(() => {
+    registerFieldSetter("title", setTitle);
+    registerFieldSetter("subtitle", setSubtitle);
+    registerFieldSetter("summary", setSummary);
+    registerFieldSetter("body", setBody);
+    registerFieldSetter("metaTitle", setMetaTitle);
+    registerFieldSetter("metaDescription", setMetaDescription);
+    registerFieldSetter("slug", setSlug);
+
+    return () => {
+      unregisterFieldSetter("title");
+      unregisterFieldSetter("subtitle");
+      unregisterFieldSetter("summary");
+      unregisterFieldSetter("body");
+      unregisterFieldSetter("metaTitle");
+      unregisterFieldSetter("metaDescription");
+      unregisterFieldSetter("slug");
+    };
+  }, [registerFieldSetter, unregisterFieldSetter]);
 
   // Options
   const [categories, setCategories] = useState<Category[]>([]);

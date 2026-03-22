@@ -3,6 +3,7 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
 import { usePageStore } from '@/lib/stores/page-store';
 import { useUiStore } from '@/lib/stores/ui-store';
+import { useFieldContextStore } from '@/lib/stores/field-context-store';
 import { CanvasBlock } from './CanvasBlock';
 import { DEVICE_WIDTHS } from '@/lib/config/breakpoints';
 import { cn } from '@/lib/utils/cn';
@@ -12,6 +13,7 @@ import { useDroppable } from '@dnd-kit/core';
 export function Canvas() {
   const { blocks, selectBlock, selectedBlockId } = usePageStore();
   const { deviceMode, zoom, setZoom, showGrid, gridSize, showOutlines } = useUiStore();
+  const { setSelectedField, updatePageContext } = useFieldContextStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
 

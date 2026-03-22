@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import ThemeInit from "@/components/layout/ThemeInit";
-import { GlobalAiChat } from "@/components/ai/GlobalAiChat";
 import "./globals.css";
 
 const inter = Inter({
@@ -35,7 +34,6 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
         <ThemeInit />
         {children}
-        <GlobalAiChat />
         <Toaster
           position="bottom-right"
           toastOptions={{

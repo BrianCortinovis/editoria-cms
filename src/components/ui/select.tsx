@@ -1,6 +1,7 @@
 'use client';
 
 import { forwardRef, type SelectHTMLAttributes } from 'react';
+import { useFieldContextStore } from '@/lib/stores/field-context-store';
 import { cn } from '@/lib/utils/cn';
 
 export interface SelectOption {
@@ -16,6 +17,37 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, label, options, id, ...props }, ref) => {
     const selectId = id || label?.toLowerCase().replace(/\s+/g, '-');
+    const { setSelectedField, updatePageContext } = useFieldContextStore();
+
+    const handleFocus = (e: React.FocusEvent<HTMLSelectElement>) => {
+      const element = e.currentTarget;
+      setSelectedField({
+        id: element.id || element.name || 'unknown',
+        name: element.name || element.id || 'unknown',
+        value: element.value || '',
+        type: 'select',
+        label: label || element.getAttribute('aria-label') || undefined,
+        placeholder: undefined,
+      });
+
+      // Collect page context
+      const form = element.closest('form') || element.closest('[data-form]') || document;
+      const allFields: Record<string, string> = {};
+      const inputs = form.querySelectorAll('input[name], textarea[name], select[name]');
+      inputs.forEach((input: any) => {
+        if (input.name && input.value) {
+          allFields[input.name] = input.value;
+        }
+      });
+
+      updatePageContext({
+        allFields,
+        pageName: document.title,
+      });
+
+      props.onFocus?.(e);
+    };
+
     return (
       <div className="flex flex-col gap-1">
         {label && (
@@ -39,6 +71,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             color: 'var(--c-text-0)',
             paddingRight: '2rem',
           }}
+          onFocus={handleFocus}
           {...props}
         >
           {options.map((opt) => (

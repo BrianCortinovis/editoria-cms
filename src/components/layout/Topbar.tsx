@@ -98,7 +98,7 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
 
         <div className="hidden md:flex items-center gap-2 rounded-lg px-3 py-1.5 w-60" style={{ background: "var(--c-bg-3)" }}>
           <Search className="w-4 h-4" style={{ color: "var(--c-text-3)" }} />
-          <input type="text" placeholder="Cerca..." className="bg-transparent border-0 text-sm focus:outline-none w-full" style={{ color: "var(--c-text-0)" }} />
+          <input type="text" placeholder="Cerca..." data-ai-ignore-field-context="true" className="bg-transparent border-0 text-sm focus:outline-none w-full" style={{ color: "var(--c-text-0)" }} />
           <kbd className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ background: "var(--c-border)", color: "var(--c-text-3)" }}>/</kbd>
         </div>
 
@@ -120,14 +120,14 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
 
             {showProviderMenu && (
               <div
-                className="absolute top-full mt-2 left-0 rounded-lg shadow-lg overflow-hidden z-50 min-w-max"
+                className="absolute top-full mt-2 left-0 rounded-lg shadow-lg overflow-hidden z-[9999] min-w-max"
                 style={{ background: 'var(--c-bg-1)', border: '1px solid var(--c-border)' }}
               >
                 {providers.map((p) => (
                   <button
                     key={p.value}
                     onClick={() => {
-                      setAiProvider(p.value as any);
+                      setAiProvider(p.value);
                       setSelectedModel(p.models[0].id);
                       setShowProviderMenu(false);
                     }}
@@ -149,6 +149,7 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
           <select
             value={selectedModel}
             onChange={(e) => setSelectedModel(e.target.value)}
+            data-ai-ignore-field-context="true"
             className="text-xs rounded-lg px-2 py-1.5 border focus:outline-none"
             style={{
               background: 'var(--c-bg-2)',
