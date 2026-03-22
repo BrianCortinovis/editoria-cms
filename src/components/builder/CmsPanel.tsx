@@ -219,21 +219,21 @@ export function CmsPanel({ open, onClose }: { open: boolean; onClose: () => void
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-700 w-[90vw] max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="relative rounded-2xl shadow-2xl border w-[90vw] max-w-4xl max-h-[85vh] overflow-hidden flex flex-col" style={{ background: 'var(--c-bg-1)', borderColor: 'var(--c-border)' }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--c-border)' }}>
           <div className="flex items-center gap-3">
-            <Database size={20} className="text-blue-500" />
+            <Database size={20} style={{ color: 'var(--c-accent)' }} />
             <div>
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Connessione CMS</h2>
-              <p className="text-xs text-zinc-500">Collega il builder al CMS editoriale per importare contenuti reali</p>
+              <h2 className="text-lg font-bold" style={{ color: 'var(--c-text-0)' }}>Connessione CMS</h2>
+              <p className="text-xs" style={{ color: 'var(--c-text-2)' }}>Collega il builder al CMS editoriale per importare contenuti reali</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500">×</button>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--c-text-2)' }} onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--c-bg-2)')} onMouseLeave={(e) => (e.currentTarget.style.background = '')}>×</button>
         </div>
 
         {/* Connection form */}
-        <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50">
+        <div className="px-6 py-4 border-b" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-2)' }}>
           <div className="flex gap-3 items-end">
             <div className="flex-1">
               <Input label="URL del CMS" value={connection.url} onChange={e => setConnection(c => ({ ...c, url: e.target.value }))} placeholder="http://localhost:3001" />
@@ -249,14 +249,14 @@ export function CmsPanel({ open, onClose }: { open: boolean; onClose: () => void
 
           {/* Status */}
           {connection.connected && (
-            <div className="mt-3 flex items-center gap-2 text-sm text-green-600">
+            <div className="mt-3 flex items-center gap-2 text-sm" style={{ color: 'var(--c-success)' }}>
               <CheckCircle2 size={16} />
               Connesso a <strong>{connection.tenantName || connection.tenant}</strong>
-              <button onClick={testConnection} className="ml-2 text-xs text-blue-500 hover:text-blue-600"><RefreshCw size={12} /></button>
+              <button onClick={testConnection} className="ml-2 text-xs transition-colors" style={{ color: 'var(--c-accent)' }}><RefreshCw size={12} /></button>
             </div>
           )}
           {error && (
-            <div className="mt-3 flex items-center gap-2 text-sm text-red-500">
+            <div className="mt-3 flex items-center gap-2 text-sm" style={{ color: 'var(--c-danger)' }}>
               <XCircle size={16} />
               {error}
             </div>
@@ -268,12 +268,17 @@ export function CmsPanel({ open, onClose }: { open: boolean; onClose: () => void
           {connection.connected && data ? (
             <div className="flex h-full">
               {/* Sidebar sections */}
-              <div className="w-48 shrink-0 border-r border-zinc-200 dark:border-zinc-700 py-2">
+              <div className="w-48 shrink-0 border-r py-2" style={{ borderColor: 'var(--c-border)' }}>
                 {/* Generate full page button */}
                 <button
                   onClick={generateFromLayout}
                   disabled={loading}
-                  className="w-full flex items-center gap-2 px-4 py-3 text-xs font-semibold text-blue-600 bg-blue-50 dark:bg-blue-950 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors border-b border-zinc-200 dark:border-zinc-700"
+                  className="w-full flex items-center gap-2 px-4 py-3 text-xs font-semibold transition-colors border-b"
+                  style={{
+                    color: 'var(--c-accent)',
+                    background: 'var(--c-accent-soft)',
+                    borderColor: 'var(--c-border)',
+                  }}
                 >
                   <Zap size={14} />
                   Genera pagina dal CMS
@@ -283,15 +288,15 @@ export function CmsPanel({ open, onClose }: { open: boolean; onClose: () => void
                   <button
                     key={id}
                     onClick={() => setActiveSection(activeSection === id ? null : id)}
-                    className={cn(
-                      'w-full flex items-center justify-between px-4 py-2.5 text-xs transition-colors',
-                      activeSection === id
-                        ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 font-semibold'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                    )}
+                    className="w-full flex items-center justify-between px-4 py-2.5 text-xs transition-colors"
+                    style={{
+                      background: activeSection === id ? 'var(--c-accent-soft)' : '',
+                      color: activeSection === id ? 'var(--c-accent)' : 'var(--c-text-1)',
+                      fontWeight: activeSection === id ? '600' : 'normal',
+                    }}
                   >
                     <span className="flex items-center gap-2"><Icon size={13} />{label}</span>
-                    <span className="text-[10px] bg-zinc-200 dark:bg-zinc-700 px-1.5 py-0.5 rounded-full">{count || 0}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-2)' }}>{count || 0}</span>
                   </button>
                 ))}
               </div>

@@ -127,7 +127,7 @@ export function EffectsEditor({ block }: EffectsEditorProps) {
                         blur: 10,
                         saturation: 120,
                         bgOpacity: 0.1,
-                        bgColor: '#3b82f6',
+                        bgColor: 'rgba(124,138,170,0.1)',
                         borderOpacity: 0.25,
                       })
                     }
