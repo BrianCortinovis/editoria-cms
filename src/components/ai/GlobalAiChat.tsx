@@ -127,13 +127,14 @@ IMPORTANTE: Rispondi SOLO con il nuovo valore per il campo "${selectedField.name
 
   return (
     <div
-      className="fixed bottom-4 right-4 w-96 rounded-lg shadow-2xl flex flex-col z-40"
+      className="fixed bottom-4 right-4 w-96 rounded-lg shadow-2xl flex flex-col"
       style={{
         background: 'var(--c-bg-1)',
         borderColor: 'var(--c-border)',
         border: '1px solid',
         height: expanded ? '600px' : '56px',
         transition: 'height 0.3s ease',
+        zIndex: 9999,
       }}
     >
       {/* Header - Always Visible */}
