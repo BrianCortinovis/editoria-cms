@@ -150,6 +150,55 @@ function articleGridBlock(label, params, props = {}, style = {}) {
   );
 }
 
+function categoryNavBlock(label, props = {}, style = {}) {
+  return block(
+    'category-nav',
+    label,
+    {
+      style: 'underline',
+      showCount: false,
+      colorMode: 'neutral',
+      ...props,
+    },
+    {
+      ...layoutStyle({
+        display: 'flex',
+        gap: '10px',
+        flexWrap: 'wrap',
+      }),
+      ...style,
+    },
+    {
+      dataSource: {
+        endpoint: 'categories',
+        params: {},
+      },
+    }
+  );
+}
+
+function sidebarWidgetsBlock(label, widgets, style = {}) {
+  return block(
+    'sidebar',
+    label,
+    {
+      widgets,
+      position: 'right',
+      sticky: false,
+    },
+    {
+      ...layoutStyle({
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '18px',
+        maxWidth: '100%',
+        padding: { top: '0', right: '0', bottom: '0', left: '0' },
+      }),
+      ...style,
+    }
+  );
+}
+
 function bannerZoneBlock(label, position, style = {}, props = {}) {
   return block(
     'banner-zone',
@@ -681,22 +730,24 @@ async function main() {
       heading: '"Fraunces", Georgia, serif',
       mono: '"JetBrains Mono", monospace',
     },
+    layoutPreset: 'newspaper',
+    mastheadNote: 'Val Brembana digital edition',
     colors: {
       background: '#ffffff',
       surface: '#ffffff',
       text: '#111111',
-      textSecondary: '#5a5a5a',
+      textSecondary: '#5f5f5f',
       primary: '#111111',
       secondary: '#8b1e24',
       accent: '#8b1e24',
-      border: '#d7d7d7',
+      border: '#d4d4d4',
     },
     spacing: {
       unit: 4,
       sectionGap: '56px',
-      containerMax: '1280px',
+      containerMax: '1240px',
     },
-    borderRadius: '20px',
+    borderRadius: '10px',
   };
 
   const globalCss = `
@@ -708,7 +759,19 @@ footer { border-top: 1px solid var(--e-color-border) !important; }
 header nav a:hover, footer a:hover { color: var(--e-color-primary); }
 [data-block="article-grid"] a:hover h3 { text-decoration: underline; }
 [data-block="article-grid"] a { background:#fff; }
+[data-block="article-grid"] a,
+[data-block="article-hero"],
+[data-block="banner-zone"],
+[data-block="sidebar"] section,
+[data-block="newsletter"],
+[data-block="cms-form"] { border-radius: 8px !important; }
+[data-block="article-grid"] a { box-shadow:none !important; }
+[data-block="article-grid"] h3 { letter-spacing: -0.02em; }
 [data-block="article-hero"] { border: 1px solid var(--e-color-border); }
+[data-block="article-hero"] h2,
+[data-block="article-hero"] h3 { letter-spacing:-0.03em; }
+[data-block="breaking-ticker"] a { color:#fff; text-decoration:none; }
+[data-block="breaking-ticker"] a:hover { text-decoration:underline; }
 @media (max-width: 900px) {
   header > div, footer > div { padding-left: 18px !important; padding-right: 18px !important; }
 }
@@ -718,24 +781,27 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
     primary: [
       { id: 'nav-home', label: 'Home', url: `/site/${tenant.slug}` },
       { id: 'nav-cronaca', label: 'Cronaca', url: `/site/${tenant.slug}/categoria/cronaca`, sourceType: 'category' },
+      { id: 'nav-opinioni', label: 'Opinioni', url: `/site/${tenant.slug}/categoria/editoriali`, sourceType: 'category' },
       { id: 'nav-sport', label: 'Sport', url: `/site/${tenant.slug}/categoria/sport`, sourceType: 'category' },
       { id: 'nav-cultura', label: 'Cultura', url: `/site/${tenant.slug}/categoria/cultura`, sourceType: 'category' },
       { id: 'nav-territorio', label: 'Territorio', url: `/site/${tenant.slug}/categoria/territorio`, sourceType: 'category' },
-      { id: 'nav-editoriali', label: 'Editoriali', url: `/site/${tenant.slug}/categoria/editoriali`, sourceType: 'category' },
+      { id: 'nav-agenda', label: 'Agenda', url: '#agenda' },
       { id: 'nav-contatti', label: 'Contatti', url: `/site/${tenant.slug}/contatti`, sourceType: 'page' },
     ],
     secondary: [
-      { id: 'sec-live', label: 'Live TG', url: '#news-desk' },
-      { id: 'sec-newsletter', label: 'Newsletter', url: '#newsletter' },
+      { id: 'sec-prime', label: 'Prime storie', url: '#prime-storie' },
+      { id: 'sec-live', label: 'Live desk', url: '#news-desk' },
+      { id: 'sec-opinion', label: 'Opinioni', url: '#opinion' },
       { id: 'sec-about', label: 'Chi siamo', url: `/site/${tenant.slug}/chi-siamo` },
       { id: 'sec-contact', label: 'Segnala una storia', url: `/site/${tenant.slug}/contatti` },
     ],
     mobile: [
       { id: 'mob-home', label: 'Home', url: `/site/${tenant.slug}` },
       { id: 'mob-cronaca', label: 'Cronaca', url: `/site/${tenant.slug}/categoria/cronaca` },
+      { id: 'mob-opinioni', label: 'Opinioni', url: `/site/${tenant.slug}/categoria/editoriali` },
       { id: 'mob-sport', label: 'Sport', url: `/site/${tenant.slug}/categoria/sport` },
       { id: 'mob-cultura', label: 'Cultura', url: `/site/${tenant.slug}/categoria/cultura` },
-      { id: 'mob-editoriali', label: 'Editoriali', url: `/site/${tenant.slug}/categoria/editoriali` },
+      { id: 'mob-territorio', label: 'Territorio', url: `/site/${tenant.slug}/categoria/territorio` },
       { id: 'mob-contatti', label: 'Contatti', url: `/site/${tenant.slug}/contatti` },
     ],
     footer: [
@@ -746,14 +812,14 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
   };
 
   const footer = {
-    description: 'Testata demo costruita con i moduli reali del CMS: layout da quotidiano digitale, gerarchie piu nette, sfondo bianco e moduli editoriali completi.',
+    description: 'Testata demo costruita con i moduli reali del CMS: impianto da grande quotidiano digitale, righe editoriali nette, sfondo bianco e gerarchie piu severe.',
     columns: [
       {
         title: 'Redazione',
-        text: 'Cronaca, sport, cultura e territorio con una regia piu pulita, piu bianca e piu vicina a una homepage di testata premium.',
+        text: 'Cronaca, opinioni, sport, cultura e territorio organizzati come una prima pagina digitale piu densa e piu autorevole.',
         links: [
           { label: 'Cronaca', url: `/site/${tenant.slug}/categoria/cronaca` },
-          { label: 'Editoriali', url: `/site/${tenant.slug}/categoria/editoriali` },
+          { label: 'Opinioni', url: `/site/${tenant.slug}/categoria/editoriali` },
         ],
       },
       {
@@ -766,7 +832,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
       },
       {
         title: 'Test',
-        text: 'Tema chiaro, banner header/sidebar/footer/interstitial, eventi, form CMS, pagine statiche e homepage builder.',
+        text: 'Tema chiaro, masthead newspaper, banner header/sidebar/footer/interstitial, eventi, form CMS, pagine statiche e homepage builder.',
         links: [
           { label: 'Chi siamo', url: `/site/${tenant.slug}/chi-siamo` },
           { label: 'Segnala una storia', url: `/site/${tenant.slug}/contatti` },
@@ -782,7 +848,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
       { platform: 'instagram', url: '#' },
       { platform: 'youtube', url: '#' },
     ],
-    copyright: `© ${new Date().getFullYear()} ${tenant.name}. Demo testata newspaper-style del CMS.`,
+    copyright: `© ${new Date().getFullYear()} ${tenant.name}. Demo editoriale del CMS con impostazione da grande quotidiano digitale.`,
     newsletter: {
       enabled: true,
       title: 'Newsletter del desk',
@@ -858,14 +924,14 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
 
   const homepageBlocks = [
     sectionBlock(
-      'Masthead',
+      'Frontline',
       [
         columnsBlock(
-          'Masthead row',
+          'Frontline row',
           [
             textBlock(
-              'Testata intro',
-              `<p style="margin:0;font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Edizione di prova · newsroom mode</p><h1 style="margin:.6rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(3rem,7vw,5.5rem);line-height:.88;color:#111111">Val Brembana Web</h1><p style="margin:1rem 0 0;max-width:760px;font-size:1.08rem;line-height:1.62;color:#4f4f4f">Una home piu bianca, piu netta e piu moderna: grammatica da testata, gerarchie pulite, ADV integrato e moduli reali del CMS ovunque.</p>`
+              'Frontline intro',
+              `<div id="prime-storie"></div><p style="margin:0;font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:#6a6a6a">Prima pagina digitale</p><h2 style="margin:.55rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(2.3rem,5vw,3.8rem);line-height:.92;color:#111111">Una homepage da grande quotidiano: piu ordine, piu gerarchia, meno effetto magazine</h2><p style="margin:1rem 0 0;max-width:760px;font-size:1.03rem;line-height:1.68;color:#4f4f4f">La struttura mette in testa il lead, a lato il flusso delle notizie, poi desk, opinioni, verticali e agenda. Tutto passa dai moduli reali del CMS e da una cromia bianca, piu secca e piu editoriale.</p>`
             ),
             bannerZoneBlock(
               'Banner header',
@@ -875,51 +941,30 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  minHeight: '160px',
+                  minHeight: '150px',
                 }),
-                border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '20px' },
+                border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '8px' },
                 background: { type: 'color', value: '#ffffff' },
                 typography: {},
               }
             ),
           ],
-          ['68%', '32%'],
-          '28px'
+          ['70%', '30%'],
+          '24px'
         ),
-        columnsBlock(
-          'Search strip',
-          [
-            block(
-              'search-bar',
-              'Ricerca',
-              { placeholder: 'Cerca un articolo, un comune, un tema...' },
-              {
-                ...layoutStyle({
-                  display: 'flex',
-                  maxWidth: '100%',
-                  padding: { top: '0', right: '0', bottom: '0', left: '0' },
-                }),
-                background: { type: 'none', value: '' },
-                typography: {},
-              }
-            ),
-            textBlock(
-              'Nota edizione',
-              '<p style="margin:0;font-size:13px;color:#666;text-align:right">Fraunces + Instrument Sans, fondo bianco, linee sottili e moduli reali: una demo piu da testata e meno da magazine caldo.</p>',
-              {
-                typography: { textAlign: 'right' },
-              }
-            ),
-          ],
-          ['62%', '38%'],
-          '22px',
+        categoryNavBlock(
+          'Category rail',
+          { style: 'underline', showCount: false, colorMode: 'neutral' },
           {
             ...layoutStyle({
               display: 'flex',
-              flexDirection: 'row',
-              gap: '22px',
-              margin: { top: '22px', right: '0', bottom: '0', left: '0' },
+              gap: '12px',
+              margin: { top: '20px', right: '0', bottom: '0', left: '0' },
+              padding: { top: '12px', right: '0', bottom: '12px', left: '0' },
             }),
+            border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '0' },
+            background: { type: 'color', value: '#ffffff' },
+            typography: {},
           }
         ),
       ],
@@ -927,8 +972,8 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
         ...layoutStyle({
           display: 'flex',
           flexDirection: 'column',
-          padding: { top: '34px', right: '0', bottom: '34px', left: '0' },
-          margin: { top: '0', right: '0', bottom: '10px', left: '0' },
+          padding: { top: '28px', right: '0', bottom: '24px', left: '0' },
+          margin: { top: '0', right: '0', bottom: '0', left: '0' },
         }),
       }
     ),
@@ -940,7 +985,8 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
         ...layoutStyle({
           display: 'flex',
           alignItems: 'center',
-          padding: { top: '10px', right: '16px', bottom: '10px', left: '16px' },
+          padding: { top: '10px', right: '14px', bottom: '10px', left: '14px' },
+          margin: { top: '0', right: '0', bottom: '18px', left: '0' },
         }),
         background: { type: 'color', value: '#111111' },
         typography: { color: '#ffffff', fontSize: '13px', fontWeight: '700' },
@@ -961,150 +1007,73 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
           justifyContent: 'flex-end',
           alignItems: 'center',
           minHeight: '90px',
-                      maxWidth: '360px',
-                      margin: { top: '18px', right: '0', bottom: '0', left: 'auto' },
-                      position: 'sticky',
-                      top: '16px',
+          maxWidth: '320px',
+          margin: { top: '0', right: '0', bottom: '14px', left: 'auto' },
+          position: 'sticky',
+          top: '16px',
           zIndex: 20,
         }),
         typography: {},
       }
     ),
-    block(
-      'article-hero',
-      'Hero articolo',
-      {
-        articleSlug: '',
-        useFeatured: true,
-        overlayColor: 'rgba(7, 10, 18, 0.48)',
-        showCategory: true,
-        showAuthor: true,
-        showDate: true,
-        showExcerpt: true,
-        height: '640px',
-      },
-      {
-        ...layoutStyle({
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-end',
-          minHeight: '640px',
-          padding: { top: '52px', right: '56px', bottom: '56px', left: '56px' },
-          margin: { top: '26px', right: '0', bottom: '42px', left: '0' },
-          overflow: 'hidden',
-        }),
-        background: { type: 'image', value: '' },
-        typography: { color: '#ffffff' },
-        border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '28px' },
-        shadow: '0 26px 56px rgba(10,10,10,0.08)',
-      },
-      {
-        dataSource: {
-          endpoint: 'articles',
-          params: { featured: 'true', limit: '1' },
-        },
-      }
-    ),
     sectionBlock(
-      'News desk',
+      'Lead package',
       [
-        textBlock(
-          'News desk intro',
-          '<div id="news-desk"></div><p style="margin:0;font-size:12px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:#6b6b6b">Live desk</p><h2 style="margin:.55rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(2rem,4vw,3.1rem);line-height:.95">Video centrale, immagini in movimento e colonna laterale con notizie aggiornate</h2><p style="margin:.9rem 0 0;max-width:860px;font-size:1.03rem;line-height:1.67;color:#4f4f4f">La pagina si alleggerisce: piu bianco, piu respiro, piu focus sui titoli e sui moduli reali del builder che compongono la regia editoriale.</p>',
-          { typography: { color: '#1a1a1a' } }
-        ),
         columnsBlock(
-          'News desk columns',
+          'Lead package columns',
           [
+            block(
+              'article-hero',
+              'Hero articolo',
+              {
+                articleSlug: '',
+                useFeatured: true,
+                overlayColor: 'rgba(7, 10, 18, 0.34)',
+                showCategory: true,
+                showAuthor: true,
+                showDate: true,
+                showExcerpt: true,
+                height: '520px',
+              },
+              {
+                ...layoutStyle({
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-end',
+                  minHeight: '520px',
+                  padding: { top: '34px', right: '34px', bottom: '34px', left: '34px' },
+                  overflow: 'hidden',
+                }),
+                background: { type: 'image', value: '' },
+                typography: { color: '#ffffff' },
+                border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '8px' },
+                shadow: 'none',
+              },
+              {
+                dataSource: {
+                  endpoint: 'articles',
+                  params: { featured: 'true', limit: '1' },
+                },
+              }
+            ),
             sectionBlock(
-              'Media stack',
+              'Lead rail',
               [
-                block(
-                  'video',
-                  'TG video',
-                  {
-                    url: 'https://www.youtube.com/watch?v=ysz5S6PUM-U',
-                    title: 'TG di valle',
-                    caption: 'Demo newsroom: un video centrale per simulare il cuore della prima pagina.',
-                    aspectRatio: '16/9',
-                  },
-                  {
-                    ...layoutStyle({
-                      display: 'block',
-                      margin: { top: '0', right: '0', bottom: '18px', left: '0' },
-                    }),
-                    border: { radius: '24px' },
-                    shadow: '0 22px 48px rgba(16,35,63,0.12)',
-                    background: { type: 'none', value: '' },
-                    typography: {},
-                  }
+                textBlock(
+                  'Lead rail intro',
+                  '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6b6b6b">In evidenza</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:.98;color:#111">Quattro titoli per dare subito il tono della giornata</h3>',
+                  { typography: { color: '#111' } }
                 ),
-                block(
-                  'slideshow',
-                  'Slideshow desk',
-                  {
-                    height: '390px',
-                    autoplay: true,
-                    interval: 4200,
-                    showDots: true,
-                    showArrows: true,
-                    slides: [
-                      {
-                        id: 'slide-a',
-                        image: 'https://images.unsplash.com/photo-1515169067868-5387ec356754?auto=format&fit=crop&w=1600&q=80',
-                        title: 'Il desk apre la giornata con un layout ritmato',
-                        description: 'Fotografie demo e CTA di categoria per testare gerarchie, leggibilita e contrasto.',
-                        overlay: { enabled: true, color: 'rgba(10,16,30,0.28)' },
-                        textStyle: { color: '#ffffff', titleSize: '31px', titleWeight: '800', descSize: '15px' },
-                        buttons: [{ id: 'a1', text: 'Apri la cronaca', url: `/site/${tenant.slug}/categoria/cronaca` }],
-                      },
-                      {
-                        id: 'slide-b',
-                        image: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1600&q=80',
-                        title: 'Una grammatica visuale da newspaper contemporaneo',
-                        description: 'Titoli, blocchi e colori lavorano insieme per simulare una testata piu matura.',
-                        overlay: { enabled: true, color: 'rgba(10,10,10,0.28)' },
-                        textStyle: { color: '#ffffff', titleSize: '30px', titleWeight: '800', descSize: '15px' },
-                        buttons: [{ id: 'b1', text: 'Vai agli editoriali', url: `/site/${tenant.slug}/categoria/editoriali`, style: 'secondary' }],
-                      },
-                      {
-                        id: 'slide-c',
-                        image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1600&q=80',
-                        title: 'ADV e newsroom convivono nella stessa pagina',
-                        description: 'Header ad, sidebar special e footer campaign usano il modulo banner reale del CMS.',
-                        overlay: { enabled: true, color: 'rgba(16,16,16,0.22)' },
-                        textStyle: { color: '#ffffff', titleSize: '30px', titleWeight: '800', descSize: '15px' },
-                        buttons: [],
-                      },
-                    ],
-                  },
+                articleGridBlock(
+                  'Lead rail grid',
+                  { limit: '4' },
+                  { limit: 4, columns: 1, showExcerpt: false, showImage: true, cardStyle: 'minimal' },
                   {
                     ...layoutStyle({
-                      display: 'block',
+                      display: 'grid',
+                      gap: '12px',
+                      margin: { top: '12px', right: '0', bottom: '0', left: '0' },
                     }),
-                    border: { radius: '24px' },
-                    shadow: '0 20px 44px rgba(10,10,10,0.1)',
-                    background: { type: 'none', value: '' },
-                    typography: {},
-                  }
-                ),
-                bannerZoneBlock(
-                  'Banner in article',
-                  'in_article',
-                  {
-                    ...layoutStyle({
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      margin: { top: '20px', right: '0', bottom: '0', left: '0' },
-                      minHeight: '120px',
-                    }),
-                    border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '18px' },
-                    background: { type: 'color', value: '#ffffff' },
-                    typography: {},
-                  },
-                  {
-                    fallbackHtml: '<div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#111;font-weight:700">Adv in article</div>',
                   }
                 ),
               ],
@@ -1112,27 +1081,222 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                 ...layoutStyle({
                   display: 'flex',
                   flexDirection: 'column',
+                  padding: { top: '0', right: '0', bottom: '0', left: '0' },
                 }),
+              },
+              { tag: 'aside' }
+            )
+          ],
+          ['64%', '36%'],
+          '24px'
+        ),
+      ],
+      {
+        ...layoutStyle({
+          display: 'flex',
+          flexDirection: 'column',
+          padding: { top: '0', right: '0', bottom: '48px', left: '0' },
+        }),
+      }
+    ),
+    sectionBlock(
+      'News desk',
+      [
+        textBlock(
+          'News desk intro',
+          '<div id="news-desk"></div><p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6b6b6b">Live desk e contesto</p><h2 style="margin:.55rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(1.9rem,4vw,3rem);line-height:.95;color:#111">Video, immagini, utilita e opinioni in una struttura piu severa e piu leggibile</h2><p style="margin:.9rem 0 0;max-width:860px;font-size:1rem;line-height:1.67;color:#4f4f4f">Qui il sito mostra sia il lato visivo sia quello di servizio: TG video, slideshow, ricerca, tassonomie, ultimi articoli e un rail dedicato alle opinioni.</p>',
+          { typography: { color: '#1a1a1a' } }
+        ),
+        columnsBlock(
+          'News desk columns',
+          [
+            sectionBlock(
+              'Desk main',
+              [
+                columnsBlock(
+                  'Desk media + tools',
+                  [
+                    sectionBlock(
+                      'Desk media',
+                      [
+                        block(
+                          'video',
+                          'TG video',
+                          {
+                            url: 'https://www.youtube.com/watch?v=ysz5S6PUM-U',
+                            title: 'TG di valle',
+                            caption: 'Un video centrale per simulare il cuore visivo del desk.',
+                            aspectRatio: '16/9',
+                          },
+                          {
+                            ...layoutStyle({
+                              display: 'block',
+                              margin: { top: '0', right: '0', bottom: '16px', left: '0' },
+                            }),
+                            border: { radius: '8px' },
+                            shadow: 'none',
+                            background: { type: 'none', value: '' },
+                            typography: {},
+                          }
+                        ),
+                        block(
+                          'slideshow',
+                          'Slideshow desk',
+                          {
+                            height: '320px',
+                            autoplay: true,
+                            interval: 4200,
+                            showDots: true,
+                            showArrows: true,
+                            slides: [
+                              {
+                                id: 'slide-a',
+                                image: 'https://images.unsplash.com/photo-1515169067868-5387ec356754?auto=format&fit=crop&w=1600&q=80',
+                                title: 'Il desk apre la giornata con un impianto piu netto',
+                                description: 'Fotografie demo e linee sottili per testare il linguaggio da grande quotidiano digitale.',
+                                overlay: { enabled: true, color: 'rgba(10,16,30,0.2)' },
+                                textStyle: { color: '#ffffff', titleSize: '28px', titleWeight: '800', descSize: '15px' },
+                                buttons: [{ id: 'a1', text: 'Apri la cronaca', url: `/site/${tenant.slug}/categoria/cronaca` }],
+                              },
+                              {
+                                id: 'slide-b',
+                                image: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1600&q=80',
+                                title: 'Le opinioni hanno un rail dedicato e leggibile',
+                                description: 'La homepage distingue meglio urgenza, analisi e servizio.',
+                                overlay: { enabled: true, color: 'rgba(10,10,10,0.24)' },
+                                textStyle: { color: '#ffffff', titleSize: '27px', titleWeight: '800', descSize: '15px' },
+                                buttons: [{ id: 'b1', text: 'Vai alle opinioni', url: `/site/${tenant.slug}/categoria/editoriali`, style: 'secondary' }],
+                              },
+                              {
+                                id: 'slide-c',
+                                image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1600&q=80',
+                                title: 'ADV e CMS convivono senza rompere il tono editoriale',
+                                description: 'Header, sidebar, footer e comparsa usano il modulo banner reale del sistema.',
+                                overlay: { enabled: true, color: 'rgba(16,16,16,0.22)' },
+                                textStyle: { color: '#ffffff', titleSize: '27px', titleWeight: '800', descSize: '15px' },
+                                buttons: [],
+                              },
+                            ],
+                          },
+                          {
+                            ...layoutStyle({
+                              display: 'block',
+                            }),
+                            border: { radius: '8px' },
+                            shadow: 'none',
+                            background: { type: 'none', value: '' },
+                            typography: {},
+                          }
+                        ),
+                        bannerZoneBlock(
+                          'Banner in article',
+                          'in_article',
+                          {
+                            ...layoutStyle({
+                              display: 'flex',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              margin: { top: '16px', right: '0', bottom: '0', left: '0' },
+                              minHeight: '110px',
+                            }),
+                            border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '8px' },
+                            background: { type: 'color', value: '#ffffff' },
+                            typography: {},
+                          },
+                          {
+                            fallbackHtml: '<div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#111;font-weight:700">Adv in article</div>',
+                          }
+                        ),
+                      ],
+                      {
+                        ...layoutStyle({
+                          display: 'flex',
+                          flexDirection: 'column',
+                        }),
+                      },
+                      { tag: 'div' }
+                    ),
+                    sidebarWidgetsBlock(
+                      'Desk tools',
+                      [
+                        {
+                          id: 'search',
+                          type: 'search',
+                          title: 'Cerca nel sito',
+                          props: { placeholder: 'Cerca un articolo, un tema, un comune...' },
+                        },
+                        {
+                          id: 'recent',
+                          type: 'recent-posts',
+                          title: 'Piu letti',
+                          props: {
+                            posts: [
+                              { title: 'San Giovanni Bianco apre il polo civico serale', url: `/site/${tenant.slug}/articolo/san-giovanni-bianco-polo-civico-serale`, date: 'Oggi' },
+                              { title: 'Zogno ridisegna il nodo bus-stazione', url: `/site/${tenant.slug}/articolo/zogno-ridisegna-nodo-bus-stazione`, date: 'Oggi' },
+                              { title: 'Trail delle vette minori, numeri in crescita', url: `/site/${tenant.slug}/articolo/trail-vette-minori-primavera-sportiva`, date: 'Ieri' },
+                              { title: 'Una testata deve sembrare autorevole prima del click', url: `/site/${tenant.slug}/articolo/editoriale-testata-locale-autorevole-prima-del-click`, date: 'Ieri' },
+                            ],
+                          },
+                        },
+                        {
+                          id: 'categories',
+                          type: 'categories',
+                          title: 'Sezioni',
+                          props: {
+                            categories: [
+                              { name: 'Cronaca', count: 2, url: `/site/${tenant.slug}/categoria/cronaca` },
+                              { name: 'Sport', count: 2, url: `/site/${tenant.slug}/categoria/sport` },
+                              { name: 'Cultura', count: 2, url: `/site/${tenant.slug}/categoria/cultura` },
+                              { name: 'Opinioni', count: 2, url: `/site/${tenant.slug}/categoria/editoriali` },
+                            ],
+                          },
+                        },
+                        {
+                          id: 'tags',
+                          type: 'tags',
+                          title: 'Temi',
+                          props: { tags: ['Montagna', 'Comuni', 'Inchieste', 'Cultura', 'Weekend', 'Turismo'] },
+                        },
+                      ],
+                      {
+                        ...layoutStyle({
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '16px',
+                        }),
+                      }
+                    ),
+                  ],
+                  ['60%', '40%'],
+                  '20px'
+                ),
+              ],
+              {
+                ...layoutStyle({
+                  display: 'flex',
+                  flexDirection: 'column',
+                }),
+                typography: {},
               },
               { tag: 'div' }
             ),
             sectionBlock(
-              'Desk sidebar',
+              'Opinion rail',
               [
                 textBlock(
-                  'Desk title',
-                  '<p style="margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Aggiornamenti</p><h3 style="margin:.5rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1;color:#111">Titoli rapidi e uno spazio ADV integrato con discrezione</h3>',
-                  { typography: { color: '#161616' } }
+                  'Opinion heading',
+                  '<div id="opinion"></div><p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6b6b6b">Opinioni</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:.98;color:#111">Un rail laterale dedicato a editoriali e interpretazione</h3>',
+                  { typography: { color: '#111' } }
                 ),
                 articleGridBlock(
-                  'Desk latest',
-                  { limit: '4' },
-                  { limit: 4, columns: 1 },
+                  'Opinion rail grid',
+                  { categorySlug: 'editoriali', limit: '3' },
+                  { limit: 3, columns: 1, showExcerpt: true, showImage: true },
                   {
                     ...layoutStyle({
                       display: 'grid',
-                      gap: '16px',
-                      margin: { top: '8px', right: '0', bottom: '0', left: '0' },
+                      gap: '12px',
+                      margin: { top: '12px', right: '0', bottom: '0', left: '0' },
                     }),
                   }
                 ),
@@ -1146,8 +1310,6 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                       alignItems: 'center',
                       margin: { top: '18px', right: '0', bottom: '0', left: '0' },
                       minHeight: '280px',
-                      position: 'sticky',
-                      top: '18px',
                     }),
                     typography: {},
                   }
@@ -1157,84 +1319,37 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                 ...layoutStyle({
                   display: 'flex',
                   flexDirection: 'column',
-                  padding: { top: '22px', right: '22px', bottom: '22px', left: '22px' },
+                  padding: { top: '18px', right: '18px', bottom: '18px', left: '18px' },
                 }),
                 background: { type: 'color', value: '#ffffff' },
-                border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '24px' },
-                shadow: '0 18px 38px rgba(15,15,15,0.04)',
+                border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '8px' },
                 typography: {},
               },
               { tag: 'aside' }
             ),
           ],
-          ['66%', '34%'],
-          '26px'
+          ['68%', '32%'],
+          '24px'
         ),
       ],
       {
         ...layoutStyle({
           display: 'flex',
           flexDirection: 'column',
-          padding: { top: '0', right: '0', bottom: '54px', left: '0' },
+          padding: { top: '0', right: '0', bottom: '56px', left: '0' },
         }),
       }
     ),
     sectionBlock(
-      'Editorial wall',
+      'Verticals',
       [
         columnsBlock(
-          'Editorial intro',
-          [
-            quoteBlock(
-              'Quote editorial',
-              'Una testata locale sembra credibile quando la sua homepage mostra una regia chiara: urgenza, profondita e servizi nello stesso colpo d occhio.',
-              'Desk demo',
-              'Val Brembana Web'
-            ),
-            textBlock(
-              'Editorial intro copy',
-              '<p style="margin:0;font-size:12px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:#f5c36a">Analisi e opinione</p><h2 style="margin:.55rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(2.2rem,4vw,3.4rem);line-height:.95;color:#fff">Una sezione editoriale che non sembri un riempitivo</h2><p style="margin-top:1rem;max-width:720px;font-size:1.06rem;line-height:1.65;color:rgba(255,255,255,.82)">Qui il layout cambia ritmo: fondo scuro, contrasti piu alti, citazione manifesto e selezione di pezzi d opinione come in una pagina pensata da una direzione creativa editoriale.</p>',
-              { typography: { color: '#ffffff' } }
-            ),
-          ],
-          ['34%', '66%'],
-          '28px'
-        ),
-        articleGridBlock(
-          'Editoriali grid',
-          { categorySlug: 'editoriali', limit: '4' },
-          { limit: 4, columns: 2 },
-          {
-            ...layoutStyle({
-              display: 'grid',
-              gap: '18px',
-              margin: { top: '24px', right: '0', bottom: '0', left: '0' },
-            }),
-          }
-        ),
-      ],
-      {
-        ...layoutStyle({
-          display: 'flex',
-          flexDirection: 'column',
-          padding: { top: '54px', right: '34px', bottom: '58px', left: '34px' },
-          margin: { top: '0', right: '0', bottom: '54px', left: '0' },
-        }),
-        background: { type: 'color', value: '#f7f7f7' },
-        typography: { color: '#111111' },
-        border: { radius: '28px' },
-      }
-    ),
-    sectionBlock(
-      'Category triptych',
-      [
-        columnsBlock(
-          'Triptych columns',
+          'Vertical columns',
           [
             sectionBlock(
               'Cronaca rail',
               [
-                textBlock('Cronaca heading', '<p style="margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Cronaca</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1;color:#111">I temi civici e le decisioni che spostano la giornata</h3>'),
+                textBlock('Cronaca heading', '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Cronaca</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1;color:#111">I temi civici e le decisioni che cambiano la giornata</h3>'),
                 articleGridBlock('Cronaca grid', { categorySlug: 'cronaca', limit: '2' }, { limit: 2, columns: 1 }),
               ],
               {
@@ -1248,7 +1363,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
             sectionBlock(
               'Sport rail',
               [
-                textBlock('Sport heading', '<p style="margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#1d4ed8">Sport</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1">Weekend, derby, palestre e una valle che torna sugli spalti</h3>'),
+                textBlock('Sport heading', '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Sport</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1;color:#111">Weekend, derby e impianti minori che tornano centrali</h3>'),
                 articleGridBlock('Sport grid', { categorySlug: 'sport', limit: '2' }, { limit: 2, columns: 1 }),
               ],
               {
@@ -1262,7 +1377,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
             sectionBlock(
               'Territorio rail',
               [
-                textBlock('Territorio heading', '<p style="margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#0f766e">Territorio</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1">Sentieri, ospitalita e luoghi che devono restare leggibili</h3>'),
+                textBlock('Territorio heading', '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Territorio</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1;color:#111">Sentieri, luoghi e manutenzione: il valore della cura visibile</h3>'),
                 articleGridBlock('Territorio grid', { categorySlug: 'territorio', limit: '2' }, { limit: 2, columns: 1 }),
               ],
               {
@@ -1275,7 +1390,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
             ),
           ],
           ['33.3%', '33.3%', '33.3%'],
-          '26px'
+          '24px'
         ),
       ],
       {
@@ -1296,7 +1411,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
             sectionBlock(
               'Culture deck',
               [
-                textBlock('Culture heading', '<p style="margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#7c3aed">Cultura</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2.2rem;line-height:1">Archivi, scene piccole e programmazioni che funzionano</h3>'),
+                textBlock('Culture heading', '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Cultura</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2.2rem;line-height:1;color:#111">Archivi, scene piccole e programmazioni che funzionano</h3>'),
                 articleGridBlock('Culture grid', { categorySlug: 'cultura', limit: '2' }, { limit: 2, columns: 2 }),
               ],
               {
@@ -1310,7 +1425,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
             sectionBlock(
               'Events rail',
               [
-                textBlock('Events heading', '<p style="margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Agenda</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2.2rem;line-height:1;color:#111">Eventi e appuntamenti, cosi il sito testa anche il modulo agenda</h3>'),
+                textBlock('Events heading', '<div id="agenda"></div><p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Agenda</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2.2rem;line-height:1;color:#111">Eventi e appuntamenti, con il modulo agenda in vista</h3>'),
                 eventListBlock(
                   'Events list',
                   4,
@@ -1330,9 +1445,8 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                   flexDirection: 'column',
                   padding: { top: '24px', right: '24px', bottom: '24px', left: '24px' },
                 }),
-                border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '24px' },
+                border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '8px' },
                 background: { type: 'color', value: '#ffffff' },
-                shadow: '0 18px 40px rgba(15,15,15,0.04)',
                 typography: {},
               }
             ),
@@ -1355,21 +1469,21 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
       {
         mode: 'global',
         title: 'Resta nel flusso della redazione',
-        description: 'Ultime notizie, agenda e un editoriale scelto ogni settimana. La newsletter e collegata a un vero form CMS.',
-        buttonText: 'Iscriviti alla newsletter',
+        description: 'Ultime notizie, agenda e una selezione di opinioni in un formato piu essenziale e piu da quotidiano.',
+        buttonText: 'Iscriviti',
         placeholder: 'La tua email',
-        privacyText: 'Modulo demo reale del CMS, pronto per il test invio.',
+        privacyText: 'Modulo reale del CMS, pronto per il test invio.',
         layout: 'inline',
       },
       {
         ...layoutStyle({
           display: 'flex',
           flexDirection: 'column',
-          padding: { top: '38px', right: '34px', bottom: '38px', left: '34px' },
+          padding: { top: '30px', right: '28px', bottom: '30px', left: '28px' },
           margin: { top: '0', right: '0', bottom: '34px', left: '0' },
         }),
         background: { type: 'color', value: '#ffffff' },
-        border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '26px' },
+        border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '8px' },
         typography: { textAlign: 'center' },
       },
       {
@@ -1390,7 +1504,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
           minHeight: '140px',
           margin: { top: '0', right: '0', bottom: '16px', left: '0' },
         }),
-        border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '20px' },
+        border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '8px' },
         background: { type: 'color', value: '#ffffff' },
         typography: {},
       }

@@ -1,19 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Menu, Bell, ExternalLink, Search, Sparkles, ChevronDown } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { useAIStatus } from "@/lib/ai-status";
 import { useFieldContextStore } from "@/lib/stores/field-context-store";
+import type { Tables } from "@/types/database";
+
+type EditorPageOption = Pick<
+  Tables<"site_pages">,
+  "id" | "title" | "slug" | "is_published" | "updated_at"
+>;
 
 export default function Topbar({ title, onMenuClick }: { title: string; onMenuClick: () => void }) {
   const { profile, currentTenant, currentRole } = useAuthStore();
   const { selectedField } = useFieldContextStore();
   const ai = useAIStatus();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const roleLabels: Record<string, string> = { super_admin: "Admin", chief_editor: "Capo", editor: "Redattore", contributor: "Collab.", advertiser: "Comm." };
+  const isEditorRoute = pathname === "/dashboard/editor";
+  const selectedEditorPageId = searchParams.get("page") ?? "";
 
   const [aiProvider, setAiProvider] = useState<'claude' | 'openai' | 'gemini'>('claude');
   const [showProviderMenu, setShowProviderMenu] = useState(false);
+  const [editorPages, setEditorPages] = useState<EditorPageOption[]>([]);
+  const [editorPagesLoading, setEditorPagesLoading] = useState(false);
 
   const providers = [
     {
@@ -45,6 +59,57 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
 
   const currentProviderData = providers.find(p => p.value === aiProvider);
   const [selectedModel, setSelectedModel] = useState(currentProviderData?.models[0]?.id || '');
+  const selectedEditorPage = useMemo(
+    () => editorPages.find((page) => page.id === selectedEditorPageId) ?? null,
+    [editorPages, selectedEditorPageId]
+  );
+
+  useEffect(() => {
+    if (!isEditorRoute || !currentTenant?.id) {
+      setEditorPages([]);
+      setEditorPagesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setEditorPagesLoading(true);
+
+    const loadPages = async () => {
+      try {
+        const response = await fetch(`/api/builder/pages?tenant_id=${currentTenant.id}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to load pages");
+        }
+
+        if (!cancelled) {
+          setEditorPages(Array.isArray(data.pages) ? data.pages : []);
+        }
+      } catch (error) {
+        console.error("Failed to load editor pages:", error);
+        if (!cancelled) {
+          setEditorPages([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setEditorPagesLoading(false);
+        }
+      }
+    };
+
+    void loadPages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentTenant?.id, isEditorRoute]);
+
+  const handleEditorPageChange = (nextPageId: string) => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("page", nextPageId);
+    router.push(`/dashboard/editor?${nextParams.toString()}`);
+  };
 
   return (
     <header className="sticky top-0 z-30 flex flex-col"
@@ -94,7 +159,44 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
         <button onClick={onMenuClick} className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg transition" style={{ color: "var(--c-text-2)" }}>
           <Menu className="w-5 h-5" />
         </button>
-        <h1 className="text-sm font-semibold flex-1" style={{ color: "var(--c-text-0)" }}>{title}</h1>
+        <div className="flex-1 min-w-0 flex items-center gap-3">
+          <h1 className="text-sm font-semibold shrink-0" style={{ color: "var(--c-text-0)" }}>{title}</h1>
+
+          {isEditorRoute && (
+            <div
+              className="hidden md:flex items-center gap-2 min-w-0 rounded-lg px-2.5 py-1.5 border"
+              style={{ background: "var(--c-bg-2)", borderColor: "var(--c-border)" }}
+            >
+              <span className="text-[11px] font-semibold shrink-0" style={{ color: "var(--c-text-3)" }}>
+                Pagina
+              </span>
+              <select
+                value={selectedEditorPageId}
+                onChange={(e) => handleEditorPageChange(e.target.value)}
+                data-ai-ignore-field-context="true"
+                className="bg-transparent border-0 text-xs font-medium focus:outline-none min-w-[220px] max-w-[320px]"
+                style={{ color: "var(--c-text-0)" }}
+                disabled={editorPagesLoading || editorPages.length === 0}
+              >
+                {editorPagesLoading && <option value="">Caricamento pagine...</option>}
+                {!editorPagesLoading && editorPages.length === 0 && <option value="">Nessuna pagina</option>}
+                {!editorPagesLoading && editorPages.length > 0 && !selectedEditorPageId && (
+                  <option value="">Seleziona una pagina</option>
+                )}
+                {editorPages.map((page) => (
+                  <option key={page.id} value={page.id}>
+                    {page.title} {page.is_published ? "• Pubblicata" : "• Bozza"}
+                  </option>
+                ))}
+              </select>
+              {selectedEditorPage && (
+                <span className="text-[11px] truncate max-w-[180px]" style={{ color: "var(--c-text-3)" }}>
+                  /{selectedEditorPage.slug}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="hidden md:flex items-center gap-2 rounded-lg px-3 py-1.5 w-60" style={{ background: "var(--c-bg-3)" }}>
           <Search className="w-4 h-4" style={{ color: "var(--c-text-3)" }} />
