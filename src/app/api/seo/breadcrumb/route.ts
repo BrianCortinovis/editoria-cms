@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { buildTenantPublicUrl } from '@/lib/site/public-url';
 
 /**
  * GET /api/seo/breadcrumb?tenant_slug=xxx&page_path=/chi-siamo/team
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
-    const domain = tenant.domain || `https://${tenantSlug}.example.com`;
+    const baseUrl = buildTenantPublicUrl({ slug: tenantSlug, domain: tenant.domain }, '/');
 
     // Parse path and build breadcrumb
     const pathParts = pagePath.split('/').filter(Boolean);
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
         '@type': 'ListItem',
         position: 1,
         name: 'Home',
-        item: domain,
+        item: baseUrl,
       },
     ];
 
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
           .split('-')
           .map(w => w.charAt(0).toUpperCase() + w.slice(1))
           .join(' '),
-        item: domain + currentPath,
+        item: buildTenantPublicUrl({ slug: tenantSlug, domain: tenant.domain }, currentPath),
       });
     }
 

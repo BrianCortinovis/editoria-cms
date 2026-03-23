@@ -182,10 +182,14 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
           <Bell className="w-4 h-4" />
         </button>
 
-        {currentTenant?.domain && (
-          <a href={`https://${currentTenant.domain}`} target="_blank" rel="noopener noreferrer"
+        {currentTenant && (
+          <a
+            href={currentTenant.domain ? `https://${currentTenant.domain}` : `/site/${currentTenant.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-white transition"
-            style={{ background: "var(--c-accent)" }}>
+            style={{ background: "var(--c-accent)" }}
+          >
             <ExternalLink className="w-3 h-3" /> Sito
           </a>
         )}

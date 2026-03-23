@@ -3,8 +3,26 @@ interface TenantUrlLike {
   domain?: string | null;
 }
 
+function getDefaultBaseUrl() {
+  if (process.env.NEXT_PUBLIC_BASE_URL) {
+    return process.env.NEXT_PUBLIC_BASE_URL;
+  }
+
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
+
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  return process.env.NODE_ENV === 'production'
+    ? 'https://editoria-cms.vercel.app'
+    : 'http://localhost:3000';
+}
+
 function normalizeBaseUrl(value?: string | null) {
-  const fallback = 'http://localhost:3000';
+  const fallback = getDefaultBaseUrl();
   const raw = (value || fallback).trim();
   if (!raw) {
     return fallback;
@@ -15,7 +33,7 @@ function normalizeBaseUrl(value?: string | null) {
 }
 
 export function getAppBaseUrl() {
-  return normalizeBaseUrl(process.env.NEXT_PUBLIC_BASE_URL);
+  return normalizeBaseUrl(getDefaultBaseUrl());
 }
 
 export function getTenantPublicBaseUrl(tenant: TenantUrlLike) {

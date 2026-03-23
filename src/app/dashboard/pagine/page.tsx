@@ -138,7 +138,10 @@ export default function PaginePage() {
     published: { bg: 'rgba(16,185,129,0.15)', text: '#10b981' },
   };
 
-  const pagePreviewPath = `/${currentTenant?.slug || 'slug'}/${newPageSlug || 'slug'}`;
+  const normalizedPreviewSlug = newPageSlug || 'slug';
+  const pagePreviewPath = normalizedPreviewSlug === 'homepage'
+    ? `/site/${currentTenant?.slug || 'slug'}`
+    : `/site/${currentTenant?.slug || 'slug'}/${normalizedPreviewSlug}`;
 
   return (
     <div className="space-y-6">

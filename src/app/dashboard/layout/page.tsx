@@ -115,6 +115,11 @@ export default function LayoutPage() {
 
   const settings = (currentTenant?.settings ?? {}) as Record<string, unknown>;
   const aiActive = isModuleActive(settings, "ai_assistant");
+  const livePreviewUrl = currentTenant
+    ? currentTenant.domain
+      ? `https://${currentTenant.domain}`
+      : `/site/${currentTenant.slug}`
+    : null;
 
   // Slot form state
   const [slotKey, setSlotKey] = useState("");
@@ -805,12 +810,12 @@ export default function LayoutPage() {
                   </div>
                   <div className="flex-1 rounded-md px-2 py-0.5 text-[9px] font-mono text-center"
                     style={{ background: "var(--c-bg-3)", color: "var(--c-text-2)" }}>
-                    {currentTenant?.domain || "sito-preview"}
+                    {currentTenant?.domain || (currentTenant ? `/site/${currentTenant.slug}` : "sito-preview")}
                   </div>
                 </div>
-                {currentTenant?.domain ? (
+                {livePreviewUrl ? (
                   <iframe
-                    src={`https://${currentTenant.domain}`}
+                    src={livePreviewUrl}
                     className="flex-1 w-full border-0"
                     style={{ background: "#fff" }}
                     sandbox="allow-scripts allow-same-origin"
