@@ -646,7 +646,7 @@ async function main() {
       name: 'Sidebar special edition',
       position: 'sidebar',
       type: 'html',
-      html_content: '<div style="padding:24px;border-radius:24px;background:#ffffff;color:#111111;font-family:Inter,system-ui,sans-serif;border:1px solid #d7d7d7;box-shadow:0 18px 44px rgba(0,0,0,.07)"><div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:#6b6b6b">ADV Speciale</div><h3 style="margin:.55rem 0 0;font-size:1.55rem;line-height:1.02;font-family:Fraunces,Georgia,serif">Festival dei borghi 2026</h3><p style="margin:.85rem 0 0;color:#4b4b4b;line-height:1.58">Un formato promozionale elegante, con resa piu editoriale e meno invasiva, pensato per convivere con una homepage newspaper-style.</p><a href=\"#\" style=\"display:inline-block;margin-top:1rem;padding:.72rem 1rem;border-radius:999px;background:#111111;color:#ffffff;text-decoration:none;font-weight:700\">Scopri il programma</a></div>',
+      html_content: '<div style="padding:24px;background:#ffffff;color:#0b1f44;font-family:Inter,system-ui,sans-serif;border:1px solid #cfd6e4;box-shadow:none"><div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:#c1121f">ADV Speciale</div><h3 style="margin:.55rem 0 0;font-size:1.55rem;line-height:1.02;font-family:Fraunces,Georgia,serif">Festival dei borghi 2026</h3><p style="margin:.85rem 0 0;color:#344054;line-height:1.58">Formato sponsor con taglio da testata: forte, squadrato, leggibile e integrato in pagina.</p><a href=\"#\" style=\"display:inline-block;margin-top:1rem;padding:.72rem 1rem;background:#0b1f44;color:#ffffff;text-decoration:none;font-weight:700\">Scopri il programma</a></div>',
       link_url: null,
       target_categories: [],
       target_device: 'desktop',
@@ -670,7 +670,7 @@ async function main() {
       name: 'Interstitial comparsa demo',
       position: 'interstitial',
       type: 'html',
-      html_content: '<div style="padding:18px 20px;border-radius:18px;background:#ffffff;color:#111111;font-family:Inter,system-ui,sans-serif;border:1px solid #d7d7d7;box-shadow:0 14px 34px rgba(0,0,0,.07)"><strong style="display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#6b6b6b">Promo comparsa</strong><div style="margin-top:.45rem;font-size:1.02rem;font-weight:700;line-height:1.35">Formato interstitial pronto per il test runtime ADV</div></div>',
+      html_content: '<div style="padding:18px 20px;background:#ffffff;color:#0b1f44;font-family:Inter,system-ui,sans-serif;border:1px solid #cfd6e4;box-shadow:none"><strong style="display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#c1121f">Promo comparsa</strong><div style="margin-top:.45rem;font-size:1.02rem;font-weight:700;line-height:1.35">Formato interstitial pronto per il test runtime ADV</div></div>',
       link_url: null,
       target_categories: [],
       target_device: 'all',
@@ -731,23 +731,23 @@ async function main() {
       mono: '"JetBrains Mono", monospace',
     },
     layoutPreset: 'newspaper',
-    mastheadNote: 'Val Brembana digital edition',
+    mastheadNote: 'Desk live edition',
     colors: {
       background: '#ffffff',
       surface: '#ffffff',
-      text: '#111111',
-      textSecondary: '#5f5f5f',
-      primary: '#111111',
-      secondary: '#8b1e24',
-      accent: '#8b1e24',
-      border: '#d4d4d4',
+      text: '#0b1f44',
+      textSecondary: '#4a5568',
+      primary: '#0b1f44',
+      secondary: '#c1121f',
+      accent: '#c1121f',
+      border: '#cfd6e4',
     },
     spacing: {
       unit: 4,
       sectionGap: '56px',
       containerMax: '1240px',
     },
-    borderRadius: '10px',
+    borderRadius: '0px',
   };
 
   const globalCss = `
@@ -764,12 +764,15 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
 [data-block="banner-zone"],
 [data-block="sidebar"] section,
 [data-block="newsletter"],
-[data-block="cms-form"] { border-radius: 8px !important; }
+[data-block="cms-form"] { border-radius: 0 !important; }
 [data-block="article-grid"] a { box-shadow:none !important; }
 [data-block="article-grid"] h3 { letter-spacing: -0.02em; }
 [data-block="article-hero"] { border: 1px solid var(--e-color-border); }
 [data-block="article-hero"] h2,
 [data-block="article-hero"] h3 { letter-spacing:-0.03em; }
+[data-block="quote"] { border-radius: 0 !important; }
+[data-block="video"] iframe,
+[data-block="slideshow"] img { border-radius: 0 !important; }
 [data-block="breaking-ticker"] a { color:#fff; text-decoration:none; }
 [data-block="breaking-ticker"] a:hover { text-decoration:underline; }
 @media (max-width: 900px) {
@@ -929,9 +932,21 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
         columnsBlock(
           'Frontline row',
           [
+            articleGridBlock(
+              'Frontline bulletin',
+              { limit: '2', offset: '1' },
+              { limit: 2, columns: 1, showExcerpt: false, showImage: false, cardStyle: 'minimal' },
+              {
+                ...layoutStyle({
+                  display: 'grid',
+                  gap: '10px',
+                  margin: { top: '0', right: '0', bottom: '0', left: '0' },
+                }),
+              }
+            ),
             textBlock(
               'Frontline intro',
-              `<div id="prime-storie"></div><p style="margin:0;font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:#6a6a6a">Prima pagina digitale</p><h2 style="margin:.55rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(2.3rem,5vw,3.8rem);line-height:.92;color:#111111">Una homepage da grande quotidiano: piu ordine, piu gerarchia, meno effetto magazine</h2><p style="margin:1rem 0 0;max-width:760px;font-size:1.03rem;line-height:1.68;color:#4f4f4f">La struttura mette in testa il lead, a lato il flusso delle notizie, poi desk, opinioni, verticali e agenda. Tutto passa dai moduli reali del CMS e da una cromia bianca, piu secca e piu editoriale.</p>`
+              `<div id="prime-storie"></div><p style="margin:0;font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:#c1121f">Prima pagina</p><h2 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(2.1rem,4.8vw,3.4rem);line-height:.93;color:#0b1f44">Tre colonne vere, centro forte, bordi netti e ritmo da redazione live</h2><p style="margin:.8rem 0 0;max-width:760px;font-size:1rem;line-height:1.62;color:#4a5568">La griglia ora parte come una testata: briefing a sinistra, dichiarazione editoriale al centro, ADV in asse e subito sotto una prima pagina con hero centrale.</p>`
             ),
             bannerZoneBlock(
               'Banner header',
@@ -943,13 +958,13 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                   justifyContent: 'center',
                   minHeight: '150px',
                 }),
-                border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '8px' },
+                border: { width: '1px', style: 'solid', color: '#cfd6e4', radius: '0' },
                 background: { type: 'color', value: '#ffffff' },
                 typography: {},
               }
             ),
           ],
-          ['70%', '30%'],
+          ['24%', '52%', '24%'],
           '24px'
         ),
         categoryNavBlock(
@@ -1022,46 +1037,12 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
         columnsBlock(
           'Lead package columns',
           [
-            block(
-              'article-hero',
-              'Hero articolo',
-              {
-                articleSlug: '',
-                useFeatured: true,
-                overlayColor: 'rgba(7, 10, 18, 0.34)',
-                showCategory: true,
-                showAuthor: true,
-                showDate: true,
-                showExcerpt: true,
-                height: '520px',
-              },
-              {
-                ...layoutStyle({
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'flex-end',
-                  minHeight: '520px',
-                  padding: { top: '34px', right: '34px', bottom: '34px', left: '34px' },
-                  overflow: 'hidden',
-                }),
-                background: { type: 'image', value: '' },
-                typography: { color: '#ffffff' },
-                border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '8px' },
-                shadow: 'none',
-              },
-              {
-                dataSource: {
-                  endpoint: 'articles',
-                  params: { featured: 'true', limit: '1' },
-                },
-              }
-            ),
             sectionBlock(
               'Lead rail',
               [
                 textBlock(
                   'Lead rail intro',
-                  '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6b6b6b">In evidenza</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:.98;color:#111">Quattro titoli per dare subito il tono della giornata</h3>',
+                  '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#c1121f">Desk left</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:1.85rem;line-height:.98;color:#0b1f44">Titoli rapidi, note e flusso continuo della giornata</h3>',
                   { typography: { color: '#111' } }
                 ),
                 columnsBlock(
@@ -1112,12 +1093,46 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
               },
               { tag: 'aside' }
             ),
+            block(
+              'article-hero',
+              'Hero articolo',
+              {
+                articleSlug: '',
+                useFeatured: true,
+                overlayColor: 'rgba(11, 31, 68, 0.28)',
+                showCategory: true,
+                showAuthor: true,
+                showDate: true,
+                showExcerpt: true,
+                height: '560px',
+              },
+              {
+                ...layoutStyle({
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-end',
+                  minHeight: '560px',
+                  padding: { top: '36px', right: '36px', bottom: '36px', left: '36px' },
+                  overflow: 'hidden',
+                }),
+                background: { type: 'image', value: '' },
+                typography: { color: '#ffffff' },
+                border: { width: '1px', style: 'solid', color: '#cfd6e4', radius: '0' },
+                shadow: 'none',
+              },
+              {
+                dataSource: {
+                  endpoint: 'articles',
+                  params: { featured: 'true', limit: '1' },
+                },
+              }
+            ),
             sectionBlock(
               'Morning briefing',
               [
                 textBlock(
                   'Morning briefing intro',
-                  '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6b6b6b">Morning briefing</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:1.7rem;line-height:1;color:#111">Una terza fascia per servizi, punti fermi e titoli rapidi</h3><p style="margin:.75rem 0 0;font-size:.98rem;line-height:1.6;color:#4f4f4f">Il lead non resta solo con un rail: a destra entra un briefing con altri titoli, un piccolo promo e un ritmo piu da prima pagina.</p>',
+                  '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#c1121f">Desk right</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:1.7rem;line-height:1;color:#0b1f44">Servizi, punti fermi, sponsor e altri titoli in asse con la hero</h3><p style="margin:.75rem 0 0;font-size:.98rem;line-height:1.6;color:#4f4f4f">La colonna destra non e piu una card morbida: e un rail di desk, piu duro, piu televisivo, piu da homepage di testata.</p>',
                   { typography: { color: '#111' } }
                 ),
                 articleGridBlock(
@@ -1168,12 +1183,12 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                   padding: { top: '0', right: '0', bottom: '0', left: '0' },
                 }),
                 background: { type: 'color', value: '#ffffff' },
-                border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '8px' },
+                border: { width: '1px', style: 'solid', color: '#cfd6e4', radius: '0' },
               },
               { tag: 'aside' }
             )
           ],
-          ['52%', '26%', '22%'],
+          ['24%', '52%', '24%'],
           '24px'
         ),
       ],

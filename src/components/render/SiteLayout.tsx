@@ -55,8 +55,8 @@ export function SiteLayout({ tenant, config, children }: Props) {
         {topbarMenu.length > 0 && (
           <div
             style={{
-              borderBottom: '1px solid var(--e-color-border, #dee2e6)',
-              backgroundColor: 'var(--e-color-background, #ffffff)',
+              borderBottom: isNewspaperChrome ? '1px solid var(--e-color-accent, #c1121f)' : '1px solid var(--e-color-border, #dee2e6)',
+              backgroundColor: isNewspaperChrome ? 'var(--e-color-primary, #0b1f44)' : 'var(--e-color-background, #ffffff)',
             }}
           >
             <div
@@ -77,7 +77,7 @@ export function SiteLayout({ tenant, config, children }: Props) {
                   target={item.target || '_self'}
                   rel={item.target === '_blank' ? 'noreferrer' : undefined}
                   style={{
-                    color: 'var(--e-color-textSecondary)',
+                    color: isNewspaperChrome ? 'rgba(255,255,255,0.92)' : 'var(--e-color-textSecondary)',
                     textDecoration: 'none',
                     fontSize: isNewspaperChrome ? '11px' : '12px',
                     fontWeight: isNewspaperChrome ? 700 : 500,
@@ -96,7 +96,7 @@ export function SiteLayout({ tenant, config, children }: Props) {
         <header
           style={{
             borderBottom: '1px solid var(--e-color-border, #dee2e6)',
-            backgroundColor: 'var(--e-color-surface, #f8f9fa)',
+            backgroundColor: isNewspaperChrome ? 'var(--e-color-background, #ffffff)' : 'var(--e-color-surface, #f8f9fa)',
           }}
         >
           {isNewspaperChrome ? (
@@ -113,12 +113,12 @@ export function SiteLayout({ tenant, config, children }: Props) {
                     {tenant.name}
                   </span>
                 </a>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', fontSize: '11px', color: 'var(--e-color-textSecondary)', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 700, textAlign: 'right' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', fontSize: '11px', color: 'var(--e-color-accent, #c1121f)', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 700, textAlign: 'right' }}>
                   {mastheadNote || 'Digital edition'}
                 </div>
               </div>
               {primaryMenu.length > 0 && (
-                <div style={{ borderTop: '1px solid var(--e-color-border, #dee2e6)' }}>
+                <div style={{ borderTop: '1px solid var(--e-color-accent, #c1121f)', borderBottom: '1px solid var(--e-color-accent, #c1121f)', backgroundColor: 'var(--e-color-primary, #0b1f44)' }}>
                   <nav style={{ maxWidth: 'var(--e-container-max, 1200px)', margin: '0 auto', padding: '11px 24px', display: 'flex', gap: '18px', flexWrap: 'wrap', justifyContent: 'center' }}>
                     {primaryMenu.map((item, i) => (
                       <a
@@ -126,7 +126,7 @@ export function SiteLayout({ tenant, config, children }: Props) {
                         href={item.url}
                         target={item.target || '_self'}
                         rel={item.target === '_blank' ? 'noreferrer' : undefined}
-                        style={{ color: 'var(--e-color-text)', textDecoration: 'none', fontSize: '13px', fontWeight: 700, letterSpacing: '0.02em' }}
+                        style={{ color: '#ffffff', textDecoration: 'none', fontSize: '13px', fontWeight: 700, letterSpacing: '0.02em' }}
                       >
                         {item.label}
                       </a>
