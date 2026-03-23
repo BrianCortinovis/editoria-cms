@@ -222,10 +222,10 @@ function cmsFormBlock(label, formSlug, style = {}) {
       border: {
         width: '1px',
         style: 'solid',
-        color: '#d7cfbf',
+        color: '#d7d7d7',
         radius: '20px',
       },
-      background: { type: 'color', value: '#fffdfa' },
+      background: { type: 'color', value: '#ffffff' },
       typography: {},
       ...style,
     },
@@ -248,9 +248,9 @@ function quoteBlock(label, text, author, source, style = {}) {
         display: 'block',
         padding: { top: '28px', right: '28px', bottom: '28px', left: '28px' },
       }),
-      background: { type: 'color', value: 'rgba(255,255,255,0.04)' },
-      border: { width: '1px', style: 'solid', color: 'rgba(255,255,255,0.18)', radius: '20px' },
-      typography: { color: '#f8f5ef' },
+      background: { type: 'color', value: '#ffffff' },
+      border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '20px' },
+      typography: { color: '#171717' },
       ...style,
     }
   );
@@ -597,7 +597,7 @@ async function main() {
       name: 'Sidebar special edition',
       position: 'sidebar',
       type: 'html',
-      html_content: '<div style="padding:22px;border-radius:22px;background:linear-gradient(135deg,#10233f 0%,#1f3458 100%);color:#fff;font-family:Inter,system-ui,sans-serif;box-shadow:0 18px 40px rgba(12,25,48,.18)"><div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#ffd089">ADV Speciale</div><h3 style="margin:.55rem 0 0;font-size:1.45rem;line-height:1.05;font-family:Fraunces,Georgia,serif">Festival dei borghi 2026</h3><p style="margin:.8rem 0 0;color:rgba(255,255,255,.86);line-height:1.55">Un formato adv ricco per testare HTML, contrasto e presenza editoriale laterale.</p><a href=\"#\" style=\"display:inline-block;margin-top:1rem;padding:.72rem 1rem;border-radius:999px;background:#fff;color:#10233f;text-decoration:none;font-weight:700\">Scopri il programma</a></div>',
+      html_content: '<div style="padding:24px;border-radius:24px;background:#ffffff;color:#111111;font-family:Inter,system-ui,sans-serif;border:1px solid #d7d7d7;box-shadow:0 18px 44px rgba(0,0,0,.07)"><div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:#6b6b6b">ADV Speciale</div><h3 style="margin:.55rem 0 0;font-size:1.55rem;line-height:1.02;font-family:Fraunces,Georgia,serif">Festival dei borghi 2026</h3><p style="margin:.85rem 0 0;color:#4b4b4b;line-height:1.58">Un formato promozionale elegante, con resa piu editoriale e meno invasiva, pensato per convivere con una homepage newspaper-style.</p><a href=\"#\" style=\"display:inline-block;margin-top:1rem;padding:.72rem 1rem;border-radius:999px;background:#111111;color:#ffffff;text-decoration:none;font-weight:700\">Scopri il programma</a></div>',
       link_url: null,
       target_categories: [],
       target_device: 'desktop',
@@ -621,7 +621,7 @@ async function main() {
       name: 'Interstitial comparsa demo',
       position: 'interstitial',
       type: 'html',
-      html_content: '<div style="padding:20px;border-radius:18px;background:#8b1e24;color:#fff;font-family:Inter,system-ui,sans-serif"><strong style="display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase">Promo comparsa</strong><div style="margin-top:.5rem;font-size:1.05rem;font-weight:700">Formato interstitial pronto per test runtime ADV</div></div>',
+      html_content: '<div style="padding:18px 20px;border-radius:18px;background:#ffffff;color:#111111;font-family:Inter,system-ui,sans-serif;border:1px solid #d7d7d7;box-shadow:0 14px 34px rgba(0,0,0,.07)"><strong style="display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#6b6b6b">Promo comparsa</strong><div style="margin-top:.45rem;font-size:1.02rem;font-weight:700;line-height:1.35">Formato interstitial pronto per il test runtime ADV</div></div>',
       link_url: null,
       target_categories: [],
       target_device: 'all',
@@ -682,14 +682,14 @@ async function main() {
       mono: '"JetBrains Mono", monospace',
     },
     colors: {
-      background: '#f5efe6',
-      surface: '#fffdfa',
-      text: '#161616',
-      textSecondary: '#5b5853',
-      primary: '#8b1e24',
-      secondary: '#10233f',
-      accent: '#b7791f',
-      border: '#d9d0c4',
+      background: '#ffffff',
+      surface: '#ffffff',
+      text: '#111111',
+      textSecondary: '#5a5a5a',
+      primary: '#111111',
+      secondary: '#8b1e24',
+      accent: '#8b1e24',
+      border: '#d7d7d7',
     },
     spacing: {
       unit: 4,
@@ -701,9 +701,14 @@ async function main() {
 
   const globalCss = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Instrument+Sans:wght@400;500;600;700&display=swap');
-body { letter-spacing: -0.01em; }
+body { letter-spacing: -0.01em; background:#fff; }
+main { padding-top: 0; }
+header { border-bottom: 1px solid var(--e-color-border) !important; }
+footer { border-top: 1px solid var(--e-color-border) !important; }
 header nav a:hover, footer a:hover { color: var(--e-color-primary); }
 [data-block="article-grid"] a:hover h3 { text-decoration: underline; }
+[data-block="article-grid"] a { background:#fff; }
+[data-block="article-hero"] { border: 1px solid var(--e-color-border); }
 @media (max-width: 900px) {
   header > div, footer > div { padding-left: 18px !important; padding-right: 18px !important; }
 }
@@ -741,11 +746,11 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
   };
 
   const footer = {
-    description: 'Testata demo costruita con i moduli reali del CMS: newsroom, video, adv, agenda, newsletter e pagine di servizio.',
+    description: 'Testata demo costruita con i moduli reali del CMS: layout da quotidiano digitale, gerarchie piu nette, sfondo bianco e moduli editoriali completi.',
     columns: [
       {
         title: 'Redazione',
-        text: 'Cronaca, sport, cultura e territorio con una regia visiva contemporanea e gerarchie da quotidiano digitale.',
+        text: 'Cronaca, sport, cultura e territorio con una regia piu pulita, piu bianca e piu vicina a una homepage di testata premium.',
         links: [
           { label: 'Cronaca', url: `/site/${tenant.slug}/categoria/cronaca` },
           { label: 'Editoriali', url: `/site/${tenant.slug}/categoria/editoriali` },
@@ -761,7 +766,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
       },
       {
         title: 'Test',
-        text: 'Tema fonts, banner header/sidebar/footer, eventi, form CMS, pagine statiche e homepage builder.',
+        text: 'Tema chiaro, banner header/sidebar/footer/interstitial, eventi, form CMS, pagine statiche e homepage builder.',
         links: [
           { label: 'Chi siamo', url: `/site/${tenant.slug}/chi-siamo` },
           { label: 'Segnala una storia', url: `/site/${tenant.slug}/contatti` },
@@ -860,7 +865,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
           [
             textBlock(
               'Testata intro',
-              `<p style="margin:0;font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;color:#8b1e24">Edizione di prova · newsroom mode</p><h1 style="margin:.6rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(3rem,7vw,5.5rem);line-height:.9;color:#151515">Val Brembana Web</h1><p style="margin:1rem 0 0;max-width:720px;font-size:1.1rem;line-height:1.6;color:#5b5853">Una home da test con grammatica da testata contemporanea: hero di apertura, banner reali del CMS, video, slideshow, desk laterale, agenda ed editoriali.</p>`
+              `<p style="margin:0;font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Edizione di prova · newsroom mode</p><h1 style="margin:.6rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(3rem,7vw,5.5rem);line-height:.88;color:#111111">Val Brembana Web</h1><p style="margin:1rem 0 0;max-width:760px;font-size:1.08rem;line-height:1.62;color:#4f4f4f">Una home piu bianca, piu netta e piu moderna: grammatica da testata, gerarchie pulite, ADV integrato e moduli reali del CMS ovunque.</p>`
             ),
             bannerZoneBlock(
               'Banner header',
@@ -872,8 +877,8 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                   justifyContent: 'center',
                   minHeight: '160px',
                 }),
-                border: { width: '1px', style: 'solid', color: '#ddd2c4', radius: '20px' },
-                background: { type: 'color', value: '#fffaf2' },
+                border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '20px' },
+                background: { type: 'color', value: '#ffffff' },
                 typography: {},
               }
             ),
@@ -900,7 +905,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
             ),
             textBlock(
               'Nota edizione',
-              '<p style="margin:0;font-size:13px;color:#6d665f;text-align:right">Font test: Fraunces + Instrument Sans. Layout, ADV, newsletter ed eventi riempiti con moduli reali.</p>',
+              '<p style="margin:0;font-size:13px;color:#666;text-align:right">Fraunces + Instrument Sans, fondo bianco, linee sottili e moduli reali: una demo piu da testata e meno da magazine caldo.</p>',
               {
                 typography: { textAlign: 'right' },
               }
@@ -937,7 +942,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
           alignItems: 'center',
           padding: { top: '10px', right: '16px', bottom: '10px', left: '16px' },
         }),
-        background: { type: 'gradient', value: 'linear-gradient(90deg, #8b1e24 0%, #b4472d 100%)' },
+        background: { type: 'color', value: '#111111' },
         typography: { color: '#ffffff', fontSize: '13px', fontWeight: '700' },
       },
       {
@@ -956,10 +961,10 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
           justifyContent: 'flex-end',
           alignItems: 'center',
           minHeight: '90px',
-          maxWidth: '420px',
-          margin: { top: '18px', right: '0', bottom: '0', left: 'auto' },
-          position: 'sticky',
-          top: '16px',
+                      maxWidth: '360px',
+                      margin: { top: '18px', right: '0', bottom: '0', left: 'auto' },
+                      position: 'sticky',
+                      top: '16px',
           zIndex: 20,
         }),
         typography: {},
@@ -990,8 +995,8 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
         }),
         background: { type: 'image', value: '' },
         typography: { color: '#ffffff' },
-        border: { radius: '30px' },
-        shadow: '0 28px 60px rgba(10,10,10,0.12)',
+        border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '28px' },
+        shadow: '0 26px 56px rgba(10,10,10,0.08)',
       },
       {
         dataSource: {
@@ -1005,7 +1010,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
       [
         textBlock(
           'News desk intro',
-          '<div id="news-desk"></div><p style="margin:0;font-size:12px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:#8b1e24">Live desk</p><h2 style="margin:.55rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(2rem,4vw,3.1rem);line-height:.95">Video centrale, immagini in movimento e colonna di aggiornamento laterale</h2><p style="margin:.9rem 0 0;max-width:850px;font-size:1.04rem;line-height:1.65;color:#5f5951">La struttura riprende il linguaggio di una testata premium, ma usa solo i moduli reali del builder: video, slideshow, article grid e banner CMS.</p>',
+          '<div id="news-desk"></div><p style="margin:0;font-size:12px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:#6b6b6b">Live desk</p><h2 style="margin:.55rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(2rem,4vw,3.1rem);line-height:.95">Video centrale, immagini in movimento e colonna laterale con notizie aggiornate</h2><p style="margin:.9rem 0 0;max-width:860px;font-size:1.03rem;line-height:1.67;color:#4f4f4f">La pagina si alleggerisce: piu bianco, piu respiro, piu focus sui titoli e sui moduli reali del builder che compongono la regia editoriale.</p>',
           { typography: { color: '#1a1a1a' } }
         ),
         columnsBlock(
@@ -1049,7 +1054,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                         image: 'https://images.unsplash.com/photo-1515169067868-5387ec356754?auto=format&fit=crop&w=1600&q=80',
                         title: 'Il desk apre la giornata con un layout ritmato',
                         description: 'Fotografie demo e CTA di categoria per testare gerarchie, leggibilita e contrasto.',
-                        overlay: { enabled: true, color: 'rgba(10,16,30,0.40)' },
+                        overlay: { enabled: true, color: 'rgba(10,16,30,0.28)' },
                         textStyle: { color: '#ffffff', titleSize: '31px', titleWeight: '800', descSize: '15px' },
                         buttons: [{ id: 'a1', text: 'Apri la cronaca', url: `/site/${tenant.slug}/categoria/cronaca` }],
                       },
@@ -1058,7 +1063,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                         image: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1600&q=80',
                         title: 'Una grammatica visuale da newspaper contemporaneo',
                         description: 'Titoli, blocchi e colori lavorano insieme per simulare una testata piu matura.',
-                        overlay: { enabled: true, color: 'rgba(22,8,8,0.34)' },
+                        overlay: { enabled: true, color: 'rgba(10,10,10,0.28)' },
                         textStyle: { color: '#ffffff', titleSize: '30px', titleWeight: '800', descSize: '15px' },
                         buttons: [{ id: 'b1', text: 'Vai agli editoriali', url: `/site/${tenant.slug}/categoria/editoriali`, style: 'secondary' }],
                       },
@@ -1067,7 +1072,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                         image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1600&q=80',
                         title: 'ADV e newsroom convivono nella stessa pagina',
                         description: 'Header ad, sidebar special e footer campaign usano il modulo banner reale del CMS.',
-                        overlay: { enabled: true, color: 'rgba(16,35,63,0.34)' },
+                        overlay: { enabled: true, color: 'rgba(16,16,16,0.22)' },
                         textStyle: { color: '#ffffff', titleSize: '30px', titleWeight: '800', descSize: '15px' },
                         buttons: [],
                       },
@@ -1094,12 +1099,12 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                       margin: { top: '20px', right: '0', bottom: '0', left: '0' },
                       minHeight: '120px',
                     }),
-                    border: { width: '1px', style: 'solid', color: '#ddd2c4', radius: '18px' },
-                    background: { type: 'color', value: '#fffdfa' },
+                    border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '18px' },
+                    background: { type: 'color', value: '#ffffff' },
                     typography: {},
                   },
                   {
-                    fallbackHtml: '<div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#8b1e24;font-weight:700">Adv in article</div>',
+                    fallbackHtml: '<div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#111;font-weight:700">Adv in article</div>',
                   }
                 ),
               ],
@@ -1116,7 +1121,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
               [
                 textBlock(
                   'Desk title',
-                  '<p style="margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:#8b1e24">Aggiornamenti</p><h3 style="margin:.5rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1">Titoli rapidi, poi uno spazio adv di presenza</h3>',
+                  '<p style="margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Aggiornamenti</p><h3 style="margin:.5rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1;color:#111">Titoli rapidi e uno spazio ADV integrato con discrezione</h3>',
                   { typography: { color: '#161616' } }
                 ),
                 articleGridBlock(
@@ -1154,9 +1159,9 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                   flexDirection: 'column',
                   padding: { top: '22px', right: '22px', bottom: '22px', left: '22px' },
                 }),
-                background: { type: 'color', value: '#f8f4ec' },
-                border: { width: '1px', style: 'solid', color: '#e2d8ca', radius: '24px' },
-                shadow: '0 18px 40px rgba(15,15,15,0.06)',
+                background: { type: 'color', value: '#ffffff' },
+                border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '24px' },
+                shadow: '0 18px 38px rgba(15,15,15,0.04)',
                 typography: {},
               },
               { tag: 'aside' }
@@ -1215,8 +1220,8 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
           padding: { top: '54px', right: '34px', bottom: '58px', left: '34px' },
           margin: { top: '0', right: '0', bottom: '54px', left: '0' },
         }),
-        background: { type: 'color', value: '#10233f' },
-        typography: { color: '#f8f5ef' },
+        background: { type: 'color', value: '#f7f7f7' },
+        typography: { color: '#111111' },
         border: { radius: '28px' },
       }
     ),
@@ -1229,7 +1234,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
             sectionBlock(
               'Cronaca rail',
               [
-                textBlock('Cronaca heading', '<p style="margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#8b1e24">Cronaca</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1">I temi civici e le decisioni che spostano la giornata</h3>'),
+                textBlock('Cronaca heading', '<p style="margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Cronaca</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1;color:#111">I temi civici e le decisioni che spostano la giornata</h3>'),
                 articleGridBlock('Cronaca grid', { categorySlug: 'cronaca', limit: '2' }, { limit: 2, columns: 1 }),
               ],
               {
@@ -1305,7 +1310,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
             sectionBlock(
               'Events rail',
               [
-                textBlock('Events heading', '<p style="margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#8b1e24">Agenda</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2.2rem;line-height:1">Eventi e appuntamenti, cosi il sito testa anche il modulo agenda</h3>'),
+                textBlock('Events heading', '<p style="margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Agenda</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2.2rem;line-height:1;color:#111">Eventi e appuntamenti, cosi il sito testa anche il modulo agenda</h3>'),
                 eventListBlock(
                   'Events list',
                   4,
@@ -1325,9 +1330,9 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                   flexDirection: 'column',
                   padding: { top: '24px', right: '24px', bottom: '24px', left: '24px' },
                 }),
-                border: { width: '1px', style: 'solid', color: '#ddd2c4', radius: '24px' },
-                background: { type: 'color', value: '#fffdfa' },
-                shadow: '0 18px 40px rgba(15,15,15,0.05)',
+                border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '24px' },
+                background: { type: 'color', value: '#ffffff' },
+                shadow: '0 18px 40px rgba(15,15,15,0.04)',
                 typography: {},
               }
             ),
@@ -1363,8 +1368,8 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
           padding: { top: '38px', right: '34px', bottom: '38px', left: '34px' },
           margin: { top: '0', right: '0', bottom: '34px', left: '0' },
         }),
-        background: { type: 'color', value: '#fff7ec' },
-        border: { width: '1px', style: 'solid', color: '#e7d5b7', radius: '26px' },
+        background: { type: 'color', value: '#ffffff' },
+        border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '26px' },
         typography: { textAlign: 'center' },
       },
       {
@@ -1385,8 +1390,8 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
           minHeight: '140px',
           margin: { top: '0', right: '0', bottom: '16px', left: '0' },
         }),
-        border: { width: '1px', style: 'solid', color: '#ddd2c4', radius: '20px' },
-        background: { type: 'color', value: '#fffdfa' },
+        border: { width: '1px', style: 'solid', color: '#d7d7d7', radius: '20px' },
+        background: { type: 'color', value: '#ffffff' },
         typography: {},
       }
     ),
@@ -1425,7 +1430,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
       [
         textBlock(
           'About text',
-          `<p style="margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#8b1e24">Chi siamo</p><h1 style="margin:.55rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(2.5rem,5vw,4.4rem);line-height:.94">Una testata demo per stressare il CMS come piattaforma editoriale vera</h1><p style="margin-top:1rem;max-width:820px;font-size:1.08rem;line-height:1.7;color:#5b5853">Questa pagina esiste per testare non solo la homepage, ma anche le pagine statiche del CMS. La redazione demo mette insieme cronaca, sport, cultura, agenda, newsletter e ADV in una struttura che resta leggibile e contemporanea.</p>`
+          `<p style="margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Chi siamo</p><h1 style="margin:.55rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(2.5rem,5vw,4.4rem);line-height:.94;color:#111">Una testata demo per stressare il CMS come piattaforma editoriale vera</h1><p style="margin-top:1rem;max-width:820px;font-size:1.08rem;line-height:1.7;color:#4f4f4f">Questa pagina esiste per testare non solo la homepage, ma anche le pagine statiche del CMS. La redazione demo mette insieme cronaca, sport, cultura, agenda, newsletter e ADV in una struttura piu bianca, piu netta e piu contemporanea.</p>`
         ),
         quoteBlock(
           'About quote',
@@ -1433,7 +1438,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
           'Manifesto di test',
           tenant.name,
           {
-            background: { type: 'color', value: '#fffdfa' },
+            background: { type: 'color', value: '#ffffff' },
             border: { width: '1px', style: 'solid', color: '#ddd2c4', radius: '20px' },
             typography: { color: '#161616' },
           }
@@ -1471,7 +1476,7 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
           [
             textBlock(
               'Contact text',
-              `<p style="margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#8b1e24">Contatti</p><h1 style="margin:.55rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(2.3rem,5vw,4rem);line-height:.95">Segnala una storia, scrivi alla redazione o chiedi un progetto ADV</h1><p style="margin-top:1rem;font-size:1.05rem;line-height:1.7;color:#5b5853">Questa pagina usa il vero blocco <strong>Form CMS</strong> collegato a un modulo reale. Serve a testare flusso contatti, submit e resa grafica in una pagina statica del sito.</p><p style="margin-top:1.2rem;color:#5b5853"><strong>Desk:</strong> desk@example.com<br/><strong>ADV:</strong> adv@example.com<br/><strong>Segnalazioni:</strong> redazione@example.com</p>`
+              `<p style="margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Contatti</p><h1 style="margin:.55rem 0 0;font-family:Fraunces,Georgia,serif;font-size:clamp(2.3rem,5vw,4rem);line-height:.95;color:#111">Segnala una storia, scrivi alla redazione o chiedi un progetto ADV</h1><p style="margin-top:1rem;font-size:1.05rem;line-height:1.7;color:#4f4f4f">Questa pagina usa il vero blocco <strong>Form CMS</strong> collegato a un modulo reale. Serve a testare flusso contatti, submit e resa grafica in una pagina statica del sito.</p><p style="margin-top:1.2rem;color:#4f4f4f"><strong>Desk:</strong> desk@example.com<br/><strong>ADV:</strong> adv@example.com<br/><strong>Segnalazioni:</strong> redazione@example.com</p>`
             ),
             cmsFormBlock('Contact form', 'contatti-redazione'),
           ],
