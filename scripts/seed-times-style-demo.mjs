@@ -1064,15 +1064,41 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
                   '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6b6b6b">In evidenza</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:.98;color:#111">Quattro titoli per dare subito il tono della giornata</h3>',
                   { typography: { color: '#111' } }
                 ),
-                articleGridBlock(
-                  'Lead rail grid',
-                  { limit: '4' },
-                  { limit: 4, columns: 1, showExcerpt: false, showImage: true, cardStyle: 'minimal' },
+                columnsBlock(
+                  'Lead rail split',
+                  [
+                    articleGridBlock(
+                      'Lead rail left',
+                      { limit: '2' },
+                      { limit: 2, columns: 1, showExcerpt: false, showImage: true, cardStyle: 'minimal' },
+                      {
+                        ...layoutStyle({
+                          display: 'grid',
+                          gap: '12px',
+                          margin: { top: '12px', right: '0', bottom: '0', left: '0' },
+                        }),
+                      }
+                    ),
+                    articleGridBlock(
+                      'Lead rail right',
+                      { limit: '2', offset: '2' },
+                      { limit: 2, columns: 1, showExcerpt: false, showImage: true, cardStyle: 'minimal' },
+                      {
+                        ...layoutStyle({
+                          display: 'grid',
+                          gap: '12px',
+                          margin: { top: '12px', right: '0', bottom: '0', left: '0' },
+                        }),
+                      }
+                    ),
+                  ],
+                  ['50%', '50%'],
+                  '12px',
                   {
                     ...layoutStyle({
-                      display: 'grid',
+                      display: 'flex',
+                      flexDirection: 'row',
                       gap: '12px',
-                      margin: { top: '12px', right: '0', bottom: '0', left: '0' },
                     }),
                   }
                 ),
@@ -1341,16 +1367,86 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
       }
     ),
     sectionBlock(
+      'Editorial matrix',
+      [
+        columnsBlock(
+          'Editorial matrix columns',
+          [
+            quoteBlock(
+              'Editorial quote',
+              'Una prima pagina digitale deve alternare lead, flusso, interpretazione e servizio. Quando tutto e monocolonna, il giornale perde voce.',
+              'Desk manifesto',
+              tenant.name,
+              {
+                background: { type: 'color', value: '#f8f8f8' },
+                border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '8px' },
+                typography: { color: '#171717' },
+              }
+            ),
+            sectionBlock(
+              'Editorial matrix body',
+              [
+                textBlock(
+                  'Editorial matrix heading',
+                  '<div id="opinion-matrix"></div><p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Interpretazione</p><h2 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2.3rem;line-height:.95;color:#111">Una griglia di opinioni piu ampia, non confinata in un solo binario laterale</h2><p style="margin:.8rem 0 0;max-width:760px;font-size:1rem;line-height:1.65;color:#4f4f4f">Qui l’area editoriale si apre in una matrice vera: piu respiro, piu contrappunto, piu sensazione da homepage di testata.</p>'
+                ),
+                articleGridBlock(
+                  'Editorial matrix grid',
+                  { categorySlug: 'editoriali', limit: '4' },
+                  { limit: 4, columns: 2, showExcerpt: true, showImage: true },
+                  {
+                    ...layoutStyle({
+                      display: 'grid',
+                      gap: '18px',
+                      margin: { top: '18px', right: '0', bottom: '0', left: '0' },
+                    }),
+                  }
+                ),
+              ],
+              {
+                ...layoutStyle({
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: { top: '0', right: '0', bottom: '0', left: '0' },
+                }),
+              }
+            )
+          ],
+          ['28%', '72%'],
+          '24px'
+        ),
+      ],
+      {
+        ...layoutStyle({
+          display: 'flex',
+          flexDirection: 'column',
+          padding: { top: '0', right: '0', bottom: '56px', left: '0' },
+          margin: { top: '0', right: '0', bottom: '0', left: '0' },
+        }),
+      }
+    ),
+    sectionBlock(
       'Verticals',
       [
         columnsBlock(
           'Vertical columns',
           [
             sectionBlock(
-              'Cronaca rail',
+              'Cronaca main',
               [
                 textBlock('Cronaca heading', '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Cronaca</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1;color:#111">I temi civici e le decisioni che cambiano la giornata</h3>'),
-                articleGridBlock('Cronaca grid', { categorySlug: 'cronaca', limit: '2' }, { limit: 2, columns: 1 }),
+                articleGridBlock(
+                  'Cronaca grid',
+                  { categorySlug: 'cronaca', limit: '4' },
+                  { limit: 4, columns: 2, showExcerpt: true, showImage: true },
+                  {
+                    ...layoutStyle({
+                      display: 'grid',
+                      gap: '18px',
+                      margin: { top: '16px', right: '0', bottom: '0', left: '0' },
+                    }),
+                  }
+                ),
               ],
               {
                 ...layoutStyle({
@@ -1361,35 +1457,52 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
               }
             ),
             sectionBlock(
-              'Sport rail',
+              'Right briefs stack',
               [
-                textBlock('Sport heading', '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Sport</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1;color:#111">Weekend, derby e impianti minori che tornano centrali</h3>'),
-                articleGridBlock('Sport grid', { categorySlug: 'sport', limit: '2' }, { limit: 2, columns: 1 }),
+                sectionBlock(
+                  'Sport rail',
+                  [
+                    textBlock('Sport heading', '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Sport</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:1.85rem;line-height:1;color:#111">Weekend, derby e impianti minori che tornano centrali</h3>'),
+                    articleGridBlock('Sport grid', { categorySlug: 'sport', limit: '2' }, { limit: 2, columns: 1 }),
+                  ],
+                  {
+                    ...layoutStyle({
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: { top: '0', right: '0', bottom: '22px', left: '0' },
+                    }),
+                    border: { width: '0', style: 'solid', color: 'transparent', radius: '0' },
+                  }
+                ),
+                sectionBlock(
+                  'Territorio rail',
+                  [
+                    textBlock('Territorio heading', '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Territorio</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:1.85rem;line-height:1;color:#111">Sentieri, luoghi e manutenzione: il valore della cura visibile</h3>'),
+                    articleGridBlock('Territorio grid', { categorySlug: 'territorio', limit: '2' }, { limit: 2, columns: 1 }),
+                  ],
+                  {
+                    ...layoutStyle({
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: { top: '22px', right: '0', bottom: '0', left: '0' },
+                    }),
+                    border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '0' },
+                    background: { type: 'none', value: '' },
+                    typography: {},
+                  }
+                ),
               ],
               {
                 ...layoutStyle({
                   display: 'flex',
                   flexDirection: 'column',
-                  padding: { top: '0', right: '0', bottom: '0', left: '0' },
+                  padding: { top: '0', right: '0', bottom: '0', left: '24px' },
                 }),
-              }
-            ),
-            sectionBlock(
-              'Territorio rail',
-              [
-                textBlock('Territorio heading', '<p style="margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#6d6d6d">Territorio</p><h3 style="margin:.45rem 0 0;font-family:Fraunces,Georgia,serif;font-size:2rem;line-height:1;color:#111">Sentieri, luoghi e manutenzione: il valore della cura visibile</h3>'),
-                articleGridBlock('Territorio grid', { categorySlug: 'territorio', limit: '2' }, { limit: 2, columns: 1 }),
-              ],
-              {
-                ...layoutStyle({
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: { top: '0', right: '0', bottom: '0', left: '0' },
-                }),
+                border: { width: '1px', style: 'solid', color: '#d4d4d4', radius: '0' },
               }
             ),
           ],
-          ['33.3%', '33.3%', '33.3%'],
+          ['62%', '38%'],
           '24px'
         ),
       ],

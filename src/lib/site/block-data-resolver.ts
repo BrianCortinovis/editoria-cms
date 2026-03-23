@@ -19,6 +19,8 @@ export async function resolveBlockData(
 
   switch (endpoint) {
     case 'articles': {
+      const limit = p.limit ? parseInt(p.limit, 10) : undefined;
+      const offset = p.offset ? parseInt(p.offset, 10) : 0;
       let query = supabase
         .from('articles')
         .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, is_featured, category_id, profiles!articles_author_id_fkey(full_name, avatar_url), categories:categories!articles_category_id_fkey(id, name, slug, color)')
@@ -46,7 +48,11 @@ export async function resolveBlockData(
         }
       }
       if (p.featured === 'true') query = query.eq('is_featured', true);
-      if (p.limit) query = query.limit(parseInt(p.limit));
+      if (limit !== undefined) {
+        query = query.range(offset, offset + limit - 1);
+      } else if (offset > 0) {
+        query = query.range(offset, offset + 19);
+      }
 
       const { data } = await query;
       return enrichArticlesWithCategories(

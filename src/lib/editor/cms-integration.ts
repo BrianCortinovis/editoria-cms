@@ -144,6 +144,7 @@ async function queryForms(tenantId: string, dataSource?: DataSource) {
 async function queryArticles(tenantId: string, limit = 12, dataSource?: DataSource) {
   const supabase = createClient();
   const params = (dataSource?.params || {}) as Record<string, string | undefined>;
+  const offset = params.offset ? parseInt(params.offset, 10) : 0;
   type ArticleRow = {
     id: string;
     title: string;
@@ -162,7 +163,7 @@ async function queryArticles(tenantId: string, limit = 12, dataSource?: DataSour
     .eq('tenant_id', tenantId)
     .eq('status', 'published')
     .order('published_at', { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   if (params.slug) {
     query = query.eq('slug', params.slug);
