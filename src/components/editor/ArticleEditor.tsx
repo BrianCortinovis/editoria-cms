@@ -185,6 +185,8 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           .from("slot_assignments")
           .select("slot_id")
           .eq("article_id", articleId!)
+          .order("pin_order", { ascending: true })
+          .limit(1)
           .maybeSingle();
         if (assignment) setSlotId(assignment.slot_id);
       }

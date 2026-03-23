@@ -13,6 +13,8 @@ export async function GET(
       .from("slot_assignments")
       .select("slot_id, pin_order, layout_slots(slot_key, label)")
       .eq("article_id", articleId)
+      .order("pin_order", { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     return NextResponse.json(data || null);
