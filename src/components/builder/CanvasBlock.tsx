@@ -498,11 +498,81 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
       <div style={blockStyle}>
         <BlockContent block={block} isEditing={isEditing} />
         {block.children.length > 0 && (
-          <div style={{ display: block.style.layout.display === 'flex' ? 'flex' : 'block', flexDirection: block.style.layout.flexDirection as 'row' | 'column' | undefined, gap: block.style.layout.gap, alignItems: block.style.layout.alignItems, justifyContent: block.style.layout.justifyContent }}>
-            {block.children.map((child) => (
-              <CanvasBlock key={child.id} block={child} selected={usePageStore.getState().selectedBlockId === child.id} showOutlines={showOutlines} />
-            ))}
-          </div>
+          block.type === 'columns' ? (
+            <>
+              {Boolean(block.props.stackOnMobile) && (
+                <style
+                  dangerouslySetInnerHTML={{
+                    __html: `@media (max-width: 768px) { [data-editor-columns-id="${block.id}"] { flex-direction: column !important; } [data-editor-columns-id="${block.id}"] > .sb-editor-col-child { width: 100% !important; flex-basis: 100% !important; } }`
+                  }}
+                />
+              )}
+              <div
+                data-editor-columns-id={block.id}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  gap: typeof block.props.gap === 'string' ? block.props.gap : block.style.layout.gap,
+                  alignItems: block.style.layout.alignItems,
+                  justifyContent: block.style.layout.justifyContent,
+                  width: '100%',
+                }}
+              >
+                {Array.from({
+                  length: Math.max(
+                    block.children.length,
+                    Number(block.props.columnCount || (Array.isArray(block.props.columnWidths) ? block.props.columnWidths.length : 0) || 2)
+                  )
+                }).map((_, index) => {
+                  const widths = Array.isArray(block.props.columnWidths) ? (block.props.columnWidths as string[]) : [];
+                  const width = widths[index] || `${Math.round(100 / Math.max(block.children.length || 1, 1))}%`;
+                  const child = block.children[index];
+
+                  return (
+                    <div
+                      key={`editor-col-${block.id}-${index}`}
+                      className="sb-editor-col-child"
+                      style={{ width, flexBasis: width, minWidth: 0 }}
+                    >
+                      {child ? (
+                        <CanvasBlock
+                          block={child}
+                          selected={usePageStore.getState().selectedBlockId === child.id}
+                          showOutlines={showOutlines}
+                        />
+                      ) : (
+                        <div
+                          className="border border-dashed text-xs px-3 py-6 text-center"
+                          style={{ borderColor: 'var(--c-border)', color: 'var(--c-text-3)' }}
+                        >
+                          Colonna vuota
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div
+              style={{
+                display: block.style.layout.display === 'flex' ? 'flex' : 'block',
+                flexDirection: block.style.layout.flexDirection as 'row' | 'column' | undefined,
+                gap: block.style.layout.gap,
+                alignItems: block.style.layout.alignItems,
+                justifyContent: block.style.layout.justifyContent,
+              }}
+            >
+              {block.children.map((child) => (
+                <CanvasBlock
+                  key={child.id}
+                  block={child}
+                  selected={usePageStore.getState().selectedBlockId === child.id}
+                  showOutlines={showOutlines}
+                />
+              ))}
+            </div>
+          )
         )}
       </div>
 
