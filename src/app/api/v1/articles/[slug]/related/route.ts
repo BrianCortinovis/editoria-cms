@@ -90,7 +90,7 @@ export async function GET(
     if (relatedArticleIds.size > 0) {
       const { data } = await supabase
         .from("articles")
-        .select("id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, category_id, categories(name, slug, color)")
+        .select("id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, category_id, categories:categories!articles_category_id_fkey(id, name, slug, color)")
         .eq("tenant_id", tenant.id)
         .eq("status", "published")
         .in("id", [...relatedArticleIds])
@@ -103,7 +103,7 @@ export async function GET(
   if (sameCatArticles.length === 0) {
     let fallbackQuery = supabase
       .from("articles")
-      .select("id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, category_id, categories(name, slug, color)")
+      .select("id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, category_id, categories:categories!articles_category_id_fkey(id, name, slug, color)")
       .eq("tenant_id", tenant.id)
       .eq("status", "published")
       .neq("id", article.id)

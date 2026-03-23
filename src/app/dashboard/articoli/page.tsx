@@ -62,7 +62,7 @@ export default function ArticoliPage() {
     let query = supabase
       .from("articles")
       .select(
-        "id, title, slug, status, is_featured, is_premium, view_count, created_at, published_at, profiles!articles_author_id_fkey(full_name), categories(name, color)"
+        "id, title, slug, status, is_featured, is_premium, view_count, created_at, published_at, profiles!articles_author_id_fkey(full_name), categories:categories!articles_category_id_fkey(name, color)"
       )
       .eq("tenant_id", currentTenant.id)
       .order("created_at", { ascending: false });

@@ -158,7 +158,7 @@ async function queryArticles(tenantId: string, limit = 12, dataSource?: DataSour
 
   let query = supabase
     .from('articles')
-    .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, is_featured, category_id, profiles!articles_author_id_fkey(full_name, avatar_url), categories(id, name, slug, color)')
+    .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, is_featured, category_id, profiles!articles_author_id_fkey(full_name, avatar_url), categories:categories!articles_category_id_fkey(id, name, slug, color)')
     .eq('tenant_id', tenantId)
     .eq('status', 'published')
     .order('published_at', { ascending: false })

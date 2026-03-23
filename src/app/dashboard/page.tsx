@@ -69,7 +69,7 @@ export default function DashboardPage() {
 
       const { data: recent } = await supabase
         .from("articles")
-        .select("id, title, status, created_at, profiles!articles_author_id_fkey(full_name), categories(name)")
+        .select("id, title, status, created_at, profiles!articles_author_id_fkey(full_name), categories:categories!articles_category_id_fkey(name)")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false })
         .limit(5);

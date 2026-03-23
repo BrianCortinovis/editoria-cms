@@ -28,7 +28,7 @@ export async function GET(
 
   const { data: article, error } = await supabase
     .from("articles")
-    .select("*, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories(name, slug, color), article_tags(tags(name, slug))")
+    .select("*, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color), article_tags(tags(name, slug))")
     .eq("tenant_id", tenant.id)
     .eq("slug", slug)
     .eq("status", "published")

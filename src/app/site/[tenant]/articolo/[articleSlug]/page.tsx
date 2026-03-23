@@ -42,7 +42,7 @@ export default async function ArticlePage({ params }: Props) {
 
   const { data: article } = await supabase
     .from('articles')
-    .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, category_id, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories(name, slug, color)')
+    .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, category_id, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color)')
     .eq('tenant_id', tenant.id)
     .eq('slug', articleSlug)
     .eq('status', 'published')

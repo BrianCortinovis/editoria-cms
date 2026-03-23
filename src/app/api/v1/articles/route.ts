@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('articles')
-      .select('*, author:profiles(full_name, avatar_url), categories:categories(name, slug, color), article_tags(tags(name, slug))', {
+      .select('*, author:profiles!articles_author_id_fkey(full_name, avatar_url), categories:categories!articles_category_id_fkey(id, name, slug, color), article_tags(tags(name, slug))', {
         count: 'exact',
       })
       .eq('tenant_id', tenant.tenantId)

@@ -94,7 +94,7 @@ export async function GET(request: Request) {
           const { data: pinnedData } = await supabase
             .from("slot_assignments")
             .select(
-              "articles(id, title, subtitle, slug, summary, cover_image_url, is_featured, is_premium, reading_time_minutes, published_at, profiles!articles_author_id_fkey(full_name, avatar_url), categories(name, slug, color))"
+              "articles(id, title, subtitle, slug, summary, cover_image_url, is_featured, is_premium, reading_time_minutes, published_at, profiles!articles_author_id_fkey(full_name, avatar_url), categories:categories!articles_category_id_fkey(id, name, slug, color))"
             )
             .eq("slot_id", slot.id)
             .order("pin_order");
@@ -114,7 +114,7 @@ export async function GET(request: Request) {
             let query = supabase
               .from("articles")
               .select(
-                "id, title, subtitle, slug, summary, cover_image_url, is_featured, is_premium, reading_time_minutes, published_at, profiles!articles_author_id_fkey(full_name, avatar_url), categories(name, slug, color)"
+                "id, title, subtitle, slug, summary, cover_image_url, is_featured, is_premium, reading_time_minutes, published_at, profiles!articles_author_id_fkey(full_name, avatar_url), categories:categories!articles_category_id_fkey(id, name, slug, color)"
               )
               .eq("tenant_id", tenant.id)
               .eq("status", "published")
