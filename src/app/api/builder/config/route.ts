@@ -1,5 +1,30 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { sanitizeCss, sanitizeHtml } from "@/lib/security/html";
+import { assertTrustedMutationRequest } from "@/lib/security/request";
+import { writeActivityLog } from "@/lib/security/audit";
+
+const CONFIG_EDIT_ROLES = new Set(["super_admin", "chief_editor"]);
+
+async function getTenantMembership(tenantId: string) {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { supabase, user: null, role: null };
+  }
+
+  const { data: membership } = await supabase
+    .from("user_tenants")
+    .select("role")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", user.id)
+    .single();
+
+  return { supabase, user, role: membership?.role || null };
+}
 
 // GET: Fetch site config for a tenant
 export async function GET(request: Request) {
@@ -10,7 +35,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "tenant_id required" }, { status: 400 });
   }
 
-  const supabase = await createServerSupabaseClient();
+  const { supabase, user } = await getTenantMembership(tenantId);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { data, error } = await supabase
     .from("site_config")
@@ -41,6 +69,11 @@ export async function GET(request: Request) {
 
 // PUT: Update site config
 export async function PUT(request: Request) {
+  const trustedOriginError = assertTrustedMutationRequest(request);
+  if (trustedOriginError) {
+    return trustedOriginError;
+  }
+
   const body = await request.json();
   const { tenant_id, theme, navigation, footer, global_css, global_head, favicon_url, og_defaults } = body;
 
@@ -48,14 +81,20 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "tenant_id required" }, { status: 400 });
   }
 
-  const supabase = await createServerSupabaseClient();
+  const { supabase, user, role } = await getTenantMembership(tenant_id);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!role || !CONFIG_EDIT_ROLES.has(role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const update: Record<string, unknown> = {};
   if (theme !== undefined) update.theme = theme;
   if (navigation !== undefined) update.navigation = navigation;
   if (footer !== undefined) update.footer = footer;
-  if (global_css !== undefined) update.global_css = global_css;
-  if (global_head !== undefined) update.global_head = global_head;
+  if (global_css !== undefined) update.global_css = sanitizeCss(global_css);
+  if (global_head !== undefined) update.global_head = sanitizeHtml(global_head);
   if (favicon_url !== undefined) update.favicon_url = favicon_url;
   if (og_defaults !== undefined) update.og_defaults = og_defaults;
 
@@ -69,6 +108,14 @@ export async function PUT(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await writeActivityLog({
+    tenantId: tenant_id,
+    userId: user.id,
+    action: "site_config.update",
+    entityType: "site_config",
+    details: { updatedKeys: Object.keys(update) },
+  });
 
   return NextResponse.json({ config: data });
 }

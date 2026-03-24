@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-internal-call": "cron-job",
+              "Authorization": `Bearer ${process.env.CRON_SECRET}`,
             },
             body: JSON.stringify({
               tenant_id: tenant.id,

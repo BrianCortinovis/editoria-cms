@@ -13,6 +13,9 @@ import type {
   PaginatedResponse,
   ArticleFilters,
   BannerFilters,
+  CommandCatalogResponse,
+  CommandExecutionResponse,
+  CommandEnvelope,
 } from './types';
 
 // In-memory cache semplice — zero deps
@@ -53,6 +56,12 @@ export function createEditoria(config: EditoriaConfig): EditoriaClient {
 
   const base = baseUrl.replace(/\/$/, '');
 
+  function buildHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+    return headers;
+  }
+
   async function request<T>(path: string, params: Record<string, string> = {}): Promise<T> {
     const url = new URL(`${base}/api/v1${path}`);
     url.searchParams.set('tenant', tenant);
@@ -68,12 +77,9 @@ export function createEditoria(config: EditoriaConfig): EditoriaClient {
     const timer = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const headers: Record<string, string> = {};
-      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-
       const res = await fetcher(url.toString(), {
         signal: controller.signal,
-        headers,
+        headers: buildHeaders(),
       });
 
       if (!res.ok) {
@@ -84,6 +90,32 @@ export function createEditoria(config: EditoriaConfig): EditoriaClient {
       const data = await res.json() as T;
       setCache(cacheKey, data, cacheTtl);
       return data;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function mutate<T>(path: string, body: Record<string, unknown>): Promise<T> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const res = await fetcher(`${base}/api/v1${path}`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...buildHeaders(),
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const payload = await res.text().catch(() => '');
+        throw new EditoriaError(`HTTP ${res.status}: ${payload}`, res.status);
+      }
+
+      return await res.json() as T;
     } finally {
       clearTimeout(timer);
     }
@@ -182,6 +214,26 @@ export function createEditoria(config: EditoriaConfig): EditoriaClient {
         if (options.ai) params.ai = 'true';
         if (options.limit) params.limit = String(options.limit);
         return request<SearchResult>('/search', params);
+      },
+    },
+
+    commands: {
+      async catalog(): Promise<CommandCatalogResponse> {
+        return request<CommandCatalogResponse>('/commands', {});
+      },
+
+      async execute(payload: {
+        tenantId?: string;
+        tenant?: string;
+        dryRun?: boolean;
+        commands: CommandEnvelope[];
+      }): Promise<CommandExecutionResponse> {
+        return mutate<CommandExecutionResponse>('/commands', {
+          tenant_id: payload.tenantId,
+          tenant: payload.tenant ?? tenant,
+          dryRun: payload.dryRun ?? false,
+          commands: payload.commands,
+        });
       },
     },
   };

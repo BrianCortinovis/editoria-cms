@@ -6,6 +6,7 @@ import { ArticleComments } from '@/components/site/ArticleComments';
 import { enrichArticlesWithCategories } from '@/lib/articles/taxonomy';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { buildTenantPublicUrl } from '@/lib/site/public-url';
+import { sanitizeHtml } from '@/lib/security/html';
 
 export const revalidate = 300;
 
@@ -159,7 +160,7 @@ export default async function ArticlePage({ params }: Props) {
         <div
           className="prose prose-lg max-w-none"
           style={{ marginTop: '32px', lineHeight: 1.8, fontSize: '18px' }}
-          dangerouslySetInnerHTML={{ __html: enrichedArticle.body }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(enrichedArticle.body) }}
         />
 
         {/* Author bio */}

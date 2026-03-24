@@ -9,10 +9,9 @@ import {
   Megaphone, Quote, Mail, BarChart3, Code, Table, MapPin,
   Menu, PanelBottom, FileCode, GalleryHorizontal, LayoutTemplate,
   FormInput,
-  Maximize2, ScanLine
+  Maximize2, ScanLine, Search, Magnet
 } from 'lucide-react';
 import { LayoutPresets } from './LayoutPresets';
-import { AiModelSelector, type AiMode } from './AiModelSelector';
 import { AdminMenu } from './AdminMenu';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { usePageStore } from '@/lib/stores/page-store';
@@ -30,7 +29,11 @@ interface ToolbarProps {
   onSave: () => void;
   onPreview: () => void;
   onExport: () => void;
+  onSeoOptimize?: () => void;
   saving?: boolean;
+  seoOptimizing?: boolean;
+  saveState?: 'idle' | 'saved' | 'error';
+  saveMessage?: string | null;
 }
 
 // Quick-add block tools
@@ -56,20 +59,30 @@ const QUICK_BLOCKS: { type: BlockType; icon: typeof Type; label: string; shortLa
   { type: 'custom-html', icon: FileCode, label: 'HTML Custom', shortLabel: 'HTM' },
 ];
 
-export function Toolbar({ projectId, onSave, onPreview, onExport, saving }: ToolbarProps) {
+export function Toolbar({
+  projectId,
+  onSave,
+  onPreview,
+  onExport,
+  onSeoOptimize,
+  saving,
+  seoOptimizing,
+  saveState = 'idle',
+  saveMessage,
+}: ToolbarProps) {
   const {
     deviceMode, setDeviceMode,
     showGrid, toggleGrid, gridSize, setGridSize, showOutlines, toggleOutlines,
-    aiPanelOpen, setAiPanelOpen, zoom, setZoom, zoomIn, zoomOut, resetZoom,
+    zoom, setZoom, zoomIn, zoomOut, resetZoom,
     leftPanelOpen, setLeftPanelOpen, rightPanelOpen, setRightPanelOpen,
+    snapEnabled, toggleSnapEnabled, snapToDocumentEdges, toggleSnapToDocumentEdges,
   } = useUiStore();
 
   // CSS variable for active button state
   const activeButtonStyle = { background: "var(--c-accent-soft)", color: "var(--c-accent)" };
 
-  const { undo, redo, canUndo, canRedo, addBlock, setBlocks } = usePageStore();
+  const { undo, redo, canUndo, canRedo, addBlock, replacePage } = usePageStore();
   const [showLayoutPresets, setShowLayoutPresets] = useState(false);
-  const [aiModel, setAiModel] = useState<AiMode>('gemini');
 
   const addQuickBlock = (type: BlockType) => {
     const def = getBlockDefinition(type);
@@ -92,7 +105,7 @@ export function Toolbar({ projectId, onSave, onPreview, onExport, saving }: Tool
   return (
     <div className="shrink-0 z-50">
       {/* Main toolbar */}
-      <div className="h-12 flex items-center px-3 gap-1" style={{ background: "var(--c-bg-1)", borderBottom: "1px solid var(--c-border)" }}>
+      <div className="h-12 flex items-center px-3 gap-1 overflow-x-auto" style={{ background: "var(--c-bg-1)", borderBottom: "1px solid var(--c-border)" }}>
 
         {/* Panels toggle */}
         <Button
@@ -118,7 +131,19 @@ export function Toolbar({ projectId, onSave, onPreview, onExport, saving }: Tool
         {/* Save / Undo / Redo */}
         <Button variant="ghost" size="xs" onClick={onSave} disabled={saving} title="Salva (Ctrl+S)">
           <Save size={15} />
+          <span className="hidden lg:inline text-xs">{saving ? 'Salvataggio…' : 'Salva'}</span>
         </Button>
+        {saveMessage && !saving && (
+          <span
+            className="hidden lg:inline text-[11px] font-medium px-2 py-1 rounded-md"
+            style={{
+              background: saveState === 'error' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+              color: saveState === 'error' ? '#dc2626' : '#059669',
+            }}
+          >
+            {saveMessage}
+          </span>
+        )}
         <Button variant="ghost" size="xs" onClick={() => undo()} disabled={!canUndo()} title="Annulla (Ctrl+Z)">
           <Undo2 size={15} />
         </Button>
@@ -252,6 +277,39 @@ export function Toolbar({ projectId, onSave, onPreview, onExport, saving }: Tool
         >
           <SquareDashed size={15} />
         </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={toggleSnapEnabled}
+          title={snapEnabled ? 'Magneti attivi' : 'Magneti disattivati'}
+          style={snapEnabled ? activeButtonStyle : {}}
+        >
+          <Magnet size={15} />
+          <span className="hidden lg:inline text-xs">Magneti</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={toggleSnapToDocumentEdges}
+          title={snapToDocumentEdges ? 'Aggancio bordi documento attivo' : 'Aggancio bordi documento disattivato'}
+          style={snapToDocumentEdges ? activeButtonStyle : {}}
+        >
+          <span className="text-[9px] font-bold">Bordi</span>
+        </Button>
+
+        <div className="w-px h-6 shrink-0" style={{ background: "var(--c-border)" }} />
+
+        {/* Layout Presets */}
+        <Button
+          variant="outline"
+          size="xs"
+          onClick={() => setShowLayoutPresets(true)}
+          title="Layout & Template"
+          className="shrink-0"
+        >
+          <LayoutTemplate size={15} />
+          <span className="hidden lg:inline text-xs">Layout</span>
+        </Button>
 
         {/* Spacer */}
         <div className="flex-1" />
@@ -265,22 +323,23 @@ export function Toolbar({ projectId, onSave, onPreview, onExport, saving }: Tool
           <Download size={15} />
           <span className="hidden lg:inline text-xs">Export</span>
         </Button>
-
-        <div className="w-px h-6" style={{ background: "var(--c-border)" }} />
-
-        {/* Layout Presets */}
-        <Button variant="outline" size="xs" onClick={() => setShowLayoutPresets(true)} title="Layout & Template">
-          <LayoutTemplate size={15} />
-          <span className="hidden lg:inline text-xs">Layout</span>
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={onSeoOptimize}
+          disabled={!onSeoOptimize || seoOptimizing}
+          title="Analizza e ottimizza SEO pagina"
+        >
+          <Search size={15} />
+          <span className="hidden lg:inline text-xs">{seoOptimizing ? 'SEO…' : 'SEO AI'}</span>
         </Button>
-
         {/* Clear Page */}
         <Button
           variant="ghost"
           size="xs"
           onClick={() => {
             if (confirm('Svuotare la pagina? Questa azione non può essere annullata.')) {
-              setBlocks([]);
+              replacePage([], {});
             }
           }}
           title="Svuota pagina"
@@ -289,14 +348,11 @@ export function Toolbar({ projectId, onSave, onPreview, onExport, saving }: Tool
           <span className="hidden lg:inline text-xs">Svuota</span>
         </Button>
 
-        {/* AI Model Selector */}
-        <AiModelSelector value={aiModel} onChange={setAiModel} />
-
         {/* AI Panel Toggle */}
         <Button
-          variant={aiPanelOpen ? 'primary' : 'ghost'}
+          variant='ghost'
           size="xs"
-          onClick={() => setAiPanelOpen(!aiPanelOpen)}
+          onClick={openGlobalAiChat}
           title="Assistente AI"
         >
           <Sparkles size={15} />
@@ -331,3 +387,8 @@ export function Toolbar({ projectId, onSave, onPreview, onExport, saving }: Tool
     </div>
   );
 }
+  const openGlobalAiChat = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('editoria:open-global-ai-chat'));
+    }
+  };

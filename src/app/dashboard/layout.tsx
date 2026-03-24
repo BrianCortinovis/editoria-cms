@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import AuthProvider from "@/components/layout/AuthProvider";
@@ -27,6 +28,7 @@ const pageTitles: Record<string, string> = {
   "/dashboard/inserzionisti": "Inserzionisti",
   "/dashboard/testata": "Scheda Testata",
   "/dashboard/tecnico": "Pannello Tecnico",
+  "/dashboard/migrazioni": "Migrazioni WordPress",
   "/dashboard/contabilita": "Contabilità",
   "/dashboard/seo": "SEO & Analytics",
   "/dashboard/redirect": "Redirect Legacy",
@@ -45,26 +47,47 @@ const fullscreenPages = ["/dashboard/editor"];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname();
 
-  const isFullscreen = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    return fullscreenPages.includes(window.location.pathname);
-  }, []);
+  const isFullscreen = useMemo(() => fullscreenPages.includes(pathname), [pathname]);
 
   const title = useMemo(() => {
-    if (typeof window === "undefined") return "Dashboard";
-    const path = window.location.pathname;
-    return pageTitles[path] ?? pageTitles["/dashboard"] ?? "Dashboard";
-  }, []);
+    return pageTitles[pathname] ?? pageTitles["/dashboard"] ?? "Dashboard";
+  }, [pathname]);
 
   return (
     <AuthProvider>
-      <div className="h-screen flex flex-col" style={{ background: "var(--c-bg-0)" }}>
+      <div
+        className={
+          isFullscreen
+            ? "h-screen min-h-0 w-full max-w-full flex flex-col overflow-hidden"
+            : "min-h-screen w-full max-w-full flex flex-col"
+        }
+        style={{ background: "var(--c-bg-0)" }}
+      >
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="lg:ml-[82px] flex-1 flex flex-col overflow-hidden">
+        <div
+          className={
+            isFullscreen
+              ? "lg:ml-[82px] flex-1 min-w-0 flex flex-col overflow-hidden"
+              : "lg:ml-[82px] min-h-screen min-w-0 flex flex-col"
+          }
+        >
           <Topbar title={title} onMenuClick={() => setSidebarOpen(true)} />
-          <main className={`flex-1 overflow-hidden w-full h-full ${!isFullscreen && "p-2 sm:p-3"}`}>
-            <div className={isFullscreen ? "h-full w-full" : "w-full h-full overflow-auto"}>
+          <main
+            className={`flex-1 min-w-0 w-full ${
+              isFullscreen
+                ? "h-full overflow-hidden"
+                : "overflow-visible p-2 sm:p-3 lg:p-4"
+            }`}
+          >
+            <div
+              className={
+                isFullscreen
+                  ? "h-full w-full min-w-0 overflow-hidden"
+                  : "mx-auto w-full min-w-0 max-w-[1500px]"
+              }
+            >
               {children}
             </div>
           </main>

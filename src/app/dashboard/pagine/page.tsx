@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/lib/store';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 import {
   Plus,
   Trash2,
@@ -12,6 +13,10 @@ import {
   EyeOff,
   Globe,
   Clock,
+  ExternalLink,
+  Copy,
+  LayoutTemplate,
+  Search,
 } from 'lucide-react';
 
 interface SitePage {
@@ -23,6 +28,7 @@ interface SitePage {
   depth: 0;
   seo_slug: string;
   breadcrumb: Array<{ title: string; slug: string }>;
+  page_type?: string;
   is_published: boolean;
   sort_order: number;
   created_at: string;
@@ -37,14 +43,24 @@ export default function PaginePage() {
   const [newPageTitle, setNewPageTitle] = useState('');
   const [newPageSlug, setNewPageSlug] = useState('');
   const [creating, setCreating] = useState(false);
+  const [publishingPageId, setPublishingPageId] = useState<string | null>(null);
+  const [deletingPageId, setDeletingPageId] = useState<string | null>(null);
+  const [previewingPageId, setPreviewingPageId] = useState<string | null>(null);
+  const [duplicatingPageId, setDuplicatingPageId] = useState<string | null>(null);
 
   const loadPages = useCallback(async () => {
-    if (!currentTenant) return;
+    if (!currentTenant) {
+      setPages([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     const supabase = createClient();
 
     const { data, error } = await supabase
       .from('site_pages')
-      .select('id, title, slug, is_published, sort_order, created_at, updated_at')
+      .select('id, title, slug, page_type, is_published, sort_order, created_at, updated_at')
       .eq('tenant_id', currentTenant.id)
       .order('sort_order', { ascending: true })
       .order('title', { ascending: true });
@@ -58,6 +74,8 @@ export default function PaginePage() {
         seo_slug: page.slug,
         breadcrumb: [{ title: page.title, slug: page.slug }],
       })));
+    } else if (error) {
+      toast.error(error.message || 'Errore caricamento pagine');
     }
     setLoading(false);
   }, [currentTenant]);
@@ -93,11 +111,13 @@ export default function PaginePage() {
       .single();
 
     if (!error && data) {
-      setLoading(true);
+      toast.success('Pagina creata');
       await loadPages();
       setNewPageTitle('');
       setNewPageSlug('');
       setShowNewPage(false);
+    } else if (error) {
+      toast.error(error.message || 'Errore creazione pagina');
     }
     setCreating(false);
   };
@@ -105,6 +125,7 @@ export default function PaginePage() {
   const handleDeletePage = async (pageId: string) => {
     if (!confirm('Eliminare questa pagina?')) return;
 
+    setDeletingPageId(pageId);
     const supabase = createClient();
     const { error } = await supabase
       .from('site_pages')
@@ -112,12 +133,16 @@ export default function PaginePage() {
       .eq('id', pageId);
 
     if (!error) {
-      setLoading(true);
+      toast.success('Pagina eliminata');
       await loadPages();
+    } else {
+      toast.error(error.message || 'Errore eliminazione pagina');
     }
+    setDeletingPageId(null);
   };
 
   const togglePublish = async (pageId: string, isPublished: boolean) => {
+    setPublishingPageId(pageId);
     const supabase = createClient();
     const nextPublishedState = !isPublished;
 
@@ -130,8 +155,140 @@ export default function PaginePage() {
       setPages(pages.map(p =>
         p.id === pageId ? { ...p, is_published: nextPublishedState } : p
       ));
+      toast.success(nextPublishedState ? 'Pagina pubblicata' : 'Pagina riportata in bozza');
+    } else {
+      toast.error(error.message || 'Errore pubblicazione pagina');
     }
+    setPublishingPageId(null);
   };
+
+  const buildDuplicateSlug = useCallback((originalSlug: string) => {
+    const base = `${originalSlug}-copia`;
+    if (!pages.some((page) => page.slug === base)) {
+      return base;
+    }
+
+    let index = 2;
+    while (pages.some((page) => page.slug === `${base}-${index}`)) {
+      index += 1;
+    }
+
+    return `${base}-${index}`;
+  }, [pages]);
+
+  const getPublicPagePath = useCallback((page: Pick<SitePage, 'slug'>) => {
+    const tenantSlug = currentTenant?.slug || 'slug';
+    return page.slug === 'homepage'
+      ? `/site/${tenantSlug}`
+      : `/site/${tenantSlug}/${page.slug}`;
+  }, [currentTenant?.slug]);
+
+  const handlePreviewPage = useCallback(async (page: SitePage) => {
+    const previewWindow = window.open('', '_blank', 'noopener,noreferrer');
+    if (!previewWindow) {
+      toast.error('Consenti i popup per aprire l’anteprima');
+      return;
+    }
+
+    setPreviewingPageId(page.id);
+
+    try {
+      if (page.is_published) {
+        previewWindow.location.href = `${getPublicPagePath(page)}?preview=${Date.now()}`;
+        return;
+      }
+
+      const response = await fetch(`/api/export/${page.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Anteprima non disponibile');
+      }
+
+      const body = typeof payload?.html === 'string'
+        ? payload.html
+        : '<div style="padding:40px;font:14px system-ui,sans-serif;color:#64748b">Nessun contenuto da mostrare.</div>';
+
+      const documentHtml = `<!DOCTYPE html>
+        <html lang="it">
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+          </head>
+          <body style="margin:0">${body}</body>
+        </html>`;
+
+      const blob = new Blob([documentHtml], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
+      previewWindow.location.href = blobUrl;
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } catch (error) {
+      previewWindow.close();
+      toast.error(error instanceof Error ? error.message : 'Errore anteprima pagina');
+    } finally {
+      setPreviewingPageId(null);
+    }
+  }, [getPublicPagePath]);
+
+  const handleCopyPageUrl = useCallback(async (page: SitePage) => {
+    const publicUrl = `${window.location.origin}${getPublicPagePath(page)}`;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      toast.success('URL pagina copiato');
+    } catch {
+      toast.error('Copia URL non riuscita');
+    }
+  }, [getPublicPagePath]);
+
+  const handleDuplicatePage = useCallback(async (page: SitePage) => {
+    if (!currentTenant) return;
+
+    setDuplicatingPageId(page.id);
+    const supabase = createClient();
+
+    try {
+      const { data: sourcePage, error: sourceError } = await supabase
+        .from('site_pages')
+        .select('title, slug, page_type, meta, blocks, custom_css, sort_order')
+        .eq('id', page.id)
+        .single();
+
+      if (sourceError || !sourcePage) {
+        throw new Error(sourceError?.message || 'Pagina sorgente non trovata');
+      }
+
+      const duplicateSlug = buildDuplicateSlug(sourcePage.slug);
+      const duplicateTitle = `${sourcePage.title} copia`;
+
+      const { error: insertError } = await supabase
+        .from('site_pages')
+        .insert({
+          tenant_id: currentTenant.id,
+          title: duplicateTitle,
+          slug: duplicateSlug,
+          page_type: sourcePage.page_type || 'custom',
+          meta: sourcePage.meta || {},
+          blocks: sourcePage.blocks || [],
+          custom_css: sourcePage.custom_css || '',
+          is_published: false,
+          sort_order: (sourcePage.sort_order || 0) + 1,
+        });
+
+      if (insertError) {
+        throw new Error(insertError.message || 'Duplicazione non riuscita');
+      }
+
+      toast.success('Pagina duplicata');
+      await loadPages();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Errore duplicazione pagina');
+    } finally {
+      setDuplicatingPageId(null);
+    }
+  }, [buildDuplicateSlug, currentTenant, loadPages]);
 
   const statusColors = {
     draft: { bg: 'rgba(107,114,128,0.15)', text: '#6b7280' },
@@ -312,9 +469,106 @@ export default function PaginePage() {
                     <Edit className="w-4 h-4" />
                   </Link>
 
+                  {/* Preview Button */}
+                  <button
+                    onClick={() => void handlePreviewPage(page)}
+                    disabled={previewingPageId === page.id}
+                    className="p-2 rounded-lg transition disabled:opacity-60"
+                    style={{
+                      color: 'var(--c-accent)',
+                      background: 'transparent',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    title="Anteprima pagina"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+
+                  {/* Duplicate Button */}
+                  <button
+                    onClick={() => void handleDuplicatePage(page)}
+                    disabled={duplicatingPageId === page.id}
+                    className="p-2 rounded-lg transition disabled:opacity-60"
+                    style={{
+                      color: 'var(--c-text-2)',
+                      background: 'transparent',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    title="Duplica pagina"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+
+                  {/* Open Live Button */}
+                  <a
+                    href={page.is_published ? getPublicPagePath(page) : undefined}
+                    target={page.is_published ? '_blank' : undefined}
+                    rel={page.is_published ? 'noreferrer' : undefined}
+                    aria-disabled={!page.is_published}
+                    className="p-2 rounded-lg transition"
+                    style={{
+                      color: page.is_published ? 'var(--c-accent)' : 'var(--c-text-3)',
+                      background: 'transparent',
+                      pointerEvents: page.is_published ? 'auto' : 'none',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    title={page.is_published ? 'Apri pagina online' : 'Pubblica la pagina per aprirla online'}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+
+                  {/* Layout Button */}
+                  <Link
+                    href={`/dashboard/layout?page=${page.id}`}
+                    className="p-2 rounded-lg transition"
+                    style={{
+                      color: 'var(--c-text-2)',
+                      background: 'transparent',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    title="Vai a Layout"
+                  >
+                    <LayoutTemplate className="w-4 h-4" />
+                  </Link>
+
+                  {/* SEO Button */}
+                  <Link
+                    href="/dashboard/seo"
+                    className="p-2 rounded-lg transition"
+                    style={{
+                      color: 'var(--c-text-2)',
+                      background: 'transparent',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    title="Apri SEO"
+                  >
+                    <Search className="w-4 h-4" />
+                  </Link>
+
+                  {/* Copy URL Button */}
+                  <button
+                    onClick={() => void handleCopyPageUrl(page)}
+                    className="p-2 rounded-lg transition"
+                    style={{
+                      color: 'var(--c-text-2)',
+                      background: 'transparent',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    title="Copia URL pagina"
+                  >
+                    <Globe className="w-4 h-4" />
+                  </button>
+
                   {/* Publish Toggle */}
                   <button
                     onClick={() => togglePublish(page.id, page.is_published)}
+                    disabled={publishingPageId === page.id}
                     className="p-2 rounded-lg transition"
                     style={{
                       color: page.is_published ? 'var(--c-accent)' : 'var(--c-text-2)',
@@ -334,6 +588,7 @@ export default function PaginePage() {
                   {/* Delete Button */}
                   <button
                     onClick={() => handleDeletePage(page.id)}
+                    disabled={deletingPageId === page.id}
                     className="p-2 rounded-lg transition"
                     style={{
                       color: 'var(--c-text-2)',

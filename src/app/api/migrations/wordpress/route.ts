@@ -39,6 +39,24 @@ interface ImportConfig {
   importSlugs: boolean;
 }
 
+interface MigrationPreviewSummary {
+  totalPosts: number;
+  postsInSelection: number;
+  range: {
+    offset: number;
+    limit: number | null;
+    yearFrom: number | null;
+    yearTo: number | null;
+  };
+  yearDistribution: Array<{ year: number; count: number }>;
+  topCategories: Array<{ name: string; count: number }>;
+  topTags: Array<{ name: string; count: number }>;
+  sampleTitles: string[];
+  estimatedComments: number;
+  estimatedImages: number;
+  potentialDuplicates: Array<{ title: string; slug: string; reason: string }>;
+}
+
 interface OptionalColumns {
   legacyWpId: boolean;
   legacyPermalink: boolean;
@@ -368,6 +386,133 @@ function extractPathFromUrl(url: string) {
   }
 }
 
+function buildSelection(posts: WordPressPost[], options: {
+  offset: number;
+  limit: number | null;
+  yearFrom: number | null;
+  yearTo: number | null;
+}) {
+  const filteredByYear = posts.filter((post) => {
+    if (!options.yearFrom && !options.yearTo) return true;
+    const date = new Date(post.pubDate);
+    const year = Number.isNaN(date.getTime()) ? null : date.getFullYear();
+    if (!year) return true;
+    if (options.yearFrom && year < options.yearFrom) return false;
+    if (options.yearTo && year > options.yearTo) return false;
+    return true;
+  });
+
+  const sliced = options.limit
+    ? filteredByYear.slice(options.offset, options.offset + options.limit)
+    : filteredByYear.slice(options.offset);
+
+  return {
+    totalPosts: posts.length,
+    filteredByYear,
+    selected: sliced,
+  };
+}
+
+function countByLabel(values: string[]) {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    const normalized = value.trim();
+    if (!normalized) continue;
+    counts.set(normalized, (counts.get(normalized) || 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({ name, count }));
+}
+
+async function buildPreviewSummary(
+  supabase: Awaited<ReturnType<typeof createServiceRoleClient>>,
+  tenantId: string,
+  _posts: WordPressPost[],
+  selection: {
+    totalPosts: number;
+    selected: WordPressPost[];
+  },
+  optionalColumns: OptionalColumns,
+  range: MigrationPreviewSummary['range']
+): Promise<MigrationPreviewSummary> {
+  const yearCounts = new Map<number, number>();
+  for (const post of selection.selected) {
+    const date = new Date(post.pubDate);
+    if (!Number.isNaN(date.getTime())) {
+      const year = date.getFullYear();
+      yearCounts.set(year, (yearCounts.get(year) || 0) + 1);
+    }
+  }
+
+  const topCategories = countByLabel(selection.selected.flatMap((post) => post.category)).slice(0, 10);
+  const topTags = countByLabel(selection.selected.flatMap((post) => post.tags)).slice(0, 10);
+
+  const slugs = selection.selected
+    .map((post) => slugify(post.slug || post.title, { lower: true, strict: true, locale: 'it' }))
+    .filter(Boolean);
+
+  type ExistingArticlePreview = {
+    id: string;
+    slug: string;
+    legacy_wp_id?: number | null;
+  };
+
+  let existingArticles: ExistingArticlePreview[] = [];
+  if (slugs.length > 0) {
+    if (optionalColumns.legacyWpId) {
+      const { data } = await supabase
+        .from('articles')
+        .select('id, slug, legacy_wp_id')
+        .eq('tenant_id', tenantId)
+        .in('slug', [...new Set(slugs)].slice(0, 500));
+
+      existingArticles = (data || []) as ExistingArticlePreview[];
+    } else {
+      const { data } = await supabase
+        .from('articles')
+        .select('id, slug')
+        .eq('tenant_id', tenantId)
+        .in('slug', [...new Set(slugs)].slice(0, 500));
+
+      existingArticles = (data || []) as ExistingArticlePreview[];
+    }
+  }
+
+  const existingBySlug = new Map(existingArticles.map((article) => [article.slug, article]));
+
+  const potentialDuplicates = selection.selected
+    .map((post) => {
+      const slug = slugify(post.slug || post.title, { lower: true, strict: true, locale: 'it' });
+      const existing = existingBySlug.get(slug);
+      if (!existing) return null;
+      return {
+        title: post.title,
+        slug,
+        reason: optionalColumns.legacyWpId && post.postId && 'legacy_wp_id' in existing && existing.legacy_wp_id === post.postId
+          ? 'Match su legacy_wp_id'
+          : 'Slug già presente nel CMS',
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .slice(0, 20);
+
+  return {
+    totalPosts: selection.totalPosts,
+    postsInSelection: selection.selected.length,
+    range,
+    yearDistribution: Array.from(yearCounts.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([year, count]) => ({ year, count })),
+    topCategories,
+    topTags,
+    sampleTitles: selection.selected.slice(0, 12).map((post) => post.title),
+    estimatedComments: selection.selected.reduce((sum, post) => sum + post.comments.length, 0),
+    estimatedImages: selection.selected.reduce((sum, post) => sum + post.images.length, 0),
+    potentialDuplicates,
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authClient = await createServerSupabaseClient();
@@ -413,6 +558,15 @@ export async function POST(request: NextRequest) {
       importSlugs: formData.get('importSlugs') === 'true',
     };
 
+    const previewOnly = formData.get('previewOnly') === 'true';
+    const offset = Math.max(0, Number(formData.get('offset') || 0) || 0);
+    const rawLimit = Number(formData.get('limit') || 0) || 0;
+    const limit = rawLimit > 0 ? Math.min(rawLimit, 5000) : null;
+    const rawYearFrom = Number(formData.get('yearFrom') || 0) || 0;
+    const rawYearTo = Number(formData.get('yearTo') || 0) || 0;
+    const yearFrom = rawYearFrom > 0 ? rawYearFrom : null;
+    const yearTo = rawYearTo > 0 ? rawYearTo : null;
+
     const fileContent = await file.text();
     const posts = file.name.endsWith('.json')
       ? parseJsonContent(fileContent)
@@ -420,13 +574,36 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createServiceRoleClient();
     const optionalColumns = await resolveOptionalColumns(supabase);
+    const selection = buildSelection(posts, { offset, limit, yearFrom, yearTo });
+
+    if (previewOnly) {
+      const preview = await buildPreviewSummary(
+        supabase,
+        tenantId,
+        posts,
+        {
+          totalPosts: selection.totalPosts,
+          selected: selection.selected,
+        },
+        optionalColumns,
+        { offset, limit, yearFrom, yearTo }
+      );
+
+      return NextResponse.json({
+        success: true,
+        mode: 'preview',
+        preview,
+        importConfig,
+        message: `Anteprima pronta: ${preview.postsInSelection} contenuti nel lotto selezionato`,
+      });
+    }
 
     let inserted = 0;
     let updated = 0;
     let skipped = 0;
     const failures: Array<{ title: string; reason: string }> = [];
 
-    for (const post of posts) {
+    for (const post of selection.selected) {
       try {
         const baseSlug = slugify(
           importConfig.importSlugs ? post.slug || post.title : post.title,
@@ -614,7 +791,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      total: posts.length,
+      total: selection.selected.length,
+      totalSource: posts.length,
       inserted,
       updated,
       processed: inserted + updated,

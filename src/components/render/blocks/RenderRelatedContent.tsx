@@ -36,7 +36,7 @@ export function RenderRelatedContent({ block, data, style, tenantSlug }: Props) 
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: '1.25rem' }}>
         {items.map((item, index) => {
           const href = item.url || (item.slug ? `/site/${tenantSlug}/articolo/${item.slug}` : '#');
-          const image = item.image || item.cover_image_url || '';
+          const image = String(item.image || item.cover_image_url || '').trim();
           const excerpt = item.excerpt || item.summary || '';
 
           return (

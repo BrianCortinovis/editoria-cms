@@ -19,6 +19,18 @@ import { DEVICE_WIDTHS } from '@/lib/config/breakpoints';
 import { generateDividerSvg, dividerToClipPath, generateDividerGradientMask } from '@/lib/shapes/dividers';
 import { FreeTransformOverlay } from './FreeTransformOverlay';
 import { normalizeFooterConfig } from '@/lib/site/footer';
+import { sanitizeCss, sanitizeHtml } from '@/lib/security/html';
+import { buildCssGradient, buildAnimatedGradientKeyframes } from '@/lib/shapes/gradients';
+import { RenderNavigation } from '@/components/render/blocks/RenderNavigation';
+import { RenderFooter } from '@/components/render/blocks/RenderFooter';
+import { RenderCmsForm } from '@/components/render/blocks/RenderCmsForm';
+import { RenderImageGallery } from '@/components/render/blocks/RenderImageGallery';
+import { RenderVideo } from '@/components/render/blocks/RenderVideo';
+import { RenderAudio } from '@/components/render/blocks/RenderAudio';
+import { RenderTabs } from '@/components/render/blocks/RenderTabs';
+import { RenderTable } from '@/components/render/blocks/RenderTable';
+import { RenderCode } from '@/components/render/blocks/RenderCode';
+import { RenderSlideshow } from '@/components/render/blocks/RenderSlideshow';
 
 interface CanvasBlockProps {
   block: Block;
@@ -26,10 +38,26 @@ interface CanvasBlockProps {
   showOutlines: boolean;
 }
 
+const CANVAS_REAL_RENDER_BLOCKS = new Set<Block['type']>([
+  'navigation',
+  'footer',
+  'cms-form',
+  'image-gallery',
+  'video',
+  'audio',
+  'tabs',
+  'table',
+  'code',
+  'slideshow',
+]);
+
 // ================================================================
 // RESIZE HANDLE - Big, visible, precise to 1px
 // ================================================================
 type ResizeDir = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+
+const RESIZE_SENSITIVITY = 0.18;
+const RESIZE_EDGE_SNAP_THRESHOLD = 10;
 
 const CURSORS: Record<ResizeDir, string> = {
   n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize',
@@ -81,6 +109,7 @@ function ResizeHandle({ dir, onDrag }: {
 
   return (
     <div
+      data-resize-handle="true"
       onMouseDown={onMouseDown}
       className={cn(
         isCorner
@@ -134,9 +163,16 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
     selectBlock, removeBlock, duplicateBlock, updateBlock, updateBlockStyle, updateBlockShape,
     hoveredBlockId, hoverBlock, setEditingBlock, editingBlockId, moveBlock, blocks
   } = usePageStore();
-  const { setRightPanelOpen, setRightPanelTab, zoom, deviceMode } = useUiStore();
+  const {
+    setRightPanelOpen,
+    setRightPanelTab,
+    zoom,
+    deviceMode,
+    snapEnabled,
+    snapToDocumentEdges,
+    toggleSnapEnabled,
+  } = useUiStore();
   const [mirrorResize, setMirrorResize] = useState(false);
-  const [snapEnabled, setSnapEnabled] = useState(true);
   const [snapLines, setSnapLines] = useState<{ type: 'h' | 'v'; pos: number }[]>([]);
   const canvasWidth = DEVICE_WIDTHS[deviceMode];
   const blockRef = useRef<HTMLDivElement>(null);
@@ -144,6 +180,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
   const [resizing, setResizing] = useState(false);
   const [toolbarPos, setToolbarPos] = useState<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center' | 'bottom-center' | 'center-center'>('top-left');
   const [freeTransformActive, setFreeTransformActive] = useState(false);
+  const longPressTimerRef = useRef<number | null>(null);
   // Store initial style values and rendered width when resize starts
   const initStyleRef = useRef(block.style);
   const initRenderedWidthRef = useRef(0);
@@ -184,6 +221,35 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
     }
   }, [block.id, block.type, setEditingBlock]);
 
+  const parseTranslateForResize = (t?: string) => {
+    if (!t) return { x: 0, y: 0 };
+    const m = t.match(/translate\(\s*(-?[\d.]+)px\s*,\s*(-?[\d.]+)px\s*\)/);
+    return m ? { x: parseFloat(m[1]), y: parseFloat(m[2]) } : { x: 0, y: 0 };
+  };
+
+  const getPageMetricsForResize = () => {
+    const pageFrame = blockRef.current?.closest('.sb-page-frame') as HTMLElement | null;
+    const pageSurface = blockRef.current?.closest('[data-page-surface="true"]') as HTMLElement | null;
+    const pageEl = pageSurface || pageFrame;
+
+    if (!pageEl) {
+      return {
+        pageEl: null,
+        pageWidth: canvasWidth,
+        pageHeight: 800,
+        pageRect: null as DOMRect | null,
+      };
+    }
+
+    const pageRect = pageEl.getBoundingClientRect();
+    return {
+      pageEl,
+      pageWidth: pageRect.width / zoom,
+      pageHeight: Math.max(pageEl.scrollHeight, pageRect.height / zoom),
+      pageRect,
+    };
+  };
+
   // ================================================================
   // RESIZE: true pixel-level control
   // Changes actual CSS dimensions, padding, margins - 1px precision
@@ -191,9 +257,11 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
   const handleResize = useCallback((dir: ResizeDir, dx: number, dy: number, done: boolean) => {
     if (!blockRef.current) return;
 
-    // Adjust for zoom level
-    const adx = Math.round(dx / zoom);
-    const ady = Math.round(dy / zoom);
+    // Adjust for zoom level and slow the resize down to make fine tuning easier.
+    const scaledDx = (dx / zoom) * RESIZE_SENSITIVITY;
+    const scaledDy = (dy / zoom) * RESIZE_SENSITIVITY;
+    const adx = scaledDx >= 0 ? Math.floor(scaledDx) : Math.ceil(scaledDx);
+    const ady = scaledDy >= 0 ? Math.floor(scaledDy) : Math.ceil(scaledDy);
 
     if (!resizing) {
       setResizing(true);
@@ -204,6 +272,24 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
     const s = initStyleRef.current;
     const pad = s.layout.padding;
     const parsePx = (v: string) => parseInt(v) || 0;
+    const rect = blockRef.current.getBoundingClientRect();
+    const currentTranslate = parseTranslateForResize(block.style.transform);
+    const { pageRect, pageWidth, pageHeight } = getPageMetricsForResize();
+    const baseX = pageRect
+      ? Math.round((rect.left - pageRect.left) / zoom) - currentTranslate.x
+      : 0;
+    const baseY = pageRect
+      ? Math.round((rect.top - pageRect.top) / zoom) - currentTranslate.y
+      : 0;
+    const maxAllowedWidth = Math.max(100, Math.round(pageWidth - baseX));
+    const maxAllowedHeight = Math.max(20, Math.round(pageHeight - baseY));
+    const clampToDocumentEdge = (value: number, maxValue: number) => {
+      const clamped = Math.min(Math.max(value, 0), maxValue);
+      if (snapEnabled && snapToDocumentEdges && Math.abs(maxValue - clamped) <= RESIZE_EDGE_SNAP_THRESHOLD) {
+        return maxValue;
+      }
+      return clamped;
+    };
 
     const updates: Record<string, unknown> = {};
     let newPad = { ...pad };
@@ -221,7 +307,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
       // Also adjust minHeight
       const origH = parsePx(s.layout.minHeight || '0');
       if (origH > 0) {
-        updates.minHeight = `${Math.max(20, origH + ady)}px`;
+        updates.minHeight = `${clampToDocumentEdge(Math.max(20, origH + ady), maxAllowedHeight)}px`;
       }
     }
 
@@ -235,34 +321,34 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
 
       if (dir.includes('e') && !dir.includes('w')) {
         // East only: expand/shrink from right
-        const newW = Math.max(100, baseW + adx);
+        const newW = clampToDocumentEdge(Math.max(100, baseW + adx), maxAllowedWidth);
         updates.maxWidth = `${newW}px`;
         updates.width = `${newW}px`;
         if (mirrorResize) {
-          const newW2 = Math.max(100, baseW + adx * 2);
+          const newW2 = clampToDocumentEdge(Math.max(100, baseW + adx * 2), maxAllowedWidth);
           updates.maxWidth = `${newW2}px`;
           updates.width = `${newW2}px`;
         }
       } else if (dir.includes('w') && !dir.includes('e')) {
         // West only: expand/shrink from left
-        const newW = Math.max(100, baseW - adx);
+        const newW = clampToDocumentEdge(Math.max(100, baseW - adx), maxAllowedWidth);
         updates.maxWidth = `${newW}px`;
         updates.width = `${newW}px`;
         if (mirrorResize) {
-          const newW2 = Math.max(100, baseW - adx * 2);
+          const newW2 = clampToDocumentEdge(Math.max(100, baseW - adx * 2), maxAllowedWidth);
           updates.maxWidth = `${newW2}px`;
           updates.width = `${newW2}px`;
         }
       } else {
         // Both (corner): east side
         if (dir.includes('e')) {
-          const newW = Math.max(100, baseW + adx);
+          const newW = clampToDocumentEdge(Math.max(100, baseW + adx), maxAllowedWidth);
           updates.maxWidth = `${newW}px`;
           updates.width = `${newW}px`;
         }
         if (dir.includes('w')) {
           const curW = parsePx((updates.maxWidth as string) || `${baseW}`);
-          const newW = Math.max(100, curW - adx);
+          const newW = clampToDocumentEdge(Math.max(100, curW - adx), maxAllowedWidth);
           updates.maxWidth = `${newW}px`;
           updates.width = `${newW}px`;
         }
@@ -282,7 +368,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
     if (done) {
       setResizing(false);
     }
-  }, [block.id, block.style, mirrorResize, resizing, updateBlockStyle, zoom]);
+  }, [block.id, block.style, canvasWidth, mirrorResize, resizing, snapEnabled, snapToDocumentEdges, updateBlockStyle, zoom]);
 
   // ================================================================
   // FREE DRAG: move block freely using translate transform
@@ -298,10 +384,40 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
     return m ? { x: parseFloat(m[1]), y: parseFloat(m[2]) } : { x: 0, y: 0 };
   }, []);
 
+  const getPageMetrics = useCallback(() => {
+    const pageFrame = blockRef.current?.closest('.sb-page-frame') as HTMLElement | null;
+    const pageSurface = blockRef.current?.closest('[data-page-surface="true"]') as HTMLElement | null;
+    const pageEl = pageSurface || pageFrame;
+
+    if (!pageEl) {
+      return {
+        pageEl: null,
+        pageWidth: canvasWidth,
+        pageHeight: 800,
+        pageRect: null as DOMRect | null,
+      };
+    }
+
+    const pageRect = pageEl.getBoundingClientRect();
+    return {
+      pageEl,
+      pageWidth: pageRect.width / zoom,
+      pageHeight: Math.max(pageEl.scrollHeight, pageRect.height / zoom),
+      pageRect,
+    };
+  }, [canvasWidth, zoom]);
+
   // Get snap targets from other blocks and canvas edges
   const getSnapTargets = useCallback(() => {
-    const targets: { x: number[]; y: number[] } = { x: [0, canvasWidth / 2, canvasWidth], y: [0] };
-    const pageEl = blockRef.current?.closest('.sb-show-outlines, [style*="minHeight"]')?.parentElement;
+    const { pageEl, pageRect, pageWidth, pageHeight } = getPageMetrics();
+    const targets: { x: number[]; y: number[] } = {
+      x: snapToDocumentEdges ? [0, pageWidth / 2, pageWidth] : [],
+      y: snapToDocumentEdges ? [0, pageHeight / 2, pageHeight] : [],
+    };
+
+    if (!pageEl || !pageRect) {
+      return targets;
+    }
 
     blocks.forEach((b) => {
       if (b.id === block.id) return;
@@ -309,27 +425,30 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
       if (!el) return;
       const rect = el.getBoundingClientRect();
       const z = zoom;
-      const bx = rect.left / z;
-      const by = rect.top / z;
+      const bx = (rect.left - pageRect.left) / z;
+      const by = (rect.top - pageRect.top) / z;
       const bw = rect.width / z;
       const bh = rect.height / z;
       targets.x.push(bx, bx + bw / 2, bx + bw);
       targets.y.push(by, by + bh / 2, by + bh);
     });
     return targets;
-  }, [block.id, blocks, canvasWidth, zoom]);
+  }, [block.id, blocks, getPageMetrics, snapToDocumentEdges, zoom]);
 
   // Apply snap to a position
-  const applySnap = useCallback((newX: number, newY: number, myW: number, myH: number) => {
+  const applySnap = useCallback((newX: number, newY: number, myW: number, myH: number, baseX: number, baseY: number) => {
     if (!snapEnabled) { setSnapLines([]); return { x: newX, y: newY }; }
 
     const targets = getSnapTargets();
     let sx = newX, sy = newY;
     const lines: { type: 'h' | 'v'; pos: number }[] = [];
 
+    const actualX = baseX + newX;
+    const actualY = baseY + newY;
+
     // Block edges: left, center, right
-    const myEdgesX = [newX, newX + myW / 2, newX + myW];
-    const myEdgesY = [newY, newY + myH / 2, newY + myH];
+    const myEdgesX = [actualX, actualX + myW / 2, actualX + myW];
+    const myEdgesY = [actualY, actualY + myH / 2, actualY + myH];
 
     for (const ex of myEdgesX) {
       for (const tx of targets.x) {
@@ -353,14 +472,19 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
     return { x: sx, y: sy };
   }, [snapEnabled, getSnapTargets]);
 
-  const handleFreeDragStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragStartRef.current = { x: e.clientX, y: e.clientY };
+  const startFreeDragAt = useCallback((clientX: number, clientY: number) => {
+    dragStartRef.current = { x: clientX, y: clientY };
     initTranslateRef.current = parseTranslate(block.style.transform);
     const myRect = blockRef.current?.getBoundingClientRect();
     const myW = myRect ? Math.round(myRect.width / zoom) : 0;
     const myH = myRect ? Math.round(myRect.height / zoom) : 0;
+    const { pageRect } = getPageMetrics();
+    const baseX = myRect && pageRect
+      ? Math.round((myRect.left - pageRect.left) / zoom) - initTranslateRef.current.x
+      : 0;
+    const baseY = myRect && pageRect
+      ? Math.round((myRect.top - pageRect.top) / zoom) - initTranslateRef.current.y
+      : 0;
 
     const onMove = (ev: MouseEvent) => {
       const dx = Math.round((ev.clientX - dragStartRef.current.x) / zoom);
@@ -369,7 +493,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
       let newY = initTranslateRef.current.y + dy;
 
       // Snap
-      const snapped = applySnap(newX, newY, myW, myH);
+      const snapped = applySnap(newX, newY, myW, myH, baseX, baseY);
       newX = snapped.x;
       newY = snapped.y;
 
@@ -387,8 +511,65 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
     document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+      document.addEventListener('mouseup', onUp);
   }, [block.id, block.style.transform, updateBlockStyle, zoom, parseTranslate, applySnap]);
+
+  const handleFreeDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startFreeDragAt(e.clientX, e.clientY);
+  }, [startFreeDragAt]);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const shouldIgnoreSurfaceDrag = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) {
+      return true;
+    }
+
+    return Boolean(
+      target.closest('button, a, input, textarea, select, [contenteditable="true"], [role="button"]') ||
+      target.closest('[data-resize-handle="true"]') ||
+      target.closest('[data-block-toolbar="true"]')
+    );
+  }, []);
+
+  const handleSurfaceMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!selected || e.button !== 0 || shouldIgnoreSurfaceDrag(e.target)) {
+      return;
+    }
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    clearLongPressTimer();
+
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTimerRef.current = null;
+      startFreeDragAt(startX, startY);
+    }, 180);
+
+    const cancel = () => {
+      clearLongPressTimer();
+      document.removeEventListener('mouseup', cancel);
+      document.removeEventListener('mousemove', handleMove);
+    };
+
+    const handleMove = (moveEvent: MouseEvent) => {
+      if (Math.abs(moveEvent.clientX - startX) > 5 || Math.abs(moveEvent.clientY - startY) > 5) {
+        cancel();
+      }
+    };
+
+    document.addEventListener('mouseup', cancel);
+    document.addEventListener('mousemove', handleMove);
+  }, [clearLongPressTimer, selected, shouldIgnoreSurfaceDrag, startFreeDragAt]);
+
+  useEffect(() => clearLongPressTimer, [clearLongPressTimer]);
 
   // ================================================================
   // NUDGE: move 1px with arrow buttons
@@ -440,14 +621,22 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
   const canMoveDown = blockIndex < blocks.length - 1;
 
   const blockStyle = buildCssFromBlockStyle(block);
+  const editorScopedCss = buildEditorScopedCss(block);
+  const contentOwnsStyle = CANVAS_REAL_RENDER_BLOCKS.has(block.type);
   const hasClipPath = block.shape?.type === 'clip-path' && block.shape.value;
+  const layoutWidth = block.style.layout.width || '100%';
+  const layoutMaxWidth = block.style.layout.maxWidth || '100%';
+  const safeEditorMaxWidth = layoutMaxWidth === '100%'
+    ? '100%'
+    : `min(${layoutMaxWidth}, 100%)`;
 
   // Apply clip-path to outer wrapper if shape is defined
   const wrapperStyle: React.CSSProperties = {
     ...style,
     position: 'relative',
-    width: block.style.layout.width || '100%',
-    maxWidth: block.style.layout.maxWidth || '100%',
+    width: layoutWidth,
+    maxWidth: safeEditorMaxWidth,
+    boxSizing: 'border-box',
   };
 
   // Apply effects (shadow, filter, blend mode) to wrapper instead of content
@@ -470,6 +659,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
 
   const isEditing = editingBlockId === block.id;
   const isHovered = hoveredBlockId === block.id;
+  const snapGuidePageRect = getPageMetrics().pageRect;
 
   return (
     <div
@@ -479,24 +669,42 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
       {selected && !isDragging && hasClipPath && block.shape?.value && renderShapeOutline(block.shape.value)}
 
       <div
+        id={`editor-block-${block.id}`}
         data-block-id={block.id}
         ref={(node) => { setNodeRef(node); (blockRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
         style={wrapperStyle}
         className={cn('sb-block-wrapper', selected && 'sb-selected', isEditing && 'sb-editing', isHovered && !selected && 'sb-hovered')}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
+        onMouseDown={handleSurfaceMouseDown}
         onMouseEnter={() => hoverBlock(block.id)}
         onMouseLeave={() => hoverBlock(null)}
         {...attributes}
       >
-      {/* Top divider - hidden when using clip-path */}
-      {/* {block.shape?.topDivider && (
-        <div dangerouslySetInnerHTML={{ __html: generateDividerSvg(block.shape.topDivider.shape, 1440, block.shape.topDivider.height, block.shape.topDivider.color, block.shape.topDivider.flip, block.shape.topDivider.invert) }} style={{ marginBottom: -1 }} />
-      )} */}
+      {editorScopedCss && <style dangerouslySetInnerHTML={{ __html: editorScopedCss }} />}
+
+      {/* Top divider - keep hidden only when the whole block is already clipped */}
+      {!hasClipPath && block.shape?.topDivider && (
+        <div
+          aria-hidden="true"
+          dangerouslySetInnerHTML={{
+            __html: generateDividerSvg(
+              block.shape.topDivider.shape,
+              1440,
+              block.shape.topDivider.height,
+              block.shape.topDivider.color,
+              block.shape.topDivider.flip,
+              block.shape.topDivider.invert,
+              block.shape.topDivider.opacity ?? 1
+            )
+          }}
+          style={{ marginBottom: -1 }}
+        />
+      )}
 
       {/* Block content */}
-      <div style={blockStyle}>
-        <BlockContent block={block} isEditing={isEditing} />
+      <div style={contentOwnsStyle ? undefined : blockStyle}>
+        <BlockContent block={block} isEditing={isEditing} renderStyle={contentOwnsStyle ? blockStyle : undefined} />
         {block.children.length > 0 && (
           block.type === 'columns' ? (
             <>
@@ -576,10 +784,23 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
         )}
       </div>
 
-      {/* Bottom divider - hidden when using clip-path */}
-      {/* {block.shape?.bottomDivider && (
-        <div dangerouslySetInnerHTML={{ __html: generateDividerSvg(block.shape.bottomDivider.shape, 1440, block.shape.bottomDivider.height, block.shape.bottomDivider.color, block.shape.bottomDivider.flip, !block.shape.bottomDivider.invert) }} style={{ marginTop: -1 }} />
-      )} */}
+      {!hasClipPath && block.shape?.bottomDivider && (
+        <div
+          aria-hidden="true"
+          dangerouslySetInnerHTML={{
+            __html: generateDividerSvg(
+              block.shape.bottomDivider.shape,
+              1440,
+              block.shape.bottomDivider.height,
+              block.shape.bottomDivider.color,
+              block.shape.bottomDivider.flip,
+              block.shape.bottomDivider.invert,
+              block.shape.bottomDivider.opacity ?? 1
+            )
+          }}
+          style={{ marginTop: -1 }}
+        />
+      )}
 
       {/* ================================================================ */}
       {/* SELECTION UI - Big handles, inline toolbar, dimensions */}
@@ -611,6 +832,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
           {/* TOOLBAR - Draggable position on borders */}
           {/* ================================================================ */}
           <div
+            data-block-toolbar="true"
             className={cn(
               "absolute flex items-center gap-1 z-50 group",
               toolbarPos === 'top-left' && 'top-2 left-2',
@@ -698,7 +920,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
 
               {/* Snap magnet */}
               <button
-                onClick={() => setSnapEnabled(!snapEnabled)}
+                onClick={toggleSnapEnabled}
                 className="p-2 rounded-lg transition-colors"
                 style={{ color: 'var(--c-bg-0)', background: snapEnabled ? 'rgba(0,0,0,0.2)' : 'transparent' }} onMouseEnter={(e) => !snapEnabled && (e.currentTarget.style.background = 'rgba(0,0,0,0.1)')} onMouseLeave={(e) => !snapEnabled && (e.currentTarget.style.background = 'transparent')}
                 title={snapEnabled ? 'Magnete ON (5px)' : 'Magnete OFF'}
@@ -862,8 +1084,22 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
               key={i}
               className="pointer-events-none z-[60] fixed"
               style={line.type === 'v'
-                ? { left: line.pos * zoom, top: 0, bottom: 0, width: 1, background: '#f43f5e', position: 'fixed' }
-                : { top: line.pos * zoom, left: 0, right: 0, height: 1, background: '#f43f5e', position: 'fixed' }
+                ? {
+                    left: (snapGuidePageRect?.left ?? 0) + (line.pos * zoom),
+                    top: snapGuidePageRect?.top ?? 0,
+                    height: (snapGuidePageRect?.height ?? 0),
+                    width: 1,
+                    background: '#f43f5e',
+                    position: 'fixed'
+                  }
+                : {
+                    top: (snapGuidePageRect?.top ?? 0) + (line.pos * zoom),
+                    left: snapGuidePageRect?.left ?? 0,
+                    width: snapGuidePageRect?.width ?? 0,
+                    height: 1,
+                    background: '#f43f5e',
+                    position: 'fixed'
+                  }
               }
             />
           ))}
@@ -910,9 +1146,18 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
 // ================================================================
 // BLOCK CONTENT RENDERERS
 // ================================================================
-function BlockContent({ block, isEditing }: { block: Block; isEditing: boolean }) {
+function BlockContent({
+  block,
+  isEditing,
+  renderStyle,
+}: {
+  block: Block;
+  isEditing: boolean;
+  renderStyle?: React.CSSProperties;
+}) {
   const { currentTenant } = useAuthStore();
   const { data: previewData, loading: previewLoading } = useEditorBlockPreviewData(currentTenant?.id, block.dataSource);
+  const tenantSlug = currentTenant?.slug || '';
 
   switch (block.type) {
     case 'hero': return <HeroContent block={block} />;
@@ -920,20 +1165,40 @@ function BlockContent({ block, isEditing }: { block: Block; isEditing: boolean }
     case 'divider': return <DividerContent block={block} />;
     case 'banner-ad': return <BannerAdContent block={block} />;
     case 'quote': return <QuoteContent block={block} />;
-    case 'navigation': return <NavigationContent block={block} data={previewData} loading={previewLoading} />;
-    case 'footer': return <FooterContent block={block} data={previewData} loading={previewLoading} />;
+    case 'navigation':
+      return (
+        <RenderNavigation
+          block={block}
+          data={previewData}
+          style={renderStyle || {}}
+        />
+      );
+    case 'footer':
+      return (
+        <RenderFooter
+          block={block}
+          data={previewData}
+          style={renderStyle || {}}
+        />
+      );
     case 'newsletter': return <NewsletterContent block={block} data={previewData} loading={previewLoading} />;
     case 'newsletter-signup': return <NewsletterContent block={block} data={previewData} loading={previewLoading} compactDefault />;
     case 'counter': return <CounterContent block={block} />;
-    case 'image-gallery': return <ImageGalleryContent block={block} />;
-    case 'audio': return <AudioContent block={block} />;
-    case 'video': return <VideoContent block={block} />;
+    case 'image-gallery':
+      return <RenderImageGallery block={block} style={renderStyle || {}} />;
+    case 'audio':
+      return <RenderAudio block={block} style={renderStyle || {}} />;
+    case 'video':
+      return <RenderVideo block={block} style={renderStyle || {}} />;
     case 'comparison': return <ComparisonContent block={block} />;
     case 'carousel': return <CarouselContent block={block} />;
     case 'accordion': return <AccordionContent block={block} />;
-    case 'tabs': return <TabsContent block={block} />;
-    case 'table': return <TableContent block={block} />;
-    case 'code': return <CodeContent block={block} isEditing={isEditing} />;
+    case 'tabs':
+      return <RenderTabs block={block} style={renderStyle || {}} />;
+    case 'table':
+      return <RenderTable block={block} style={renderStyle || {}} />;
+    case 'code':
+      return <RenderCode block={block} style={renderStyle || {}} />;
     case 'custom-html': return <CustomHtmlContent block={block} />;
     case 'timeline': return <TimelineContent block={block} />;
     case 'map': return <MapContent block={block} />;
@@ -941,7 +1206,8 @@ function BlockContent({ block, isEditing }: { block: Block; isEditing: boolean }
     case 'related-content': return <RelatedContentPreview block={block} />;
     case 'sidebar': return <SidebarContent block={block} />;
     case 'author-bio': return <AuthorBioContent block={block} />;
-    case 'slideshow': return <SlideshowContent block={block} />;
+    case 'slideshow':
+      return <RenderSlideshow block={block} style={renderStyle || {}} />;
     case 'article-grid': return <ArticleGridPreview block={block} data={previewData} loading={previewLoading} />;
     case 'article-hero': return <ArticleHeroPreview block={block} data={previewData} loading={previewLoading} />;
     case 'breaking-ticker': return <BreakingTickerPreview data={previewData} loading={previewLoading} />;
@@ -949,7 +1215,15 @@ function BlockContent({ block, isEditing }: { block: Block; isEditing: boolean }
     case 'event-list': return <EventListPreview data={previewData} loading={previewLoading} />;
     case 'banner-zone': return <BannerZonePreview block={block} data={previewData} loading={previewLoading} />;
     case 'search-bar': return <SearchBarPreview block={block} />;
-    case 'cms-form': return <CmsFormPreview block={block} data={previewData} loading={previewLoading} />;
+    case 'cms-form':
+      return (
+        <RenderCmsForm
+          block={block}
+          data={previewData}
+          style={renderStyle || {}}
+          tenantSlug={tenantSlug}
+        />
+      );
     case 'section': case 'container': case 'columns': return null;
     default:
       return (
@@ -1005,6 +1279,9 @@ interface PreviewBanner {
   name: string;
   position: string;
   type: string;
+  image_url?: string | null;
+  html_content?: string | null;
+  link_url?: string | null;
 }
 
 interface PreviewFormField {
@@ -1012,6 +1289,7 @@ interface PreviewFormField {
   label?: string;
   type?: string;
   required?: boolean;
+  placeholder?: string;
 }
 
 interface PreviewForm {
@@ -1161,7 +1439,10 @@ function EventListPreview({ data, loading }: { data: unknown[]; loading: boolean
 }
 
 function BannerZonePreview({ block, data, loading }: { block: Block; data: unknown[]; loading: boolean }) {
-  const banner = (data as PreviewBanner[])[0];
+  const banners = (data as PreviewBanner[]).filter((banner) => banner.image_url || banner.html_content);
+  const banner = banners[0];
+  const position = String(block.props.position || 'sidebar');
+  const isScrollingRow = Boolean((block.props as Record<string, unknown>).scrollingRow) || ['header', 'footer', 'topbar'].includes(position);
   if (loading) return <PreviewLoading label="banner zone" />;
 
   return (
@@ -1170,10 +1451,10 @@ function BannerZonePreview({ block, data, loading }: { block: Block; data: unkno
         banner-zone
       </div>
       <div className="mt-2 text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
-        {banner?.name || `Posizione: ${String(block.props.position || 'sidebar')}`}
+        {isScrollingRow ? `Riga banner · ${banners.length || 0} elementi` : (banner?.name || `Posizione: ${position}`)}
       </div>
       <div className="mt-1 text-xs" style={{ color: 'var(--c-text-2)' }}>
-        {banner ? `${banner.position} · ${banner.type}` : 'Mostrerà i banner attivi del CMS per questa posizione.'}
+        {banner ? `${position} · ${isScrollingRow ? 'scrolling row' : banner.type}` : 'Mostrerà i banner attivi del CMS per questa posizione.'}
       </div>
     </div>
   );
@@ -1230,7 +1511,25 @@ function CmsFormPreview({ block, data, loading }: { block: Block; data: unknown[
               {field.label || field.name}
               {field.required ? ' *' : ''}
             </div>
-            <div className="h-10 rounded-lg border" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-2)' }} />
+            {field.type === 'textarea' ? (
+              <div className="rounded-lg border px-3 py-3 text-xs" style={{ minHeight: 116, borderColor: 'var(--c-border)', background: 'var(--c-bg-2)', color: 'var(--c-text-3)' }}>
+                {field.placeholder || 'Textarea'}
+              </div>
+            ) : field.type === 'select' ? (
+              <div className="h-10 rounded-lg border px-3 flex items-center justify-between text-xs" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-2)', color: 'var(--c-text-3)' }}>
+                <span>{field.placeholder || 'Seleziona'}</span>
+                <span>▾</span>
+              </div>
+            ) : field.type === 'checkbox' ? (
+              <label className="flex items-center gap-2 text-xs" style={{ color: 'var(--c-text-2)' }}>
+                <input type="checkbox" disabled />
+                <span>{field.label || field.name}</span>
+              </label>
+            ) : (
+              <div className="h-10 rounded-lg border px-3 flex items-center text-xs" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-2)', color: 'var(--c-text-3)' }}>
+                {field.placeholder || field.type || 'Campo'}
+              </div>
+            )}
           </div>
         ))}
         {!form?.fields?.length && (
@@ -1251,6 +1550,7 @@ function CmsFormPreview({ block, data, loading }: { block: Block; data: unknown[
 function TextContent({ block, isEditing }: { block: Block; isEditing: boolean }) {
   const p = block.props as { content: string; dropCap?: boolean; columns?: number };
   const blockStyle = buildCssFromBlockStyle(block);
+  const safeContent = sanitizeHtml(p.content || '<p>Inserisci testo...</p>');
 
   return (
     <div
@@ -1261,7 +1561,7 @@ function TextContent({ block, isEditing }: { block: Block; isEditing: boolean })
         minHeight: isEditing ? 40 : undefined,
       }}
       contentEditable={isEditing} suppressContentEditableWarning
-      dangerouslySetInnerHTML={{ __html: p.content || '<p>Inserisci testo...</p>' }}
+      dangerouslySetInnerHTML={{ __html: safeContent }}
     />
   );
 }
@@ -2619,7 +2919,7 @@ function TabsContent({ block }: { block: Block }) {
       <div
         className="rounded-xl border p-4 text-sm leading-6"
         style={{ borderColor: 'var(--c-border)', color: 'var(--c-text-1)', background: 'var(--c-bg-1)' }}
-        dangerouslySetInnerHTML={{ __html: currentTab?.content || '<p>Contenuto scheda.</p>' }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentTab?.content || '<p>Contenuto scheda.</p>') }}
       />
     </div>
   );
@@ -2690,9 +2990,10 @@ function CodeContent({ block, isEditing }: { block: Block; isEditing: boolean })
 }
 
 function CustomHtmlContent({ block }: { block: Block }) {
-  const html = String(block.props.html || '');
-  const css = String(block.props.css || '');
-  const js = String(block.props.js || '');
+  const html = sanitizeHtml(String(block.props.html || ''));
+  const css = sanitizeCss(String(block.props.css || ''));
+  const allowScripts = block.props.allowScripts === true;
+  const js = allowScripts ? String(block.props.js || '').replace(/<\/script/gi, '<\\/script') : '';
   const sandboxed = block.props.sandboxed !== false;
   const srcDoc = `<!DOCTYPE html>
 <html lang="it">
@@ -2706,6 +3007,11 @@ function CustomHtmlContent({ block }: { block: Block }) {
     ${js ? `<script>${js}<\/script>` : ''}
   </body>
 </html>`;
+  const sandbox = sandboxed
+    ? ['allow-forms', 'allow-popups', 'allow-popups-to-escape-sandbox', allowScripts ? 'allow-scripts' : '']
+        .filter(Boolean)
+        .join(' ')
+    : undefined;
 
   return (
     <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
@@ -2715,7 +3021,7 @@ function CustomHtmlContent({ block }: { block: Block }) {
       <iframe
         title={String(block.label || 'HTML custom')}
         srcDoc={srcDoc}
-        sandbox={sandboxed ? 'allow-scripts allow-same-origin allow-forms' : undefined}
+        sandbox={sandbox}
         style={{ width: '100%', minHeight: '220px', border: 'none', background: 'white' }}
       />
     </div>
@@ -3269,7 +3575,7 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
   if (s.layout.minHeight) css.minHeight = s.layout.minHeight;
   if (s.layout.overflow) css.overflow = s.layout.overflow as 'hidden' | 'auto';
   if (s.layout.position) css.position = s.layout.position as 'relative' | 'sticky';
-  if (s.layout.zIndex) css.zIndex = s.layout.zIndex;
+  if (s.layout.zIndex !== undefined) css.zIndex = s.layout.zIndex;
   // Use background shorthand for all types to avoid conflicts with backgroundColor
   if (s.background.type === 'color' && s.background.value) {
     css.background = s.background.value;
@@ -3282,7 +3588,13 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
     css.backgroundSize = s.background.size || 'cover';
     css.backgroundPosition = s.background.position || 'center';
     css.backgroundRepeat = s.background.repeat || 'no-repeat';
+    if (s.background.parallax) {
+      css.backgroundAttachment = 'fixed';
+    }
     delete (css as any).backgroundColor;
+  }
+  if (s.background.advancedGradient) {
+    css.backgroundImage = buildCssGradient(s.background.advancedGradient);
   }
   if (s.typography.fontFamily) css.fontFamily = s.typography.fontFamily;
   if (s.typography.fontSize) css.fontSize = s.typography.fontSize;
@@ -3362,10 +3674,103 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
     const b = parseInt(hex.substr(4, 2), 16);
     css.background = `rgba(${r}, ${gb}, ${b}, ${g.bgOpacity || 0.1})`;
 
-    if (g.borderOpacity !== undefined) css.borderColor = `rgba(0, 0, 0, ${g.borderOpacity})`;
+    if (g.borderOpacity !== undefined) css.borderColor = `rgba(255, 255, 255, ${g.borderOpacity})`;
   }
 
   return css;
+}
+
+function buildEditorScopedCss(block: Block): string {
+  const style = block.style;
+  const scope = `#editor-block-${block.id}`;
+  const cssParts: string[] = [];
+  const animationStartState: Record<string, string> = {
+    'fade-in': 'opacity: 0;',
+    'slide-up': 'opacity: 0; transform: translateY(40px);',
+    'slide-down': 'opacity: 0; transform: translateY(-40px);',
+    'slide-left': 'opacity: 0; transform: translateX(40px);',
+    'slide-right': 'opacity: 0; transform: translateX(-40px);',
+    'zoom-in': 'opacity: 0; transform: scale(0.92);',
+    'zoom-out': 'opacity: 0; transform: scale(1.08);',
+    rotate: 'opacity: 0; transform: rotate(-6deg);',
+    bounce: 'opacity: 0; transform: translateY(24px);',
+    flip: 'opacity: 0; transform: rotateY(90deg);',
+    none: 'opacity: 1;',
+  };
+
+  if (style.customCss) {
+    cssParts.push(
+      `${scope}{${sanitizeCss(style.customCss)
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .join('\n')}}`
+    );
+  }
+
+  if (style.effects?.noise?.enabled) {
+    cssParts.push(`
+${scope}::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: ${style.effects.noise.opacity};
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255,255,255,0.18) 0, transparent 35%),
+    radial-gradient(circle at 80% 30%, rgba(0,0,0,0.12) 0, transparent 35%),
+    radial-gradient(circle at 40% 80%, rgba(255,255,255,0.12) 0, transparent 25%);
+  mix-blend-mode: overlay;
+}`.trim());
+  }
+
+  if (style.effects?.grain?.enabled) {
+    cssParts.push(`
+${scope}::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: ${style.effects.grain.opacity};
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,0.05) 0,
+    rgba(0,0,0,0.05) ${Math.max(style.effects.grain.size, 1)}px,
+    transparent ${Math.max(style.effects.grain.size, 1)}px,
+    transparent ${Math.max(style.effects.grain.size * 2, 2)}px
+  );
+}`.trim());
+  }
+
+  if (style.background.advancedGradient) {
+    cssParts.push(`${scope}{background-image:${buildCssGradient(style.background.advancedGradient)};}`);
+
+    const animationCss = buildAnimatedGradientKeyframes(`editor-block-${block.id}`, style.background.advancedGradient);
+    if (animationCss) {
+      cssParts.push(animationCss);
+    }
+
+    if (style.background.advancedGradient.hoverDriven) {
+      cssParts.push(
+        `${scope}:hover{background-image:${buildCssGradient({
+          ...style.background.advancedGradient,
+          angle: (style.background.advancedGradient.angle ?? 0) + 90,
+          animated: false,
+        })};}`
+      );
+    }
+  }
+
+  if (block.animation?.trigger === 'hover') {
+    const effectName = block.animation.effect === 'none' ? 'fade-in' : block.animation.effect;
+    cssParts.push(
+      `${scope}:hover{animation:${effectName} ${block.animation.duration}ms ${block.animation.easing || 'ease-out'} ${block.animation.delay}ms both;}`
+    );
+  } else if (block.animation && (block.animation.trigger === 'entrance' || block.animation.trigger === 'scroll')) {
+    cssParts.push(`${scope}{${animationStartState[block.animation.effect] || animationStartState['fade-in']}}`);
+  }
+
+  return cssParts.join('\n');
 }
 
 // ================================================================

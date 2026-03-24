@@ -17,7 +17,10 @@ interface Props {
 }
 
 export function RenderCarousel({ block, style }: Props) {
-  const items = (block.props.items as CarouselItem[]) || [];
+  const items = ((block.props.items as CarouselItem[]) || []).map((item) => ({
+    ...item,
+    image: typeof item.image === 'string' ? item.image.trim() : item.image,
+  }));
   const cardWidth = (block.props.cardWidth as string) || '300px';
   const gap = (block.props.gap as string) || '1rem';
   const scrollRef = useRef<HTMLDivElement>(null);

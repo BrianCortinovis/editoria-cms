@@ -15,6 +15,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "tenant_id and prompt required" }, { status: 400 });
     }
 
+    const { data: membership } = await supabase
+      .from("user_tenants")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("tenant_id", tenant_id)
+      .single();
+
+    if (!membership) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { data: tenant } = await supabase.from("tenants").select("settings").eq("id", tenant_id).single();
     if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 

@@ -10,6 +10,7 @@ interface GeneratePayload {
   fieldType?: string;
   currentValue?: string;
   style?: string;
+  context?: Record<string, unknown> | string;
   // OR
   type?: 'seo' | 'titles' | 'social' | 'translate' | 'summary';
   title?: string;
@@ -92,9 +93,21 @@ export async function POST(request: NextRequest) {
       const fieldType = body.fieldType || 'testo';
       const currentValue = body.currentValue || '';
       const style = body.style || '';
+      const context = typeof body.context === 'string'
+        ? body.context
+        : body.context
+          ? JSON.stringify(body.context, null, 2)
+          : '';
 
       systemPrompt = `Sei un assistente AI per un CMS giornalistico. Genera contenuti di qualità. Rispondi sempre in italiano.`;
-      userPrompt = `Genera contenuto per il campo "${fieldName}" di tipo "${fieldType}":\n${currentValue ? `Contenuto attuale: ${currentValue}` : ''}\n\n${style === 'journalist' ? 'Scrivi nello stile di un giornalista professionista.' : ''}\n${style === 'publication' ? 'Scrivi nello stile editoriale della rivista.' : ''}`.trim();
+      userPrompt = `Genera contenuto per il campo "${fieldName}" di tipo "${fieldType}":
+${currentValue ? `Contenuto attuale: ${currentValue}` : ''}
+${context ? `Contesto disponibile:\n${context}` : ''}
+
+${style === 'journalist' ? 'Scrivi nello stile di un giornalista professionista.' : ''}
+${style === 'publication' ? 'Scrivi nello stile editoriale della rivista.' : ''}
+
+Restituisci direttamente il valore finale del campo, senza spiegazioni superflue.`.trim();
     }
 
     // Resolve which provider to use
@@ -129,7 +142,7 @@ export async function POST(request: NextRequest) {
     let parsedResult: unknown = result.text;
     try {
       parsedResult = JSON.parse(result.text);
-    } catch (e) {
+    } catch {
       // If not valid JSON, keep as string (some prompts may return plain text)
       console.warn('AI response was not valid JSON', { provider: result.provider });
     }

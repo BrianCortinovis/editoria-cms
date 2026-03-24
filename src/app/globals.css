@@ -58,6 +58,13 @@ body {
   transition: background 0.2s, color 0.2s;
 }
 
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 /* Utility classes for theme */
 .bg-surface { background: var(--c-bg-1); }
 .bg-elevated { background: var(--c-bg-2); }

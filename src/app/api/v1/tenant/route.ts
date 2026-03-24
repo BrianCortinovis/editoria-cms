@@ -21,10 +21,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ tenant }, {
+  const activeModules = Object.entries(
+    ((tenant.settings as { modules?: Record<string, boolean | { enabled?: boolean }> } | null)?.modules) || {}
+  )
+    .filter(([, config]) => typeof config === "boolean" ? config : Boolean(config?.enabled))
+    .map(([moduleId]) => moduleId);
+
+  return NextResponse.json({ tenant: {
+    name: tenant.name,
+    slug: tenant.slug,
+    domain: tenant.domain,
+    logo_url: tenant.logo_url,
+    theme_config: tenant.theme_config,
+    active_modules: activeModules,
+  } }, {
     headers: {
       "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
-      "Access-Control-Allow-Origin": "*",
     },
   });
 }

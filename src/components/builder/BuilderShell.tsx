@@ -11,17 +11,19 @@ import { PreviewMode } from './PreviewMode';
 import { Toolbar } from './Toolbar';
 import { LeftPanel } from '@/components/panels/LeftPanel';
 import { RightPanel } from '@/components/panels/RightPanel';
-import { AiPanel } from '@/components/ai/AiPanel';
 import { HelpCenter } from '@/components/help/HelpCenter';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { usePageStore, loadAutosave, clearAutosave, setAutosaveContext } from '@/lib/stores/page-store';
 import { createBlock, type BlockType } from '@/lib/types';
 import { getBlockDefinition } from '@/lib/blocks/registry';
 import { generateId } from '@/lib/utils/id';
+import { useAuthStore } from '@/lib/store';
 import '@/lib/blocks/init';
+import toast from 'react-hot-toast';
 import {
   PanelLeft, PanelRight, ChevronLeft, ChevronRight
 } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, Search } from 'lucide-react';
 
 interface BuilderShellProps {
   projectId: string;
@@ -30,69 +32,206 @@ interface BuilderShellProps {
 }
 
 export function BuilderShell({ projectId, projectName, pageId }: BuilderShellProps) {
+  const { currentTenant } = useAuthStore();
   const {
     leftPanelOpen, rightPanelOpen,
     setLeftPanelOpen, setRightPanelOpen,
     previewMode, setPreviewMode,
   } = useUiStore();
-  const { blocks, setBlocks, addBlock } = usePageStore();
+  const { blocks, pageMeta, setPageMeta, loadPage, addBlock } = usePageStore();
   const [saving, setSaving] = useState(false);
   const [recovered, setRecovered] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [seoOptimizing, setSeoOptimizing] = useState(false);
+  const [seoDialogOpen, setSeoDialogOpen] = useState(false);
+  const [seoStep, setSeoStep] = useState<'idle' | 'analyzing' | 'saving' | 'done' | 'error'>('idle');
+  const [seoStepMessage, setSeoStepMessage] = useState<string>('Pronto ad analizzare la pagina.');
+  const [seoResultPreview, setSeoResultPreview] = useState<Record<string, unknown> | null>(null);
   const pageApiUrl = `/api/builder/pages/${pageId}`;
+
+  const persistPage = useCallback(async (nextBlocks = blocks, nextMeta = pageMeta) => {
+    const response = await fetch(pageApiUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blocks: nextBlocks, meta: nextMeta }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(payload?.error || 'Failed to save page');
+    }
+    clearAutosave(projectId, pageId);
+    return payload;
+  }, [pageApiUrl, projectId, pageId, blocks, pageMeta]);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
+    setSaveState('idle');
+    setSaveMessage(null);
     try {
-      await fetch(pageApiUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blocks }),
-      });
-      clearAutosave(projectId, pageId);
+      await persistPage();
+      setSaveState('saved');
+      setSaveMessage('Salvato');
+      toast.success('Pagina salvata');
     } catch (error) {
       console.error('Save error:', error);
+      setSaveState('error');
+      setSaveMessage(error instanceof Error ? error.message : 'Salvataggio non riuscito');
+      toast.error(error instanceof Error ? error.message : 'Salvataggio non riuscito');
     } finally {
       setSaving(false);
     }
-  }, [pageApiUrl, projectId, pageId, blocks]);
+  }, [persistPage]);
+
+  const handleSeoOptimize = useCallback(async () => {
+    if (!currentTenant?.id) {
+      toast.error('Tenant non disponibile');
+      return;
+    }
+
+    setSeoOptimizing(true);
+    setSeoStep('analyzing');
+    setSeoStepMessage('Analisi del contenuto della pagina e generazione metadati SEO…');
+    setSaveState('idle');
+    setSaveMessage(null);
+    setSeoResultPreview(null);
+
+    try {
+      const pageResponse = await fetch(pageApiUrl, { method: 'GET' });
+      const pagePayload = await pageResponse.json().catch(() => null);
+      if (!pageResponse.ok || !pagePayload?.page) {
+        throw new Error(pagePayload?.error || 'Impossibile leggere la pagina corrente');
+      }
+
+      const page = pagePayload.page as {
+        title?: string;
+        slug?: string;
+        meta?: Record<string, unknown>;
+      };
+
+      const response = await fetch('/api/ai/seo-tools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenant_id: currentTenant.id,
+          action: 'optimize_page',
+          page: {
+            title: page.title || projectName,
+            slug: page.slug || 'homepage',
+            blocks,
+            meta: pageMeta,
+            tenant_name: currentTenant.name,
+          },
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.seo) {
+        throw new Error(payload?.error || 'Analisi SEO non riuscita');
+      }
+
+      setSeoResultPreview(payload.seo as Record<string, unknown>);
+      setSeoStep('saving');
+      setSeoStepMessage('Applicazione dei metadati SEO alla pagina e salvataggio…');
+
+      const nextMeta = {
+        ...(page.meta || {}),
+        ...pageMeta,
+        ...payload.seo,
+      };
+
+      setPageMeta(nextMeta);
+      await persistPage(blocks, nextMeta);
+      setSaveState('saved');
+      setSaveMessage('SEO applicato');
+      setSeoStep('done');
+      setSeoStepMessage('SEO applicato con successo alla pagina corrente.');
+      toast.success('SEO pagina ottimizzato e salvato');
+    } catch (error) {
+      console.error('SEO optimize error:', error);
+      setSaveState('error');
+      setSaveMessage(error instanceof Error ? error.message : 'SEO non riuscito');
+      setSeoStep('error');
+      setSeoStepMessage(error instanceof Error ? error.message : 'SEO non riuscito');
+      toast.error(error instanceof Error ? error.message : 'SEO non riuscito');
+    } finally {
+      setSeoOptimizing(false);
+    }
+  }, [blocks, currentTenant?.id, currentTenant?.name, pageApiUrl, pageMeta, projectName, persistPage, setPageMeta]);
+
+  const openSeoDialog = useCallback(() => {
+    setSeoDialogOpen(true);
+    setSeoStep('idle');
+    setSeoStepMessage('L’IA analizzerà la pagina e proporrà/applicherà i metadati migliori.');
+    setSeoResultPreview(null);
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
+  const isEditableTarget = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+
+    const tag = target.tagName.toLowerCase();
+    return (
+      target.isContentEditable ||
+      tag === 'input' ||
+      tag === 'textarea' ||
+      tag === 'select' ||
+      Boolean(target.closest('[contenteditable="true"]'))
+    );
+  }, []);
+
+  const parseTranslate = useCallback((transform?: string) => {
+    if (!transform) return { x: 0, y: 0 };
+    const match = transform.match(/translate\(\s*(-?[\d.]+)px\s*,\s*(-?[\d.]+)px\s*\)/);
+    return match ? { x: parseFloat(match[1]), y: parseFloat(match[2]) } : { x: 0, y: 0 };
+  }, []);
+
   // Set autosave context
   useEffect(() => {
     setAutosaveContext(projectId, pageId);
-  }, [projectId, pageId]);
+    setSaveState('idle');
+    setSaveMessage(null);
+  }, [projectId, pageId, setPageMeta]);
 
   // Load page data — check autosave first
   useEffect(() => {
     const autosave = loadAutosave(projectId, pageId);
+    loadPage([], {});
 
     fetch(pageApiUrl)
       .then((r) => r.json())
       .then((data) => {
         const serverBlocks = data.page?.blocks || [];
+        const serverMeta = data.page?.meta || {};
         // Use autosave ONLY if server has nothing (empty page) and autosave has content
         if (serverBlocks.length === 0 && autosave && autosave.blocks.length > 0) {
-          setBlocks(autosave.blocks);
+          loadPage(autosave.blocks, serverMeta);
           setRecovered(true);
           setTimeout(() => setRecovered(false), 5000);
         } else if (serverBlocks.length > 0) {
-          setBlocks(serverBlocks);
+          loadPage(serverBlocks, serverMeta);
           // Server has data — clear any stale autosave
           clearAutosave(projectId, pageId);
+        } else {
+          loadPage([], serverMeta);
         }
       })
       .catch(() => {
         // Server failed — use autosave if available
         if (autosave && autosave.blocks.length > 0) {
-          setBlocks(autosave.blocks);
+          loadPage(autosave.blocks, {});
           setRecovered(true);
           setTimeout(() => setRecovered(false), 5000);
+        } else {
+          loadPage([], {});
         }
       });
-  }, [pageApiUrl, projectId, pageId, setBlocks]);
+  }, [loadPage, pageApiUrl, projectId, pageId]);
 
   // Warn before leaving with unsaved work
   useEffect(() => {
@@ -108,6 +247,10 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (isEditableTarget(e.target)) {
+        return;
+      }
+
       // Escape: Exit preview
       if (e.key === 'Escape' && previewMode) {
         setPreviewMode(false);
@@ -158,10 +301,33 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           console.error('Paste error:', err);
         }
       }
+
+      // Arrow keys: nudge selected block
+      if (!previewMode && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+        const { selectedBlockId, getSelectedBlock, updateBlockStyle } = usePageStore.getState();
+        if (selectedBlockId) {
+          e.preventDefault();
+          const selectedBlock = getSelectedBlock();
+          if (!selectedBlock) {
+            return;
+          }
+
+          const current = parseTranslate(selectedBlock.style.transform);
+          const step = e.shiftKey ? 10 : 1;
+          const delta = {
+            x: e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0,
+            y: e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0,
+          };
+
+          updateBlockStyle(selectedBlockId, {
+            transform: `translate(${current.x + delta.x}px, ${current.y + delta.y}px)`,
+          });
+        }
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleSave, previewMode, setPreviewMode]);
+  }, [handleSave, isEditableTarget, parseTranslate, previewMode, setPreviewMode]);
 
   // Drag handlers
   const handleDragStart = () => {
@@ -210,7 +376,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
   };
 
   if (previewMode) {
-    return <PreviewMode />;
+    return <PreviewMode pageId={pageId} />;
   }
 
   return (
@@ -220,13 +386,17 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-full w-full flex flex-col" style={{ background: "var(--c-bg-0)" }}>
+      <div className="h-full w-full min-w-0 max-w-full flex flex-col overflow-hidden" style={{ background: "var(--c-bg-0)" }}>
         <Toolbar
           projectId={projectId}
           onSave={() => void handleSave()}
           onPreview={handlePreview}
           onExport={() => void handleExport()}
+          onSeoOptimize={openSeoDialog}
           saving={saving}
+          seoOptimizing={seoOptimizing}
+          saveState={saveState}
+          saveMessage={saveMessage}
         />
 
         {/* Recovered work notification */}
@@ -238,7 +408,128 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           </div>
         )}
 
-        <div className="flex-1 flex overflow-hidden relative">
+        {seoDialogOpen && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => {
+                if (!seoOptimizing) {
+                  setSeoDialogOpen(false);
+                }
+              }}
+            />
+            <div
+              className="relative w-[92vw] max-w-2xl rounded-2xl border shadow-2xl overflow-hidden"
+              style={{ background: 'var(--c-bg-1)', borderColor: 'var(--c-border)' }}
+            >
+              <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--c-border)' }}>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    style={{ background: 'var(--c-accent-soft)', color: 'var(--c-accent)' }}
+                  >
+                    {seoOptimizing ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold" style={{ color: 'var(--c-text-0)' }}>SEO AI Pagina</h3>
+                    <p className="text-xs" style={{ color: 'var(--c-text-2)' }}>Analisi e ottimizzazione dei metadati della pagina corrente</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!seoOptimizing) {
+                      setSeoDialogOpen(false);
+                    }
+                  }}
+                  className="text-sm px-2 py-1 rounded-lg transition"
+                  style={{ color: 'var(--c-text-2)' }}
+                  disabled={seoOptimizing}
+                >
+                  Chiudi
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div className="rounded-xl p-4 border" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)' }}>
+                  <p className="text-sm font-medium mb-2" style={{ color: 'var(--c-text-0)' }}>Cosa farà l&apos;IA</p>
+                  <div className="space-y-2 text-sm" style={{ color: 'var(--c-text-1)' }}>
+                    <div>1. Legge struttura e contenuto reale dei blocchi della pagina.</div>
+                    <div>2. Genera `meta title`, `meta description`, `Open Graph`, `canonical` e impostazioni `robots`.</div>
+                    <div>3. Applica i valori al `pageMeta` e li salva sul record pagina del CMS.</div>
+                    <div>4. Aggiorna i metadata usati dal sito pubblico e dalla preview.</div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl p-4 border" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)' }}>
+                  <p className="text-sm font-medium mb-2" style={{ color: 'var(--c-text-0)' }}>Stato procedura</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2" style={{ color: seoStep === 'analyzing' || seoStep === 'saving' || seoStep === 'done' ? 'var(--c-text-0)' : 'var(--c-text-2)' }}>
+                      {seoStep === 'analyzing' ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
+                      Analisi contenuto pagina
+                    </div>
+                    <div className="flex items-center gap-2" style={{ color: seoStep === 'saving' || seoStep === 'done' ? 'var(--c-text-0)' : 'var(--c-text-2)' }}>
+                      {seoStep === 'saving' ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
+                      Applicazione metadati SEO
+                    </div>
+                    <div className="flex items-center gap-2" style={{ color: seoStep === 'done' ? 'var(--c-success)' : seoStep === 'error' ? 'var(--c-danger)' : 'var(--c-text-2)' }}>
+                      {seoStep === 'error' ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
+                      {seoStepMessage}
+                    </div>
+                  </div>
+                </div>
+
+                {seoResultPreview && (
+                  <div className="rounded-xl p-4 border space-y-3" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)' }}>
+                    <p className="text-sm font-medium" style={{ color: 'var(--c-text-0)' }}>Valori applicati</p>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <div className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--c-text-2)' }}>Meta title</div>
+                        <div style={{ color: 'var(--c-text-0)' }}>{String(seoResultPreview.title || '')}</div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--c-text-2)' }}>Meta description</div>
+                        <div style={{ color: 'var(--c-text-0)' }}>{String(seoResultPreview.description || '')}</div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--c-text-2)' }}>Canonical</div>
+                          <div style={{ color: 'var(--c-text-0)' }}>{String(seoResultPreview.canonicalPath || '')}</div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--c-text-2)' }}>Keyword</div>
+                          <div style={{ color: 'var(--c-text-0)' }}>{String(seoResultPreview.focusKeyword || '')}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-4 border-t flex items-center justify-end gap-3" style={{ borderColor: 'var(--c-border)' }}>
+                <button
+                  onClick={() => setSeoDialogOpen(false)}
+                  className="px-4 py-2 rounded-lg border text-sm font-medium transition"
+                  style={{ borderColor: 'var(--c-border)', color: 'var(--c-text-1)' }}
+                  disabled={seoOptimizing}
+                >
+                  {seoStep === 'done' ? 'Chiudi' : 'Annulla'}
+                </button>
+                {seoStep !== 'done' && (
+                  <button
+                    onClick={() => void handleSeoOptimize()}
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition"
+                    style={{ background: 'var(--c-accent)', color: 'white' }}
+                    disabled={seoOptimizing}
+                  >
+                    {seoOptimizing ? 'Ottimizzazione in corso…' : 'Conferma e applica'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 min-w-0 flex overflow-hidden relative">
           {/* Left Panel - Fixed width or hidden */}
           {leftPanelOpen && (
             <div className="w-[280px] shrink-0 h-full relative border-r" style={{ borderColor: 'var(--c-border)' }}>
@@ -300,8 +591,6 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
             </div>
           )}
 
-          {/* AI Panel */}
-          <AiPanel />
         </div>
       </div>
 

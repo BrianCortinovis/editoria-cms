@@ -1,4 +1,4 @@
-import type { Block, BlockStyle, DividerConfig } from '@/lib/types';
+import type { Block, DividerConfig } from '@/lib/types';
 import { generateDividerSvg } from '@/lib/shapes/dividers';
 import { buildAnimatedGradientKeyframes } from '@/lib/shapes/gradients';
 
@@ -208,6 +208,8 @@ function blockToCss(block: Block): string {
   // Clip path
   if (block.shape?.type === 'clip-path' && block.shape.value && block.shape.value !== 'none') {
     css += `      clip-path: ${block.shape.value};\n`;
+    css += `      -webkit-clip-path: ${block.shape.value};\n`;
+    css += `      overflow: hidden;\n`;
   }
 
   // Custom CSS
@@ -324,13 +326,13 @@ function textToHtml(block: Block, cls: string): string {
 
 function navToHtml(block: Block, cls: string): string {
   const p = block.props as { logo: { value: string }; items: { label: string; url: string }[] };
-  let links = (p.items || []).map((item) => `      <a href="${escapeHtml(item.url)}">${escapeHtml(item.label)}</a>`).join('\n');
+  const links = (p.items || []).map((item) => `      <a href="${escapeHtml(item.url)}">${escapeHtml(item.label)}</a>`).join('\n');
   return `  <nav class="${cls} sb-nav">\n    <div class="sb-nav-logo">${escapeHtml(p.logo?.value || 'Logo')}</div>\n    <div class="sb-nav-links">\n${links}\n    </div>\n  </nav>\n`;
 }
 
 function footerToHtml(block: Block, cls: string): string {
   const p = block.props as { columns: { title: string }[]; copyright: string };
-  let cols = (p.columns || []).map((col) => `      <div><h4>${escapeHtml(col.title)}</h4></div>`).join('\n');
+  const cols = (p.columns || []).map((col) => `      <div><h4>${escapeHtml(col.title)}</h4></div>`).join('\n');
   return `  <footer class="${cls}">\n    <div class="sb-footer-grid" style="display:grid;grid-template-columns:repeat(${p.columns?.length || 3},1fr);gap:32px">\n${cols}\n    </div>\n    <div style="text-align:center;margin-top:24px;opacity:0.5">${escapeHtml(p.copyright || '')}</div>\n  </footer>\n`;
 }
 

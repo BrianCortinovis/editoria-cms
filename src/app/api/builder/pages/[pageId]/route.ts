@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { assertTrustedMutationRequest } from "@/lib/security/request";
+import { writeActivityLog, writePageAuditLog } from "@/lib/security/audit";
+
+const PAGE_EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
 
 // GET: Fetch a single page with full blocks
 export async function GET(
@@ -42,6 +46,11 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ pageId: string }> }
 ) {
+  const trustedOriginError = assertTrustedMutationRequest(request);
+  if (trustedOriginError) {
+    return trustedOriginError;
+  }
+
   const { pageId } = await params;
   const body = await request.json();
   const { title, slug, page_type, meta, blocks, custom_css, is_published, sort_order } = body;
@@ -66,10 +75,14 @@ export async function PUT(
 
   const { data: userTenants } = await supabase
     .from("user_tenants")
-    .select("tenant_id")
+    .select("tenant_id, role")
     .eq("user_id", user.id);
 
-  if (!userTenants?.some(ut => ut.tenant_id === page.tenant_id)) {
+  const membership = userTenants?.find((ut) => ut.tenant_id === page.tenant_id);
+  if (!membership) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!PAGE_EDITOR_ROLES.has(membership.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -104,6 +117,24 @@ export async function PUT(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  await Promise.all([
+    writeActivityLog({
+      tenantId: page.tenant_id,
+      userId: user.id,
+      action: "page.update",
+      entityType: "site_page",
+      entityId: pageId,
+      details: { updatedKeys: Object.keys(update) },
+    }),
+    writePageAuditLog({
+      pageId,
+      tenantId: page.tenant_id,
+      changedBy: user.id,
+      action: "update",
+      changes: { updatedKeys: Object.keys(update) },
+    }),
+  ]);
+
   return NextResponse.json({ page: data });
 }
 
@@ -112,6 +143,11 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ pageId: string }> }
 ) {
+  const trustedOriginError = assertTrustedMutationRequest(request);
+  if (trustedOriginError) {
+    return trustedOriginError;
+  }
+
   const { pageId } = await params;
   const supabase = await createServerSupabaseClient();
 
@@ -133,10 +169,14 @@ export async function DELETE(
 
   const { data: userTenants } = await supabase
     .from("user_tenants")
-    .select("tenant_id")
+    .select("tenant_id, role")
     .eq("user_id", user.id);
 
-  if (!userTenants?.some(ut => ut.tenant_id === page.tenant_id)) {
+  const membership = userTenants?.find((ut) => ut.tenant_id === page.tenant_id);
+  if (!membership) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!PAGE_EDITOR_ROLES.has(membership.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -148,6 +188,23 @@ export async function DELETE(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await Promise.all([
+    writeActivityLog({
+      tenantId: page.tenant_id,
+      userId: user.id,
+      action: "page.delete",
+      entityType: "site_page",
+      entityId: pageId,
+    }),
+    writePageAuditLog({
+      pageId,
+      tenantId: page.tenant_id,
+      changedBy: user.id,
+      action: "delete",
+      changes: {},
+    }),
+  ]);
 
   return NextResponse.json({ success: true });
 }

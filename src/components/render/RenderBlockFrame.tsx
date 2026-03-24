@@ -1,6 +1,7 @@
 import type { Block, BlockAnimation, BlockStyle } from '@/lib/types/block';
 import { generateDividerSvg } from '@/lib/shapes/dividers';
 import { buildCssGradient, buildAnimatedGradientKeyframes } from '@/lib/shapes/gradients';
+import { sanitizeCss } from '@/lib/security/html';
 
 interface Props {
   block: Block;
@@ -52,6 +53,8 @@ function buildWrapperStyle(block: Block, style: React.CSSProperties) {
   if (style.mixBlendMode) wrapperStyle.mixBlendMode = style.mixBlendMode;
   if (block.shape?.type === 'clip-path' && block.shape.value && block.shape.value !== 'none') {
     wrapperStyle.clipPath = block.shape.value;
+    (wrapperStyle as Record<string, unknown>).WebkitClipPath = block.shape.value;
+    wrapperStyle.overflow = 'hidden';
   }
 
   return wrapperStyle;
@@ -75,7 +78,7 @@ function buildScopedCss(block: Block, style: BlockStyle) {
 
   if (style.customCss) {
     cssParts.push(
-      `#block-${block.id} {\n${style.customCss
+      `#block-${block.id} {\n${sanitizeCss(style.customCss)
         .split('\n')
         .map((line) => line.trim())
         .filter(Boolean)

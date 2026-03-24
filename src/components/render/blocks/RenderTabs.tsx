@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { Block } from '@/lib/types/block';
+import { sanitizeHtml } from '@/lib/security/html';
 
 interface TabItem {
   id: string;
@@ -60,7 +61,7 @@ export function RenderTabs({ block, style }: Props) {
 
       <div
         style={{ marginTop: '1.25rem', color: 'var(--e-color-textSecondary, #475569)', lineHeight: 1.7 }}
-        dangerouslySetInnerHTML={{ __html: currentTab?.content || '<p>Nessun contenuto disponibile.</p>' }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentTab?.content || '<p>Nessun contenuto disponibile.</p>') }}
       />
     </div>
   );

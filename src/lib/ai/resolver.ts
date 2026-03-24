@@ -1,6 +1,6 @@
 import type { AIProvider } from "./providers";
 
-export type AITask = "seo" | "titles" | "social" | "translate" | "summary" | "layout" | "search" | "related" | "summarize" | "chatbot";
+export type AITask = "seo" | "titles" | "social" | "translate" | "summary" | "layout" | "search" | "related" | "summarize" | "chatbot" | "field-assist" | "color-palette";
 
 // Default best provider per task (opinionated)
 const BEST_PROVIDER_PER_TASK: Record<AITask, AIProvider> = {
@@ -14,6 +14,8 @@ const BEST_PROVIDER_PER_TASK: Record<AITask, AIProvider> = {
   related: "claude",     // Claude understands content similarity well
   summarize: "openai",   // GPT is solid for summarization
   chatbot: "claude",     // Claude excels at conversational AI
+  "field-assist": "openai",
+  "color-palette": "openai",
 };
 
 interface AIConfig {

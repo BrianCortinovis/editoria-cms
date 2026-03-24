@@ -34,6 +34,18 @@ interface MediaItem {
   created_at: string;
 }
 
+const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024;
+const ALLOWED_MEDIA_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "video/mp4",
+  "video/webm",
+  "application/pdf",
+]);
+const ALLOWED_MEDIA_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif", "mp4", "webm", "pdf"]);
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
   const k = 1024;
@@ -87,7 +99,22 @@ export default function MediaPage() {
     const supabase = createClient();
 
     for (const file of Array.from(files)) {
-      const ext = file.name.split(".").pop();
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+      if (!ALLOWED_MEDIA_MIME_TYPES.has(file.type) || !ALLOWED_MEDIA_EXTENSIONS.has(ext)) {
+        toast.error(`Tipo file non consentito: ${file.name}`);
+        continue;
+      }
+
+      if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+        toast.error(`${file.name} supera il limite di 50MB`);
+        continue;
+      }
+
+      if (file.type === "image/svg+xml" || ext === "svg" || ext === "html" || ext === "htm") {
+        toast.error(`Formato non consentito per sicurezza: ${file.name}`);
+        continue;
+      }
+
       const filename = `${currentTenant.slug}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
       // Upload to Supabase Storage
@@ -203,7 +230,7 @@ export default function MediaPage() {
               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
               Carica file
             </button>
-            <input ref={fileInputRef} type="file" multiple accept="image/*,video/*,.pdf" className="hidden" onChange={(e) => handleUpload(e.target.files)} />
+            <input ref={fileInputRef} type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,application/pdf" className="hidden" onChange={(e) => handleUpload(e.target.files)} />
           </div>
         </div>
 

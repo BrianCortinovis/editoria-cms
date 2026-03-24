@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
+import { verifyTurnstileToken } from '@/lib/security/turnstile';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -82,6 +84,24 @@ export async function POST(
     return NextResponse.json({ success: true }, { headers: CORS_HEADERS });
   }
 
+  const clientIp = getClientIp(request);
+  const limiter = await checkRateLimit(`form:${tenantSlug}:${slug}:${clientIp}`, 8, 10 * 60 * 1000);
+  if (!limiter.allowed) {
+    return NextResponse.json(
+      { error: 'Too many submissions, please try again later.' },
+      { status: 429, headers: { ...CORS_HEADERS, 'Retry-After': String(Math.ceil(limiter.retryAfterMs / 1000)) } }
+    );
+  }
+
+  if (JSON.stringify(payload).length > 20_000) {
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413, headers: CORS_HEADERS });
+  }
+
+  const isHuman = await verifyTurnstileToken(String(body.turnstile_token || ''), clientIp);
+  if (!isHuman) {
+    return NextResponse.json({ error: 'Bot protection check failed' }, { status: 400, headers: CORS_HEADERS });
+  }
+
   const supabase = await createServiceRoleClient();
   const { data: tenant } = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single();
   if (!tenant) {
@@ -112,9 +132,6 @@ export async function POST(
   if (missing.length > 0) {
     return NextResponse.json({ error: `Campi obbligatori mancanti: ${missing.join(', ')}` }, { status: 400, headers: CORS_HEADERS });
   }
-
-  const forwardedFor = request.headers.get('x-forwarded-for') || '';
-  const clientIp = forwardedFor.split(',')[0]?.trim() || 'unknown';
 
   const { error } = await supabase.from('form_submissions').insert({
     tenant_id: tenant.id,

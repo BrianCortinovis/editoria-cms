@@ -14,10 +14,12 @@ import {
   Image,
   Activity,
   Server,
-  Clock,
   Zap,
   TrendingUp,
   AlertTriangle,
+  Play,
+  FlaskConical,
+  TerminalSquare,
 } from "lucide-react";
 
 interface TechStats {
@@ -29,10 +31,103 @@ interface TechStats {
   dbSize: string;
 }
 
+interface CommandTemplate {
+  id: string;
+  label: string;
+  description: string;
+  command: string;
+  payload: Record<string, unknown>;
+}
+
+const COMMAND_TEMPLATES: CommandTemplate[] = [
+  {
+    id: "theme-contract",
+    label: "Leggi Theme Contract",
+    description: "Legge il contract standard per frontend custom compatibile col CMS.",
+    command: "cms.theme.contract.get",
+    payload: {},
+  },
+  {
+    id: "page-list",
+    label: "Lista pagine",
+    description: "Controlla le pagine reali del tenant.",
+    command: "cms.page.list",
+    payload: {},
+  },
+  {
+    id: "category-create",
+    label: "Crea categoria",
+    description: "Esempio rapido di creazione categoria editoriale.",
+    command: "cms.category.create",
+    payload: {
+      name: "Approfondimenti",
+      color: "#8B0000",
+    },
+  },
+  {
+    id: "event-create",
+    label: "Crea evento",
+    description: "Crea un evento test con data futura.",
+    command: "cms.event.create",
+    payload: {
+      title: "Evento demo redazione",
+      starts_at: "2026-04-15T18:00:00.000Z",
+      location: "Piazza Brembana",
+      category: "Cultura",
+    },
+  },
+  {
+    id: "breaking-create",
+    label: "Crea breaking",
+    description: "Esempio breaking news da desk.",
+    command: "cms.breaking.create",
+    payload: {
+      text: "Breaking demo: aggiornamento urgente dalla redazione",
+      priority: 50,
+      is_active: true,
+    },
+  },
+  {
+    id: "banner-list",
+    label: "Lista banner",
+    description: "Controlla le creativita ADV presenti.",
+    command: "cms.banner.list",
+    payload: {},
+  },
+  {
+    id: "media-list",
+    label: "Lista media",
+    description: "Legge la libreria media del tenant.",
+    command: "cms.media.list",
+    payload: {
+      limit: 20,
+    },
+  },
+  {
+    id: "newsletter-get",
+    label: "Leggi newsletter",
+    description: "Recupera la configurazione centrale del modulo newsletter.",
+    command: "cms.newsletter.get",
+    payload: {},
+  },
+];
+
 export default function TecnicoPage() {
-  const { currentTenant } = useAuthStore();
+  const { currentTenant, currentRole } = useAuthStore();
   const [stats, setStats] = useState<TechStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(COMMAND_TEMPLATES[0].id);
+  const [commandJson, setCommandJson] = useState(
+    JSON.stringify(
+      {
+        command: COMMAND_TEMPLATES[0].command,
+        input: COMMAND_TEMPLATES[0].payload,
+      },
+      null,
+      2,
+    ),
+  );
+  const [commandRunning, setCommandRunning] = useState<"dry" | "live" | null>(null);
+  const [commandResponse, setCommandResponse] = useState<string>("");
 
   useEffect(() => {
     if (!currentTenant) return;
@@ -56,13 +151,11 @@ export default function TecnicoPage() {
         totalBanners: banners.count ?? 0,
         dbSize: "~",
       });
-      setLoading(false);
     }
 
     loadStats();
   }, [currentTenant]);
-
-  const settings = (currentTenant?.settings ?? {}) as Record<string, string>;
+  const canUseCommandConsole = ["super_admin", "chief_editor", "editor"].includes(currentRole ?? "");
 
   const StatCard = ({ icon: Icon, label, value, color }: { icon: typeof Cpu; label: string; value: string | number; color: string }) => (
     <div className="card p-4">
@@ -84,6 +177,66 @@ export default function TecnicoPage() {
       <span className={`text-xs ${mono ? "font-mono" : ""}`} style={{ color: "var(--c-text-0)" }}>{value}</span>
     </div>
   );
+
+  const applyTemplate = (templateId: string) => {
+    const template = COMMAND_TEMPLATES.find((item) => item.id === templateId);
+    if (!template) return;
+    setSelectedTemplateId(templateId);
+    setCommandJson(
+      JSON.stringify(
+        {
+          command: template.command,
+          input: template.payload,
+        },
+        null,
+        2,
+      ),
+    );
+  };
+
+  const executeCommand = async (mode: "dry" | "live") => {
+    if (!currentTenant?.id || !canUseCommandConsole) return;
+
+    let parsed: { command: string; input?: Record<string, unknown> };
+    try {
+      parsed = JSON.parse(commandJson) as { command: string; input?: Record<string, unknown> };
+    } catch {
+      setCommandResponse("JSON non valido");
+      return;
+    }
+
+    if (!parsed.command) {
+      setCommandResponse("Campo command obbligatorio");
+      return;
+    }
+
+    setCommandRunning(mode);
+    setCommandResponse("");
+
+    try {
+      const response = await fetch("/api/v1/commands", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: currentTenant.id,
+          dryRun: mode === "dry",
+          commands: [
+            {
+              command: parsed.command,
+              input: parsed.input || {},
+            },
+          ],
+        }),
+      });
+
+      const payload = await response.json();
+      setCommandResponse(JSON.stringify(payload, null, 2));
+    } catch (error) {
+      setCommandResponse(error instanceof Error ? error.message : "Errore comando");
+    } finally {
+      setCommandRunning(null);
+    }
+  };
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -189,6 +342,88 @@ export default function TecnicoPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header flex items-center gap-2"><TerminalSquare className="w-4 h-4" /> Console Comandi Dev</div>
+        <div className="p-4 space-y-4">
+          <p className="text-xs" style={{ color: "var(--c-text-2)" }}>
+            Console interna per testare i comandi di <span className="font-mono">/api/v1/commands</span> senza uscire dal CMS. Non apre nuove API:
+            usa la stessa route protetta, il tenant corrente e i permessi del tuo utente.
+          </p>
+
+          {!canUseCommandConsole ? (
+            <div className="rounded-lg p-4 text-sm" style={{ background: "var(--c-bg-2)", color: "var(--c-text-2)" }}>
+              Disponibile solo per ruoli editoriali autorizzati.
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                {COMMAND_TEMPLATES.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => applyTemplate(template.id)}
+                    className="text-left rounded-lg p-3 transition"
+                    style={{
+                      border: `1px solid ${selectedTemplateId === template.id ? "var(--c-accent)" : "var(--c-border)"}`,
+                      background: selectedTemplateId === template.id ? "var(--c-accent-soft)" : "var(--c-bg-1)",
+                    }}
+                  >
+                    <div className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>{template.label}</div>
+                    <div className="text-xs mt-1" style={{ color: "var(--c-text-2)" }}>{template.description}</div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4">
+                <div className="space-y-3">
+                  <div className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Payload comando</div>
+                  <textarea
+                    value={commandJson}
+                    onChange={(event) => setCommandJson(event.target.value)}
+                    spellCheck={false}
+                    rows={18}
+                    className="w-full rounded-lg px-3 py-3 text-xs font-mono focus:outline-none focus:ring-2"
+                    style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-1)", color: "var(--c-text-0)" }}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => executeCommand("dry")}
+                      disabled={commandRunning !== null}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition"
+                      style={{ background: "var(--c-bg-2)", color: "var(--c-text-0)", border: "1px solid var(--c-border)" }}
+                    >
+                      <FlaskConical className="w-4 h-4" />
+                      {commandRunning === "dry" ? "Dry run..." : "Dry Run"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => executeCommand("live")}
+                      disabled={commandRunning !== null}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition"
+                      style={{ background: "var(--c-accent)" }}
+                    >
+                      <Play className="w-4 h-4" />
+                      {commandRunning === "live" ? "Esecuzione..." : "Esegui"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Risposta API</div>
+                  <pre
+                    className="rounded-lg p-3 text-xs overflow-auto min-h-[360px]"
+                    style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-1)", color: "var(--c-text-0)" }}
+                  >
+                    {commandResponse || "Nessuna risposta ancora."}
+                  </pre>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

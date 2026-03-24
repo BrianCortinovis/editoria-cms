@@ -3,6 +3,7 @@
 import { forwardRef, useState, type InputHTMLAttributes } from 'react';
 import { Sparkles, Send, X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { useAuthStore } from '@/lib/store';
 
 interface InputWithAiProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -14,6 +15,7 @@ interface InputWithAiProps extends InputHTMLAttributes<HTMLInputElement> {
 export const InputWithAi = forwardRef<HTMLInputElement, InputWithAiProps>(
   ({ className, label, error, id, fieldName, onAiResult, value, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
+    const { currentTenant } = useAuthStore();
     const [showAiPopover, setShowAiPopover] = useState(false);
     const [prompt, setPrompt] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
@@ -30,6 +32,7 @@ export const InputWithAi = forwardRef<HTMLInputElement, InputWithAiProps>(
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            tenant_id: currentTenant?.id,
             taskType: 'field-assist',
             prompt: `Campo: ${fieldName}\nValore attuale: ${value}\n\nRichiesta: ${prompt}\n\nRispondi SOLO con il nuovo valore del campo, senza spiegazioni aggiuntive.`,
           }),
@@ -42,7 +45,7 @@ export const InputWithAi = forwardRef<HTMLInputElement, InputWithAiProps>(
         } else {
           setAiResult(`Errore: ${data.error}`);
         }
-      } catch (error) {
+      } catch {
         setAiResult('Errore di connessione');
       } finally {
         setAiLoading(false);

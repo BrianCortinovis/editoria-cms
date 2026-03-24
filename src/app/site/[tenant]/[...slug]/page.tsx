@@ -5,6 +5,7 @@ import { SiteLayout } from '@/components/render/SiteLayout';
 import { BlockRenderer } from '@/components/render/BlockRenderer';
 import type { Block } from '@/lib/types/block';
 import { buildTenantPublicUrl } from '@/lib/site/public-url';
+import { PageBackgroundFrame } from '@/components/render/PageBackgroundFrame';
 
 export const revalidate = 120;
 
@@ -31,11 +32,13 @@ export default async function TenantCatchAllPage({ params }: Props) {
 
   return (
     <SiteLayout tenant={tenant} config={config}>
-      <BlockRenderer
-        blocks={page.blocks as Block[]}
-        tenantId={tenant.id}
-        tenantSlug={tenant.slug}
-      />
+      <PageBackgroundFrame meta={page.meta as Record<string, unknown>} scopeId={`public-page-${page.id}`}>
+        <BlockRenderer
+          blocks={page.blocks as Block[]}
+          tenantId={tenant.id}
+          tenantSlug={tenant.slug}
+        />
+      </PageBackgroundFrame>
     </SiteLayout>
   );
 }
@@ -48,13 +51,35 @@ export async function generateMetadata({ params }: Props) {
   if (!page) {
     return {};
   }
-  const meta = page.meta as Record<string, string>;
-  const canonical = buildTenantPublicUrl(resolved.tenant, `/${slug.join('/')}`);
+  const meta = page.meta as Record<string, unknown>;
+  const canonical = buildTenantPublicUrl(
+    resolved.tenant,
+    typeof meta?.canonicalPath === 'string' && meta.canonicalPath.trim()
+      ? meta.canonicalPath
+      : `/${slug.join('/')}`
+  );
   return {
-    title: meta?.title || page.title,
-    description: meta?.description || `${page.title} - ${resolved.tenant.name}`,
+    title: typeof meta?.title === 'string' && meta.title.trim() ? meta.title : page.title,
+    description: typeof meta?.description === 'string' && meta.description.trim()
+      ? meta.description
+      : `${page.title} - ${resolved.tenant.name}`,
     alternates: {
       canonical,
+    },
+    robots: {
+      index: meta?.noindex ? false : true,
+      follow: meta?.nofollow ? false : true,
+    },
+    openGraph: {
+      title: typeof meta?.ogTitle === 'string' && meta.ogTitle.trim()
+        ? meta.ogTitle
+        : (typeof meta?.title === 'string' && meta.title.trim() ? meta.title : page.title),
+      description: typeof meta?.ogDescription === 'string' && meta.ogDescription.trim()
+        ? meta.ogDescription
+        : (typeof meta?.description === 'string' && meta.description.trim()
+            ? meta.description
+            : `${page.title} - ${resolved.tenant.name}`),
+      url: canonical,
     },
   };
 }

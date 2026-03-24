@@ -2,6 +2,7 @@ import type { ResolvedTenant, SiteConfig } from '@/lib/site/tenant-resolver';
 import { themeToCSS } from '@/lib/site/theme-injector';
 import { getNavigationMenu, normalizeNavigationConfig } from '@/lib/site/navigation';
 import { normalizeFooterConfig } from '@/lib/site/footer';
+import { sanitizeCss } from '@/lib/security/html';
 import { PublicSiteRuntime } from './PublicSiteRuntime';
 
 interface Props {
@@ -34,8 +35,8 @@ export function SiteLayout({ tenant, config, children }: Props) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         {config?.favicon_url && <link rel="icon" href={config.favicon_url} />}
-        {themeCSS && <style dangerouslySetInnerHTML={{ __html: themeCSS }} />}
-        {config?.global_css && <style dangerouslySetInnerHTML={{ __html: config.global_css }} />}
+        {themeCSS && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(themeCSS) }} />}
+        {config?.global_css && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(config.global_css) }} />}
         <style dangerouslySetInnerHTML={{ __html: `
           @keyframes marquee {
             0% { transform: translateX(0); }

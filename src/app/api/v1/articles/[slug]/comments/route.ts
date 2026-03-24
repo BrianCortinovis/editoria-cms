@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { sanitizeExternalUrl } from '@/lib/security/html';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
+import { verifyTurnstileToken } from '@/lib/security/turnstile';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -93,6 +96,29 @@ export async function POST(
     return NextResponse.json({ success: true, pending: true }, { headers: CORS_HEADERS });
   }
 
+  const clientIp = getClientIp(request);
+  const limiter = await checkRateLimit(`comment:${tenantSlug}:${slug}:${clientIp}`, 5, 10 * 60 * 1000);
+  if (!limiter.allowed) {
+    return NextResponse.json(
+      { error: 'Too many comments, please try again later.' },
+      { status: 429, headers: { ...CORS_HEADERS, 'Retry-After': String(Math.ceil(limiter.retryAfterMs / 1000)) } }
+    );
+  }
+
+  if (
+    authorName.length > 120 ||
+    authorEmail.length > 254 ||
+    authorUrl.length > 500 ||
+    commentBody.length > 5_000
+  ) {
+    return NextResponse.json({ error: 'Input too long' }, { status: 400, headers: CORS_HEADERS });
+  }
+
+  const isHuman = await verifyTurnstileToken(String(body.turnstile_token || ''), clientIp);
+  if (!isHuman) {
+    return NextResponse.json({ error: 'Bot protection check failed' }, { status: 400, headers: CORS_HEADERS });
+  }
+
   const supabase = await createServiceRoleClient();
   const { data: tenant } = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single();
   if (!tenant) {
@@ -111,16 +137,13 @@ export async function POST(
     return NextResponse.json({ error: 'Article not found' }, { status: 404, headers: CORS_HEADERS });
   }
 
-  const forwardedFor = request.headers.get('x-forwarded-for') || '';
-  const clientIp = forwardedFor.split(',')[0]?.trim() || 'unknown';
-
   const { error } = await supabase.from('article_comments').insert({
     tenant_id: tenant.id,
     article_id: article.id,
     parent_id: parentId,
     author_name: authorName,
     author_email: authorEmail,
-    author_url: authorUrl || null,
+    author_url: sanitizeExternalUrl(authorUrl) || null,
     body: commentBody,
     status: 'pending',
     source: 'website',

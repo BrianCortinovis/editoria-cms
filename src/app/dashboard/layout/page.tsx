@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import { isModuleActive } from "@/lib/modules";
 import { useAIStatus } from "@/lib/ai-status";
 import toast from "react-hot-toast";
 import ZoneRenderer from "@/components/layout/ZoneRenderer";
+import BuilderLayoutRenderedPreview from "@/components/layout/BuilderLayoutRenderedPreview";
 import {
   LayoutTemplate,
   Plus,
@@ -23,8 +24,18 @@ import {
   Sparkles,
   Pencil,
   FileQuestion,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { LayoutPresets as LayoutBuilderModal } from "@/components/builder/LayoutPresets";
+import { LAYOUT_PRESETS as BUILDER_LAYOUT_LIBRARY } from "@/components/builder/LayoutPresets";
+import type { Block } from "@/lib/types";
+import { LAYOUT_PRESETS as CONFIG_LAYOUT_LIBRARY, type LayoutPresetDef } from "@/lib/config/layout-presets";
+import { buildLayoutPresetBlocks } from "@/lib/layout/preset-blocks";
 
 interface LayoutSlot {
   id: string;
@@ -65,8 +76,19 @@ interface Category {
 interface SitePage {
   id: string;
   page_type: string;
+  slug: string;
   label: string;
   icon: typeof FileQuestion;
+  blocks: Block[];
+  meta: Record<string, unknown> | null;
+}
+
+interface LayoutLibraryItem extends LayoutPresetDef {
+  _libraryKey: string;
+  _featured: boolean;
+  _generated?: boolean;
+  _pageBlocks?: Block[];
+  _pageMeta?: Record<string, unknown> | null;
 }
 
 interface ImportedSlot {
@@ -97,13 +119,25 @@ const contentTypeLabels: Record<string, string> = {
 
 export default function LayoutPage() {
   const { currentTenant } = useAuthStore();
+  const searchParams = useSearchParams();
   const [templates, setTemplates] = useState<LayoutTemplate[]>([]);
   const [sitePages, setSitePages] = useState<SitePage[]>([]);
   const [selectedPage, setSelectedPage] = useState<string>("");
   const [slots, setSlots] = useState<LayoutSlot[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [pageBlocks, setPageBlocks] = useState<Block[]>([]);
+  const [pageMeta, setPageMeta] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"zone" | "moduli" | "preview">("zone");
+  const [libraryCategory, setLibraryCategory] = useState<string>("all");
+  const [selectedLibraryPresetId, setSelectedLibraryPresetId] = useState<string | null>(null);
+  const [applyingPreset, setApplyingPreset] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(true);
+  const [layoutBuilderOpen, setLayoutBuilderOpen] = useState(false);
+  const [openSubcategories, setOpenSubcategories] = useState<Record<string, boolean>>({
+    templates: true,
+  });
+  const [libraryScrollState, setLibraryScrollState] = useState<Record<string, { left: boolean; right: boolean }>>({});
   const [showNewSlot, setShowNewSlot] = useState(false);
   const [editingSlot, setEditingSlot] = useState<LayoutSlot | null>(null);
   const [parsing, setParsing] = useState(false);
@@ -112,14 +146,51 @@ export default function LayoutPage() {
   const [importingUrl, setImportingUrl] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const aiFileInputRef = useRef<HTMLInputElement>(null);
+  const libraryScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const settings = (currentTenant?.settings ?? {}) as Record<string, unknown>;
   const aiActive = isModuleActive(settings, "ai_assistant");
-  const livePreviewUrl = currentTenant
-    ? currentTenant.domain
-      ? `https://${currentTenant.domain}`
-      : `/site/${currentTenant.slug}`
-    : null;
+  const layoutLibrary = useMemo<LayoutLibraryItem[]>(() => {
+    const generatedLayouts = sitePages
+      .filter((page) => {
+        const layoutLibraryMeta = (page.meta?.layoutLibrary as Record<string, unknown> | undefined) || {};
+        const generatedTemplate = (layoutLibraryMeta.generatedTemplate as Record<string, unknown> | undefined) || {};
+        return generatedTemplate.source === "ai" && Array.isArray(page.blocks) && page.blocks.length > 0;
+      })
+      .map((page) => {
+        const layoutLibraryMeta = (page.meta?.layoutLibrary as Record<string, unknown> | undefined) || {};
+        const generatedTemplate = (layoutLibraryMeta.generatedTemplate as Record<string, unknown> | undefined) || {};
+        return {
+          id: `ai-generated-${page.id}`,
+          _libraryKey: `generated:${page.id}`,
+          name: typeof generatedTemplate.name === "string" && generatedTemplate.name.trim()
+            ? generatedTemplate.name
+            : `${page.label} · IA`,
+          description: `Layout generato dall'IA per ${page.label}`,
+          category: 'creative' as LayoutPresetDef["category"],
+          rows: deriveRowsFromBlocks(page.blocks),
+          _featured: false,
+          _generated: true,
+          _pageBlocks: page.blocks,
+          _pageMeta: page.meta,
+        };
+      });
+
+    return [
+      ...generatedLayouts,
+      ...BUILDER_LAYOUT_LIBRARY.map((preset) => ({
+        ...preset,
+        _libraryKey: `builder:${preset.id}`,
+        _featured: true as const,
+        rows: preset.rows,
+      })),
+      ...CONFIG_LAYOUT_LIBRARY.map((preset) => ({
+        ...preset,
+        _libraryKey: `config:${preset.id}`,
+        _featured: false as const,
+      })),
+    ];
+  }, [sitePages]);
 
   // Slot form state
   const [slotKey, setSlotKey] = useState("");
@@ -140,20 +211,34 @@ export default function LayoutPage() {
 
     // Load real CMS pages only.
     const { data: pagesData } = await supabase.from("site_pages")
-      .select("id, title, slug")
+      .select("id, title, slug, blocks, meta")
       .eq("tenant_id", currentTenant.id)
       .order("sort_order")
       .order("created_at");
 
-    const pages = (pagesData || []).map((p: { id: string; title: string; slug: string }) => ({
+    const pages = (pagesData || []).map((p: { id: string; title: string; slug: string; blocks: Block[] | null; meta: Record<string, unknown> | null }) => ({
         id: p.id,
         page_type: p.slug,
+        slug: p.slug,
         label: p.title,
         icon: FileQuestion,
+        blocks: Array.isArray(p.blocks) ? p.blocks : [],
+        meta: p.meta && typeof p.meta === "object" ? p.meta : null,
       }));
-    const nextSelectedPage = pages.find((page) => page.page_type === selectedPage)?.page_type || pages[0]?.page_type || "";
+    const requestedPageId = searchParams.get("page");
+    const requestedPageType = requestedPageId
+      ? pages.find((page) => page.id === requestedPageId)?.page_type
+      : null;
+    const nextSelectedPage =
+      requestedPageType ||
+      pages.find((page) => page.page_type === selectedPage)?.page_type ||
+      pages[0]?.page_type ||
+      "";
+    const currentPage = pages.find((page) => page.page_type === nextSelectedPage) || null;
 
     setSitePages(pages);
+    setPageBlocks(currentPage?.blocks || []);
+    setPageMeta(currentPage?.meta || null);
     if (nextSelectedPage !== selectedPage) {
       setSelectedPage(nextSelectedPage);
     }
@@ -166,6 +251,8 @@ export default function LayoutPage() {
 
     if (!nextSelectedPage) {
       setSlots([]);
+      setPageBlocks([]);
+      setPageMeta(null);
       const { data: cats } = await supabase.from("categories").select("id, name, slug, color")
         .eq("tenant_id", currentTenant.id).order("sort_order");
       if (cats) setCategories(cats as Category[]);
@@ -196,7 +283,31 @@ export default function LayoutPage() {
       .eq("tenant_id", currentTenant.id).order("sort_order");
     if (cats) setCategories(cats as Category[]);
     setLoading(false);
-  }, [currentTenant, selectedPage]);
+  }, [currentTenant, searchParams, selectedPage]);
+
+  const updateLibraryScrollState = useCallback((groupId: string) => {
+    const node = libraryScrollRefs.current[groupId];
+    if (!node) return;
+
+    const maxScrollLeft = Math.max(node.scrollWidth - node.clientWidth, 0);
+    setLibraryScrollState((current) => ({
+      ...current,
+      [groupId]: {
+        left: node.scrollLeft > 8,
+        right: maxScrollLeft - node.scrollLeft > 8,
+      },
+    }));
+  }, []);
+
+  const scrollLibraryRow = useCallback((groupId: string, direction: "left" | "right") => {
+    const node = libraryScrollRefs.current[groupId];
+    if (!node) return;
+    node.scrollBy({
+      left: direction === "left" ? -520 : 520,
+      behavior: "smooth",
+    });
+    window.setTimeout(() => updateLibraryScrollState(groupId), 220);
+  }, [updateLibraryScrollState]);
 
   useEffect(() => {
     load();
@@ -221,6 +332,29 @@ export default function LayoutPage() {
       subscription.unsubscribe();
     };
   }, [load, currentTenant]);
+
+  useEffect(() => {
+    const available = libraryCategory === "all"
+      ? layoutLibrary
+      : layoutLibrary.filter((preset) => preset.category === libraryCategory);
+
+    if (!available.length) {
+      setSelectedLibraryPresetId(null);
+      return;
+    }
+
+    if (!selectedLibraryPresetId || !available.some((preset) => preset._libraryKey === selectedLibraryPresetId)) {
+      setSelectedLibraryPresetId(available[0]._libraryKey);
+    }
+  }, [libraryCategory, layoutLibrary, selectedLibraryPresetId]);
+
+  useEffect(() => {
+    if (!libraryOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      updateLibraryScrollState("templates");
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [libraryOpen, libraryCategory, layoutLibrary, updateLibraryScrollState]);
 
   const handleImportFromUrl = async () => {
     if (!importUrl.trim()) {
@@ -525,10 +659,283 @@ export default function LayoutPage() {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--c-accent)" }} /></div>;
   }
 
+  const libraryCategories = [
+    { id: "all", label: "Tutti" },
+    ...(layoutLibrary.some((preset) => preset._generated)
+      ? [{ id: "ia-generated", label: "IA Generated" }]
+      : []),
+    ...Array.from(new Set(layoutLibrary.map((preset) => preset.category))).map((category) => ({
+      id: category,
+      label: category.charAt(0).toUpperCase() + category.slice(1),
+    })),
+  ];
+
+  const filteredLibrary = libraryCategory === "all"
+    ? layoutLibrary
+    : layoutLibrary.filter((preset) => libraryCategory === "ia-generated" ? preset._generated : preset.category === libraryCategory);
+  const libraryGroups = [
+    {
+      id: "templates",
+      label: "Template",
+      items: filteredLibrary,
+    },
+  ].filter((group) => group.items.length > 0);
+  const getSingleColumnLabel = (rowIndex: number, totalRows: number, height: number) => {
+    if (rowIndex === 0) return "Header";
+    if (rowIndex === totalRows - 1) return "Footer";
+    if (height >= 45) return "Hero";
+    if (height <= 8) return `Separatore ${rowIndex}`;
+    if (rowIndex === 1) return "Sezione Principale";
+    return `Sezione ${rowIndex + 1}`;
+  };
+
+  const numericWidth = (value: string) => {
+    const parsed = Number.parseFloat(value.replace("%", "").trim());
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const getColumnLabels = (cols: string[], rowIndex: number) => {
+    if (cols.length === 2) {
+      const [left, right] = cols.map(numericWidth);
+      if (rowIndex === 1 && left >= 60) return ["Contenuto Principale", "Sidebar"];
+      if (rowIndex === 1 && right >= 60) return ["Sidebar", "Contenuto Principale"];
+      if (left <= 28 && right >= 60) return ["Sidebar", "Contenuto"];
+      if (right <= 28 && left >= 60) return ["Contenuto", "Sidebar"];
+      return ["Colonna Sinistra", "Colonna Destra"];
+    }
+
+    if (cols.length === 3) {
+      const [left, center, right] = cols.map(numericWidth);
+      if (center > left && center > right) return ["Colonna SX", "Contenuto Centrale", "Colonna DX"];
+      if (left > center && left > right) return ["Hero / Focus", "Supporto", "Supporto"];
+      if (right > center && right > left) return ["Supporto", "Supporto", "Hero / Focus"];
+      return ["Colonna 1", "Colonna 2", "Colonna 3"];
+    }
+
+    if (cols.length === 4) {
+      return ["Blocco 1", "Blocco 2", "Blocco 3", "Blocco 4"];
+    }
+
+    return cols.map((_, index) => `Blocco ${index + 1}`);
+  };
+
+  const renderPresetThumbnail = (preset: { id: string; rows: LayoutPresetDef["rows"] }) => {
+    const totalHeight = preset.rows.reduce((sum, row) => sum + (row[0] as number), 0);
+
+    return preset.rows.map((row, rowIndex) => {
+      const [height, ...cols] = row;
+      const heightPercent = ((height as number) / totalHeight) * 100;
+      const singleLabel = cols.length === 1 ? getSingleColumnLabel(rowIndex, preset.rows.length, height as number) : null;
+      const labels = cols.length > 1 ? getColumnLabels(cols as string[], rowIndex) : [];
+      const isHeader = rowIndex === 0;
+      const isFooter = rowIndex === preset.rows.length - 1;
+
+      return (
+        <div
+          key={`${preset.id}-thumb-row-${rowIndex}`}
+          className="flex gap-[4px] shrink-0"
+          style={{ height: `${heightPercent}%`, minHeight: 10 }}
+        >
+          {cols.map((width, columnIndex) => (
+            <div
+              key={`${preset.id}-thumb-cell-${rowIndex}-${columnIndex}`}
+              className="border border-dashed px-1 py-1 flex items-start overflow-hidden"
+              style={{
+                width: width as string,
+                minWidth: 10,
+                borderColor: isHeader
+                  ? "rgba(29, 78, 216, 0.95)"
+                  : isFooter
+                    ? "rgba(37, 99, 235, 0.9)"
+                    : "rgba(59, 130, 246, 0.82)",
+                backgroundColor: isHeader
+                  ? "rgba(29, 78, 216, 0.14)"
+                  : isFooter
+                    ? "rgba(37, 99, 235, 0.14)"
+                    : columnIndex % 2 === 1
+                      ? "rgba(96, 165, 250, 0.12)"
+                      : "rgba(59, 130, 246, 0.08)",
+              }}
+            >
+              <div className="min-w-0 w-full">
+                <div className="text-[8px] font-semibold uppercase tracking-[0.08em] leading-none truncate" style={{ color: "var(--c-accent)" }}>
+                  {singleLabel || labels[columnIndex] || `Blocco ${columnIndex + 1}`}
+                </div>
+                <div className="mt-1 flex flex-col gap-[2px]">
+                  <div className="h-[4px] w-[84%]" style={{ background: "rgba(59,130,246,0.34)" }} />
+                  <div className="h-[4px] w-[58%]" style={{ background: "rgba(59,130,246,0.18)" }} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    });
+  };
+
+  function deriveRowsFromBlocks(blocks: Block[]): LayoutPresetDef["rows"] {
+    if (!blocks.length) {
+      return [[24, "100%"]];
+    }
+
+    return blocks.map((block) => {
+      const minHeight = typeof block.style?.layout?.minHeight === "string"
+        ? Number.parseInt(block.style.layout.minHeight, 10)
+        : NaN;
+      const height = Number.isFinite(minHeight) ? Math.max(8, Math.min(60, Math.round(minHeight / 10))) : 24;
+
+      if (block.type === "columns" && Array.isArray(block.props?.columnWidths)) {
+        const widths = (block.props.columnWidths as unknown[]).map((width) => String(width));
+        return [height, ...(widths.length ? widths : ["50%", "50%"])] as LayoutPresetDef["rows"][number];
+      }
+
+      return [height, "100%"] as LayoutPresetDef["rows"][number];
+    });
+  }
+
+  const selectedLibraryPreset = layoutLibrary.find((preset) => preset._libraryKey === selectedLibraryPresetId) || null;
+  const selectedSitePage = sitePages.find((page) => page.page_type === selectedPage) || null;
+  const selectedLibraryPreviewBlocks = selectedLibraryPreset
+    ? (selectedLibraryPreset._generated && selectedLibraryPreset._pageBlocks
+        ? selectedLibraryPreset._pageBlocks
+        : buildLayoutPresetBlocks(selectedLibraryPreset))
+    : [];
+  const selectedLibraryPreviewMeta = selectedLibraryPreset?._generated
+    ? (selectedLibraryPreset._pageMeta || null)
+    : null;
+  const renderBlocks = selectedLibraryPreset ? selectedLibraryPreviewBlocks : pageBlocks;
+  const renderMeta = selectedLibraryPreset ? selectedLibraryPreviewMeta : pageMeta;
+  const renderTitle = selectedLibraryPreset
+    ? `Anteprima template: ${selectedLibraryPreset.name}`
+    : "Pagina CMS";
+  const compareLeftBlocks = selectedSitePage ? pageBlocks : [];
+  const compareLeftMeta = selectedSitePage ? pageMeta : null;
+  const compareRightBlocks = selectedLibraryPreset ? selectedLibraryPreviewBlocks : renderBlocks;
+  const compareRightMeta = selectedLibraryPreset ? selectedLibraryPreviewMeta : renderMeta;
+
+  const handleApplyLibraryPreset = async () => {
+    if (!selectedSitePage) {
+      toast.error("Apri prima una pagina reale del CMS");
+      return;
+    }
+
+    if (!selectedLibraryPreset) {
+      toast.error("Seleziona prima un template");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Applicare "${selectedLibraryPreset.name}" alla pagina "${selectedSitePage.label}"?\n\nI blocchi attuali della pagina verranno sostituiti.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const nextBlocks = selectedLibraryPreset._generated && selectedLibraryPreset._pageBlocks
+      ? selectedLibraryPreset._pageBlocks
+      : buildLayoutPresetBlocks(selectedLibraryPreset);
+    if (nextBlocks.length === 0) {
+      toast.error("Questo template non ha prodotto blocchi validi");
+      return;
+    }
+
+    setApplyingPreset(true);
+    try {
+      await applyBlocksToSelectedPage(nextBlocks, `Template "${selectedLibraryPreset.name}" applicato`, {
+        appliedTemplate: {
+          source: selectedLibraryPreset._generated ? "ai-generated" : "library",
+          name: selectedLibraryPreset.name,
+          id: selectedLibraryPreset.id,
+        },
+      });
+    } finally {
+      setApplyingPreset(false);
+    }
+  };
+
+  const applyBlocksToSelectedPage = async (
+    nextBlocks: Block[],
+    successMessage = "Layout applicato",
+    options?: {
+      generatedTemplate?: { source: "ai"; name: string };
+      appliedTemplate?: { source: "library" | "ai-generated"; name: string; id: string };
+    }
+  ) => {
+    if (!selectedSitePage) {
+      throw new Error("Nessuna pagina selezionata");
+    }
+
+    const baseMeta = (pageMeta || {}) as Record<string, unknown>;
+    const layoutLibraryMeta = ((baseMeta.layoutLibrary as Record<string, unknown> | undefined) || {});
+    const nextMeta = {
+      ...baseMeta,
+      layoutLibrary: {
+        ...layoutLibraryMeta,
+        ...(options?.generatedTemplate
+          ? {
+              generatedTemplate: {
+                source: options.generatedTemplate.source,
+                name: options.generatedTemplate.name,
+                updatedAt: new Date().toISOString(),
+              },
+            }
+          : {}),
+        ...(options?.appliedTemplate
+          ? {
+              appliedTemplate: {
+                source: options.appliedTemplate.source,
+                name: options.appliedTemplate.name,
+                id: options.appliedTemplate.id,
+                updatedAt: new Date().toISOString(),
+              },
+            }
+          : {}),
+      },
+    };
+
+    const response = await fetch(`/api/builder/pages/${selectedSitePage.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        blocks: nextBlocks,
+        meta: nextMeta,
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Errore applicazione layout");
+    }
+
+    const updatedBlocks = Array.isArray(data.page?.blocks) ? (data.page.blocks as Block[]) : nextBlocks;
+    const updatedMeta = data.page?.meta && typeof data.page.meta === "object"
+      ? (data.page.meta as Record<string, unknown>)
+      : nextMeta;
+
+    setPageBlocks(updatedBlocks);
+    setPageMeta(updatedMeta);
+    setSitePages((current) =>
+      current.map((page) =>
+        page.id === selectedSitePage.id
+          ? { ...page, blocks: updatedBlocks, meta: updatedMeta }
+          : page
+      )
+    );
+    setActiveTab("zone");
+    toast.success(successMessage);
+  };
+
   return (
-    <div className="flex gap-5">
+    <div className="w-full min-w-0 grid grid-cols-1 xl:grid-cols-[220px_minmax(0,1fr)] gap-5 items-start">
+      <LayoutBuilderModal
+        open={layoutBuilderOpen}
+        onClose={() => setLayoutBuilderOpen(false)}
+        onApplyBlocks={(blocks, options) => applyBlocksToSelectedPage(blocks, "Layout builder applicato alla pagina", options)}
+      />
       {/* Left: Site tree */}
-      <div className="w-48 shrink-0 hidden lg:block">
+      <div className="hidden xl:block min-w-0">
+        <div className="rounded-2xl border p-3" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)" }}>
         <p className="text-[10px] font-semibold uppercase mb-2" style={{ color: "var(--c-text-3)" }}>Pagine sito</p>
         {sitePages.length === 0 ? (
           <div className="rounded-xl border p-3 text-xs" style={{ borderColor: "var(--c-border)", color: "var(--c-text-3)" }}>
@@ -557,10 +964,165 @@ export default function LayoutPage() {
             })}
           </div>
         )}
+        </div>
       </div>
 
       {/* Main content */}
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 w-full">
+        <div className="rounded-2xl border p-4 mb-4" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)" }}>
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setLibraryOpen((current) => !current)}
+              className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
+              style={{ color: "var(--c-text-3)" }}
+            >
+              {libraryOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              Libreria Layout
+            </button>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/dashboard/pagine"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+                style={{ background: "var(--c-bg-0)", color: "var(--c-text-1)", border: "1px solid var(--c-border)" }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Crea pagina
+              </Link>
+              {selectedSitePage && (
+                <Link
+                  href={`/dashboard/editor?page=${selectedSitePage.id}`}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+                  style={{ background: "var(--c-bg-0)", color: "var(--c-text-1)", border: "1px solid var(--c-border)" }}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  Apri nell&apos;editor
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => setLayoutBuilderOpen(true)}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-white"
+                style={{ background: "var(--c-accent)" }}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Builder Layout
+              </button>
+            </div>
+          </div>
+          {libraryOpen && (
+            <>
+              <div className="flex flex-wrap gap-2 mt-4">
+                {libraryCategories.map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => setLibraryCategory(category.id)}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium transition"
+                    style={{
+                      background: libraryCategory === category.id ? "var(--c-accent)" : "var(--c-bg-0)",
+                      color: libraryCategory === category.id ? "#fff" : "var(--c-text-2)",
+                      border: `1px solid ${libraryCategory === category.id ? "var(--c-accent)" : "var(--c-border)"}`,
+                    }}
+                  >
+                    {category.label}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 space-y-4">
+                {libraryGroups.map((group) => (
+                  <div
+                    key={group.id}
+                    className="rounded-xl border p-3"
+                    style={{ borderColor: "var(--c-border)", background: "var(--c-bg-0)" }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenSubcategories((current) => ({
+                          ...current,
+                          [group.id]: !current[group.id],
+                        }))
+                      }
+                      className="w-full flex items-center justify-between gap-3 text-left"
+                    >
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--c-text-2)" }}>
+                        {group.label}
+                      </div>
+                      {openSubcategories[group.id] ? (
+                        <ChevronUp className="w-4 h-4" style={{ color: "var(--c-text-3)" }} />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" style={{ color: "var(--c-text-3)" }} />
+                      )}
+                    </button>
+                    {openSubcategories[group.id] && (
+                      <div className="mt-3 flex items-center gap-2">
+                        {libraryScrollState[group.id]?.left ? (
+                          <button
+                            type="button"
+                            onClick={() => scrollLibraryRow(group.id, "left")}
+                            className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full border"
+                            style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)", color: "var(--c-text-1)" }}
+                            aria-label="Scorri a sinistra"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                        ) : null}
+                        <div
+                          ref={(node) => {
+                            libraryScrollRefs.current[group.id] = node;
+                          }}
+                          onScroll={() => updateLibraryScrollState(group.id)}
+                          className="flex-1 overflow-x-auto pb-2"
+                        >
+                          <div className="grid grid-flow-col grid-rows-1 auto-cols-[minmax(220px,220px)] gap-4 min-w-max">
+                          {group.items.map((preset) => (
+                            <button
+                              key={preset._libraryKey}
+                              type="button"
+                              onClick={() => setSelectedLibraryPresetId(preset._libraryKey)}
+                              className="rounded-xl text-left transition hover:-translate-y-0.5"
+                              style={{ background: "transparent" }}
+                            >
+                              <div
+                                className="rounded-xl p-2.5 flex flex-col gap-[3px] overflow-hidden"
+                                style={{
+                                  height: 180,
+                                  background: "var(--c-bg-0)",
+                                  border: `1.5px solid ${selectedLibraryPresetId === preset._libraryKey ? "var(--c-accent)" : "var(--c-border)"}`,
+                                  boxShadow: selectedLibraryPresetId === preset._libraryKey ? "0 0 0 3px var(--c-accent-soft)" : "none",
+                                }}
+                              >
+                                {renderPresetThumbnail(preset)}
+                              </div>
+                              <div className="mt-2 px-1">
+                                <div className="text-sm font-semibold leading-tight" style={{ color: "var(--c-text-0)" }}>
+                                  {preset.name}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                          </div>
+                        </div>
+                        {libraryScrollState[group.id]?.right ? (
+                          <button
+                            type="button"
+                            onClick={() => scrollLibraryRow(group.id, "right")}
+                            className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full border"
+                            style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)", color: "var(--c-text-1)" }}
+                            aria-label="Scorri a destra"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
         {!selectedPage ? (
           <div className="rounded-2xl border p-8 text-center" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)" }}>
             <LayoutTemplate className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
@@ -581,21 +1143,41 @@ export default function LayoutPage() {
         <>
         {/* Tabs + Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-1 rounded-lg p-0.5" style={{ background: "var(--c-bg-2)" }}>
-            <button onClick={() => setActiveTab("zone")}
-              className="px-3 py-1.5 rounded-md text-xs font-medium transition"
-              style={{ background: activeTab === "zone" ? "var(--c-bg-1)" : "transparent", color: activeTab === "zone" ? "var(--c-text-0)" : "var(--c-text-2)" }}>
-              Zone
-            </button>
-            <button onClick={() => setActiveTab("moduli")}
-              className="px-3 py-1.5 rounded-md text-xs font-medium transition"
-              style={{ background: activeTab === "moduli" ? "var(--c-bg-1)" : "transparent", color: activeTab === "moduli" ? "var(--c-text-0)" : "var(--c-text-2)" }}>
-              Moduli ({slots.length})
-            </button>
-            <button onClick={() => setActiveTab("preview")}
-              className="px-3 py-1.5 rounded-md text-xs font-medium transition"
-              style={{ background: activeTab === "preview" ? "var(--c-bg-1)" : "transparent", color: activeTab === "preview" ? "var(--c-text-0)" : "var(--c-text-2)" }}>
-              Confronta
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 rounded-lg p-0.5" style={{ background: "var(--c-bg-2)" }}>
+              <button onClick={() => setActiveTab("zone")}
+                className="px-3 py-1.5 rounded-md text-xs font-medium transition"
+                style={{ background: activeTab === "zone" ? "var(--c-bg-1)" : "transparent", color: activeTab === "zone" ? "var(--c-text-0)" : "var(--c-text-2)" }}>
+                Zone
+              </button>
+              <button onClick={() => setActiveTab("moduli")}
+                className="px-3 py-1.5 rounded-md text-xs font-medium transition"
+                style={{ background: activeTab === "moduli" ? "var(--c-bg-1)" : "transparent", color: activeTab === "moduli" ? "var(--c-text-0)" : "var(--c-text-2)" }}>
+                Moduli ({slots.length})
+              </button>
+              <button onClick={() => setActiveTab("preview")}
+                className="px-3 py-1.5 rounded-md text-xs font-medium transition"
+                style={{ background: activeTab === "preview" ? "var(--c-bg-1)" : "transparent", color: activeTab === "preview" ? "var(--c-text-0)" : "var(--c-text-2)" }}>
+                Confronta
+              </button>
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--c-text-3)" }}>
+                Template selezionato
+              </div>
+              <div className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>
+                {selectedLibraryPreset?.name || "Nessun template"}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleApplyLibraryPreset}
+              disabled={!selectedLibraryPreset || !selectedSitePage || applyingPreset}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: "var(--c-accent)" }}
+            >
+              {applyingPreset ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Applica alla pagina
             </button>
           </div>
 
@@ -651,13 +1233,19 @@ export default function LayoutPage() {
 
         {/* ZONE TAB: Visual wireframe */}
         {activeTab === "zone" && (
-          <ZoneRenderer
-            slots={slots.map(s => ({
-              ...s,
-              sort_index: s.sort_index,
-            }))}
-            onSlotClick={handleZoneClick}
-          />
+          renderBlocks.length > 0 ? (
+            <BuilderLayoutRenderedPreview blocks={renderBlocks} meta={renderMeta} tenantSlug={currentTenant?.slug} />
+          ) : slots.length > 0 ? (
+            <ZoneRenderer
+              slots={slots.map(s => ({
+                ...s,
+                sort_index: s.sort_index,
+              }))}
+              onSlotClick={handleZoneClick}
+            />
+          ) : (
+            <BuilderLayoutRenderedPreview blocks={renderBlocks} meta={renderMeta} tenantSlug={currentTenant?.slug} />
+          )
         )}
 
         {/* MODULI TAB: Slot list */}
@@ -778,11 +1366,11 @@ export default function LayoutPage() {
           </div>
         )}
 
-        {/* PREVIEW TAB: Split wireframe + iframe — same size panels */}
+        {/* PREVIEW TAB: pagina originale vs layout selezionato */}
         {activeTab === "preview" && (
           <div>
-            <div className="grid grid-cols-2 gap-3" style={{ height: "72vh" }}>
-              {/* LEFT: Wireframe */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3" style={{ minHeight: "72vh" }}>
+              {/* LEFT: Pagina corrente/originale */}
               <div className="rounded-xl overflow-hidden flex flex-col" style={{ border: "1px solid var(--c-border)" }}>
                 <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ background: "var(--c-bg-2)", borderBottom: "1px solid var(--c-border)" }}>
                   <div className="flex gap-1">
@@ -792,15 +1380,26 @@ export default function LayoutPage() {
                   </div>
                   <div className="flex-1 rounded-md px-2 py-0.5 text-[9px] font-mono text-center"
                     style={{ background: "var(--c-bg-3)", color: "var(--c-text-2)" }}>
-                    Zone CMS
+                    {selectedSitePage ? `Pagina originale: ${selectedSitePage.label}` : "Nessuna pagina selezionata"}
                   </div>
                 </div>
                 <div className="flex-1 overflow-auto p-2" style={{ background: "var(--c-bg-0)" }}>
-                  <ZoneRenderer slots={slots} onSlotClick={handleZoneClick} />
+                  {compareLeftBlocks.length > 0 ? (
+                    <BuilderLayoutRenderedPreview blocks={compareLeftBlocks} meta={compareLeftMeta} tenantSlug={currentTenant?.slug} />
+                  ) : (
+                    <div className="h-full min-h-[360px] flex items-center justify-center text-center px-6" style={{ background: "var(--c-bg-1)" }}>
+                      <div>
+                        <p className="text-sm font-medium mb-1" style={{ color: "var(--c-text-2)" }}>Nessuna pagina originale da confrontare</p>
+                        <p className="text-xs" style={{ color: "var(--c-text-3)" }}>
+                          Seleziona una pagina reale del CMS per vedere il confronto a sinistra.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* RIGHT: Live site iframe */}
+              {/* RIGHT: Layout selezionato / render attivo */}
               <div className="rounded-xl overflow-hidden flex flex-col" style={{ border: "1px solid var(--c-border)" }}>
                 <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ background: "var(--c-bg-2)", borderBottom: "1px solid var(--c-border)" }}>
                   <div className="flex gap-1">
@@ -810,23 +1409,19 @@ export default function LayoutPage() {
                   </div>
                   <div className="flex-1 rounded-md px-2 py-0.5 text-[9px] font-mono text-center"
                     style={{ background: "var(--c-bg-3)", color: "var(--c-text-2)" }}>
-                    {currentTenant?.domain || (currentTenant ? `/site/${currentTenant.slug}` : "sito-preview")}
+                    {selectedLibraryPreset ? `Template selezionato: ${selectedLibraryPreset.name}` : renderTitle}
                   </div>
                 </div>
-                {livePreviewUrl ? (
-                  <iframe
-                    src={livePreviewUrl}
-                    className="flex-1 w-full border-0"
-                    style={{ background: "#fff" }}
-                    sandbox="allow-scripts allow-same-origin"
-                    title="Anteprima sito"
-                  />
+                {compareRightBlocks.length > 0 ? (
+                  <div className="flex-1 overflow-auto p-2" style={{ background: "var(--c-bg-0)" }}>
+                    <BuilderLayoutRenderedPreview blocks={compareRightBlocks} meta={compareRightMeta} tenantSlug={currentTenant?.slug} />
+                  </div>
                 ) : (
-                  <div className="flex-1 flex items-center justify-center" style={{ background: "var(--c-bg-1)" }}>
+                  <div className="flex-1 flex items-center justify-center min-h-[360px]" style={{ background: "var(--c-bg-1)" }}>
                     <div className="text-center px-6">
-                      <p className="text-sm font-medium mb-1" style={{ color: "var(--c-text-2)" }}>Nessun dominio configurato</p>
+                      <p className="text-sm font-medium mb-1" style={{ color: "var(--c-text-2)" }}>Nessun layout da mostrare</p>
                       <p className="text-xs" style={{ color: "var(--c-text-3)" }}>
-                        Configura il dominio in Impostazioni
+                        Seleziona un template dalla libreria oppure costruisci un layout.
                       </p>
                     </div>
                   </div>

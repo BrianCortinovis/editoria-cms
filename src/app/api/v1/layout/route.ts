@@ -56,6 +56,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
+  const { data: siteConfig } = await supabase
+    .from("site_config")
+    .select("theme")
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+
+  const editorialAutomation = ((siteConfig?.theme as Record<string, unknown> | null)?.editorialAutomation || {}) as Record<string, unknown>;
+  const homepageFreshHours = typeof editorialAutomation.homepageFreshHours === "number"
+    ? editorialAutomation.homepageFreshHours
+    : 0;
+  const homepageFreshThreshold = homepageFreshHours > 0
+    ? new Date(Date.now() - homepageFreshHours * 60 * 60 * 1000).toISOString()
+    : null;
+
   // Get layout template
   const { data: template } = await supabase
     .from("layout_templates")
@@ -120,6 +134,10 @@ export async function GET(request: Request) {
               .eq("status", "published")
               .order(slot.sort_by, { ascending: slot.sort_order === "asc" })
               .limit(mode === "auto" ? slot.max_items : remaining);
+
+            if (pageType === "homepage" && homepageFreshThreshold) {
+              query = query.gte("published_at", homepageFreshThreshold);
+            }
 
             if (slot.category_id) {
               const matchingArticleIds = await fetchArticleIdsForCategory(supabase as never, slot.category_id);

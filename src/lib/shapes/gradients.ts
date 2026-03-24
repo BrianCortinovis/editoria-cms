@@ -1,5 +1,3 @@
-'use client';
-
 import type { AdvancedGradient, GradientStop } from '@/lib/types';
 
 /**

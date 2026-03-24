@@ -1,4 +1,5 @@
 import type { Block } from '@/lib/types/block';
+import { sanitizeExternalUrl, sanitizeHtml } from '@/lib/security/html';
 
 interface Props {
   block: Block;
@@ -6,9 +7,9 @@ interface Props {
 }
 
 export function RenderBannerAd({ block, style }: Props) {
-  const adCode = String(block.props.adCode || '');
+  const adCode = sanitizeHtml(String(block.props.adCode || ''));
   const fallbackImage = String(block.props.fallbackImage || '');
-  const fallbackUrl = String(block.props.fallbackUrl || '#');
+  const fallbackUrl = sanitizeExternalUrl(String(block.props.fallbackUrl || '#')) || '#';
   const width = Number(block.props.width || 728);
   const height = Number(block.props.height || 90);
   const label = String(block.props.label || 'Pubblicità');
@@ -22,9 +23,14 @@ export function RenderBannerAd({ block, style }: Props) {
         </div>
       )}
       {adCode ? (
-        <div dangerouslySetInnerHTML={{ __html: adCode }} />
+        <iframe
+          title={label}
+          srcDoc={`<!doctype html><html><body style="margin:0">${adCode}</body></html>`}
+          sandbox="allow-popups allow-popups-to-escape-sandbox"
+          style={{ width: '100%', minHeight: `${height}px`, border: 'none', background: 'transparent' }}
+        />
       ) : fallbackImage ? (
-        <a href={fallbackUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block' }}>
+        <a href={fallbackUrl} target="_blank" rel="noopener noreferrer sponsored" style={{ display: 'inline-block' }}>
           <img src={fallbackImage} alt={label} style={{ width: '100%', maxWidth: `${width}px`, height: `${height}px`, objectFit: 'cover', borderRadius: '12px' }} />
         </a>
       ) : (

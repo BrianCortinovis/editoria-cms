@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { assertTrustedMutationRequest } from '@/lib/security/request';
+import { writeActivityLog } from '@/lib/security/audit';
+
+const TRAINER_ROLES = new Set(['super_admin', 'chief_editor', 'editor']);
 
 /**
  * POST /api/ai/train
@@ -7,6 +11,20 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
  */
 export async function POST(request: NextRequest) {
   try {
+    const trustedOriginError = assertTrustedMutationRequest(request);
+    if (trustedOriginError) {
+      return trustedOriginError;
+    }
+
+    const sessionClient = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await sessionClient.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const supabase = await createServiceRoleClient();
     const tenantSlug = request.nextUrl.searchParams.get('tenant') || 'demo';
 
@@ -19,6 +37,17 @@ export async function POST(request: NextRequest) {
 
     if (!tenant) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+    }
+
+    const { data: membership } = await supabase
+      .from('user_tenants')
+      .select('role')
+      .eq('tenant_id', tenant.id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (!membership || !TRAINER_ROLES.has(membership.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Get all published articles with author info
@@ -115,6 +144,17 @@ export async function POST(request: NextRequest) {
       }, {
         onConflict: 'tenant_id'
       });
+
+    await writeActivityLog({
+      tenantId: tenant.id,
+      userId: user.id,
+      action: 'ai.train',
+      entityType: 'tenant_ai_profile',
+      details: {
+        journalists: journalists.length,
+        articleCount: articles.length,
+      },
+    });
 
     return NextResponse.json({
       journalists,

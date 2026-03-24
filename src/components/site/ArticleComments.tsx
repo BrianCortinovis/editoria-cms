@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { sanitizeExternalUrl } from '@/lib/security/html';
 
 interface CommentItem {
   id: string;
@@ -118,7 +119,7 @@ export function ArticleComments({ tenantSlug, articleSlug }: ArticleCommentsProp
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' }}>
                 <strong style={{ color: 'var(--e-color-text)' }}>
                   {comment.author_url ? (
-                    <a href={comment.author_url} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
+                    <a href={sanitizeExternalUrl(comment.author_url) || '#'} target="_blank" rel="noopener noreferrer nofollow" style={{ color: 'inherit', textDecoration: 'none' }}>
                       {comment.author_name}
                     </a>
                   ) : (

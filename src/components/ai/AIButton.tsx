@@ -38,9 +38,13 @@ interface AIButtonProps {
   fieldName?: string;
   /** Compact mode (just icon button) */
   compact?: boolean;
+  /** Override task type for provider routing */
+  taskType?: 'layout' | 'field-assist' | 'chatbot' | 'seo' | 'titles' | 'social' | 'translate' | 'summary';
+  /** Apply generated result immediately when possible */
+  autoApply?: boolean;
 }
 
-export default function AIButton({ actions, fieldValue, contextData: contextDataProp, systemPrompt, onResult, onCommand, onApply, compact, blockId, fieldName }: AIButtonProps) {
+export default function AIButton({ actions, fieldValue, contextData: contextDataProp, systemPrompt, onResult, onCommand, onApply, compact, blockId, fieldName, taskType, autoApply = true }: AIButtonProps) {
   const { currentTenant } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
@@ -57,13 +61,14 @@ export default function AIButton({ actions, fieldValue, contextData: contextData
 
     try {
       const contextToUse = fieldValue || contextDataProp || "";
-      const res = await fetch("/api/ai/freeform", {
+      const effectiveTaskType = taskType || (onCommand || blockId ? 'layout' : 'chatbot');
+      const res = await fetch("/api/ai/dispatch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tenant_id: currentTenant.id,
-          task: "seo", // fallback task for provider resolution
-          system: systemPrompt || "Sei un assistente editoriale per un CMS giornalistico italiano. Rispondi in modo conciso e utile.",
+          taskType: effectiveTaskType,
+          systemPrompt: systemPrompt || "Sei un assistente editoriale operativo per un CMS giornalistico italiano. Quando l'utente ti chiede un risultato per un campo o un modulo, genera direttamente l'output finale, senza spiegazioni inutili.",
           prompt: action.prompt.replace("{context}", contextToUse),
         }),
       });
@@ -71,7 +76,7 @@ export default function AIButton({ actions, fieldValue, contextData: contextData
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Errore IA"); setLoading(null); return; }
 
-      const result = data.text;
+      const result = data.content || "";
       setResults(prev => ({ ...prev, [action.id]: result }));
 
       // Try to parse as command first
@@ -93,8 +98,12 @@ export default function AIButton({ actions, fieldValue, contextData: contextData
         onCommand(command);
         toast.success(`Comando eseguito con ${data.provider}`);
       } else if (onResult) {
-        // Fall back to onResult callback
         onResult(result);
+        toast.success(`Applicato con ${data.provider}`);
+      } else if (onApply && autoApply) {
+        onApply(action.id, result);
+        toast.success(`Applicato con ${data.provider}`);
+      } else if (onApply) {
         toast.success(`Generato con ${data.provider}`);
       } else {
         toast.success(`Generato con ${data.provider}`);

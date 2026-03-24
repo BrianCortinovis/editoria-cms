@@ -1,16 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  Plus, Minus, Sparkles, Send, Grid3X3, LayoutGrid, Columns3,
-  ArrowRight, Check, X, Loader2, RotateCcw, Shuffle
+  Plus, Minus, Sparkles, Send, Grid3X3, LayoutGrid,
+  Check, X, Loader2, RotateCcw, Shuffle, Copy, MoveHorizontal, ArrowLeft, ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuthStore } from '@/lib/store';
 import { usePageStore } from '@/lib/stores/page-store';
-import { createBlock, type BlockType, type BlockStyle } from '@/lib/types';
+import { useUiStore } from '@/lib/stores/ui-store';
+import { createBlock, type Block, type BlockType, type BlockStyle } from '@/lib/types';
 import { getBlockDefinition } from '@/lib/blocks/registry';
 import { generateId } from '@/lib/utils/id';
 import { cn } from '@/lib/utils/cn';
+import toast from 'react-hot-toast';
 import '@/lib/blocks/init';
 
 import { LAYOUT_PRESETS as CONFIG_PRESETS, type LayoutPresetDef } from '@/lib/config/layout-presets';
@@ -25,12 +28,29 @@ interface PresetBlock {
   children?: PresetBlock[];
 }
 
-interface FeaturedPreset extends LayoutPresetDef {
+export interface FeaturedPreset extends LayoutPresetDef {
   columns?: number;
   blocks: PresetBlock[];
 }
 
-const LAYOUT_PRESETS: FeaturedPreset[] = [
+interface AiLayoutAction {
+  action: string;
+  blockType?: string;
+  label?: string;
+  props?: Record<string, unknown>;
+  style?: Partial<BlockStyle>;
+  children?: AiLayoutAction[];
+}
+
+type AiStyleInput = Partial<BlockStyle> & {
+  backgroundColor?: string;
+  color?: string;
+  height?: string;
+  minHeight?: string;
+  maxWidth?: string;
+};
+
+export const LAYOUT_PRESETS: FeaturedPreset[] = [
   {
     id: 'editorial-classic',
     name: 'Editoriale Classico',
@@ -183,6 +203,14 @@ interface GridCell {
   label: string;
   color: string;
   blockType: BlockType | null;
+  shape: 'rect' | 'diagonal-left' | 'diagonal-right' | 'slant-top' | 'slant-bottom';
+  align: 'start' | 'center' | 'end';
+  minHeight: number | null;
+  padding: number;
+  offsetX: number;
+  offsetY: number;
+  zIndex: number;
+  customCss: string;
 }
 
 interface GridRow {
@@ -190,6 +218,41 @@ interface GridRow {
   cells: GridCell[];
   height: string;
 }
+
+const BLOCK_TYPE_OPTIONS: Array<{ value: BlockType | ''; label: string }> = [
+  { value: '', label: 'Sezione vuota' },
+  { value: 'hero', label: 'Hero' },
+  { value: 'text', label: 'Testo' },
+  { value: 'image-gallery', label: 'Galleria' },
+  { value: 'video', label: 'Video' },
+  { value: 'slideshow', label: 'Slideshow' },
+  { value: 'banner-ad', label: 'Banner ADV' },
+  { value: 'navigation', label: 'Navigazione' },
+  { value: 'footer', label: 'Footer' },
+  { value: 'sidebar', label: 'Sidebar' },
+  { value: 'quote', label: 'Citazione' },
+  { value: 'newsletter', label: 'Newsletter' },
+  { value: 'counter', label: 'Contatori' },
+  { value: 'related-content', label: 'Contenuti correlati' },
+  { value: 'accordion', label: 'Accordion' },
+  { value: 'timeline', label: 'Timeline' },
+  { value: 'social', label: 'Social' },
+  { value: 'author-bio', label: 'Bio autore' },
+  { value: 'article-grid', label: 'Griglia articoli' },
+  { value: 'article-hero', label: 'Hero articoli' },
+  { value: 'search-bar', label: 'Ricerca' },
+  { value: 'breaking-ticker', label: 'Ticker breaking' },
+  { value: 'banner-zone', label: 'Zona banner' },
+];
+
+const ROW_RATIO_PRESETS = [
+  { id: '1', label: '100', weights: [100] },
+  { id: '2', label: '68 / 32', weights: [68, 32] },
+  { id: '2b', label: '32 / 68', weights: [32, 68] },
+  { id: '3', label: '24 / 52 / 24', weights: [24, 52, 24] },
+  { id: '3b', label: '32 / 32 / 32', weights: [32, 32, 32] },
+  { id: '4', label: '25 / 25 / 25 / 25', weights: [25, 25, 25, 25] },
+];
 
 const CELL_COLORS = [
   '#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6',
@@ -204,10 +267,15 @@ const CELL_COLORS = [
 interface LayoutPresetsProps {
   open: boolean;
   onClose: () => void;
+  onApplyBlocks?: (
+    blocks: Block[],
+    options?: { generatedTemplate?: { source: 'ai'; name: string } }
+  ) => Promise<void> | void;
 }
 
-export function LayoutPresets({ open, onClose }: LayoutPresetsProps) {
-  const { addBlock, setBlocks } = usePageStore();
+export function LayoutPresets({ open, onClose, onApplyBlocks }: LayoutPresetsProps) {
+  const { currentTenant } = useAuthStore();
+  const { setBlocks, selectBlock } = usePageStore();
   const [tab, setTab] = useState<'presets' | 'custom' | 'ai'>('presets');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -217,11 +285,680 @@ export function LayoutPresets({ open, onClose }: LayoutPresetsProps) {
   const [gridGap, setGridGap] = useState(16);
   const [customGrid, setCustomGrid] = useState<GridRow[]>([]);
   const [selectedCell, setSelectedCell] = useState<string | null>(null);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [snapEnabled, setSnapEnabled] = useState(true);
+  const [guidesEnabled, setGuidesEnabled] = useState(true);
 
   // AI state
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiSuggestions, setAiSuggestions] = useState<FeaturedPreset[]>([]);
+  const [applying, setApplying] = useState(false);
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const dragRef = useRef<{
+    type: 'row-height' | 'cell-width' | null;
+    rowId: string;
+    cellIndex?: number;
+    side?: 'left' | 'right';
+    startX?: number;
+    startY?: number;
+    startHeight?: number;
+    startSpans?: number[];
+    containerWidth?: number;
+  } | null>(null);
+
+  const makeCell = (rowIndex: number, cellIndex: number, colSpan = 1): GridCell => ({
+    id: `${rowIndex}-${cellIndex}-${generateId()}`,
+    colSpan,
+    rowSpan: 1,
+    label: '',
+    color: CELL_COLORS[(rowIndex * 6 + cellIndex) % CELL_COLORS.length],
+    blockType: null,
+    shape: 'rect',
+    align: 'start',
+    minHeight: null,
+    padding: 16,
+    offsetX: 0,
+    offsetY: 0,
+    zIndex: 1,
+    customCss: '',
+  });
+
+  const updateGridRow = (rowId: string, updater: (row: GridRow) => GridRow) => {
+    setCustomGrid((current) => current.map((row) => (row.id === rowId ? updater(row) : row)));
+  };
+
+  const updateGridCell = (cellId: string, updater: (cell: GridCell) => GridCell) => {
+    setCustomGrid((current) =>
+      current.map((row) => ({
+        ...row,
+        cells: row.cells.map((cell) => (cell.id === cellId ? updater(cell) : cell)),
+      }))
+    );
+  };
+
+  const duplicateSelectedCell = () => {
+    if (!selectedRowId || !selectedCell) return;
+    const rowIndex = customGrid.findIndex((row) => row.id === selectedRowId);
+    updateGridRow(selectedRowId, (row) => {
+      const index = row.cells.findIndex((cell) => cell.id === selectedCell);
+      if (index === -1) return row;
+      const source = row.cells[index];
+      const duplicated: GridCell = {
+        ...source,
+        id: `${rowIndex}-${index + 1}-${generateId()}`,
+        label: source.label ? `${source.label} copia` : 'Blocco copia',
+      };
+      const cells = [...row.cells];
+      cells.splice(index + 1, 0, duplicated);
+      setSelectedCell(duplicated.id);
+      return { ...row, cells };
+    });
+  };
+
+  const moveSelectedCell = (direction: 'left' | 'right') => {
+    if (!selectedRowId || !selectedCell) return;
+    updateGridRow(selectedRowId, (row) => {
+      const index = row.cells.findIndex((cell) => cell.id === selectedCell);
+      if (index === -1) return row;
+      const nextIndex = direction === 'left' ? index - 1 : index + 1;
+      if (nextIndex < 0 || nextIndex >= row.cells.length) return row;
+      const cells = [...row.cells];
+      const [current] = cells.splice(index, 1);
+      cells.splice(nextIndex, 0, current);
+      return { ...row, cells };
+    });
+  };
+
+  const startRowResize = (event: React.MouseEvent, rowId: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const row = customGrid.find((entry) => entry.id === rowId);
+    dragRef.current = {
+      type: 'row-height',
+      rowId,
+      startY: event.clientY,
+      startHeight: Number(row?.height) || 220,
+    };
+  };
+
+  const startCellResize = (event: React.MouseEvent, rowId: string, cellIndex: number, side: 'left' | 'right') => {
+    event.preventDefault();
+    event.stopPropagation();
+    const row = customGrid.find((entry) => entry.id === rowId);
+    const containerWidth = rowRefs.current[rowId]?.clientWidth || 1;
+    dragRef.current = {
+      type: 'cell-width',
+      rowId,
+      cellIndex,
+      side,
+      startX: event.clientX,
+      startSpans: row?.cells.map((cell) => Math.max(cell.colSpan, 1)) || [],
+      containerWidth,
+    };
+  };
+
+  useEffect(() => {
+    const handleMove = (event: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+
+      if (drag.type === 'row-height') {
+        const nextHeight = (drag.startHeight || 220) + (event.clientY - (drag.startY || 0));
+        const step = snapEnabled ? 10 : 2;
+        const snappedHeight = Math.max(80, Math.round(nextHeight / step) * step);
+        updateGridRow(drag.rowId, (row) => ({ ...row, height: String(snappedHeight) }));
+        return;
+      }
+
+      if (drag.type === 'cell-width') {
+        const row = customGrid.find((entry) => entry.id === drag.rowId);
+        if (!row || typeof drag.cellIndex !== 'number' || !drag.startSpans?.length) return;
+
+        const currentIndex = drag.cellIndex;
+        const pairIndex = drag.side === 'right' ? currentIndex + 1 : currentIndex - 1;
+        if (pairIndex < 0 || pairIndex >= row.cells.length) return;
+
+        const total = drag.startSpans.reduce((sum, value) => sum + value, 0);
+        const deltaPx = event.clientX - (drag.startX || 0);
+        const rawDelta = (deltaPx / Math.max(drag.containerWidth || 1, 1)) * total;
+        const step = snapEnabled ? 0.5 : 0.1;
+        const snappedDelta = Math.round(rawDelta / step) * step;
+
+        const nextSpans = [...drag.startSpans];
+        const leftIndex = drag.side === 'right' ? currentIndex : pairIndex;
+        const rightIndex = drag.side === 'right' ? pairIndex : currentIndex;
+        const proposedLeft = Math.max(1, nextSpans[leftIndex] + snappedDelta);
+        const maxLeft = nextSpans[leftIndex] + nextSpans[rightIndex] - 1;
+        const boundedLeft = Math.min(proposedLeft, maxLeft);
+        nextSpans[leftIndex] = Number(boundedLeft.toFixed(2));
+        nextSpans[rightIndex] = Number((drag.startSpans[leftIndex] + drag.startSpans[rightIndex] - boundedLeft).toFixed(2));
+
+        updateGridRow(drag.rowId, (currentRow) => ({
+          ...currentRow,
+          cells: currentRow.cells.map((cell, index) => ({
+            ...cell,
+            colSpan: nextSpans[index] ?? cell.colSpan,
+          })),
+        }));
+      }
+    };
+
+    const handleUp = () => {
+      dragRef.current = null;
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, [customGrid, snapEnabled]);
+
+  const applyBlocks = async (
+    blocks: Block[],
+    options?: { generatedTemplate?: { source: 'ai'; name: string } }
+  ) => {
+    if (!blocks.length) {
+      toast.error('Nessun blocco valido da applicare');
+      return false;
+    }
+
+    if (onApplyBlocks) {
+      setApplying(true);
+      try {
+        await onApplyBlocks(blocks, options);
+        onClose();
+        return true;
+      } catch (error) {
+        console.error(error);
+        toast.error('Errore applicazione layout');
+        return false;
+      } finally {
+        setApplying(false);
+      }
+    }
+
+    setBlocks(blocks);
+    if (blocks[0]) {
+      selectBlock(blocks[0].id);
+    }
+    useUiStore.setState({ showOutlines: true, rightPanelOpen: true, rightPanelTab: 'properties' });
+    onClose();
+    return true;
+  };
+
+  const buildAiBlockTree = (action: AiLayoutAction) => {
+    if (action.action !== 'add-block' || !action.blockType) {
+      return null;
+    }
+
+    const def = getBlockDefinition(action.blockType as BlockType);
+    if (!def) {
+      return null;
+    }
+
+    const block = createBlock(
+      def.type,
+      action.label || def.label,
+      { ...def.defaultProps, ...(action.props || {}) },
+      def.defaultStyle
+    );
+    block.id = generateId();
+
+    if (def.defaultDataSource) {
+      block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
+    }
+
+    const normalizeAiStyle = (style?: AiStyleInput): Partial<BlockStyle> | null => {
+      if (!style) {
+        return null;
+      }
+
+      const normalized: Partial<BlockStyle> = {};
+
+      if (style.background || style.backgroundColor) {
+        const sourceBackground = style.background;
+        const backgroundType = style.backgroundColor
+          ? 'color'
+          : sourceBackground?.type;
+        const backgroundValue = style.backgroundColor
+          ? style.backgroundColor
+          : sourceBackground?.value;
+
+        if (backgroundType && typeof backgroundValue === 'string') {
+          normalized.background = {
+            ...sourceBackground,
+            type: backgroundType,
+            value: backgroundValue,
+          };
+        }
+      }
+
+      if (style.typography || style.color) {
+        normalized.typography = {
+          ...style.typography,
+          ...(style.color ? { color: style.color } : {}),
+        };
+      }
+
+      if (style.layout || style.height || style.minHeight || style.maxWidth) {
+        const sourceLayout = style.layout;
+        normalized.layout = {
+          display: sourceLayout?.display || 'block',
+          padding: sourceLayout?.padding || { top: '0', right: '0', bottom: '0', left: '0' },
+          margin: sourceLayout?.margin || { top: '0', right: '0', bottom: '0', left: '0' },
+          width: sourceLayout?.width || '100%',
+          maxWidth: sourceLayout?.maxWidth || '100%',
+          ...sourceLayout,
+          ...(style.height ? { minHeight: style.height } : {}),
+          ...(style.minHeight ? { minHeight: style.minHeight } : {}),
+          ...(style.maxWidth ? { maxWidth: style.maxWidth } : {}),
+        };
+      }
+
+      if (style.border) {
+        normalized.border = style.border;
+      }
+
+      return normalized;
+    };
+
+    const normalizedStyle = normalizeAiStyle(action.style as AiStyleInput | undefined);
+    if (normalizedStyle) {
+      if (normalizedStyle.background) {
+        block.style.background = { ...block.style.background, ...normalizedStyle.background };
+      }
+      if (normalizedStyle.typography) {
+        block.style.typography = { ...block.style.typography, ...normalizedStyle.typography };
+      }
+      if (normalizedStyle.layout) {
+        block.style.layout = {
+          ...block.style.layout,
+          ...normalizedStyle.layout,
+          padding: normalizedStyle.layout.padding
+            ? { ...block.style.layout.padding, ...normalizedStyle.layout.padding }
+            : block.style.layout.padding,
+          margin: normalizedStyle.layout.margin
+            ? { ...block.style.layout.margin, ...normalizedStyle.layout.margin }
+            : block.style.layout.margin,
+        };
+      }
+      if (normalizedStyle.border) {
+        block.style.border = { ...block.style.border, ...normalizedStyle.border };
+      }
+    }
+
+    if (action.blockType === 'navigation' && Array.isArray(action.props?.menuItems) && !Array.isArray(action.props?.items)) {
+      block.props.items = (action.props.menuItems as Array<Record<string, unknown>>).map((item, index) => ({
+        id: String(index + 1),
+        label: String(item.text || item.label || `Voce ${index + 1}`),
+        url: String(item.url || '#'),
+        children: [],
+      }));
+    }
+
+    if (action.blockType === 'columns') {
+      const childCount = Array.isArray(action.children) ? action.children.length : 0;
+      if (childCount > 0) {
+        block.props.columnCount = childCount;
+        const currentWidths = Array.isArray(block.props.columnWidths)
+          ? (block.props.columnWidths as unknown[]).map((width) => String(width))
+          : [];
+        if (currentWidths.length !== childCount) {
+          const evenWidth = `${(100 / childCount).toFixed(2)}%`;
+          block.props.columnWidths = Array.from({ length: childCount }, () => evenWidth);
+        }
+      }
+    }
+
+    if (Array.isArray(action.children) && action.children.length > 0) {
+      block.children = action.children
+        .map((child) => buildAiBlockTree(child))
+        .filter((child): child is NonNullable<typeof child> => Boolean(child));
+    }
+
+    return block;
+  };
+
+  const buildPresetBlockTree = (presetBlock: PresetBlock) => {
+    const def = getBlockDefinition(presetBlock.type);
+    if (!def) {
+      return null;
+    }
+
+    const block = createBlock(
+      def.type,
+      presetBlock.label || def.label,
+      { ...def.defaultProps, ...(presetBlock.props || {}) },
+      presetBlock.styleOverrides ? { ...def.defaultStyle, ...presetBlock.styleOverrides } : def.defaultStyle
+    );
+
+    block.id = generateId();
+
+    if (def.defaultDataSource) {
+      block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
+    }
+
+    if (presetBlock.styleOverrides) {
+      if (presetBlock.styleOverrides.background) block.style.background = { ...block.style.background, ...presetBlock.styleOverrides.background };
+      if (presetBlock.styleOverrides.typography) block.style.typography = { ...block.style.typography, ...presetBlock.styleOverrides.typography };
+      if (presetBlock.styleOverrides.layout) {
+        block.style.layout = {
+          ...block.style.layout,
+          ...presetBlock.styleOverrides.layout,
+          padding: presetBlock.styleOverrides.layout.padding
+            ? { ...block.style.layout.padding, ...presetBlock.styleOverrides.layout.padding }
+            : block.style.layout.padding,
+          margin: presetBlock.styleOverrides.layout.margin
+            ? { ...block.style.layout.margin, ...presetBlock.styleOverrides.layout.margin }
+            : block.style.layout.margin,
+        };
+      }
+      if (presetBlock.styleOverrides.border) {
+        block.style.border = { ...block.style.border, ...presetBlock.styleOverrides.border };
+      }
+    }
+
+    if (Array.isArray(presetBlock.children) && presetBlock.children.length > 0) {
+      block.children = presetBlock.children
+        .map((child) => buildPresetBlockTree(child))
+        .filter((child): child is NonNullable<typeof child> => Boolean(child));
+    }
+
+    return block;
+  };
+
+  const normalizeAiAction = (action: AiLayoutAction): AiLayoutAction => {
+    const normalized: AiLayoutAction = {
+      ...action,
+      props: { ...(action.props || {}) },
+      children: Array.isArray(action.children) ? action.children.map(normalizeAiAction) : action.children,
+    };
+
+    if (normalized.blockType === 'navigation') {
+      const currentItems = Array.isArray(normalized.props?.items) ? normalized.props.items as Array<Record<string, unknown>> : [];
+      if (currentItems.length > 0) {
+        normalized.props = {
+          ...normalized.props,
+          items: currentItems.map((item, index) => ({
+            id: String(item.id || index + 1),
+            label: String(item.label || item.text || item.title || `Voce ${index + 1}`),
+            url: String(item.url || item.link || '#'),
+            children: Array.isArray(item.children) ? item.children : [],
+          })),
+        };
+      }
+
+      const menuItems = Array.isArray(normalized.props?.menuItems) ? normalized.props.menuItems as Array<Record<string, unknown>> : [];
+      if ((!Array.isArray(normalized.props?.items) || !(normalized.props?.items as unknown[]).length) && menuItems.length > 0) {
+        normalized.props = {
+          ...normalized.props,
+          items: menuItems.map((item, index) => ({
+            id: String(index + 1),
+            label: String(item.label || item.text || item.title || `Voce ${index + 1}`),
+            url: String(item.url || item.link || '#'),
+            children: [],
+          })),
+        };
+      }
+    }
+
+    if (normalized.blockType === 'breaking-ticker') {
+      const items = Array.isArray(normalized.props?.items) ? normalized.props.items as Array<Record<string, unknown>> : [];
+      if ((!Array.isArray(normalized.props?.tickerItems) || !(normalized.props?.tickerItems as unknown[]).length) && items.length > 0) {
+        normalized.props = {
+          ...normalized.props,
+          tickerItems: items.map((item) => ({ text: String(item.text || item.title || item.label || '') })).filter((item) => item.text.trim().length > 0),
+        };
+      }
+    }
+
+    return normalized;
+  };
+
+  const blockTreeHasType = (blocks: Block[], types: BlockType[]) => {
+    const stack = [...blocks];
+    while (stack.length > 0) {
+      const current = stack.shift();
+      if (!current) continue;
+      if (types.includes(current.type)) {
+        return true;
+      }
+      if (Array.isArray(current.children) && current.children.length > 0) {
+        stack.push(...current.children);
+      }
+    }
+    return false;
+  };
+
+  const isEditorialPrompt = (prompt: string) =>
+    /giornal|testata|quotidian|news|notizi|breaking|tg|cronaca|sport|cultura|homepage/i.test(prompt);
+
+  const createDefaultBlock = (type: BlockType, label: string, props?: Record<string, unknown>) => {
+    const def = getBlockDefinition(type);
+    if (!def) return null;
+    const block = createBlock(def.type, label || def.label, { ...def.defaultProps, ...(props || {}) }, def.defaultStyle);
+    block.id = generateId();
+    if (def.defaultDataSource) {
+      block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
+    }
+    return block;
+  };
+
+  const buildEditorialScaffold = (blocks: Block[], prompt: string) => {
+    const upgradeEditorialColumns = (block: Block): Block => {
+      const nextBlock: Block = {
+        ...block,
+        children: Array.isArray(block.children) ? block.children.map(upgradeEditorialColumns) : [],
+      };
+
+      if (nextBlock.type === 'columns' && nextBlock.children.length === 3) {
+        const [left, center, right] = nextBlock.children;
+        const makeRail = (label: string) => {
+          const rail = createDefaultBlock('article-grid', label, {
+            title: label,
+            columns: 1,
+            maxItems: 4,
+          });
+          return rail;
+        };
+
+        nextBlock.children = [
+          ['text', 'section', 'container'].includes(left.type) ? (makeRail(left.label || 'Colonna Sinistra') || left) : left,
+          center.type === 'text'
+            ? (createDefaultBlock('article-hero', center.label || 'Apertura Centrale', {
+                variant: 'split',
+                showMeta: true,
+              }) || center)
+            : center,
+          ['text', 'section', 'container'].includes(right.type) ? (makeRail(right.label || 'Colonna Destra') || right) : right,
+        ];
+      }
+
+      return nextBlock;
+    };
+
+    if (!isEditorialPrompt(prompt)) {
+      return blocks;
+    }
+
+    if (blockTreeHasType(blocks, ['columns'])) {
+      return blocks.map(upgradeEditorialColumns);
+    }
+
+    const nav = blocks.find((block) => block.type === 'navigation') || createDefaultBlock('navigation', 'Navigazione');
+    const ticker = blocks.find((block) => block.type === 'breaking-ticker') || createDefaultBlock('breaking-ticker', 'Breaking');
+    const footer = blocks.find((block) => block.type === 'footer') || createDefaultBlock('footer', 'Footer');
+    const primaryHero =
+      blocks.find((block) => block.type === 'article-hero')
+      || blocks.find((block) => block.type === 'hero')
+      || createDefaultBlock('article-hero', 'Apertura Principale', {
+        variant: 'split',
+        showMeta: true,
+      });
+    const video = blocks.find((block) => block.type === 'video');
+
+    const leftRail = createDefaultBlock('article-grid', 'Colonna Sinistra', {
+      title: 'Ultime notizie',
+      columns: 1,
+      maxItems: 4,
+    });
+    const rightRail = createDefaultBlock('article-grid', 'Colonna Destra', {
+      title: 'In evidenza',
+      columns: 1,
+      maxItems: 4,
+    });
+    const centerBlock = primaryHero || createDefaultBlock('article-hero', 'Apertura Principale');
+
+    if (!leftRail || !rightRail || !centerBlock) {
+      return blocks;
+    }
+
+    const widths = /tg|breaking/i.test(prompt)
+      ? ['24%', '52%', '24%']
+      : /magazine|cultura|lifestyle/i.test(prompt)
+        ? ['22%', '56%', '22%']
+        : ['28%', '44%', '28%'];
+
+    const columns = createDefaultBlock('columns', 'Pacchetto editoriale', {
+      columnCount: 3,
+      columnWidths: widths,
+      gap: '24px',
+      stackOnMobile: true,
+    });
+    if (!columns) {
+      return blocks;
+    }
+    columns.children = [leftRail, centerBlock, rightRail];
+
+    const section = createDefaultBlock('section', 'Prima pagina', {
+      tag: 'section',
+      fullWidth: true,
+    });
+    if (!section) {
+      return blocks;
+    }
+    section.children = [columns];
+
+    const remainingBlocks = blocks.filter((block) => !['navigation', 'breaking-ticker', 'footer', 'hero', 'article-hero'].includes(block.type));
+    const preserved = remainingBlocks.filter((block) => block.type !== 'section');
+
+    return [
+      ...(nav ? [nav] : []),
+      ...(ticker ? [ticker] : []),
+      section,
+      ...(video ? [video] : []),
+      ...preserved.filter((block) => block.type !== 'video'),
+      ...(footer ? [footer] : []),
+    ];
+  };
+
+  const createWireframeSection = (label: string, minHeight: string, width = '100%') => {
+    const section = createBlock('section', label, { tag: 'section', fullWidth: true });
+    section.id = generateId();
+    section.style.layout.width = width;
+    section.style.layout.maxWidth = '100%';
+    section.style.layout.minHeight = minHeight;
+    section.style.layout.padding = { top: '0', right: '0', bottom: '0', left: '0' };
+    section.style.background = {
+      type: 'color',
+      value: 'rgba(59, 130, 246, 0.08)',
+      overlay: '',
+      parallax: false,
+      size: 'cover',
+      position: 'center',
+      repeat: 'no-repeat',
+    };
+    section.style.border = {
+      width: '2px',
+      style: 'dashed',
+      color: 'rgba(59, 130, 246, 0.85)',
+      radius: '0px',
+    };
+    section.style.typography = {
+      ...section.style.typography,
+      color: '#1d4ed8',
+    };
+    section.style.customCss = `
+      position: relative;
+    `;
+    return section;
+  };
+
+  const numericWidth = (value: string) => {
+    const parsed = Number.parseFloat(value.replace('%', '').trim());
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const getSingleColumnLabel = (rowIndex: number, totalRows: number, height: number) => {
+    if (rowIndex === 0) return 'Header';
+    if (rowIndex === totalRows - 1) return 'Footer';
+    if (height >= 45) return 'Hero';
+    if (height <= 8) return `Separatore ${rowIndex}`;
+    if (rowIndex === 1) return 'Sezione Principale';
+    return `Sezione ${rowIndex + 1}`;
+  };
+
+  const getColumnLabels = (cols: string[], rowIndex: number) => {
+    if (cols.length === 2) {
+      const [left, right] = cols.map(numericWidth);
+      if (rowIndex === 1 && left >= 60) return ['Contenuto Principale', 'Sidebar'];
+      if (rowIndex === 1 && right >= 60) return ['Sidebar', 'Contenuto Principale'];
+      if (left <= 28 && right >= 60) return ['Sidebar', 'Contenuto'];
+      if (right <= 28 && left >= 60) return ['Contenuto', 'Sidebar'];
+      return ['Colonna Sinistra', 'Colonna Destra'];
+    }
+
+    if (cols.length === 3) {
+      const [left, center, right] = cols.map(numericWidth);
+      if (center > left && center > right) return ['Colonna SX', 'Contenuto Centrale', 'Colonna DX'];
+      if (left > center && left > right) return ['Hero / Focus', 'Supporto', 'Supporto'];
+      if (right > center && right > left) return ['Supporto', 'Supporto', 'Hero / Focus'];
+      return ['Colonna 1', 'Colonna 2', 'Colonna 3'];
+    }
+
+    if (cols.length === 4) {
+      return ['Blocco 1', 'Blocco 2', 'Blocco 3', 'Blocco 4'];
+    }
+
+    return cols.map((_, index) => `Blocco ${index + 1}`);
+  };
+
+  const buildGridPresetBlocks = (preset: LayoutPresetDef) => {
+    return preset.rows.map((row, rowIndex) => {
+      const [height, ...cols] = row;
+      const heightPx = `${(height as number) * 5}px`;
+
+      if (cols.length === 1) {
+        return createWireframeSection(
+          getSingleColumnLabel(rowIndex, preset.rows.length, height as number),
+          heightPx,
+          cols[0] as string
+        );
+      }
+
+      const columns = createBlock('columns', `Riga ${rowIndex + 1}`, {
+        columnCount: cols.length,
+        columnWidths: cols,
+        gap: '16px',
+        stackOnMobile: true,
+      });
+      columns.id = generateId();
+      columns.style.layout.width = '100%';
+      columns.style.layout.maxWidth = '100%';
+      columns.style.layout.minHeight = heightPx;
+      columns.style.layout.padding = { top: '0', right: '0', bottom: '0', left: '0' };
+
+      const labels = getColumnLabels(cols as string[], rowIndex);
+      columns.children = cols.map((width, columnIndex) =>
+        createWireframeSection(labels[columnIndex] || `Blocco ${columnIndex + 1}`, heightPx, width as string)
+      );
+
+      return columns;
+    });
+  };
 
   // Initialize custom grid
   const initGrid = () => {
@@ -229,62 +966,147 @@ export function LayoutPresets({ open, onClose }: LayoutPresetsProps) {
     for (let r = 0; r < gridRows; r++) {
       const cells: GridCell[] = [];
       for (let c = 0; c < gridCols; c++) {
-        cells.push({
-          id: `${r}-${c}`,
-          colSpan: 1,
-          rowSpan: 1,
-          label: '',
-          color: CELL_COLORS[(r * gridCols + c) % CELL_COLORS.length],
-          blockType: null,
-        });
+        cells.push(makeCell(r, c));
       }
-      rows.push({ id: `row-${r}`, cells, height: 'auto' });
+      rows.push({ id: `row-${r}-${generateId()}`, cells, height: '220' });
     }
     setCustomGrid(rows);
+    setSelectedRowId(rows[0]?.id ?? null);
+    setSelectedCell(rows[0]?.cells[0]?.id ?? null);
+  };
+
+  const addRow = () => {
+    const nextIndex = customGrid.length;
+    const nextRow: GridRow = {
+      id: `row-${nextIndex}-${generateId()}`,
+      cells: [makeCell(nextIndex, 0)],
+      height: '220',
+    };
+    setCustomGrid((current) => [...current, nextRow]);
+    setSelectedRowId(nextRow.id);
+    setSelectedCell(nextRow.cells[0].id);
+  };
+
+  const removeSelectedRow = () => {
+    if (!selectedRowId || customGrid.length <= 1) return;
+    const remaining = customGrid.filter((row) => row.id !== selectedRowId);
+    setCustomGrid(remaining);
+    setSelectedRowId(remaining[0]?.id ?? null);
+    setSelectedCell(remaining[0]?.cells[0]?.id ?? null);
+  };
+
+  const mirrorSelectedRow = () => {
+    if (!selectedRowId) return;
+    updateGridRow(selectedRowId, (row) => ({ ...row, cells: [...row.cells].reverse() }));
+  };
+
+  const addCellToSelectedRow = () => {
+    if (!selectedRowId) return;
+    const rowIndex = customGrid.findIndex((row) => row.id === selectedRowId);
+    updateGridRow(selectedRowId, (row) => {
+      const nextCell = makeCell(Math.max(rowIndex, 0), row.cells.length);
+      setSelectedCell(nextCell.id);
+      return { ...row, cells: [...row.cells, nextCell] };
+    });
+  };
+
+  const removeSelectedCell = () => {
+    if (!selectedRowId || !selectedCell) return;
+    updateGridRow(selectedRowId, (row) => {
+      if (!row.cells.some((cell) => cell.id === selectedCell) || row.cells.length <= 1) {
+        return row;
+      }
+      const cells = row.cells.filter((cell) => cell.id !== selectedCell);
+      setSelectedCell(cells[0]?.id ?? null);
+      return { ...row, cells };
+    });
+  };
+
+  const applyRowRatioPreset = (weights: number[]) => {
+    if (!selectedRowId) return;
+    const rowIndex = customGrid.findIndex((row) => row.id === selectedRowId);
+    updateGridRow(selectedRowId, (row) => ({
+      ...row,
+      cells: weights.map((weight, index) => {
+        const existing = row.cells[index];
+        return existing
+          ? { ...existing, colSpan: weight }
+          : { ...makeCell(Math.max(rowIndex, 0), index, weight), colSpan: weight };
+      }),
+    }));
   };
 
   // Apply preset
   const applyPreset = (preset: FeaturedPreset) => {
-    const newBlocks = preset.blocks.map((pb) => {
-      const def = getBlockDefinition(pb.type);
-      if (!def) return null;
-      const block = createBlock(
-        def.type,
-        pb.label || def.label,
-        { ...def.defaultProps, ...(pb.props || {}) },
-        pb.styleOverrides ? { ...def.defaultStyle, ...pb.styleOverrides } : def.defaultStyle
-      );
-      // Apply deep style overrides
-      if (pb.styleOverrides) {
-        if (pb.styleOverrides.background) block.style.background = { ...block.style.background, ...pb.styleOverrides.background };
-        if (pb.styleOverrides.typography) block.style.typography = { ...block.style.typography, ...pb.styleOverrides.typography };
-        if (pb.styleOverrides.layout) {
-          block.style.layout = {
-            ...block.style.layout,
-            ...pb.styleOverrides.layout,
-            padding: pb.styleOverrides.layout.padding
-              ? { ...block.style.layout.padding, ...pb.styleOverrides.layout.padding }
-              : block.style.layout.padding,
-            margin: pb.styleOverrides.layout.margin
-              ? { ...block.style.layout.margin, ...pb.styleOverrides.layout.margin }
-              : block.style.layout.margin,
-          };
-        }
-      }
-      block.id = generateId();
-      if (def.defaultDataSource) {
-        block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
-      }
-      return block;
-    }).filter(Boolean);
-
-    setBlocks(newBlocks as NonNullable<typeof newBlocks[0]>[]);
-    onClose();
+    const newBlocks = preset.blocks
+      .map((block) => buildPresetBlockTree(block))
+      .filter((block): block is NonNullable<typeof block> => Boolean(block));
+    void applyBlocks(newBlocks);
   };
 
   // Apply custom grid as sections with columns
   const applyCustomGrid = () => {
     const blocks = customGrid.map((row) => {
+      const totalWeight = row.cells.reduce((sum, cell) => sum + Math.max(cell.colSpan, 1), 0);
+      const rowHeight = `${Math.max(Number(row.height) || 220, 80)}px`;
+      const rowHeightValue = Math.max(Number(row.height) || 220, 80);
+
+      const applyCellEnhancements = (block: Block, cell: GridCell, widthPercent: string) => {
+        block.props = {
+          ...block.props,
+          layoutAssignment: {
+            role: cell.blockType || 'section',
+            rowId: row.id,
+            rowHeight,
+            width: widthPercent,
+          },
+        };
+        block.style.layout.width = widthPercent;
+        block.style.layout.maxWidth = widthPercent;
+        block.style.layout.minHeight = `${Math.max(cell.minHeight || rowHeightValue, 80)}px`;
+        block.style.layout.padding = {
+          top: `${cell.padding}px`,
+          right: `${cell.padding}px`,
+          bottom: `${cell.padding}px`,
+          left: `${cell.padding}px`,
+        };
+        block.style.layout.position = 'relative';
+        block.style.layout.zIndex = cell.zIndex;
+        block.style.background = {
+          ...block.style.background,
+          type: 'color',
+          value: cell.color,
+        };
+        block.style.typography = {
+          ...block.style.typography,
+          color: '#ffffff',
+          textAlign: cell.align === 'start' ? 'left' : cell.align === 'end' ? 'right' : 'center',
+        };
+        block.style.customCss = [
+          'display:flex;',
+          'flex-direction:column;',
+          `justify-content:${cell.align === 'start' ? 'flex-start' : cell.align === 'end' ? 'flex-end' : 'center'};`,
+          cell.align === 'center' ? 'align-items:center;' : cell.align === 'end' ? 'align-items:flex-end;' : 'align-items:flex-start;',
+          'position:relative;',
+          `transform:translate(${cell.offsetX}px, ${cell.offsetY}px);`,
+          `z-index:${cell.zIndex};`,
+          cell.customCss || '',
+        ].join('\n');
+
+        if (cell.shape !== 'rect') {
+          const clipPaths: Record<Exclude<GridCell['shape'], 'rect'>, string> = {
+            'diagonal-left': 'polygon(0 0, 100% 0, 100% 100%, 0 82%)',
+            'diagonal-right': 'polygon(0 0, 100% 0, 100% 82%, 0 100%)',
+            'slant-top': 'polygon(0 12%, 100% 0, 100% 100%, 0 100%)',
+            'slant-bottom': 'polygon(0 0, 100% 0, 100% 88%, 0 100%)',
+          };
+          block.shape = {
+            type: 'clip-path',
+            value: clipPaths[cell.shape],
+          };
+        }
+      };
+
       if (row.cells.length === 1) {
         // Single cell = section
         const cell = row.cells[0];
@@ -296,27 +1118,35 @@ export function LayoutPresets({ open, onClose }: LayoutPresetsProps) {
         if (def.defaultDataSource) {
           block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
         }
+        applyCellEnhancements(block, cell, '100%');
         return block;
       } else {
         // Multiple cells = columns container
         const colBlock = createBlock('columns', `Riga ${row.id}`, {
           columnCount: row.cells.length,
-          columnWidths: row.cells.map(() => `${100 / row.cells.length}%`),
+          columnWidths: row.cells.map((cell) => `${(Math.max(cell.colSpan, 1) / totalWeight) * 100}%`),
           gap: `${gridGap}px`,
           stackOnMobile: true,
         });
         colBlock.id = generateId();
+        colBlock.style.layout.minHeight = rowHeight;
+        colBlock.style.layout.padding = { top: '8px', right: '0', bottom: '8px', left: '0' };
 
         colBlock.children = row.cells.map((cell) => {
           const blockType = cell.blockType || 'section';
           const def = getBlockDefinition(blockType);
-          if (!def) return createBlock('section', cell.label || 'Cella', {});
+          if (!def) {
+            const fallback = createBlock('section', cell.label || 'Cella', {});
+            fallback.id = generateId();
+            applyCellEnhancements(fallback, cell, `${(Math.max(cell.colSpan, 1) / totalWeight) * 100}%`);
+            return fallback;
+          }
           const child = createBlock(def.type, cell.label || def.label, def.defaultProps, def.defaultStyle);
           child.id = generateId();
           if (def.defaultDataSource) {
             child.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
           }
-          child.style.layout.width = `${(100 / row.cells.length) * cell.colSpan}%`;
+          applyCellEnhancements(child, cell, `${(Math.max(cell.colSpan, 1) / totalWeight) * 100}%`);
           return child;
         });
 
@@ -324,8 +1154,7 @@ export function LayoutPresets({ open, onClose }: LayoutPresetsProps) {
       }
     }).filter(Boolean);
 
-    setBlocks(blocks as NonNullable<typeof blocks[0]>[]);
-    onClose();
+    void applyBlocks(blocks as NonNullable<typeof blocks[0]>[]);
   };
 
   // AI suggest layout
@@ -338,25 +1167,29 @@ export function LayoutPresets({ open, onClose }: LayoutPresetsProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          taskType: 'suggest-layout',
+          tenant_id: currentTenant?.id,
+          taskType: 'layout',
           prompt: aiPrompt,
-          systemPrompt: `Sei un designer AI. L'utente descrive il sito che vuole. Tu DEVI rispondere con un JSON array di blocchi da creare.
+          systemPrompt: `Sei un designer operativo del builder layout CMS. L'utente descrive il sito che vuole. Tu DEVI rispondere con un JSON array di blocchi reali del builder.
 
 BLOCCHI DISPONIBILI: navigation, hero, text, image-gallery, video, audio, slideshow, carousel, comparison, divider, banner-ad, banner-zone, footer, sidebar, social, author-bio, related-content, newsletter, newsletter-signup, cms-form, timeline, quote, accordion, tabs, table, code, map, counter, custom-html, section, container, columns, article-grid, article-hero, category-nav, event-list, search-bar, breaking-ticker.
 
 FORMATO RISPOSTA (SOLO JSON, nessun testo):
 [
-  {"action":"add-block","blockType":"navigation","label":"Nome","props":{...},"style":{...}},
+  {"action":"add-block","blockType":"navigation","label":"Nome","props":{...},"style":{},"children":[]},
   ...altri blocchi...
 ]
 
 REGOLE:
 - Rispondi SOLO con JSON array
-- Crea TUTTI i blocchi necessari per una pagina completa
+- Crea TUTTI i blocchi necessari per una pagina completa con blocchi veri
 - Personalizza props con contenuti reali e pertinenti alla richiesta
 - Usa style overrides per colori e sfondi appropriati
 - Includi sempre navigation e footer
-- Sii creativo con i contenuti ma pertinente alla richiesta`,
+- Se serve una struttura complessa, usa "columns" con "children" annidati
+- I layout generati devono essere ORIGINALI e diversi dai preset standard gia presenti in libreria
+- Se l'utente chiede layout grafici spinti, usa section, columns, divider, custom-html, shape/divider CSS quando utile, ma sempre in formato blocchi reali
+- Non simulare layout con dati finti grafici: genera solo blocchi realmente supportati dal builder`,
         }),
       });
 
@@ -365,36 +1198,39 @@ REGOLE:
         // Parse and execute
         const cleaned = data.content.trim().replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
         try {
-          const actions = JSON.parse(cleaned.match(/\[[\s\S]*\]/)?.[0] || cleaned);
+          const actions = JSON.parse(cleaned.match(/\[[\s\S]*\]/)?.[0] || cleaned) as AiLayoutAction[];
           if (Array.isArray(actions)) {
-            const blocks = actions.filter((a: { action: string; blockType?: string }) => a.action === 'add-block' && a.blockType).map((a: { blockType: string; label?: string; props?: Record<string, unknown>; style?: Partial<BlockStyle> }) => {
-              const def = getBlockDefinition(a.blockType as BlockType);
-              if (!def) return null;
-              const block = createBlock(def.type, a.label || def.label, { ...def.defaultProps, ...(a.props || {}) }, def.defaultStyle);
-              if (a.style) {
-                if (a.style.background) block.style.background = { ...block.style.background, ...a.style.background };
-                if (a.style.typography) block.style.typography = { ...block.style.typography, ...a.style.typography };
-                if (a.style.layout) block.style.layout = { ...block.style.layout, ...a.style.layout, padding: a.style.layout?.padding ? { ...block.style.layout.padding, ...a.style.layout.padding } : block.style.layout.padding, margin: a.style.layout?.margin ? { ...block.style.layout.margin, ...a.style.layout.margin } : block.style.layout.margin };
-              }
-              block.id = generateId();
-              if (def.defaultDataSource) {
-                block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
-              }
-              return block;
-            }).filter(Boolean);
+            const normalizedActions = actions.map(normalizeAiAction);
+            const blocks = normalizedActions
+              .map((action) => buildAiBlockTree(action))
+              .filter((block): block is NonNullable<typeof block> => Boolean(block));
 
             if (blocks.length > 0) {
-              setBlocks(blocks as NonNullable<typeof blocks[0]>[]);
-              onClose();
+              const enrichedBlocks = buildEditorialScaffold(blocks, aiPrompt);
+              const generatedName = aiPrompt
+                .trim()
+                .slice(0, 72)
+                .replace(/\s+/g, ' ');
+              const applied = await applyBlocks(enrichedBlocks, {
+                generatedTemplate: {
+                  source: 'ai',
+                  name: generatedName || 'Layout IA',
+                },
+              });
+              if (applied) {
+                toast.success(onApplyBlocks ? 'Layout AI applicato alla pagina' : 'Layout AI applicato al builder');
+              }
               return;
             }
           }
-        } catch { /* parse error */ }
+        } catch {
+          toast.error('L’AI non ha generato un layout valido');
+        }
       }
       // If parsing failed, show error
-      alert('L\'AI non ha generato un layout valido. Riprova con una descrizione più dettagliata.');
+      toast.error('L’AI non ha generato un layout valido. Riprova con una descrizione più dettagliata.');
     } catch {
-      alert('Errore di connessione con l\'AI.');
+      toast.error('Errore di connessione con l’AI.');
     } finally {
       setAiLoading(false);
     }
@@ -402,55 +1238,12 @@ REGOLE:
 
   // Apply a config preset by generating sections from the row structure
   const applyGridPreset = (preset: LayoutPresetDef) => {
-    const blocks = preset.rows.map((row, ri) => {
-      const [height, ...cols] = row;
-      const heightPx = `${(height as number) * 5}px`; // Scale factor
-
-      if (cols.length === 1) {
-        const section = createBlock('section', `Sezione ${ri + 1}`, { tag: 'section', fullWidth: true });
-        section.id = generateId();
-        section.style.layout.minHeight = heightPx;
-        if (ri === 0) {
-          section.style.background = { type: 'color', value: '#1a1a2e', overlay: '', parallax: false, size: 'cover', position: 'center', repeat: 'no-repeat' };
-          section.style.typography.color = '#ffffff';
-          section.style.layout.padding = { top: '16px', right: '32px', bottom: '16px', left: '32px' };
-        } else if (ri === preset.rows.length - 1) {
-          section.style.background = { type: 'color', value: '#111827', overlay: '', parallax: false, size: 'cover', position: 'center', repeat: 'no-repeat' };
-          section.style.typography.color = '#cccccc';
-          section.style.layout.padding = { top: '32px', right: '32px', bottom: '32px', left: '32px' };
-        }
-        return section;
-      } else {
-        const colBlock = createBlock('columns', `Riga ${ri + 1}`, {
-          columnCount: cols.length,
-          columnWidths: cols,
-          gap: '16px',
-          stackOnMobile: true,
-        });
-        colBlock.id = generateId();
-        colBlock.style.layout.minHeight = heightPx;
-        colBlock.children = cols.map((width, ci) => {
-          const child = createBlock('section', `Cella R${ri + 1}C${ci + 1}`, {});
-          child.id = generateId();
-          child.style.layout.width = width as string;
-          child.style.layout.minHeight = heightPx;
-          child.style.background = { type: 'color', value: '#f8fafc', overlay: '', parallax: false, size: 'cover', position: 'center', repeat: 'no-repeat' };
-          child.style.border = { width: '1px', style: 'dashed', color: '#e2e8f0', radius: '8px' };
-          return child;
-        });
-        return colBlock;
-      }
-    });
-
-    setBlocks(blocks);
-    onClose();
+    const blocks = buildGridPresetBlocks(preset);
+    void applyBlocks(blocks);
   };
 
   const categories = [
     { id: 'all', label: 'Tutti' },
-    { id: '2-colonne', label: '2 Colonne' },
-    { id: '3-colonne', label: '3 Colonne' },
-    { id: '4-colonne', label: '4 Colonne' },
     { id: 'editorial', label: 'Editoriale' },
     { id: 'news', label: 'News/TG' },
     { id: 'magazine', label: 'Magazine' },
@@ -459,19 +1252,90 @@ REGOLE:
     { id: 'portfolio', label: 'Portfolio' },
     { id: 'corporate', label: 'Corporate' },
     { id: 'creative', label: 'Creativo' },
+    { id: 'broadsheet', label: 'Broadsheet' },
+    { id: 'fullwidth', label: 'Full Width' },
+    { id: 'showcase', label: 'Showcase' },
     { id: 'minimal', label: 'Minimale' },
-    { id: 'fantasy', label: 'Fantasy' },
   ];
 
   // Merge featured presets (with blocks) and config presets (grid only)
   const allPresets = [
-    ...LAYOUT_PRESETS.map(p => ({ ...p, _featured: true as const })),
-    ...CONFIG_PRESETS.map(p => ({ ...p, _featured: false as const })),
+    ...LAYOUT_PRESETS.map((p, index) => ({
+      ...p,
+      _featured: true as const,
+      _libraryKey: `featured:${p.category}:${p.id}:${index}`,
+    })),
+    ...CONFIG_PRESETS.map((p, index) => ({
+      ...p,
+      _featured: false as const,
+      _libraryKey: `config:${p.category}:${p.id}:${index}`,
+    })),
   ];
 
   const filteredPresets = selectedCategory === 'all'
     ? allPresets
     : allPresets.filter(p => p.category === selectedCategory);
+  const selectedRow = customGrid.find((row) => row.id === selectedRowId) || null;
+  const selectedCellData = selectedRow?.cells.find((cell) => cell.id === selectedCell) || null;
+
+  const renderPresetThumbnail = (preset: typeof filteredPresets[number]) => {
+    const rows = 'rows' in preset ? (preset as LayoutPresetDef).rows : null;
+    if (!rows) {
+      return <div className="flex-1 bg-zinc-200/60 dark:bg-zinc-700/50" />;
+    }
+
+    const totalHeight = rows.reduce((sum, r) => sum + (r[0] as number), 0);
+
+    return rows.map((row, ri) => {
+      const [height, ...cols] = row;
+      const heightPercent = ((height as number) / totalHeight) * 100;
+      const singleLabel = cols.length === 1 ? getSingleColumnLabel(ri, rows.length, height as number) : null;
+      const labels = cols.length > 1 ? getColumnLabels(cols as string[], ri) : [];
+      const isHeader = ri === 0;
+      const isFooter = ri === rows.length - 1;
+
+      return (
+        <div
+          key={`${preset.id}-row-${ri}`}
+          className="flex gap-[4px] shrink-0"
+          style={{ height: `${heightPercent}%`, minHeight: 10 }}
+        >
+          {cols.map((width, ci) => (
+            <div
+              key={`${preset.id}-cell-${ri}-${ci}`}
+              className="border border-dashed px-1 py-1 flex items-start overflow-hidden"
+              style={{
+                width: width as string,
+                minWidth: 10,
+                borderColor: isHeader
+                  ? 'rgba(29, 78, 216, 0.95)'
+                  : isFooter
+                    ? 'rgba(37, 99, 235, 0.9)'
+                    : 'rgba(59, 130, 246, 0.82)',
+                backgroundColor: isHeader
+                  ? 'rgba(29, 78, 216, 0.14)'
+                  : isFooter
+                    ? 'rgba(37, 99, 235, 0.14)'
+                    : ci % 2 === 1
+                      ? 'rgba(96, 165, 250, 0.12)'
+                      : 'rgba(59, 130, 246, 0.08)',
+              }}
+            >
+              <div className="min-w-0 w-full">
+                <div className="text-[8px] font-semibold uppercase tracking-[0.08em] leading-none truncate text-blue-700 dark:text-blue-300">
+                  {singleLabel || labels[ci] || `Blocco ${ci + 1}`}
+                </div>
+                <div className="mt-1 flex flex-col gap-[2px]">
+                  <div className="h-[4px] bg-blue-300/70 dark:bg-blue-200/40 w-[85%]" />
+                  <div className="h-[4px] bg-blue-200/70 dark:bg-blue-100/30 w-[58%]" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    });
+  };
 
   if (!open) return null;
 
@@ -481,7 +1345,12 @@ REGOLE:
       <div className="relative bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-700 w-[95vw] max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-700">
-          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Layout & Template</h2>
+          <div>
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Layout & Template</h2>
+            <p className="text-xs mt-1 text-zinc-500 dark:text-zinc-400">
+              Questa libreria usa i template builder condivisi con il modulo Layout del CMS.
+            </p>
+          </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500">
             <X size={18} />
           </button>
@@ -540,73 +1409,26 @@ REGOLE:
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {filteredPresets.map((preset) => {
                   const isFeatured = preset._featured && 'blocks' in preset;
-                  // Use rows for config presets
                   const rows = 'rows' in preset ? (preset as LayoutPresetDef).rows : null;
                   const maxCols = rows
                     ? Math.max(...rows.map(r => r.length - 1))
                     : 1;
-                  // Calculate total height for proportional rendering
-                  const totalHeight = rows
-                    ? rows.reduce((sum, r) => sum + (r[0] as number), 0)
-                    : 100;
 
                   return (
                     <div
-                      key={preset.id}
-                      className="group border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-lg transition-all cursor-pointer"
+                      key={preset._libraryKey}
+                      className={cn(
+                        'group border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-lg transition-all',
+                        applying && 'pointer-events-none opacity-70'
+                      )}
                       onClick={() => {
                         if (isFeatured) applyPreset(preset as unknown as FeaturedPreset);
                         else if (rows) applyGridPreset(preset as LayoutPresetDef);
                       }}
                     >
-                      {/* Thumbnail: SVG or proportional grid */}
+                      {/* Thumbnail: outlined layout preview */}
                       <div className="p-2.5 bg-zinc-50 dark:bg-zinc-800/80 h-36 flex flex-col gap-[2px]">
-                        {/* SVG thumbnail */}
-                        {'svg' in preset && (preset as LayoutPresetDef).svg ? (
-                          <div
-                            className="w-full h-full [&_svg]:w-full [&_svg]:h-full [&_svg]:rounded group-hover:[&_polygon]:fill-blue-400 group-hover:[&_rect:not(:first-child):not(:last-child)]:fill-blue-300 group-hover:[&_path]:fill-blue-400 group-hover:[&_circle]:fill-blue-400 group-hover:[&_ellipse]:fill-blue-400 transition-all"
-                            dangerouslySetInnerHTML={{ __html: (preset as LayoutPresetDef).svg || '' }}
-                          />
-                        ) : rows ? rows.map((row, ri) => {
-                          const [height, ...cols] = row;
-                          const heightPercent = ((height as number) / totalHeight) * 100;
-                          const isHeader = ri === 0;
-                          const isFooter = ri === rows.length - 1;
-
-                          return (
-                            <div
-                              key={ri}
-                              className="flex gap-[2px] shrink-0"
-                              style={{ height: `${heightPercent}%`, minHeight: 3 }}
-                            >
-                              {cols.map((width, ci) => (
-                                <div
-                                  key={ci}
-                                  className={cn(
-                                    'rounded-[2px] transition-colors',
-                                    isHeader
-                                      ? 'bg-zinc-500 dark:bg-zinc-500 group-hover:bg-blue-600'
-                                      : isFooter
-                                        ? 'bg-zinc-400 dark:bg-zinc-500 group-hover:bg-blue-500'
-                                        : cols.length === 1
-                                          ? 'bg-zinc-300 dark:bg-zinc-600 group-hover:bg-blue-400'
-                                          : 'bg-zinc-250 dark:bg-zinc-650 group-hover:bg-blue-300 dark:group-hover:bg-blue-500',
-                                    // Slightly different shade for variety
-                                    !isHeader && !isFooter && ci % 2 === 1 && 'opacity-80'
-                                  )}
-                                  style={{
-                                    width: width as string,
-                                    minWidth: 4,
-                                    backgroundColor: isHeader ? undefined : isFooter ? undefined : undefined,
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          );
-                        }) : (
-                          /* Fallback */
-                          <div className="flex-1 bg-zinc-300 dark:bg-zinc-600 rounded" />
-                        )}
+                        {renderPresetThumbnail(preset)}
                       </div>
 
                       <div className="px-2.5 py-2">
@@ -629,139 +1451,430 @@ REGOLE:
           {/* === CUSTOM GRID TAB === */}
           {tab === 'custom' && (
             <div>
-              {/* Controls */}
-              <div className="flex items-center gap-6 mb-6 flex-wrap">
+              <div className="flex items-center gap-3 mb-6 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-zinc-500">Colonne:</span>
+                  <span className="text-xs font-medium text-zinc-500">Base colonne:</span>
                   <button onClick={() => setGridCols(Math.max(1, gridCols - 1))} className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700"><Minus size={14} /></button>
                   <span className="text-lg font-bold text-zinc-900 dark:text-zinc-100 w-8 text-center">{gridCols}</span>
                   <button onClick={() => setGridCols(Math.min(12, gridCols + 1))} className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700"><Plus size={14} /></button>
                 </div>
-
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-zinc-500">Righe:</span>
+                  <span className="text-xs font-medium text-zinc-500">Base righe:</span>
                   <button onClick={() => setGridRows(Math.max(1, gridRows - 1))} className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700"><Minus size={14} /></button>
                   <span className="text-lg font-bold text-zinc-900 dark:text-zinc-100 w-8 text-center">{gridRows}</span>
                   <button onClick={() => setGridRows(Math.min(20, gridRows + 1))} className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700"><Plus size={14} /></button>
                 </div>
-
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-zinc-500">Gap:</span>
-                  <input
-                    type="range" min={0} max={48} value={gridGap}
-                    onChange={(e) => setGridGap(Number(e.target.value))}
-                    className="w-24"
-                  />
+                  <input type="range" min={0} max={48} value={gridGap} onChange={(e) => setGridGap(Number(e.target.value))} className="w-24" />
                   <span className="text-xs font-mono text-zinc-400">{gridGap}px</span>
                 </div>
-
                 <button onClick={initGrid} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700">
-                  <RotateCcw size={12} /> Rigenera
+                  <RotateCcw size={12} /> Nuova base
                 </button>
-                <button onClick={() => { setGridCols(Math.floor(Math.random() * 4) + 1); setGridRows(Math.floor(Math.random() * 6) + 3); setTimeout(initGrid, 50); }} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700">
+                <button
+                  onClick={() => {
+                    setGridCols(Math.floor(Math.random() * 4) + 1);
+                    setGridRows(Math.floor(Math.random() * 6) + 3);
+                    setTimeout(initGrid, 50);
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                >
                   <Shuffle size={12} /> Random
                 </button>
+                <button onClick={addRow} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950 text-xs font-medium text-blue-600 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900">
+                  <Plus size={12} /> Aggiungi riga
+                </button>
+                <button onClick={removeSelectedRow} disabled={!selectedRow} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-medium text-zinc-600 disabled:opacity-40">
+                  <Minus size={12} /> Elimina riga
+                </button>
+                <button onClick={addCellToSelectedRow} disabled={!selectedRow} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-medium text-zinc-600 disabled:opacity-40">
+                  <Plus size={12} /> Aggiungi blocco
+                </button>
+                <button onClick={removeSelectedCell} disabled={!selectedCellData} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-medium text-zinc-600 disabled:opacity-40">
+                  <Minus size={12} /> Elimina blocco
+                </button>
+                <button onClick={mirrorSelectedRow} disabled={!selectedRow || !selectedRow.cells.length} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-medium text-zinc-600 disabled:opacity-40">
+                  <Shuffle size={12} /> Specchia riga
+                </button>
+                <button onClick={duplicateSelectedCell} disabled={!selectedCellData} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-medium text-zinc-600 disabled:opacity-40">
+                  <Copy size={12} /> Duplica blocco
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSnapEnabled((current) => !current)}
+                  className={cn(
+                    'flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition',
+                    snapEnabled
+                      ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600'
+                  )}
+                >
+                  <MoveHorizontal size={12} /> Magneti {snapEnabled ? 'ON' : 'OFF'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGuidesEnabled((current) => !current)}
+                  className={cn(
+                    'flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition',
+                    guidesEnabled
+                      ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600'
+                  )}
+                >
+                  <Grid3X3 size={12} /> Guide {guidesEnabled ? 'ON' : 'OFF'}
+                </button>
               </div>
 
-              {/* Grid preview */}
-              <div className="border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 bg-zinc-50 dark:bg-zinc-800 mb-4">
-                <div className="space-y-1" style={{ gap: gridGap }}>
-                  {customGrid.map((row, ri) => (
-                    <div key={row.id} className="flex" style={{ gap: gridGap }}>
-                      {row.cells.map((cell, ci) => (
-                        <button
-                          key={cell.id}
-                          onClick={() => setSelectedCell(cell.id)}
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_360px] gap-4">
+                <div className="border border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 bg-zinc-50 dark:bg-zinc-800">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 mb-3">Canvas layout manuale</div>
+                  <div className="space-y-3">
+                    {customGrid.map((row, ri) => {
+                      const totalWeight = row.cells.reduce((sum, cell) => sum + Math.max(cell.colSpan, 1), 0);
+                      return (
+                        <div
+                          key={row.id}
                           className={cn(
-                            'h-16 rounded-lg flex items-center justify-center text-white text-xs font-medium transition-all hover:opacity-80',
-                            selectedCell === cell.id && 'ring-2 ring-white ring-offset-2 ring-offset-zinc-800'
+                            'rounded-2xl border p-3 transition-all relative',
+                            selectedRowId === row.id
+                              ? 'border-blue-500 shadow-[0_0_0_3px_rgba(59,130,246,0.12)]'
+                              : 'border-zinc-200 dark:border-zinc-700'
                           )}
-                          style={{
-                            backgroundColor: cell.color,
-                            flex: cell.colSpan,
+                          style={{ background: 'rgba(255,255,255,0.55)' }}
+                          ref={(node) => {
+                            rowRefs.current[row.id] = node;
+                          }}
+                          onClick={() => {
+                            setSelectedRowId(row.id);
+                            setSelectedCell(row.cells[0]?.id ?? null);
                           }}
                         >
-                          {cell.label || cell.blockType || `R${ri + 1}C${ci + 1}`}
-                        </button>
-                      ))}
-                    </div>
-                  ))}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-[11px] font-semibold text-zinc-500 uppercase">
+                              Riga {ri + 1}
+                            </div>
+                            <div className="text-[10px] font-mono text-zinc-400">
+                              {row.cells.length} blocchi • {row.height}px
+                            </div>
+                          </div>
+                          <div
+                            className="flex items-stretch relative"
+                            style={{
+                              gap: gridGap,
+                              backgroundImage: guidesEnabled
+                                ? 'linear-gradient(to right, rgba(59,130,246,0.08) 1px, transparent 1px)'
+                                : 'none',
+                              backgroundSize: guidesEnabled ? '24px 24px' : undefined,
+                            }}
+                          >
+                            {row.cells.map((cell, ci) => (
+                              <button
+                                key={cell.id}
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setSelectedRowId(row.id);
+                                  setSelectedCell(cell.id);
+                                }}
+                                className={cn(
+                                  'rounded-xl border text-white text-left px-3 py-3 relative overflow-hidden transition-all select-none',
+                                  selectedCell === cell.id
+                                    ? 'border-white shadow-[0_0_0_3px_rgba(255,255,255,0.35)]'
+                                    : 'border-white/20'
+                                )}
+                                style={{
+                                  background: `linear-gradient(135deg, ${cell.color} 0%, color-mix(in srgb, ${cell.color} 70%, #111827) 100%)`,
+                                  flex: Math.max(cell.colSpan, 1),
+                                  minHeight: `${Math.max(cell.minHeight || Number(row.height) || 220, 80)}px`,
+                                  transform: `translate(${cell.offsetX}px, ${cell.offsetY}px)`,
+                                  zIndex: cell.zIndex,
+                                  clipPath:
+                                    cell.shape === 'rect'
+                                      ? 'none'
+                                      : cell.shape === 'diagonal-left'
+                                        ? 'polygon(0 0, 100% 0, 100% 100%, 0 82%)'
+                                        : cell.shape === 'diagonal-right'
+                                          ? 'polygon(0 0, 100% 0, 100% 82%, 0 100%)'
+                                          : cell.shape === 'slant-top'
+                                            ? 'polygon(0 12%, 100% 0, 100% 100%, 0 100%)'
+                                            : 'polygon(0 0, 100% 0, 100% 88%, 0 100%)',
+                                }}
+                                >
+                                {ci > 0 && (
+                                  <span
+                                    onMouseDown={(event) => startCellResize(event, row.id, ci, 'left')}
+                                    className="absolute left-0 top-0 h-full w-3 -translate-x-1/2 cursor-col-resize z-20"
+                                    title="Trascina per ridimensionare"
+                                  />
+                                )}
+                                {ci < row.cells.length - 1 && (
+                                  <span
+                                    onMouseDown={(event) => startCellResize(event, row.id, ci, 'right')}
+                                    className="absolute right-0 top-0 h-full w-3 translate-x-1/2 cursor-col-resize z-20"
+                                    title="Trascina per ridimensionare"
+                                  />
+                                )}
+                                <div className="absolute top-2 right-2 text-[10px] font-mono opacity-70">
+                                  {Math.round((Math.max(cell.colSpan, 1) / totalWeight) * 100)}%
+                                </div>
+                                <div className="text-[10px] uppercase tracking-[0.14em] opacity-75 mb-2">
+                                  {cell.blockType || `blocco ${ci + 1}`}
+                                </div>
+                                <div className="text-sm font-semibold leading-tight">
+                                  {cell.label || `R${ri + 1} / C${ci + 1}`}
+                                </div>
+                                <div className="mt-2 text-[11px] opacity-80">
+                                  {cell.shape} • {cell.align} • {Math.max(cell.minHeight || Number(row.height) || 220, 80)}px
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onMouseDown={(event) => startRowResize(event, row.id)}
+                            className="absolute left-1/2 bottom-0 h-3 w-24 -translate-x-1/2 translate-y-1/2 cursor-row-resize rounded-full border border-blue-300/70 bg-white/90 text-[10px] font-medium text-blue-600 shadow-sm"
+                            title="Trascina per cambiare altezza riga"
+                          >
+                            trascina altezza
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
 
-              {/* Cell editor */}
-              {selectedCell && (() => {
-                const row = customGrid.find(r => r.cells.some(c => c.id === selectedCell));
-                const cell = row?.cells.find(c => c.id === selectedCell);
-                if (!cell) return null;
-
-                return (
-                  <div className="border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 mb-4">
-                    <h4 className="text-xs font-semibold text-zinc-500 uppercase mb-3">Configura cella: {cell.id}</h4>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="text-xs text-zinc-500 mb-1 block">Etichetta</label>
+                <div className="space-y-4">
+                  <div className="border border-zinc-200 dark:border-zinc-700 rounded-xl p-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 mb-3">Riga selezionata</div>
+                    {selectedRow ? (
+                      <>
+                        <label className="text-xs text-zinc-500 mb-1 block">Altezza riga</label>
                         <input
-                          value={cell.label}
-                          onChange={(e) => {
-                            setCustomGrid(customGrid.map(r => ({
-                              ...r,
-                              cells: r.cells.map(c => c.id === selectedCell ? { ...c, label: e.target.value } : c)
-                            })));
-                          }}
-                          className="w-full px-2 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
-                          placeholder="Nome sezione"
+                          type="range"
+                          min={80}
+                          max={760}
+                          step={10}
+                          value={Number(selectedRow.height) || 220}
+                          onChange={(e) => updateGridRow(selectedRow.id, (row) => ({ ...row, height: e.target.value }))}
+                          className="w-full"
                         />
-                      </div>
-                      <div>
-                        <label className="text-xs text-zinc-500 mb-1 block">Tipo blocco</label>
-                        <select
-                          value={cell.blockType || ''}
-                          onChange={(e) => {
-                            setCustomGrid(customGrid.map(r => ({
-                              ...r,
-                              cells: r.cells.map(c => c.id === selectedCell ? { ...c, blockType: (e.target.value || null) as BlockType | null } : c)
-                            })));
-                          }}
-                          className="w-full px-2 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
-                        >
-                          <option value="">Sezione vuota</option>
-                          <option value="hero">Hero</option>
-                          <option value="text">Testo</option>
-                          <option value="image-gallery">Galleria</option>
-                          <option value="video">Video</option>
-                          <option value="banner-ad">Banner ADV</option>
-                          <option value="navigation">Navigazione</option>
-                          <option value="footer">Footer</option>
-                          <option value="sidebar">Sidebar</option>
-                          <option value="quote">Citazione</option>
-                          <option value="newsletter">Newsletter</option>
-                          <option value="counter">Contatori</option>
-                          <option value="slideshow">Slideshow</option>
-                          <option value="related-content">Contenuti correlati</option>
-                          <option value="accordion">Accordion</option>
-                          <option value="timeline">Timeline</option>
-                          <option value="social">Social</option>
-                          <option value="author-bio">Bio autore</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs text-zinc-500 mb-1 block">Span colonne</label>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => setCustomGrid(customGrid.map(r => ({ ...r, cells: r.cells.map(c => c.id === selectedCell ? { ...c, colSpan: Math.max(1, c.colSpan - 1) } : c) })))} className="w-6 h-6 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xs">-</button>
-                          <span className="text-sm font-bold w-6 text-center">{cell.colSpan}</span>
-                          <button onClick={() => setCustomGrid(customGrid.map(r => ({ ...r, cells: r.cells.map(c => c.id === selectedCell ? { ...c, colSpan: c.colSpan + 1 } : c) })))} className="w-6 h-6 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xs">+</button>
+                        <div className="text-xs font-mono text-zinc-400 mt-1 mb-3">{selectedRow.height}px</div>
+                        <div className="text-xs text-zinc-500 mb-2">Preset larghezze</div>
+                        <div className="grid grid-cols-1 gap-2">
+                          {ROW_RATIO_PRESETS.map((preset) => (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              onClick={() => applyRowRatioPreset(preset.weights)}
+                              className="px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-left hover:border-blue-400 hover:text-blue-600 transition"
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="mt-3 rounded-lg bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-[11px] text-zinc-500">
+                          Puoi anche trascinare il bordo inferiore della riga direttamente nel canvas.
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-sm text-zinc-400">Seleziona una riga del layout.</div>
+                    )}
+                  </div>
+
+                  <div className="border border-zinc-200 dark:border-zinc-700 rounded-xl p-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 mb-3">Blocco selezionato</div>
+                    {selectedCellData ? (
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <label className="text-xs text-zinc-500 mb-1 block">Etichetta</label>
+                          <input
+                            value={selectedCellData.label}
+                            onChange={(e) => updateGridCell(selectedCellData.id, (cell) => ({ ...cell, label: e.target.value }))}
+                            className="w-full px-2 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                            placeholder="Nome sezione"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-zinc-500 mb-1 block">Tipo blocco</label>
+                          <select
+                            value={selectedCellData.blockType || ''}
+                            onChange={(e) => updateGridCell(selectedCellData.id, (cell) => ({ ...cell, blockType: (e.target.value || null) as BlockType | null }))}
+                            className="w-full px-2 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                          >
+                            {BLOCK_TYPE_OPTIONS.map((option) => (
+                              <option key={option.label} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-zinc-500 mb-1 block">Peso larghezza</label>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => updateGridCell(selectedCellData.id, (cell) => ({ ...cell, colSpan: Math.max(1, cell.colSpan - 1) }))} className="w-7 h-7 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xs">-</button>
+                              <span className="text-sm font-bold w-8 text-center">{selectedCellData.colSpan}</span>
+                              <button onClick={() => updateGridCell(selectedCellData.id, (cell) => ({ ...cell, colSpan: cell.colSpan + 1 }))} className="w-7 h-7 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xs">+</button>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-xs text-zinc-500 mb-1 block">Allineamento</label>
+                            <select
+                              value={selectedCellData.align}
+                              onChange={(e) => updateGridCell(selectedCellData.id, (cell) => ({ ...cell, align: e.target.value as GridCell['align'] }))}
+                              className="w-full px-2 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                            >
+                              <option value="start">Sinistra / alto</option>
+                              <option value="center">Centro</option>
+                              <option value="end">Destra / basso</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-zinc-500 mb-1 block">Altezza blocco</label>
+                            <input
+                              type="range"
+                              min={80}
+                              max={760}
+                              step={10}
+                              value={selectedCellData.minHeight ?? (Number(selectedRow?.height) || 220)}
+                              onChange={(e) => updateGridCell(selectedCellData.id, (cell) => ({ ...cell, minHeight: Number(e.target.value) }))}
+                              className="w-full"
+                            />
+                            <div className="text-xs font-mono text-zinc-400 mt-1">
+                              {selectedCellData.minHeight ?? (Number(selectedRow?.height) || 220)}px
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-xs text-zinc-500 mb-1 block">Padding interno</label>
+                            <input
+                              type="range"
+                              min={0}
+                              max={72}
+                              step={2}
+                              value={selectedCellData.padding}
+                              onChange={(e) => updateGridCell(selectedCellData.id, (cell) => ({ ...cell, padding: Number(e.target.value) }))}
+                              className="w-full"
+                            />
+                            <div className="text-xs font-mono text-zinc-400 mt-1">{selectedCellData.padding}px</div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => moveSelectedCell('left')}
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-700 px-2 py-2 text-xs font-medium"
+                          >
+                            <ArrowLeft size={12} /> Sinistra
+                          </button>
+                          <button
+                            type="button"
+                            onClick={duplicateSelectedCell}
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-700 px-2 py-2 text-xs font-medium"
+                          >
+                            <Copy size={12} /> Duplica
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveSelectedCell('right')}
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-700 px-2 py-2 text-xs font-medium"
+                          >
+                            Destra <ArrowRight size={12} />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-xs text-zinc-500 mb-1 block">Offset X</label>
+                            <input
+                              type="range"
+                              min={-220}
+                              max={220}
+                              step={2}
+                              value={selectedCellData.offsetX}
+                              onChange={(e) => updateGridCell(selectedCellData.id, (cell) => ({ ...cell, offsetX: Number(e.target.value) }))}
+                              className="w-full"
+                            />
+                            <div className="text-xs font-mono text-zinc-400 mt-1">{selectedCellData.offsetX}px</div>
+                          </div>
+                          <div>
+                            <label className="text-xs text-zinc-500 mb-1 block">Offset Y</label>
+                            <input
+                              type="range"
+                              min={-220}
+                              max={220}
+                              step={2}
+                              value={selectedCellData.offsetY}
+                              onChange={(e) => updateGridCell(selectedCellData.id, (cell) => ({ ...cell, offsetY: Number(e.target.value) }))}
+                              className="w-full"
+                            />
+                            <div className="text-xs font-mono text-zinc-400 mt-1">{selectedCellData.offsetY}px</div>
+                          </div>
+                          <div>
+                            <label className="text-xs text-zinc-500 mb-1 block">Livello</label>
+                            <input
+                              type="range"
+                              min={0}
+                              max={20}
+                              step={1}
+                              value={selectedCellData.zIndex}
+                              onChange={(e) => updateGridCell(selectedCellData.id, (cell) => ({ ...cell, zIndex: Number(e.target.value) }))}
+                              className="w-full"
+                            />
+                            <div className="text-xs font-mono text-zinc-400 mt-1">z-{selectedCellData.zIndex}</div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-zinc-500 mb-1 block">Forma</label>
+                            <select
+                              value={selectedCellData.shape}
+                              onChange={(e) => updateGridCell(selectedCellData.id, (cell) => ({ ...cell, shape: e.target.value as GridCell['shape'] }))}
+                              className="w-full px-2 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                            >
+                              <option value="rect">Rettangolo</option>
+                              <option value="diagonal-left">Diagonale sinistra</option>
+                              <option value="diagonal-right">Diagonale destra</option>
+                              <option value="slant-top">Taglio alto</option>
+                              <option value="slant-bottom">Taglio basso</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-zinc-500 mb-1 block">Colore base</label>
+                            <input
+                              type="color"
+                              value={selectedCellData.color}
+                              onChange={(e) => updateGridCell(selectedCellData.id, (cell) => ({ ...cell, color: e.target.value }))}
+                              className="w-full h-9 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs text-zinc-500 mb-1 block">CSS custom del blocco</label>
+                          <textarea
+                            value={selectedCellData.customCss}
+                            onChange={(e) => updateGridCell(selectedCellData.id, (cell) => ({ ...cell, customCss: e.target.value }))}
+                            rows={4}
+                            className="w-full px-2 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 font-mono"
+                            placeholder="margin-top:-40px;&#10;z-index:4;&#10;border-radius:24px;"
+                          />
+                        </div>
+                        <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-[11px] text-zinc-500">
+                          Suggerimento: trascina i lati del blocco nel canvas per cambiare misura. Con `Magneti ON` il ridimensionamento si aggancia in step regolari.
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="text-sm text-zinc-400">Seleziona un blocco nel canvas layout.</div>
+                    )}
                   </div>
-                );
-              })()}
+                </div>
+              </div>
 
               {/* Apply button */}
               <div className="flex justify-end">
-                <Button variant="primary" onClick={applyCustomGrid}>
-                  <Check size={16} />
+                <Button variant="primary" onClick={applyCustomGrid} disabled={applying}>
+                  {applying ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                   Applica layout alla pagina
                 </Button>
               </div>
@@ -784,8 +1897,8 @@ REGOLE:
                   rows={3}
                   className="flex-1 px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 resize-none"
                 />
-                <Button variant="primary" onClick={handleAiSuggest} disabled={aiLoading || !aiPrompt.trim()} className="self-end">
-                  {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                <Button variant="primary" onClick={handleAiSuggest} disabled={aiLoading || applying || !aiPrompt.trim()} className="self-end">
+                  {aiLoading || applying ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                   Genera
                 </Button>
               </div>

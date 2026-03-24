@@ -254,13 +254,9 @@ async function RenderBlock({ block, tenantId, tenantSlug }: { block: Block; tena
     default:
       content = (
         <RenderGeneric block={block} style={style}>
-          {block.children.length > 0 && (
-            <>
-              {block.children.map((child) => (
-                <RenderBlock key={child.id} block={child} tenantId={tenantId} tenantSlug={tenantSlug} />
-              ))}
-            </>
-          )}
+          {block.children.map((child) => (
+            <RenderBlock key={child.id} block={child} tenantId={tenantId} tenantSlug={tenantSlug} />
+          ))}
         </RenderGeneric>
       );
       break;

@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import { isFillableFieldElement, useFieldContextStore } from '@/lib/stores/field-context-store';
+import type { SelectedField } from '@/lib/stores/field-context-store';
 import { usePageStore } from '@/lib/stores/page-store';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { X, Sparkles, Send, ChevronDown, ChevronUp } from 'lucide-react';
@@ -11,7 +13,7 @@ import type { AICommand } from '@/lib/ai/command-parser';
 import { parseAICommand } from '@/lib/ai/command-parser';
 import { detectContextFromText, parseNaturalLanguage } from '@/lib/ai/natural-language-executor';
 import { buildCssGradient } from '@/lib/shapes/gradients';
-import type { AdvancedGradient, AnimationEffect, BlockAnimation, BlockEffects, BlockType, DividerConfig, DividerShape } from '@/lib/types';
+import type { AdvancedGradient, AnimationEffect, Block, BlockAnimation, BlockEffects, BlockShape, BlockType, DividerConfig, DividerShape } from '@/lib/types';
 import { createBlock } from '@/lib/types';
 import { getBlockDefinition } from '@/lib/blocks/registry';
 import { generateId } from '@/lib/utils/id';
@@ -27,19 +29,76 @@ interface AiAction {
   label?: string;
   props?: Record<string, unknown>;
   style?: Record<string, unknown>;
-  shape?: { type: string; value: string } | null;
+  shape?: BlockShape | null;
   text?: string;
+  theme?: 'dark' | 'light';
+  device?: 'desktop' | 'tablet' | 'mobile';
+  zoom?: number;
+  direction?: 'up' | 'down';
+  panel?: 'left' | 'right' | 'ai';
+  children?: AiAction[];
 }
 
 const GENERIC_EDITOR_ACTIONS = new Set([
   'add-block',
   'remove-block',
+  'duplicate-block',
   'update-block-props',
   'update-block-style',
+  'update-block-shape',
+  'move-block',
+  'rename-block',
+  'toggle-visibility',
+  'toggle-lock',
+  'clear-all',
+  'select-block',
+  'set-theme',
   'set-device',
+  'set-zoom',
+  'toggle-grid',
+  'toggle-outlines',
+  'open-panel',
+  'convert-block',
+  'undo',
+  'redo',
+  'message',
 ]);
 
 const BOOLEAN_FIELD_TYPES = new Set(['checkbox', 'switch']);
+
+const BLOCK_TYPE_ALIASES: Record<string, BlockType> = {
+  header: 'navigation',
+  topbar: 'navigation',
+  navbar: 'navigation',
+  'nav-bar': 'navigation',
+  'menu-bar': 'navigation',
+  menu: 'navigation',
+  masthead: 'navigation',
+  footer: 'footer',
+  hero: 'hero',
+  lead: 'article-hero',
+  'lead-story': 'article-hero',
+  'main-story': 'article-hero',
+  'main-news': 'article-hero',
+  'notizia-principale': 'article-hero',
+  'article-hero': 'article-hero',
+  'article-grid': 'article-grid',
+  'news-grid': 'article-grid',
+  'news-column': 'article-grid',
+  'story-column': 'article-grid',
+  sidebar: 'sidebar',
+  'side-news': 'sidebar',
+  'search-bar': 'search-bar',
+  ticker: 'breaking-ticker',
+  'breaking-news': 'breaking-ticker',
+  'breaking-ticker': 'breaking-ticker',
+  form: 'cms-form',
+  'newsletter-form': 'newsletter-signup',
+  adv: 'banner-ad',
+  ad: 'banner-ad',
+  advertisement: 'banner-ad',
+  'banner-zone': 'banner-zone',
+};
 
 function parseAiResponse(content: string): AiAction[] | null {
   let cleaned = content.trim();
@@ -104,6 +163,211 @@ function formatFieldOptions(
     .join('\n');
 }
 
+function normalizeLooseMatch(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s:/._-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function resolveDirectFieldValue(field: SelectedField, prompt: string) {
+  const normalizedPrompt = normalizeLooseMatch(prompt);
+
+  if (field.type === 'select' || field.type === 'radio') {
+    const match = field.options?.find((option) => {
+      const optionValue = normalizeLooseMatch(option.value);
+      const optionLabel = normalizeLooseMatch(option.label);
+      return normalizedPrompt === optionValue
+        || normalizedPrompt === optionLabel
+        || normalizedPrompt.includes(optionValue)
+        || normalizedPrompt.includes(optionLabel);
+    });
+
+    if (match) {
+      return match.value;
+    }
+  }
+
+  if (BOOLEAN_FIELD_TYPES.has(field.type)) {
+    if (/(^|\b)(true|on|attivo|abilita|abilitato|si|sì|yes)(\b|$)/i.test(prompt)) {
+      return 'true';
+    }
+    if (/(^|\b)(false|off|disattivo|disabilita|disabilitato|no)(\b|$)/i.test(prompt)) {
+      return 'false';
+    }
+  }
+
+  if (field.type === 'number') {
+    const numberMatch = prompt.match(/-?\d+(?:[.,]\d+)?/);
+    if (numberMatch) {
+      return numberMatch[0].replace(',', '.');
+    }
+  }
+
+  if (field.type === 'email') {
+    const emailMatch = prompt.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    if (emailMatch) {
+      return emailMatch[0];
+    }
+  }
+
+  if (field.type === 'url') {
+    const urlMatch = prompt.match(/https?:\/\/[^\s]+/i);
+    if (urlMatch) {
+      return urlMatch[0];
+    }
+  }
+
+  return null;
+}
+
+function buildPageState(blocks: Block[], selectedBlockId?: string | null): string {
+  if (blocks.length === 0) {
+    return "PAGINA VUOTA - nessun blocco presente. L'utente probabilmente vuole creare un layout da zero.";
+  }
+
+  const lines: string[] = [];
+
+  const walk = (items: Block[], depth = 0) => {
+    for (const block of items) {
+      const propsPreview = Object.entries(block.props || {})
+        .filter(([, value]) => ['string', 'number', 'boolean'].includes(typeof value))
+        .slice(0, 6)
+        .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
+        .join(', ');
+
+      const markers = [
+        block.id === selectedBlockId ? 'SELEZIONATO' : null,
+        block.hidden ? 'nascosto' : null,
+        block.locked ? 'bloccato' : null,
+      ].filter(Boolean).join(', ');
+
+      lines.push(
+        `${'  '.repeat(depth)}- [${block.type}] id="${block.id}" label="${block.label}"` +
+        (propsPreview ? ` | ${propsPreview}` : '') +
+        (markers ? ` | ${markers}` : '')
+      );
+
+      if (block.children.length > 0) {
+        walk(block.children, depth + 1);
+      }
+    }
+  };
+
+  walk(blocks);
+  return lines.join('\n');
+}
+
+function findBlockLocation(blocks: Block[], targetId: string, parentId: string | null = null): { parentId: string | null; index: number } | null {
+  for (let index = 0; index < blocks.length; index += 1) {
+    const block = blocks[index];
+    if (block.id === targetId) {
+      return { parentId, index };
+    }
+
+    if (block.children.length > 0) {
+      const nested = findBlockLocation(block.children, targetId, block.id);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return null;
+}
+
+function buildSmartEditorPrompt(blocks: Block[], selectedBlock: Block | null, userPrompt: string): string {
+  const selectedBlockDetail = selectedBlock
+    ? `Props: ${JSON.stringify(Object.fromEntries(Object.entries(selectedBlock.props).filter(([, value]) => ['string', 'number', 'boolean'].includes(typeof value)).slice(0, 6)), null, 0)}`
+    : '';
+
+  const focusSection = selectedBlock
+    ? `# BLOCCO SELEZIONATO (FOCUS)
+L'utente ha selezionato: [${selectedBlock.type}] id="${selectedBlock.id}" label="${selectedBlock.label}"
+${selectedBlockDetail}
+
+REGOLE:
+1. Se l'utente chiede di cambiare questo blocco, lavora prima su questo blocco.
+2. Se chiede di aggiungere dentro questa sezione, puoi usare "add-block" con "position":"inside" oppure "convert-block" se sta trasformando il blocco.
+3. Se chiede di aggiungere prima o dopo, usa "targetBlockId":"${selectedBlock.id}" e "position":"before|after".`
+    : `# NESSUN BLOCCO SELEZIONATO
+L'utente non ha selezionato un blocco specifico. L'IA puo costruire o modificare l'intera pagina.`;
+
+  return `Sei un AGENTE OPERATIVO del builder CMS. Non descrivi, esegui azioni.
+Rispondi SEMPRE e SOLO con un JSON array di azioni, oppure con un oggetto JSON singolo per i tool specializzati del blocco.
+
+${focusSection}
+
+# STATO PAGINA
+${buildPageState(blocks, selectedBlock?.id)}
+
+# AZIONI DISPONIBILI
+- add-block
+- remove-block
+- duplicate-block
+- update-block-props
+- update-block-style
+- update-block-shape
+- move-block
+- rename-block
+- toggle-visibility
+- toggle-lock
+- clear-all
+- select-block
+- set-theme
+- set-device
+- set-zoom
+- toggle-grid
+- toggle-outlines
+- open-panel
+- convert-block
+- undo
+- redo
+- message
+
+# REGOLE OUTPUT
+- Nessun markdown
+- Nessun testo fuori dal JSON
+- Se l'utente chiede un layout, crea piu blocchi reali del builder
+- Se serve una griglia giornalistica, usa "columns" con "children"
+- Per header/menu/topbar usa "navigation"
+- Per notizia principale usa "article-hero"
+- Per colonne di notizie usa "article-grid" o "sidebar"
+
+# FORMATO add-block
+{
+  "action": "add-block",
+  "blockType": "navigation|footer|hero|article-hero|article-grid|section|text|columns|container|image-gallery|video|audio|slideshow|carousel|comparison|quote|accordion|tabs|table|code|map|counter|timeline|newsletter|newsletter-signup|social|author-bio|related-content|sidebar|custom-html|divider|search-bar|breaking-ticker|banner-ad|banner-zone|cms-form",
+  "label": "Nome descrittivo",
+  "targetBlockId": "opzionale",
+  "position": "before|after|inside",
+  "props": {},
+  "style": {},
+  "children": []
+}
+
+# ESEMPIO layout a 3 colonne
+[
+  {
+    "action": "add-block",
+    "blockType": "columns",
+    "label": "Fascia principale",
+    "props": { "columnCount": 3, "columnWidths": ["24%", "52%", "24%"], "gap": "24px", "stackOnMobile": true },
+    "children": [
+      { "action": "add-block", "blockType": "article-grid", "label": "Colonna sinistra", "props": { "columns": 1, "limit": 4 } },
+      { "action": "add-block", "blockType": "article-hero", "label": "Notizia centrale" },
+      { "action": "add-block", "blockType": "article-grid", "label": "Colonna destra", "props": { "columns": 1, "limit": 4 } }
+    ]
+  }
+]
+
+# RICHIESTA UTENTE
+${userPrompt}`;
+}
+
 function inferDividerGradientDirection(angle?: number): 'vertical' | 'horizontal' | 'diagonal' {
   if (angle === undefined) {
     return 'vertical';
@@ -135,6 +399,101 @@ function resolveStructuredBuilderCommand(content: string, userPrompt: string): A
   return parsedNaturalLanguage.success ? parsedNaturalLanguage.command ?? null : null;
 }
 
+function normalizeBlockType(rawType: string | undefined, label?: string): BlockType | null {
+  if (!rawType && !label) {
+    return null;
+  }
+
+  const candidates = [rawType, label]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map((value) => value.trim().toLowerCase().replace(/_/g, '-').replace(/\s+/g, '-'));
+
+  for (const candidate of candidates) {
+    const direct = getBlockDefinition(candidate as BlockType);
+    if (direct) {
+      return candidate as BlockType;
+    }
+
+    const alias = BLOCK_TYPE_ALIASES[candidate];
+    if (alias) {
+      return alias;
+    }
+  }
+
+  return null;
+}
+
+function mergeAiBlockStyle(block: Block, style?: Record<string, unknown>) {
+  if (!style) {
+    return;
+  }
+
+  if (style.background && typeof style.background === 'object') {
+    block.style.background = { ...block.style.background, ...style.background };
+  }
+  if (style.typography && typeof style.typography === 'object') {
+    block.style.typography = { ...block.style.typography, ...style.typography };
+  }
+  if (style.layout && typeof style.layout === 'object') {
+    block.style.layout = { ...block.style.layout, ...style.layout };
+  }
+  if (style.border && typeof style.border === 'object') {
+    block.style.border = { ...block.style.border, ...style.border };
+  }
+}
+
+function buildBlockTreeFromAction(action: AiAction): { block: Block | null; error?: string } {
+  const normalizedType = normalizeBlockType(action.blockType, action.label);
+  if (!normalizedType) {
+    return { block: null, error: `Blocco "${action.blockType || action.label || 'sconosciuto'}" non trovato` };
+  }
+
+  const def = getBlockDefinition(normalizedType);
+  if (!def) {
+    return { block: null, error: `Blocco "${normalizedType}" non trovato` };
+  }
+
+  const mergedProps = { ...def.defaultProps, ...(action.props || {}) };
+  const block = createBlock(def.type, action.label || def.label, mergedProps, def.defaultStyle);
+  block.id = generateId();
+  block.shape = action.shape ?? block.shape;
+  mergeAiBlockStyle(block, action.style);
+
+  if (def.defaultDataSource) {
+    block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
+  }
+
+  const childActions = Array.isArray(action.children) ? action.children : [];
+  const builtChildren = childActions
+    .map(buildBlockTreeFromAction)
+    .filter((entry): entry is { block: Block } => Boolean(entry.block));
+
+  if (builtChildren.length > 0) {
+    block.children = builtChildren.map((entry) => entry.block);
+  } else if (block.type === 'columns') {
+    const columnWidths = Array.isArray(block.props.columnWidths) ? block.props.columnWidths : [];
+    const columnCount = Number(block.props.columnCount || columnWidths.length || 2);
+    block.children = Array.from({ length: Math.max(1, columnCount) }).map((_, index) => {
+      const child = createBlock('section', `Colonna ${index + 1}`, { tag: 'section' });
+      child.id = generateId();
+      child.style.layout = {
+        ...child.style.layout,
+        minHeight: '180px',
+        padding: { top: '16px', right: '16px', bottom: '16px', left: '16px' },
+      };
+      child.style.border = {
+        ...child.style.border,
+        width: '1px',
+        style: 'dashed',
+        color: 'rgba(148,163,184,0.35)',
+      };
+      return child;
+    });
+  }
+
+  return { block };
+}
+
 export function GlobalAiChat() {
   const { currentTenant } = useAuthStore();
   const {
@@ -143,21 +502,38 @@ export function GlobalAiChat() {
     captureFieldElement,
     syncFieldElement,
     applyValueToSelectedField,
+    hasSelectedFieldTarget,
+    clearSelection,
   } = useFieldContextStore();
   const pageStore = usePageStore();
   const {
     addBlock,
     blocks,
     selectedBlockId,
+    selectBlock,
+    replacePage,
     removeBlock,
     updateBlock,
     updateBlockProps,
     updateBlockShape,
     updateBlockStyle,
+    duplicateBlock,
+    moveBlock,
+    undo,
+    redo,
     getBlock,
   } = pageStore;
-  const { setDeviceMode } = useUiStore();
+  const {
+    setDeviceMode,
+    setTheme,
+    setZoom,
+    toggleGrid,
+    toggleOutlines,
+    setLeftPanelOpen,
+    setRightPanelOpen,
+  } = useUiStore();
   const selectedBlock = selectedBlockId ? getBlock(selectedBlockId) : null;
+  const pathname = usePathname();
 
   // Check if we're in an editor context (has page store)
   const isEditorContext = !!pageStore && blocks !== undefined;
@@ -182,7 +558,19 @@ export function GlobalAiChat() {
   }, [messages]);
 
   useEffect(() => {
+    const handleOpen = () => setExpanded(true);
+    window.addEventListener('editoria:open-global-ai-chat', handleOpen);
+    return () => window.removeEventListener('editoria:open-global-ai-chat', handleOpen);
+  }, []);
+
+  useEffect(() => {
     const handleFocusIn = (event: FocusEvent) => {
+      if (isFillableFieldElement(event.target)) {
+        captureFieldElement(event.target);
+      }
+    };
+
+    const handleClick = (event: MouseEvent) => {
       if (isFillableFieldElement(event.target)) {
         captureFieldElement(event.target);
       }
@@ -195,15 +583,23 @@ export function GlobalAiChat() {
     };
 
     document.addEventListener('focusin', handleFocusIn, true);
+    document.addEventListener('click', handleClick, true);
     document.addEventListener('input', handleFieldChange, true);
     document.addEventListener('change', handleFieldChange, true);
 
     return () => {
       document.removeEventListener('focusin', handleFocusIn, true);
+      document.removeEventListener('click', handleClick, true);
       document.removeEventListener('input', handleFieldChange, true);
       document.removeEventListener('change', handleFieldChange, true);
     };
   }, [captureFieldElement, syncFieldElement]);
+
+  useEffect(() => {
+    if (selectedField && !hasSelectedFieldTarget()) {
+      clearSelection();
+    }
+  }, [pathname, selectedField, hasSelectedFieldTarget, clearSelection]);
 
   useEffect(() => {
     if (selectedField) {
@@ -251,25 +647,10 @@ Sono pronto ad aiutarti a generare contenuto per questo campo!`;
       try {
         switch (action.action) {
           case 'add-block': {
-            if (!action.blockType) {
-              results.push('✗ blockType mancante');
+            const { block, error } = buildBlockTreeFromAction(action);
+            if (!block) {
+              results.push(`✗ ${error || 'Blocco non valido'}`);
               break;
-            }
-            const def = getBlockDefinition(action.blockType as BlockType);
-            if (!def) {
-              results.push(`✗ Blocco "${action.blockType}" non trovato`);
-              break;
-            }
-            const mergedProps = { ...def.defaultProps, ...(action.props || {}) };
-            const block = createBlock(def.type, action.label || def.label, mergedProps, def.defaultStyle);
-            if (action.style) {
-              if (action.style.background) block.style.background = { ...block.style.background, ...action.style.background };
-              if (action.style.typography) block.style.typography = { ...block.style.typography, ...action.style.typography };
-              if (action.style.layout) block.style.layout = { ...block.style.layout, ...action.style.layout };
-            }
-            block.id = generateId();
-            if (def.defaultDataSource) {
-              block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
             }
 
             const targetId = action.targetBlockId || selectedBlockId;
@@ -277,10 +658,18 @@ Sono pronto ad aiutarti a generare contenuto per questo campo!`;
 
             if (targetId && pos === 'inside') {
               addBlock(block, targetId);
+            } else if (targetId) {
+              const location = findBlockLocation(usePageStore.getState().blocks, targetId);
+              if (location) {
+                const insertIndex = pos === 'before' ? location.index : location.index + 1;
+                addBlock(block, location.parentId, insertIndex);
+              } else {
+                addBlock(block);
+              }
             } else {
               addBlock(block);
             }
-            results.push(`+ ${action.label || def.label}`);
+            results.push(`+ ${action.label || block.label}`);
             break;
           }
           case 'remove-block': {
@@ -290,6 +679,13 @@ Sono pronto ad aiutarti a generare contenuto per questo campo!`;
             }
             removeBlock(action.blockId);
             results.push(`- Rimosso blocco`);
+            break;
+          }
+          case 'duplicate-block': {
+            const targetId = action.blockId || selectedBlockId;
+            if (!targetId) break;
+            duplicateBlock(targetId);
+            results.push('+ Duplicato blocco');
             break;
           }
           case 'update-block-props': {
@@ -304,10 +700,125 @@ Sono pronto ad aiutarti a generare contenuto per questo campo!`;
             results.push(`~ Aggiornato stile`);
             break;
           }
+          case 'update-block-shape': {
+            if (!action.blockId) break;
+            updateBlockShape(action.blockId, action.shape ?? null);
+            results.push('~ Aggiornata forma');
+            break;
+          }
+          case 'move-block': {
+            const targetId = action.blockId || selectedBlockId;
+            if (!targetId || !action.direction) break;
+            const location = findBlockLocation(usePageStore.getState().blocks, targetId);
+            if (!location) break;
+            const delta = action.direction === 'up' ? -1 : 1;
+            const nextIndex = Math.max(0, location.index + delta);
+            moveBlock(targetId, location.parentId, nextIndex);
+            results.push(`↕ Spostato ${action.direction === 'up' ? 'su' : 'giu'}`);
+            break;
+          }
+          case 'rename-block': {
+            const targetId = action.blockId || selectedBlockId;
+            if (!targetId || !action.label) break;
+            updateBlock(targetId, { label: action.label });
+            results.push(`~ Rinominato in "${action.label}"`);
+            break;
+          }
+          case 'toggle-visibility': {
+            const targetId = action.blockId || selectedBlockId;
+            if (!targetId) break;
+            const block = getBlock(targetId);
+            if (!block) break;
+            updateBlock(targetId, { hidden: !block.hidden });
+            results.push(block.hidden ? '👁 Mostrato' : '👁 Nascosto');
+            break;
+          }
+          case 'toggle-lock': {
+            const targetId = action.blockId || selectedBlockId;
+            if (!targetId) break;
+            const block = getBlock(targetId);
+            if (!block) break;
+            updateBlock(targetId, { locked: !block.locked });
+            results.push(block.locked ? '🔓 Sbloccato' : '🔒 Bloccato');
+            break;
+          }
+          case 'clear-all': {
+            replacePage([], {});
+            results.push('🗑 Pagina svuotata');
+            break;
+          }
+          case 'select-block': {
+            selectBlock(action.blockId || null);
+            results.push(action.blockId ? '✓ Blocco selezionato' : '✓ Selezione rimossa');
+            break;
+          }
+          case 'set-theme': {
+            if (action.theme === 'dark' || action.theme === 'light') {
+              setTheme(action.theme);
+              results.push(`🎨 Tema ${action.theme}`);
+            }
+            break;
+          }
           case 'set-device': {
-            if (action.text === 'desktop' || action.text === 'tablet' || action.text === 'mobile') {
-              setDeviceMode(action.text);
-              results.push(`📱 Device: ${action.text}`);
+            const nextDevice = action.device || action.text;
+            if (nextDevice === 'desktop' || nextDevice === 'tablet' || nextDevice === 'mobile') {
+              setDeviceMode(nextDevice);
+              results.push(`📱 Device: ${nextDevice}`);
+            }
+            break;
+          }
+          case 'set-zoom': {
+            if (typeof action.zoom === 'number') {
+              setZoom(action.zoom);
+              results.push(`🔍 Zoom ${Math.round(action.zoom * 100)}%`);
+            }
+            break;
+          }
+          case 'toggle-grid': {
+            toggleGrid();
+            results.push('▦ Griglia aggiornata');
+            break;
+          }
+          case 'toggle-outlines': {
+            toggleOutlines();
+            results.push('▣ Contorni aggiornati');
+            break;
+          }
+          case 'open-panel': {
+            if (action.panel === 'left') setLeftPanelOpen(true);
+            if (action.panel === 'right') setRightPanelOpen(true);
+            if (action.panel === 'ai') setExpanded(true);
+            results.push(`⇢ Pannello ${action.panel || 'richiesto'} aperto`);
+            break;
+          }
+          case 'convert-block': {
+            const targetId = action.blockId || selectedBlockId;
+            if (!targetId) break;
+            const { block, error } = buildBlockTreeFromAction(action);
+            if (!block) {
+              results.push(`✗ ${error || 'Conversione non valida'}`);
+              break;
+            }
+            const location = findBlockLocation(usePageStore.getState().blocks, targetId);
+            if (!location) break;
+            addBlock(block, location.parentId, location.index);
+            removeBlock(targetId);
+            results.push(`~ Convertito in ${block.label}`);
+            break;
+          }
+          case 'undo': {
+            undo();
+            results.push('↩ Annullato');
+            break;
+          }
+          case 'redo': {
+            redo();
+            results.push('↪ Ripristinato');
+            break;
+          }
+          case 'message': {
+            if (action.text) {
+              results.push(action.text);
             }
             break;
           }
@@ -509,20 +1020,38 @@ Sono pronto ad aiutarti a generare contenuto per questo campo!`;
     setLoading(true);
 
     try {
+      const effectiveSelectedField = selectedField && hasSelectedFieldTarget()
+        ? selectedField
+        : null;
+
       let contextualPrompt: string;
 
-      if (selectedField) {
+      if (effectiveSelectedField) {
+        const directFieldValue = resolveDirectFieldValue(effectiveSelectedField, inputValue);
+        if (directFieldValue !== null) {
+          const applied = applyValueToSelectedField(directFieldValue);
+          if (applied) {
+            setMessages((prev) => [
+              ...prev,
+              { role: 'assistant', content: `✓ Campo "${effectiveSelectedField.label || effectiveSelectedField.name}" riempito!` },
+            ]);
+            toast.success('✓ Campo riempito!');
+            setLoading(false);
+            return;
+          }
+        }
+
         const currentPath = pageContext.path || (typeof window !== 'undefined' ? window.location.pathname : '');
-        const isBooleanField = BOOLEAN_FIELD_TYPES.has(selectedField.type);
-        const isRadioField = selectedField.type === 'radio';
+        const isBooleanField = BOOLEAN_FIELD_TYPES.has(effectiveSelectedField.type);
+        const isRadioField = effectiveSelectedField.type === 'radio';
         contextualPrompt = `
-Campo da compilare: ${selectedField.label || selectedField.name}
-Nome interno: ${selectedField.name}
-Tipo: ${selectedField.type}
-Elemento HTML: ${selectedField.htmlTag || 'input'}
-Valore attuale: "${selectedField.value}"
-Placeholder: "${selectedField.placeholder || ''}"
-Stato booleano attuale: ${selectedField.checked === undefined ? 'n/a' : selectedField.checked ? 'true' : 'false'}
+Campo da compilare: ${effectiveSelectedField.label || effectiveSelectedField.name}
+Nome interno: ${effectiveSelectedField.name}
+Tipo: ${effectiveSelectedField.type}
+Elemento HTML: ${effectiveSelectedField.htmlTag || 'input'}
+Valore attuale: "${effectiveSelectedField.value}"
+Placeholder: "${effectiveSelectedField.placeholder || ''}"
+Stato booleano attuale: ${effectiveSelectedField.checked === undefined ? 'n/a' : effectiveSelectedField.checked ? 'true' : 'false'}
 Pagina: "${pageContext.pageTitle || pageContext.pageName || document.title}"
 Percorso: "${currentPath}"
 
@@ -536,7 +1065,7 @@ ${
 }
 
 Opzioni disponibili:
-${formatFieldOptions(selectedField.options)}
+${formatFieldOptions(effectiveSelectedField.options)}
 
 Richiesta utente: ${inputValue}
 
@@ -557,58 +1086,24 @@ ISTRUZIONI OBBLIGATORIE:
           contextualPrompt += '\n- Questo campo accetta una sola scelta tra le opzioni disponibili.';
         }
       } else {
-        contextualPrompt = `${selectedBlock
-          ? `Blocco selezionato:
-- ID: ${selectedBlock.id}
-- Tipo: ${selectedBlock.type}
-- Label: ${selectedBlock.label}
-- Props: ${JSON.stringify(selectedBlock.props)}
-- Shape: ${JSON.stringify(selectedBlock.shape)}
-- Animation: ${JSON.stringify(selectedBlock.animation)}
-`
-          : ''}Richiesta utente: ${inputValue}
-
-ISTRUZIONI CRITICHE:
-1. Se l'utente chiede di creare/modificare/disegnare layout, pagine, blocchi, sezioni, home, articoli, ecc. → SEMPRE JSON
-2. Se chiede una domanda generica → risposta testo
-3. Se c'è un blocco selezionato e la richiesta riguarda divisori, gradienti, effetti, animazioni o forme del blocco → restituisci JSON oggetto singolo con action specializzata
-
-Se JSON, usa ESATTAMENTE questo formato (array di oggetti, non oggetto singolo):
-[
-  {
-    "action": "add-block",
-    "blockType": "hero|section|text|columns|container|image-gallery|video|slideshow|carousel|quote|accordion|tabs|social|newsletter|banner-ad|related-content|author-bio|timeline|counter|divider",
-    "label": "Descrizione breve blocco",
-    "props": {"text": "contenuto del blocco"},
-    "style": {}
-  }
-]
-
-Blocchi: hero (hero grande), section (sezione), text (testo), columns (3 colonne), container (box), image-gallery (galleria), video (video), slideshow (slideshow), carousel (carosello), quote (citazione), accordion (soffietto), tabs (schede), social (social), newsletter (newsletter), banner-ad (banner), related-content (correlati), author-bio (autore), timeline (timeline), counter (contatori), divider (divisore).
-
-Per modificare il blocco selezionato puoi anche usare UNO di questi formati JSON:
-{"action":"updateDivider","position":"top|bottom","shape":"wave","height":80,"opacity":0.9,"flip":false,"gradient":{"type":"linear","angle":90,"stops":[{"color":"#ffffff","position":0},{"color":"#000000","position":100}]}}
-{"action":"updateGradient","type":"linear","angle":45,"stops":[{"color":"#ff8c00","position":0},{"color":"#1e40af","position":100}],"animated":true,"animationDuration":3000}
-{"action":"updateEffects","glassmorphism":{"blur":12,"saturation":100,"bgOpacity":0.12,"bgColor":"#ffffff","borderOpacity":0.2},"noise":{"type":"fractalNoise","opacity":0.1,"frequency":1},"grain":{"opacity":0.15,"size":2},"parallax":true}
-{"action":"updateAnimation","trigger":"scroll","effect":"fade-in","duration":800,"delay":0,"easing":"ease-out"}
-{"action":"updateClipPath","type":"polygon","value":"polygon(...)"}
-
-IMPORTANTE: Rispondi con SOLO JSON quando è richiesto layout, senza spiegazioni aggiuntive.`;
+        contextualPrompt = buildSmartEditorPrompt(blocks, selectedBlock, inputValue);
       }
 
       const response = await fetch('/api/ai/dispatch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          taskType: selectedField ? 'field-assist' : 'chatbot',
+          tenant_id: currentTenant.id,
+          taskType: effectiveSelectedField ? 'field-assist' : isEditorContext ? 'layout' : 'chatbot',
           prompt: contextualPrompt,
-          systemPrompt: selectedField
+          systemPrompt: effectiveSelectedField
             ? `Sei un assistente AI per un CMS editoriale. Aiuti l'utente a generare contenuti coerenti con il contesto della pagina. Rispondi sempre in italiano.`
             : `Sei un assistente AI specializzato in layout giornalistici e tool visuali per un CMS.
 COMPITI:
 1. Quando l'utente richiede layout/blocchi/design → rispondi SOLO con JSON array di add-block actions
 2. Quando l'utente modifica un blocco selezionato con gradienti, divisori, effetti, animazioni o shape → rispondi SOLO con un JSON object della action specializzata corretta
 2. Per domande generiche → rispondi in testo italiano
+3. Usa i blockType reali del builder. Se l'utente dice header/menu bar/topbar usa "navigation". Se dice notizia principale usa "article-hero". Se dice colonna notizie usa "article-grid" o "sidebar". Se serve un layout complesso usa "columns" con "children".
 
 FORMATO JSON OBBLIGATORIO:
 [{"action":"add-block","blockType":"hero","label":"Hero principale","props":{},"style":{}}]
@@ -621,25 +1116,25 @@ Rispondi SEMPRE in italiano.`,
       const data = await response.json();
       if (data.content) {
         const actions = parseAiResponse(data.content);
-        const builderCommand = !selectedField && isEditorContext
+        const builderCommand = !effectiveSelectedField && isEditorContext
           ? resolveStructuredBuilderCommand(data.content, inputValue)
           : null;
 
-        if (actions && actions.length > 0 && !selectedField && isEditorContext) {
+        if (actions && actions.length > 0 && !effectiveSelectedField && isEditorContext) {
           const results = executeActions(actions);
           const resultMsg = `Fatto!\n${results.join('\n')}`;
           setMessages((prev) => [...prev, { role: 'assistant', content: resultMsg }]);
           toast.success('✓ Blocchi creati!');
-        } else if (builderCommand && !selectedField && isEditorContext) {
+        } else if (builderCommand && !effectiveSelectedField && isEditorContext) {
           const result = executeBuilderCommand(builderCommand);
           setMessages((prev) => [...prev, { role: 'assistant', content: `Fatto!\n${result}` }]);
           toast.success('✓ Tool builder applicato!');
-        } else if (selectedField) {
+        } else if (effectiveSelectedField) {
           const fieldValue = sanitizeFieldResponse(data.content);
           const applied = applyValueToSelectedField(fieldValue);
 
           if (applied) {
-            const aiMessage: AIMessage = { role: 'assistant', content: `✓ Campo "${selectedField.label || selectedField.name}" riempito!` };
+            const aiMessage: AIMessage = { role: 'assistant', content: `✓ Campo "${effectiveSelectedField.label || effectiveSelectedField.name}" riempito!` };
             setMessages((prev) => [...prev, aiMessage]);
             toast.success('✓ Campo riempito!');
           } else {

@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { callAI } from '@/lib/ai/providers';
 import { resolveProvider } from '@/lib/ai/resolver';
-import type { AIMessage } from '@/lib/ai/providers';
+import { HUMAN_WORKFLOW_GUIDANCE } from '@/lib/ai/prompts';
+import type { AIMessage, AIProvider } from '@/lib/ai/providers';
+import type { AITask } from '@/lib/ai/resolver';
 
 interface DispatchPayload {
   taskType: string;
@@ -18,6 +20,29 @@ const FALLBACK_ORDER: Record<string, string[]> = {
   gemini: ['openai', 'claude'],
   ollama: ['gemini', 'openai'],
 };
+
+const SUPPORTED_TASKS: ReadonlySet<AITask> = new Set([
+  'seo',
+  'titles',
+  'social',
+  'translate',
+  'summary',
+  'layout',
+  'search',
+  'related',
+  'summarize',
+  'chatbot',
+  'field-assist',
+  'color-palette',
+]);
+
+function normalizeTask(taskType?: string): AITask {
+  if (taskType && SUPPORTED_TASKS.has(taskType as AITask)) {
+    return taskType as AITask;
+  }
+
+  return 'chatbot';
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,13 +103,16 @@ export async function POST(request: NextRequest) {
     }
 
     const aiConfig = tenant.settings?.module_config?.ai_assistant || {};
-    const sysPrompt = systemPrompt || `Sei un assistente AI integrato in un CMS editoriale. Aiuti l'utente a creare e ottimizzare contenuti. Rispondi in italiano in modo conciso e preciso. Task: ${taskType || 'general'}`;
+    const sysPrompt = systemPrompt || `Sei un assistente AI integrato in un CMS editoriale. Aiuti l'utente a creare e ottimizzare contenuti. Rispondi in italiano in modo conciso e preciso. Task: ${taskType || 'general'}.
+${HUMAN_WORKFLOW_GUIDANCE}`;
+
+    const task = normalizeTask(taskType);
 
     // Resolve provider (with fallback chain)
     let resolvedProvider;
     try {
-      resolvedProvider = resolveProvider(aiConfig, (taskType || 'chatbot') as any);
-    } catch (e) {
+      resolvedProvider = resolveProvider(aiConfig, task);
+    } catch {
       return NextResponse.json(
         { error: 'Nessun provider IA configurato. Vai a Impostazioni > IA' },
         { status: 400 }
@@ -94,10 +122,9 @@ export async function POST(request: NextRequest) {
     // Override if preferred provider specified and available
     if (preferredProvider) {
       try {
-        const credentials = { ...aiConfig };
         const overrideResolved = resolveProvider(
-          { ...aiConfig, [`${preferredProvider}_api_key`]: aiConfig[`${preferredProvider}_api_key`] } as any,
-          (taskType || 'chatbot') as any
+          { ...aiConfig, [`${preferredProvider}_api_key`]: aiConfig[`${preferredProvider}_api_key`] },
+          task
         );
         if (overrideResolved.provider === preferredProvider) {
           resolvedProvider = overrideResolved;
@@ -115,9 +142,12 @@ export async function POST(request: NextRequest) {
 
     // Call AI with fallback chain
     let lastError: Error | null = null;
-    const tryProviders = [resolvedProvider.provider, ...(FALLBACK_ORDER[resolvedProvider.provider] || [])];
+    const tryProviders: AIProvider[] = [
+      resolvedProvider.provider,
+      ...((FALLBACK_ORDER[resolvedProvider.provider] || []) as AIProvider[]),
+    ];
 
-    for (const provider of tryProviders as any[]) {
+    for (const provider of tryProviders) {
       try {
         const credentials = {
           [`${provider}_api_key`]: aiConfig[`${provider}_api_key`],

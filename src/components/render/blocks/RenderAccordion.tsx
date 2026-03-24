@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { Block } from '@/lib/types/block';
+import { sanitizeHtml } from '@/lib/security/html';
 
 interface AccordionItem {
   title: string;
@@ -56,7 +57,7 @@ export function RenderAccordion({ block, style }: Props) {
                 color: 'var(--e-color-textSecondary)',
                 lineHeight: '1.7',
               }}
-              dangerouslySetInnerHTML={{ __html: item.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(item.content) }}
             />
           )}
         </div>

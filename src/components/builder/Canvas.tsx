@@ -3,21 +3,21 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
 import { usePageStore } from '@/lib/stores/page-store';
 import { useUiStore } from '@/lib/stores/ui-store';
-import { useFieldContextStore } from '@/lib/stores/field-context-store';
 import { CanvasBlock } from './CanvasBlock';
 import { DEVICE_WIDTHS } from '@/lib/config/breakpoints';
 import { cn } from '@/lib/utils/cn';
 import { Plus } from 'lucide-react';
 import { useDroppable } from '@dnd-kit/core';
+import { PageBackgroundFrame } from '@/components/render/PageBackgroundFrame';
 
 export function Canvas() {
-  const { blocks, selectBlock, selectedBlockId } = usePageStore();
+  const { blocks, pageMeta, selectBlock, selectedBlockId } = usePageStore();
   const { deviceMode, zoom, setZoom, showGrid, gridSize, showOutlines } = useUiStore();
-  const { setSelectedField, updatePageContext } = useFieldContextStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
 
   const canvasWidth = DEVICE_WIDTHS[deviceMode];
+  const documentTopPadding = 36;
 
   // Measure container
   useEffect(() => {
@@ -104,7 +104,7 @@ export function Canvas() {
         style={{
           display: 'flex',
           justifyContent: 'center',
-          paddingTop: 0,
+          paddingTop: documentTopPadding,
           paddingBottom: 0,
         }}
         onClick={handleCanvasClick}
@@ -129,8 +129,9 @@ export function Canvas() {
           )}
 
           {/* The actual page */}
-          <div
-            ref={setNodeRef}
+          <PageBackgroundFrame
+            meta={pageMeta}
+            scopeId={`editor-canvas-${canvasWidth}`}
             className={cn(
               'shadow-xl relative',
               deviceMode === 'desktop' ? 'rounded-none' : 'rounded-xl border',
@@ -138,23 +139,27 @@ export function Canvas() {
               showOutlines && 'sb-show-outlines'
             )}
             style={{
-              background: 'var(--c-bg-0)',
               borderColor: 'var(--c-border)',
               outlineColor: 'var(--c-accent)',
               width: canvasWidth,
               minHeight: 800,
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
+              alignItems: 'stretch',
               ...(isOver ? { outline: '2px dashed var(--c-accent)' } : {}),
               ...(showGrid ? {
                 backgroundImage: `linear-gradient(var(--c-border) 1px, transparent 1px), linear-gradient(90deg, var(--c-border) 1px, transparent 1px)`,
                 backgroundSize: `${gridSize}px ${gridSize}px`,
                 backgroundPositionX: 'var(--c-bg-0)',
-              } : {}),
+              } : { backgroundColor: 'var(--c-bg-0)' }),
             }}
-            onClick={handleCanvasClick}
           >
+            <div
+              ref={setNodeRef}
+              data-page-surface="true"
+              style={{ width: '100%', minHeight: 800, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}
+              onClick={handleCanvasClick}
+            >
             {blocks.length === 0 ? (
               <div className="flex flex-col items-center justify-center min-h-[800px] w-full gap-4" style={{ color: 'var(--c-text-2)' }}>
                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'var(--c-bg-2)' }}>
@@ -177,7 +182,8 @@ export function Canvas() {
                 />
               ))
             )}
-          </div>
+            </div>
+          </PageBackgroundFrame>
         </div>
       </div>
 

@@ -18,6 +18,10 @@ const FALLBACK_ORDER: Record<string, string[]> = {
 };
 
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   try {
     const body: DebugPayload = await request.json();
     const { prompt, systemPrompt, blockList } = body;
@@ -117,7 +121,6 @@ Quando crei layout, genera JSON array con azioni "add-block". Usa SOLO blocchi d
           continue;
         }
 
-        logs.push(`✅ API key trovata per ${provider}`);
         logs.push(`⏳ Chiamata in corso...`);
 
         const result = await callAI(provider, messages, {

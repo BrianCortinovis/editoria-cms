@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { assertTrustedMutationRequest } from "@/lib/security/request";
+import { writeActivityLog, writePageAuditLog } from "@/lib/security/audit";
+
+const PAGE_EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
 
 // GET: List all site pages for current tenant
 export async function GET(request: Request) {
@@ -43,6 +47,11 @@ export async function GET(request: Request) {
 
 // POST: Create a new site page
 export async function POST(request: Request) {
+  const trustedOriginError = assertTrustedMutationRequest(request);
+  if (trustedOriginError) {
+    return trustedOriginError;
+  }
+
   const body = await request.json();
   const { tenant_id, title, slug, page_type, meta, blocks } = body;
 
@@ -60,11 +69,15 @@ export async function POST(request: Request) {
   // Verify user has access to the requested tenant
   const { data: userTenants, error: tenantError } = await supabase
     .from("user_tenants")
-    .select("tenant_id")
+    .select("tenant_id, role")
     .eq("user_id", user.id);
 
-  if (tenantError || !userTenants?.some(ut => ut.tenant_id === tenant_id)) {
+  const membership = userTenants?.find((ut) => ut.tenant_id === tenant_id);
+  if (tenantError || !membership) {
     return NextResponse.json({ error: "Forbidden: no access to this tenant" }, { status: 403 });
+  }
+  if (!PAGE_EDITOR_ROLES.has(membership.role)) {
+    return NextResponse.json({ error: "Forbidden: insufficient role" }, { status: 403 });
   }
 
   const { data, error } = await supabase
@@ -84,6 +97,24 @@ export async function POST(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await Promise.all([
+    writeActivityLog({
+      tenantId: tenant_id,
+      userId: user.id,
+      action: "page.create",
+      entityType: "site_page",
+      entityId: data.id,
+      details: { title: data.title, slug: data.slug, page_type: data.page_type },
+    }),
+    writePageAuditLog({
+      pageId: data.id,
+      tenantId: tenant_id,
+      changedBy: user.id,
+      action: "create",
+      changes: { title: data.title, slug: data.slug, page_type: data.page_type },
+    }),
+  ]);
 
   return NextResponse.json({ page: data }, { status: 201 });
 }

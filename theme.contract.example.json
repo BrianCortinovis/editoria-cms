@@ -1,0 +1,81 @@
+{
+  "project": {
+    "name": "Nome testata o brand",
+    "mode": "hybrid-theme",
+    "tenantSlug": "tenant-slug"
+  },
+  "themeRules": {
+    "useCmsFor": [
+      "site-config",
+      "navigation",
+      "footer",
+      "homepage-layout-slots",
+      "articles",
+      "categories",
+      "search",
+      "seo"
+    ],
+    "useBuilderFor": [
+      "landing speciali",
+      "pagine promozionali",
+      "esperimenti editoriali"
+    ],
+    "customThemeOwns": [
+      "header",
+      "footer rendering",
+      "homepage rendering",
+      "article template",
+      "category template",
+      "search template"
+    ]
+  },
+  "routes": {
+    "homepage": "/site/{tenantSlug}",
+    "page": "/site/{tenantSlug}/{slug}",
+    "article": "/site/{tenantSlug}/articolo/{articleSlug}",
+    "category": "/site/{tenantSlug}/categoria/{categorySlug}",
+    "search": "/site/{tenantSlug}/search"
+  },
+  "dataSources": {
+    "siteConfig": "/api/v1/site?tenant={tenantSlug}",
+    "publishedPages": "/api/v1/pages?tenant={tenantSlug}",
+    "homepageLayout": "/api/v1/layout?tenant={tenantSlug}&page=homepage",
+    "articles": "/api/v1/articles?tenant={tenantSlug}",
+    "search": "/api/v1/search?tenant={tenantSlug}&q={query}",
+    "themeContract": "/api/v1/theme-contract?tenant={tenantSlug}",
+    "commandDiscovery": "/api/v1/commands"
+  },
+  "sectionMap": [
+    {
+      "role": "hero",
+      "component": "HomepageHero",
+      "source": "layout-homepage"
+    },
+    {
+      "role": "breaking",
+      "component": "BreakingBar",
+      "source": "layout-homepage"
+    },
+    {
+      "role": "content-grid",
+      "component": "NewsGrid",
+      "source": "layout-homepage"
+    },
+    {
+      "role": "sidebar",
+      "component": "SidebarRail",
+      "source": "layout-homepage"
+    },
+    {
+      "role": "footer",
+      "component": "SiteFooter",
+      "source": "site-config"
+    }
+  ],
+  "codexInstructions": [
+    "Leggi prima questo file e poi chiama /api/v1/theme-contract?tenant={tenantSlug}.",
+    "Non inventare route o datasource fuori dal contract.",
+    "Costruisci componenti custom ma compatibili con le section roles e le API del CMS.",
+    "Se una pagina speciale non rientra nel tema, usa il builder CMS come fallback."
+  ]
+}

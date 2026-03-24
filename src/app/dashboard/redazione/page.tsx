@@ -14,6 +14,7 @@ import {
   Newspaper,
   Plus,
   Sparkles,
+  Save,
   Zap,
 } from "lucide-react";
 
@@ -72,6 +73,8 @@ export default function RedazionePage() {
   const [focusArticles, setFocusArticles] = useState<EditorialArticle[]>([]);
   const [scheduledArticles, setScheduledArticles] = useState<EditorialArticle[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
+  const [homepageFreshHours, setHomepageFreshHours] = useState(0);
+  const [savingRules, setSavingRules] = useState(false);
 
   const loadRedazione = useCallback(async () => {
     if (!currentTenant) return;
@@ -90,6 +93,7 @@ export default function RedazionePage() {
       focusRes,
       scheduledListRes,
       eventsRes,
+      siteConfigRes,
     ] = await Promise.all([
       supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).eq("status", "draft"),
       supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).eq("status", "in_review"),
@@ -119,6 +123,11 @@ export default function RedazionePage() {
         .gte("starts_at", now)
         .order("starts_at", { ascending: true })
         .limit(5),
+      supabase
+        .from("site_config")
+        .select("theme")
+        .eq("tenant_id", currentTenant.id)
+        .maybeSingle(),
     ]);
 
     setStats({
@@ -146,6 +155,8 @@ export default function RedazionePage() {
     setFocusArticles(mapArticles(focusRes.data));
     setScheduledArticles(mapArticles(scheduledListRes.data));
     setUpcomingEvents((eventsRes.data || []) as UpcomingEvent[]);
+    const automation = ((siteConfigRes.data?.theme as Record<string, unknown> | null)?.editorialAutomation || {}) as Record<string, unknown>;
+    setHomepageFreshHours(typeof automation.homepageFreshHours === "number" ? automation.homepageFreshHours : 0);
     setLoading(false);
   }, [currentTenant]);
 
@@ -174,6 +185,37 @@ export default function RedazionePage() {
     { href: "/dashboard/eventi", label: "Agenda eventi", icon: CalendarClock },
     { href: "/dashboard/ia", label: "Tool IA redazione", icon: Sparkles },
   ];
+
+  const saveEditorialAutomation = async () => {
+    if (!currentTenant) return;
+    setSavingRules(true);
+    const supabase = createClient();
+    const { data: currentConfig } = await supabase
+      .from("site_config")
+      .select("theme")
+      .eq("tenant_id", currentTenant.id)
+      .single();
+
+    const currentTheme = (currentConfig?.theme || {}) as Record<string, unknown>;
+    const { error } = await supabase
+      .from("site_config")
+      .update({
+        theme: {
+          ...currentTheme,
+          editorialAutomation: {
+            ...((currentTheme.editorialAutomation as Record<string, unknown> | undefined) || {}),
+            homepageFreshHours,
+          },
+        },
+      })
+      .eq("tenant_id", currentTenant.id);
+
+    setSavingRules(false);
+    if (error) {
+      console.error(error);
+      return;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -271,6 +313,49 @@ export default function RedazionePage() {
           </div>
         </section>
       </div>
+
+      <section className="rounded-xl overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+        <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--c-border)" }}>
+          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--c-text-2)" }}>
+            Regole automatiche
+          </span>
+          <button
+            onClick={saveEditorialAutomation}
+            disabled={savingRules}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60"
+            style={{ background: "var(--c-accent)" }}
+          >
+            <Save className="w-3.5 h-3.5" />
+            {savingRules ? "Salvataggio..." : "Salva regole"}
+          </button>
+        </div>
+        <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="rounded-lg p-3" style={{ background: "var(--c-bg-2)" }}>
+            <div className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>
+              Decadimento automatico homepage
+            </div>
+            <p className="text-xs mt-1" style={{ color: "var(--c-text-2)" }}>
+              Dopo N ore gli articoli non saranno piu eleggibili per gli slot automatici della homepage, cosi la home si rinnova da sola.
+            </p>
+          </div>
+          <div className="rounded-lg p-3 lg:col-span-2" style={{ background: "var(--c-bg-2)" }}>
+            <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--c-text-2)" }}>
+              Ore di permanenza automatica in homepage
+            </label>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={homepageFreshHours}
+              onChange={(e) => setHomepageFreshHours(Number(e.target.value) || 0)}
+              className="input w-full max-w-xs text-sm"
+            />
+            <p className="text-[11px] mt-2" style={{ color: "var(--c-text-3)" }}>
+              `0` disattiva la regola. Vale per gli slot automatici della homepage gestiti dal modulo Layout.
+            </p>
+          </div>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <section className="rounded-xl overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { assertSafeOutboundHttpUrl } from '@/lib/security/network';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
+import { assertTrustedMutationRequest } from '@/lib/security/request';
 
 interface BlockData {
   tag: string;
@@ -236,6 +240,29 @@ function detectGridCols(classes: string): number {
 
 export async function POST(request: NextRequest) {
   try {
+    const trustedOriginError = assertTrustedMutationRequest(request);
+    if (trustedOriginError) {
+      return trustedOriginError;
+    }
+
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const clientIp = getClientIp(request);
+    const limiter = await checkRateLimit(`layout-import:${user.id}:${clientIp}`, 10, 10 * 60 * 1000);
+    if (!limiter.allowed) {
+      return NextResponse.json(
+        { error: 'Too many import requests' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil(limiter.retryAfterMs / 1000)) } }
+      );
+    }
+
     const { url, selector = 'body' } = await request.json();
 
     if (!url) {
@@ -243,19 +270,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate URL
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(url);
-    } catch {
-      return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
-    }
+    const parsedUrl = await assertSafeOutboundHttpUrl(url);
 
     // Fetch HTML from URL with timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    const response = await fetch(url, {
+    const response = await fetch(parsedUrl.toString(), {
       signal: controller.signal,
+      redirect: 'error',
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; editoria-cms/1.0)',
       },
@@ -291,7 +314,7 @@ export async function POST(request: NextRequest) {
     const slots = blocksToLayoutSlots(blocks);
 
     return NextResponse.json({
-      source: url,
+      source: parsedUrl.toString(),
       selector: selector,
       blocks: blocks,
       slots: slots,
@@ -307,7 +330,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       { error: error.message || 'Failed to import layout from URL' },
-      { status: 500 }
+      {
+        status: /invalid url|not allowed|only http and https|private|loopback|credentials/i.test(error.message || '')
+          ? 400
+          : 500,
+      }
     );
   }
 }

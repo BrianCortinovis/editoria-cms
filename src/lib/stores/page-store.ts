@@ -7,16 +7,21 @@ import { generateId } from '@/lib/utils/id';
 
 interface PageState {
   blocks: Block[];
+  pageMeta: Record<string, unknown>;
   selectedBlockId: string | null;
   hoveredBlockId: string | null;
   editingBlockId: string | null;
 
   // History for undo/redo
-  history: Block[][];
+  history: Array<{ blocks: Block[]; pageMeta: Record<string, unknown> }>;
   historyIndex: number;
 
   // Actions
   setBlocks: (blocks: Block[]) => void;
+  setPageMeta: (meta: Record<string, unknown>) => void;
+  updatePageMeta: (updater: (meta: Record<string, unknown>) => Record<string, unknown>) => void;
+  loadPage: (blocks: Block[], meta?: Record<string, unknown>) => void;
+  replacePage: (blocks: Block[], meta?: Record<string, unknown>) => void;
   addBlock: (block: Block, parentId?: string | null, index?: number) => void;
   removeBlock: (id: string) => void;
   updateBlock: (id: string, updates: Partial<Block>) => void;
@@ -73,9 +78,16 @@ function deepCloneBlock(block: Block): Block {
   };
 }
 
+function cloneHistoryEntry(blocks: Block[], pageMeta: Record<string, unknown>) {
+  return {
+    blocks: JSON.parse(JSON.stringify(blocks)),
+    pageMeta: JSON.parse(JSON.stringify(pageMeta ?? {})),
+  };
+}
+
 function pushHistory(state: PageState): Partial<PageState> {
   const newHistory = state.history.slice(0, state.historyIndex + 1);
-  newHistory.push(JSON.parse(JSON.stringify(state.blocks)));
+  newHistory.push(cloneHistoryEntry(state.blocks, state.pageMeta));
   if (newHistory.length > 100) newHistory.shift();
   return {
     history: newHistory,
@@ -136,16 +148,53 @@ export function setAutosaveContext(projectId: string, pageId: string) {
 
 export const usePageStore = create<PageState>()((set, get) => ({
   blocks: [],
+  pageMeta: {},
   selectedBlockId: null,
   hoveredBlockId: null,
   editingBlockId: null,
-  history: [[]],
+  history: [cloneHistoryEntry([], {})],
   historyIndex: 0,
 
   setBlocks: (blocks) =>
     set((state) => ({
       blocks,
       ...pushHistory({ ...state, blocks }),
+    })),
+
+  setPageMeta: (pageMeta) =>
+    set((state) => ({
+      pageMeta,
+      ...pushHistory({ ...state, pageMeta }),
+    })),
+
+  updatePageMeta: (updater) =>
+    set((state) => {
+      const nextMeta = updater(state.pageMeta);
+      return {
+        pageMeta: nextMeta,
+        ...pushHistory({ ...state, pageMeta: nextMeta }),
+      };
+    }),
+
+  loadPage: (blocks, pageMeta = {}) =>
+    set(() => ({
+      blocks,
+      pageMeta,
+      selectedBlockId: null,
+      hoveredBlockId: null,
+      editingBlockId: null,
+      history: [cloneHistoryEntry(blocks, pageMeta)],
+      historyIndex: 0,
+    })),
+
+  replacePage: (blocks, pageMeta = {}) =>
+    set((state) => ({
+      blocks,
+      pageMeta,
+      selectedBlockId: null,
+      hoveredBlockId: null,
+      editingBlockId: null,
+      ...pushHistory({ ...state, blocks, pageMeta }),
     })),
 
   addBlock: (block, parentId = null, index) =>
@@ -309,8 +358,10 @@ export const usePageStore = create<PageState>()((set, get) => ({
     set((state) => {
       if (state.historyIndex <= 0) return state;
       const newIndex = state.historyIndex - 1;
+      const entry = state.history[newIndex];
       return {
-        blocks: JSON.parse(JSON.stringify(state.history[newIndex])),
+        blocks: JSON.parse(JSON.stringify(entry.blocks)),
+        pageMeta: JSON.parse(JSON.stringify(entry.pageMeta ?? {})),
         historyIndex: newIndex,
       };
     }),
@@ -319,8 +370,10 @@ export const usePageStore = create<PageState>()((set, get) => ({
     set((state) => {
       if (state.historyIndex >= state.history.length - 1) return state;
       const newIndex = state.historyIndex + 1;
+      const entry = state.history[newIndex];
       return {
-        blocks: JSON.parse(JSON.stringify(state.history[newIndex])),
+        blocks: JSON.parse(JSON.stringify(entry.blocks)),
+        pageMeta: JSON.parse(JSON.stringify(entry.pageMeta ?? {})),
         historyIndex: newIndex,
       };
     }),

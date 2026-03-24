@@ -17,10 +17,11 @@ import type { AICommand } from '@/components/ai/AIButton';
 import type { Block } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/lib/store';
+import { DEFAULT_PAGE_BACKGROUND, extractPageBackgroundSettings, upsertPageBackgroundMeta } from '@/lib/page-settings';
 
 export function RightPanel() {
   const { rightPanelTab, setRightPanelTab, hiddenRightPanelTabs, toggleHiddenRightPanelTab } = useUiStore();
-  const { selectedBlockId, updateBlock } = usePageStore();
+  const { selectedBlockId, updateBlock, pageMeta, updatePageMeta } = usePageStore();
   const blocks = usePageStore((s) => s.blocks);
 
   // Find the selected block from the blocks array
@@ -60,6 +61,19 @@ export function RightPanel() {
           <p className="text-[10px]" style={{ color: 'var(--c-text-2)' }}>Seleziona un blocco o usa gli strumenti globali</p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <PageBackgroundEditor
+            pageMeta={pageMeta}
+            onChange={(updater) => updatePageMeta((current) => upsertPageBackgroundMeta(current, updater))}
+          />
+          <PageSeoEditor
+            pageMeta={pageMeta}
+            onChange={(updates) =>
+              updatePageMeta((current) => ({
+                ...current,
+                ...updates,
+              }))
+            }
+          />
           <SnapGridSettings />
           <div className="border rounded-lg p-3" style={{ borderColor: 'var(--c-border)' }}>
             <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 mb-3" style={{ color: 'var(--c-text-1)' }}>
@@ -160,6 +174,161 @@ export function RightPanel() {
         {rightPanelTab === 'position' && <PositionSizeEditor block={block} />}
         {rightPanelTab === 'tools' && <ToolsTabContent block={block} projectPalette={projectPalette} onPaletteChange={setProjectPalette} />}
       </div>
+    </div>
+  );
+}
+
+function PageBackgroundEditor({
+  pageMeta,
+  onChange,
+}: {
+  pageMeta: Record<string, unknown>;
+  onChange: (updates: Partial<typeof DEFAULT_PAGE_BACKGROUND>) => void;
+}) {
+  const settings = extractPageBackgroundSettings(pageMeta);
+
+  return (
+    <div className="border rounded-lg p-3 space-y-3" style={{ borderColor: 'var(--c-border)' }}>
+      <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--c-text-1)' }}>
+        Sfondo Pagina
+      </h4>
+      <div className="space-y-2">
+        <label className="text-[11px] font-medium" style={{ color: 'var(--c-text-2)' }}>Tipo</label>
+        <select
+          value={settings.type}
+          onChange={(e) => onChange({ type: e.target.value as typeof DEFAULT_PAGE_BACKGROUND.type })}
+          className="w-full rounded-lg border px-3 py-2 text-sm"
+          style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)', color: 'var(--c-text-0)' }}
+        >
+          <option value="none">Nessuno</option>
+          <option value="color">Colore</option>
+          <option value="gradient">Gradiente</option>
+          <option value="image">Immagine</option>
+          <option value="slideshow">Slideshow</option>
+          <option value="custom-css">CSS custom</option>
+        </select>
+      </div>
+
+      {(settings.type === 'color' || settings.type === 'gradient' || settings.type === 'image') && (
+        <Input
+          label={settings.type === 'image' ? 'URL sfondo' : 'Valore sfondo'}
+          value={settings.value}
+          onChange={(e) => onChange({ value: e.target.value })}
+          placeholder={settings.type === 'gradient' ? 'linear-gradient(...)' : settings.type === 'image' ? 'https://...' : '#ffffff'}
+        />
+      )}
+
+      {settings.type === 'slideshow' && (
+        <>
+          <Textarea
+            label="Immagini slideshow"
+            value={settings.images.join('\n')}
+            onChange={(e) => onChange({ images: e.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })}
+            placeholder="Una URL per riga"
+            rows={5}
+          />
+          <Input
+            label="Durata totale (ms)"
+            type="number"
+            value={String(settings.slideshowDurationMs)}
+            onChange={(e) => onChange({ slideshowDurationMs: Number(e.target.value) || DEFAULT_PAGE_BACKGROUND.slideshowDurationMs })}
+          />
+        </>
+      )}
+
+      {settings.type === 'custom-css' && (
+        <Textarea
+          label="CSS custom"
+          value={settings.customCss}
+          onChange={(e) => onChange({ customCss: e.target.value })}
+          placeholder="Usa :scope per riferirti alla pagina"
+          rows={6}
+        />
+      )}
+
+      {settings.type !== 'none' && settings.type !== 'custom-css' && (
+        <>
+          <Input label="Overlay" value={settings.overlay} onChange={(e) => onChange({ overlay: e.target.value })} placeholder="rgba(0,0,0,0.25)" />
+          <Input label="Size" value={settings.size} onChange={(e) => onChange({ size: e.target.value })} />
+          <Input label="Position" value={settings.position} onChange={(e) => onChange({ position: e.target.value })} />
+          <Input label="Repeat" value={settings.repeat} onChange={(e) => onChange({ repeat: e.target.value })} />
+          <Toggle label="Sfondo fisso" checked={settings.fixed} onChange={(value) => onChange({ fixed: value })} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function PageSeoEditor({
+  pageMeta,
+  onChange,
+}: {
+  pageMeta: Record<string, unknown>;
+  onChange: (updates: Record<string, unknown>) => void;
+}) {
+  return (
+    <div className="border rounded-lg p-3 space-y-3" style={{ borderColor: 'var(--c-border)' }}>
+      <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--c-text-1)' }}>
+        SEO Pagina
+      </h4>
+      <Input
+        label="Meta title"
+        value={String(pageMeta.title || '')}
+        onChange={(event) => onChange({ title: event.target.value })}
+        placeholder="Titolo SEO max 60 caratteri"
+      />
+      <Textarea
+        label="Meta description"
+        value={String(pageMeta.description || '')}
+        onChange={(event) => onChange({ description: event.target.value })}
+        placeholder="Descrizione SEO max 155 caratteri"
+        rows={4}
+      />
+      <Input
+        label="Canonical path"
+        value={String(pageMeta.canonicalPath || '')}
+        onChange={(event) => onChange({ canonicalPath: event.target.value })}
+        placeholder="/percorso-canonico"
+      />
+      <Input
+        label="Focus keyword"
+        value={String(pageMeta.focusKeyword || '')}
+        onChange={(event) => onChange({ focusKeyword: event.target.value })}
+        placeholder="keyword principale"
+      />
+      <Input
+        label="Open Graph title"
+        value={String(pageMeta.ogTitle || '')}
+        onChange={(event) => onChange({ ogTitle: event.target.value })}
+      />
+      <Textarea
+        label="Open Graph description"
+        value={String(pageMeta.ogDescription || '')}
+        onChange={(event) => onChange({ ogDescription: event.target.value })}
+        rows={3}
+      />
+      <Select
+        label="Schema type"
+        value={String(pageMeta.schemaType || 'WebPage')}
+        onChange={(event) => onChange({ schemaType: event.target.value })}
+        options={[
+          { value: 'WebPage', label: 'WebPage' },
+          { value: 'CollectionPage', label: 'CollectionPage' },
+          { value: 'AboutPage', label: 'AboutPage' },
+          { value: 'ContactPage', label: 'ContactPage' },
+          { value: 'NewsMediaOrganization', label: 'NewsMediaOrganization' },
+        ]}
+      />
+      <Toggle
+        label="Noindex"
+        checked={Boolean(pageMeta.noindex)}
+        onChange={(value) => onChange({ noindex: value })}
+      />
+      <Toggle
+        label="Nofollow"
+        checked={Boolean(pageMeta.nofollow)}
+        onChange={(value) => onChange({ nofollow: value })}
+      />
     </div>
   );
 }

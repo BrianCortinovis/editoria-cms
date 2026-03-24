@@ -26,7 +26,10 @@ interface Props {
 }
 
 export function RenderSlideshow({ block, style }: Props) {
-  const slides = ((block.props.slides as Slide[]) || []).filter((slide) => slide);
+  const slides = ((block.props.slides as Slide[]) || []).filter((slide) => slide).map((slide) => ({
+    ...slide,
+    image: String(slide.image || '').trim(),
+  }));
   const autoplay = Boolean(block.props.autoplay);
   const interval = Number(block.props.interval || 5000);
   const showDots = block.props.showDots !== false;

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { callAI } from "@/lib/ai/providers";
 import { isModuleActive, getModuleConfig } from "@/lib/modules";
-import { resolveProvider } from "@/lib/ai/resolver";
+import { resolveProvider, type ResolvedProvider } from "@/lib/ai/resolver";
 
 interface ArticleWithMetrics {
   id: string;
@@ -15,6 +15,36 @@ interface ArticleWithMetrics {
   og_image_url: string | null;
   view_count: number;
   published_at: string | null;
+}
+
+interface PageSeoPayload {
+  title: string;
+  slug: string;
+  blocks?: unknown[];
+  meta?: Record<string, unknown>;
+  tenant_name?: string;
+}
+
+interface SeoToolResult {
+  action: string;
+  provider?: string;
+  [key: string]: unknown;
+}
+
+interface SchemaArticle {
+  id?: string | null;
+  title?: string | null;
+  slug?: string | null;
+  meta_description?: string | null;
+  summary?: string | null;
+  og_image_url?: string | null;
+  published_at?: string | null;
+  updated_at?: string | null;
+  author_name?: string | null;
+  publication_name?: string | null;
+  site_logo_url?: string | null;
+  site_url?: string | null;
+  url?: string | null;
 }
 
 /**
@@ -32,13 +62,41 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
-    const { tenant_id, action, articles = [], articleId } = body;
+    const { tenant_id, action, articles = [], articleId, page } = body as {
+      tenant_id?: string;
+      action?: string;
+      articles?: ArticleWithMetrics[];
+      articleId?: string;
+      page?: PageSeoPayload;
+    };
 
     if (!tenant_id) {
       return NextResponse.json({ error: "tenant_id required" }, { status: 400 });
+    }
+
+    const internalSecret = request.headers.get("authorization");
+    const isTrustedInternalCall = Boolean(
+      process.env.CRON_SECRET &&
+      internalSecret === `Bearer ${process.env.CRON_SECRET}`
+    );
+
+    if (!user && !isTrustedInternalCall) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!isTrustedInternalCall && user) {
+      const { data: membership } = await supabase
+        .from("user_tenants")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("tenant_id", tenant_id)
+        .single();
+
+      if (!membership) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     // Get tenant settings
@@ -58,7 +116,7 @@ export async function POST(request: NextRequest) {
     const aiConfig = getModuleConfig(settings, "ai_assistant");
     const resolved = resolveProvider(aiConfig, "seo");
 
-    let result: any = {};
+    let result: SeoToolResult = { action: action || "unknown" };
 
     switch (action) {
       case "analyze_seo":
@@ -110,6 +168,13 @@ export async function POST(request: NextRequest) {
         result = generateSchemaMarkup(article);
         break;
 
+      case "optimize_page":
+        if (!page) {
+          return NextResponse.json({ error: "page required for page optimization" }, { status: 400 });
+        }
+        result = await optimizePageSeo(page, resolved);
+        break;
+
       default:
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
@@ -122,10 +187,160 @@ export async function POST(request: NextRequest) {
   }
 }
 
+function stripHtml(value: string) {
+  return value
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractBlockText(blocks: unknown[], depth = 0): string[] {
+  if (!Array.isArray(blocks) || depth > 5) {
+    return [];
+  }
+
+  const parts: string[] = [];
+
+  for (const rawBlock of blocks) {
+    if (!rawBlock || typeof rawBlock !== "object") continue;
+    const block = rawBlock as {
+      label?: string;
+      props?: Record<string, unknown>;
+      children?: unknown[];
+    };
+
+    if (block.label) {
+      parts.push(String(block.label));
+    }
+
+    const props = block.props || {};
+    const candidateKeys = [
+      "title",
+      "subtitle",
+      "description",
+      "content",
+      "text",
+      "headline",
+      "excerpt",
+      "buttonText",
+      "ctaText",
+    ];
+
+    for (const key of candidateKeys) {
+      const value = props[key];
+      if (typeof value === "string" && value.trim()) {
+        parts.push(stripHtml(value));
+      }
+    }
+
+    if (Array.isArray(block.children) && block.children.length > 0) {
+      parts.push(...extractBlockText(block.children, depth + 1));
+    }
+  }
+
+  return parts.filter(Boolean);
+}
+
+function safeJsonParse<T>(value: string): T | null {
+  const cleaned = value.trim().replace(/^```json\s*/i, "").replace(/\s*```$/i, "");
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[0]) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function optimizePageSeo(page: PageSeoPayload, resolved: ResolvedProvider) {
+  const textParts = extractBlockText(page.blocks || []);
+  const pageText = textParts.join("\n").trim().slice(0, 6000);
+  const currentMeta = page.meta || {};
+  const pagePath = page.slug === "homepage" ? "/" : `/${page.slug}`;
+
+  const prompt = `Ottimizza SEO per questa pagina CMS di una testata giornalistica italiana.
+
+Tenant: ${page.tenant_name || "Testata"}
+Slug: ${page.slug}
+Path pubblico: ${pagePath}
+Titolo corrente pagina: ${page.title}
+Meta title corrente: ${typeof currentMeta.title === "string" ? currentMeta.title : ""}
+Meta description corrente: ${typeof currentMeta.description === "string" ? currentMeta.description : ""}
+Contenuto estratto dai blocchi:
+${pageText || "(nessun contenuto disponibile)"}
+
+Genera SOLO JSON valido con questa struttura:
+{
+  "title": "meta title SEO max 60 caratteri",
+  "description": "meta description SEO max 155 caratteri",
+  "ogTitle": "titolo Open Graph",
+  "ogDescription": "descrizione Open Graph",
+  "canonicalPath": "/percorso-canonico",
+  "focusKeyword": "keyword principale",
+  "schemaType": "WebPage",
+  "noindex": false,
+  "nofollow": false,
+  "notes": [
+    "nota breve 1",
+    "nota breve 2"
+  ]
+}
+
+Regole:
+- usa italiano professionale
+- non inventare brand diversi dal tenant
+- title massimo 60 caratteri
+- description massimo 155 caratteri
+- canonicalPath deve essere relativo e iniziare con /
+- schemaType deve essere uno tra WebPage, CollectionPage, AboutPage, ContactPage, NewsMediaOrganization
+- notes max 3`;
+
+  const result = await callAI(
+    resolved.provider,
+    [
+      {
+        role: "system",
+        content: "Sei un SEO strategist senior per CMS editoriali. Produci solo JSON valido, conciso e applicabile direttamente.",
+      },
+      { role: "user", content: prompt },
+    ],
+    { apiKey: resolved.apiKey, model: resolved.model }
+  );
+
+  const parsed = safeJsonParse<Record<string, unknown>>(result.text);
+  if (!parsed) {
+    throw new Error("AI SEO page optimization did not return valid JSON");
+  }
+
+  const seo = {
+    title: typeof parsed.title === "string" ? parsed.title.trim().slice(0, 60) : page.title,
+    description: typeof parsed.description === "string" ? parsed.description.trim().slice(0, 155) : "",
+    ogTitle: typeof parsed.ogTitle === "string" ? parsed.ogTitle.trim().slice(0, 90) : "",
+    ogDescription: typeof parsed.ogDescription === "string" ? parsed.ogDescription.trim().slice(0, 200) : "",
+    canonicalPath: typeof parsed.canonicalPath === "string" && parsed.canonicalPath.startsWith("/")
+      ? parsed.canonicalPath
+      : pagePath,
+    focusKeyword: typeof parsed.focusKeyword === "string" ? parsed.focusKeyword.trim() : "",
+    schemaType: typeof parsed.schemaType === "string" ? parsed.schemaType.trim() : "WebPage",
+    noindex: Boolean(parsed.noindex),
+    nofollow: Boolean(parsed.nofollow),
+    notes: Array.isArray(parsed.notes) ? parsed.notes.map((item) => String(item)).slice(0, 3) : [],
+  };
+
+  return {
+    action: "optimize_page",
+    seo,
+    provider: result.provider,
+    analysis: seo.notes.join(" "),
+  };
+}
+
 /**
  * Analyze overall SEO performance
  */
-async function analyzeSEO(articles: ArticleWithMetrics[], resolved: any) {
+async function analyzeSEO(articles: ArticleWithMetrics[], resolved: ResolvedProvider) {
   const stats = {
     total: articles.length,
     with_meta_title: articles.filter(a => a.meta_title).length,
@@ -170,7 +385,7 @@ Fornisci:
 /**
  * Generate optimized meta tags
  */
-async function generateMetaTags(articles: ArticleWithMetrics[], resolved: any) {
+async function generateMetaTags(articles: ArticleWithMetrics[], resolved: ResolvedProvider) {
   const articlesNeedingMeta = articles
     .filter(a => !a.meta_title || !a.meta_description)
     .slice(0, 5);
@@ -229,7 +444,7 @@ META_DESCRIPTION: [descrizione]`;
 /**
  * Analyze keywords and suggest improvements
  */
-async function analyzeKeywords(articles: ArticleWithMetrics[], resolved: any) {
+async function analyzeKeywords(articles: ArticleWithMetrics[], resolved: ResolvedProvider) {
   const content = articles
     .slice(0, 10)
     .map(a => `${a.title}: ${(a.body || "").slice(0, 300)}`)
@@ -266,7 +481,7 @@ Formato: Un paragrafo per articolo con raccomandazioni concrete.`;
 /**
  * Analyze and improve readability
  */
-async function analyzeReadability(articles: ArticleWithMetrics[], resolved: any) {
+async function analyzeReadability(articles: ArticleWithMetrics[], resolved: ResolvedProvider) {
   const sampleContent = articles
     .slice(0, 3)
     .map(a => `Titolo: "${a.title}"\n${(a.body || "").slice(0, 400)}`)
@@ -304,7 +519,7 @@ Per ogni aspetto, suggerisci 2-3 miglioramenti specifici applicabili.`;
 /**
  * Suggest internal linking opportunities
  */
-async function suggestInternalLinks(articles: ArticleWithMetrics[], resolved: any) {
+async function suggestInternalLinks(articles: ArticleWithMetrics[], resolved: ResolvedProvider) {
   const titles = articles.map(a => ({ slug: a.slug, title: a.title, summary: a.summary?.slice(0, 100) }));
 
   const prompt = `Basandoti su questi articoli giornalistici italiani, suggerisci collegamenti interni (internal links):
@@ -342,7 +557,7 @@ Formato:
 /**
  * Generate schema.org NewsArticle markup
  */
-function generateSchemaMarkup(article: any) {
+function generateSchemaMarkup(article: SchemaArticle) {
   const schema = {
     "@context": "https://schema.org",
     "@type": "NewsArticle",

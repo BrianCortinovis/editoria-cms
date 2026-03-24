@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import { useAuthStore } from '@/lib/store';
-import { Sparkles, Loader2, Copy, Wand2 } from 'lucide-react';
+import { Sparkles, Loader2, Wand2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface AIFieldHelperProps {
   fieldName: string;
   fieldValue?: string;
   fieldType?: 'text' | 'textarea' | 'title' | 'description' | 'meta' | 'custom';
-  context?: Record<string, any> | string;
+  context?: Record<string, unknown> | string;
   onGenerate?: (result: string) => void;
   className?: string;
   compact?: boolean;
@@ -53,9 +53,14 @@ export const AIFieldHelper = ({
 
       const data = await response.json();
       if (data.error) throw new Error(data.error);
-      setResult(data.result);
+      const normalizedResult = typeof data.result === 'string'
+        ? data.result
+        : typeof data.result === 'object' && data.result !== null
+          ? JSON.stringify(data.result)
+          : String(data.result ?? '');
+      setResult(normalizedResult);
       toast.success('Contenuto generato!');
-    } catch (error) {
+    } catch {
       toast.error('Errore nella generazione');
     } finally {
       setLoading(false);
@@ -101,7 +106,7 @@ export const AIFieldHelper = ({
                   {['auto', 'journalist', 'publication'].map((s) => (
                     <button
                       key={s}
-                      onClick={() => setStyle(s as any)}
+                      onClick={() => setStyle(s as 'auto' | 'journalist' | 'publication')}
                       className="px-3 py-2 rounded text-sm font-medium transition-colors"
                       style={{
                         background: style === s ? 'var(--c-accent)' : 'var(--c-bg-2)',

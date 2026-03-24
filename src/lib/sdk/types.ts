@@ -126,6 +126,65 @@ export interface SearchResult {
   total: number;
 }
 
+export interface CommandCatalogEntry {
+  name: string;
+  category: string;
+  phase: string;
+  description: string;
+  humanFlow: string;
+  input: Record<string, string>;
+}
+
+export interface RecommendedWorkflow {
+  id: string;
+  label: string;
+  description: string;
+  steps: string[];
+}
+
+export interface CommandEnvelope {
+  command: string;
+  input?: Record<string, unknown>;
+  clientRequestId?: string;
+}
+
+export interface CommandBlockDefinition {
+  type: string;
+  label: string;
+  description: string;
+  category: string;
+  icon: string;
+  supportsChildren: boolean;
+  maxChildren?: number;
+  allowedChildTypes?: string[];
+  defaultProps: Record<string, unknown>;
+  defaultStyle: Record<string, unknown>;
+  defaultDataSource?: Record<string, unknown>;
+}
+
+export interface CommandCatalogResponse {
+  catalog: CommandCatalogEntry[];
+  workflows: RecommendedWorkflow[];
+  blockCategories: Array<{ id: string; label: string; icon: string }>;
+  blockDefinitions: CommandBlockDefinition[];
+}
+
+export interface CommandExecutionResult {
+  command: string;
+  clientRequestId?: string;
+  success: boolean;
+  dryRun: boolean;
+  message: string;
+  data?: unknown;
+}
+
+export interface CommandExecutionResponse {
+  tenant_id: string;
+  actor_id: string;
+  dryRun: boolean;
+  results: CommandExecutionResult[];
+}
+
 // --- Parametri ---
 
 export interface ArticleFilters {
@@ -182,5 +241,14 @@ export interface EditoriaClient {
   };
   search: {
     query(q: string, options?: { ai?: boolean; limit?: number }): Promise<SearchResult>;
+  };
+  commands: {
+    catalog(): Promise<CommandCatalogResponse>;
+    execute(payload: {
+      tenantId?: string;
+      tenant?: string;
+      dryRun?: boolean;
+      commands: CommandEnvelope[];
+    }): Promise<CommandExecutionResponse>;
   };
 }

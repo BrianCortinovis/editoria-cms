@@ -61,6 +61,7 @@ interface FieldContextStore {
   captureFieldElement: (element: SupportedFieldElement) => void;
   syncFieldElement: (element: SupportedFieldElement) => void;
   applyValueToSelectedField: (value: string) => boolean;
+  hasSelectedFieldTarget: () => boolean;
 }
 
 const UNSUPPORTED_INPUT_TYPES = new Set([
@@ -79,6 +80,13 @@ let activeFieldElement: SupportedFieldElement | null = null;
 function normalizeText(value?: string | null) {
   return value?.replace(/\s+/g, ' ').trim() || '';
 }
+
+type ReactTrackedElement = HTMLElement & {
+  _valueTracker?: {
+    getValue?: () => string;
+    setValue?: (value: string) => void;
+  };
+};
 
 function isSwitchButtonElement(element: EventTarget | null): element is HTMLButtonElement {
   return element instanceof HTMLButtonElement && element.getAttribute('role') === 'switch';
@@ -280,6 +288,7 @@ function setNativeElementValue(element: SupportedFieldElement, value: string) {
   const normalizedValue = element instanceof HTMLSelectElement
     ? resolveSelectValue(element, value)
     : value;
+  const previousValue = element.value;
 
   const prototype = Object.getPrototypeOf(element) as { constructor?: { name?: string } };
   const valueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
@@ -290,7 +299,14 @@ function setNativeElementValue(element: SupportedFieldElement, value: string) {
     element.value = normalizedValue;
   }
 
-  element.dispatchEvent(new Event('input', { bubbles: true }));
+  const tracker = (element as ReactTrackedElement)._valueTracker;
+  tracker?.setValue?.(previousValue);
+
+  try {
+    element.dispatchEvent(new InputEvent('input', { bubbles: true, data: normalizedValue }));
+  } catch {
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+  }
   element.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
@@ -300,6 +316,7 @@ function shouldEnableBooleanValue(value: string) {
 }
 
 function setCheckableElementState(element: HTMLInputElement, nextChecked: boolean) {
+  const previousValue = element.checked ? 'true' : 'false';
   const prototype = Object.getPrototypeOf(element) as { constructor?: { name?: string } };
   const checkedSetter = Object.getOwnPropertyDescriptor(prototype, 'checked')?.set;
 
@@ -309,7 +326,14 @@ function setCheckableElementState(element: HTMLInputElement, nextChecked: boolea
     element.checked = nextChecked;
   }
 
-  element.dispatchEvent(new Event('input', { bubbles: true }));
+  const tracker = (element as ReactTrackedElement)._valueTracker;
+  tracker?.setValue?.(previousValue);
+
+  try {
+    element.dispatchEvent(new InputEvent('input', { bubbles: true, data: nextChecked ? 'true' : 'false' }));
+  } catch {
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+  }
   element.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
@@ -346,14 +370,23 @@ function setSwitchButtonValue(element: HTMLButtonElement, value: string) {
 function resolveSelectValue(element: HTMLSelectElement, value: string) {
   const compactValue = normalizeText(value).toLowerCase();
   const firstLine = compactValue.split('\n')[0]?.trim() || compactValue;
+  const normalizeLoose = (input: string) => normalizeText(input).toLowerCase().replace(/[^a-z0-9àèéìíîòóùúçñ\s-]/gi, '').trim();
+  const compactLoose = normalizeLoose(compactValue);
+  const firstLineLoose = normalizeLoose(firstLine);
 
   const match = Array.from(element.options).find((option) => {
     const optionValue = option.value.toLowerCase();
     const optionLabel = normalizeText(option.textContent).toLowerCase();
+    const optionValueLoose = normalizeLoose(option.value);
+    const optionLabelLoose = normalizeLoose(option.textContent || '');
     return optionValue === compactValue
       || optionLabel === compactValue
       || optionValue === firstLine
-      || optionLabel === firstLine;
+      || optionLabel === firstLine
+      || (optionValueLoose && (compactLoose.includes(optionValueLoose) || firstLineLoose.includes(optionValueLoose)))
+      || (optionLabelLoose && (compactLoose.includes(optionLabelLoose) || firstLineLoose.includes(optionLabelLoose)))
+      || (optionValueLoose && (optionValueLoose.includes(compactLoose) || optionValueLoose.includes(firstLineLoose)))
+      || (optionLabelLoose && (optionLabelLoose.includes(compactLoose) || optionLabelLoose.includes(firstLineLoose)));
   });
 
   return match?.value ?? value.trim();
@@ -522,6 +555,10 @@ export const useFieldContextStore = create<FieldContextStore>((set, get) => ({
       pageContext: collectPageContext(element),
     });
     return true;
+  },
+
+  hasSelectedFieldTarget: () => {
+    return Boolean(findSelectedElement(get().selectedField));
   },
 }));
 

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Trash2, Copy, Check, Sparkles, Loader2, Paintbrush } from 'lucide-react';
+import { Plus, Trash2, Check, Sparkles, Loader2 } from 'lucide-react';
 import { usePageStore } from '@/lib/stores/page-store';
+import { useAuthStore } from '@/lib/store';
 import { cn } from '@/lib/utils/cn';
 
 interface PaletteSet {
@@ -37,6 +38,7 @@ interface ColorPaletteManagerProps {
 }
 
 export function ColorPaletteManager({ currentPalette, onChange }: ColorPaletteManagerProps) {
+  const { currentTenant } = useAuthStore();
   const [newColor, setNewColor] = useState('#7c8aaa');
   const [copiedColor, setCopiedColor] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -89,6 +91,7 @@ export function ColorPaletteManager({ currentPalette, onChange }: ColorPaletteMa
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          tenant_id: currentTenant?.id,
           taskType: 'color-palette',
           prompt: 'Genera una palette di 6 colori per un sito web editoriale professionale. Rispondi SOLO con un JSON array di stringhe hex, esempio: ["#ff0000","#00ff00","#0000ff","#ffffff","#000000","#cccccc"]',
         }),

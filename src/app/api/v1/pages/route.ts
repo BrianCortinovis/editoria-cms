@@ -1,5 +1,8 @@
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { assertTrustedMutationRequest } from '@/lib/security/request';
 import { NextRequest, NextResponse } from 'next/server';
+
+const PAGE_EDITOR_ROLES = new Set(['super_admin', 'chief_editor', 'editor']);
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,6 +40,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const trustedOriginError = assertTrustedMutationRequest(request);
+    if (trustedOriginError) {
+      return trustedOriginError;
+    }
+
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -50,12 +58,15 @@ export async function POST(request: NextRequest) {
     // Verify user has access to this tenant
     const { data: access } = await supabase
       .from('user_tenants')
-      .select('id')
+      .select('id, role')
       .eq('user_id', user.id)
       .eq('tenant_id', tenant_id)
       .single();
 
     if (!access) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    if (!PAGE_EDITOR_ROLES.has(access.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

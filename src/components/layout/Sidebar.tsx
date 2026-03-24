@@ -35,6 +35,7 @@ import {
   Menu,
   PanelBottom,
   Mail,
+  Download,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { useThemeStore } from "@/lib/theme";
@@ -73,6 +74,7 @@ export const advNav = [
 export const systemNav = [
   { href: "/dashboard/testata", label: "Testata", icon: Building2 },
   { href: "/dashboard/tecnico", label: "Tecnico", icon: Cpu },
+  { href: "/dashboard/migrazioni", label: "Migraz.", icon: Download },
   { href: "/dashboard/seo", label: "SEO", icon: BarChart3 },
   { href: "/dashboard/redirect", label: "Redirect", icon: Globe },
   { href: "/dashboard/ia", label: "IA", icon: Sparkles },

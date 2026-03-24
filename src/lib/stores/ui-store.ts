@@ -19,6 +19,8 @@ interface UiState {
   showGrid: boolean;
   gridSize: number;
   showOutlines: boolean;
+  snapEnabled: boolean;
+  snapToDocumentEdges: boolean;
   projectPalette: string[];
   previewMode: boolean;
 
@@ -39,6 +41,8 @@ interface UiState {
   toggleGrid: () => void;
   setGridSize: (size: number) => void;
   toggleOutlines: () => void;
+  toggleSnapEnabled: () => void;
+  toggleSnapToDocumentEdges: () => void;
   setProjectPalette: (colors: string[]) => void;
   setPreviewMode: (on: boolean) => void;
   togglePreviewMode: () => void;
@@ -59,6 +63,8 @@ export const useUiStore = create<UiState>()(
       showGrid: false,
       gridSize: 1,
       showOutlines: true,
+      snapEnabled: true,
+      snapToDocumentEdges: true,
       projectPalette: ['#1a1a2e', '#16213e', '#0f3460', '#e94560', '#ffffff', '#f1f1f1'],
       previewMode: false,
 
@@ -83,18 +89,22 @@ export const useUiStore = create<UiState>()(
       toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
       setGridSize: (gridSize) => set({ gridSize: Math.max(1, Math.min(100, gridSize)) }),
       toggleOutlines: () => set((s) => ({ showOutlines: !s.showOutlines })),
+      toggleSnapEnabled: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
+      toggleSnapToDocumentEdges: () => set((s) => ({ snapToDocumentEdges: !s.snapToDocumentEdges })),
       setProjectPalette: (projectPalette) => set({ projectPalette }),
       setPreviewMode: (previewMode) => set({ previewMode }),
       togglePreviewMode: () => set((s) => ({ previewMode: !s.previewMode })),
     }),
     {
       name: 'editoria-ui-store',
-      version: 2,
+      version: 3,
       migrate: (persistedState) => {
         const state = (persistedState || {}) as Partial<UiState> & { leftPanelTab?: string };
         return {
           ...state,
           leftPanelTab: state.leftPanelTab === 'layers' ? 'layers' : 'blocks',
+          snapEnabled: typeof state.snapEnabled === 'boolean' ? state.snapEnabled : true,
+          snapToDocumentEdges: typeof state.snapToDocumentEdges === 'boolean' ? state.snapToDocumentEdges : true,
         };
       },
     }
