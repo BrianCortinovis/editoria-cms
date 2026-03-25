@@ -532,10 +532,20 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
       return true;
     }
 
+    // Allow dragging from toolbar main bar, but ignore individual buttons
+    const inToolbar = target.closest('[data-block-toolbar="true"]');
+    if (inToolbar) {
+      // Ignore if clicking on toolbar buttons (Move, nudge arrows, magnet, etc)
+      if (target.closest('button')) {
+        return true;
+      }
+      // Allow dragging from the main toolbar bar itself or label area
+      return false;
+    }
+
     return Boolean(
       target.closest('button, a, input, textarea, select, [contenteditable="true"], [role="button"]') ||
-      target.closest('[data-resize-handle="true"]') ||
-      target.closest('[data-block-toolbar="true"]')
+      target.closest('[data-resize-handle="true"]')
     );
   }, []);
 
@@ -624,8 +634,8 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
   const editorScopedCss = buildEditorScopedCss(block);
   const contentOwnsStyle = CANVAS_REAL_RENDER_BLOCKS.has(block.type);
   const hasClipPath = block.shape?.type === 'clip-path' && block.shape.value;
-  const layoutWidth = block.style.layout.width || '100%';
-  const layoutMaxWidth = block.style.layout.maxWidth || '100%';
+  const layoutWidth = block.style?.layout?.width || '100%';
+  const layoutMaxWidth = block.style?.layout?.maxWidth || '100%';
   const safeEditorMaxWidth = layoutMaxWidth === '100%'
     ? '100%'
     : `min(${layoutMaxWidth}, 100%)`;
@@ -846,47 +856,20 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
             onClick={(e) => e.stopPropagation()}
           >
             {/* Main toolbar bar */}
-            <div className="flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg cursor-move" style={{ background: 'var(--c-accent)' }}
+            <div className="flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg cursor-grab active:cursor-grabbing" style={{ background: 'var(--c-accent)' }}
               onMouseDown={(e) => {
+                // If clicking on a button inside, let it handle it
+                if ((e.target as HTMLElement).closest('button')) {
+                  return;
+                }
+
                 e.stopPropagation();
                 e.preventDefault();
-                const start = { x: e.clientX, y: e.clientY };
 
-                const handleMouseMove = (mv: MouseEvent) => {
-                  const dx = mv.clientX - start.x;
-                  const dy = mv.clientY - start.y;
-
-                  // If already at center-center, keep it there (allows free positioning)
-                  if (toolbarPos === 'center-center') {
-                    return;
-                  }
-
-                  // Simple logic: if moved more horizontally, position changes left/right
-                  // if moved vertically, position changes top/bottom
-                  if (Math.abs(dx) > 30) {
-                    if (dx > 0) {
-                      setToolbarPos(toolbarPos.includes('top') ? 'top-right' : 'bottom-right');
-                    } else {
-                      setToolbarPos(toolbarPos.includes('top') ? 'top-left' : 'bottom-left');
-                    }
-                  } else if (Math.abs(dy) > 30) {
-                    if (dy > 0) {
-                      setToolbarPos(toolbarPos.includes('left') ? 'bottom-left' : toolbarPos.includes('right') ? 'bottom-right' : 'bottom-center');
-                    } else {
-                      setToolbarPos(toolbarPos.includes('left') ? 'top-left' : toolbarPos.includes('right') ? 'top-right' : 'top-center');
-                    }
-                  }
-                };
-
-                const handleMouseUp = () => {
-                  document.removeEventListener('mousemove', handleMouseMove);
-                  document.removeEventListener('mouseup', handleMouseUp);
-                };
-
-                document.addEventListener('mousemove', handleMouseMove);
-                document.addEventListener('mouseup', handleMouseUp);
+                // Trigger block drag (same as clicking on empty area with long press)
+                startFreeDragAt(e.clientX, e.clientY);
               }}
-              title="Trascina per spostare toolbar"
+              title="Trascina per spostare il blocco"
             >
               {/* Drag handle - free movement */}
               <button onMouseDown={handleFreeDragStart} className="p-2 cursor-grab active:cursor-grabbing rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Trascina per spostare liberamente">
@@ -3563,6 +3546,18 @@ function SlideshowContent({ block }: { block: Block }) {
 function buildCssFromBlockStyle(block: Block): React.CSSProperties {
   const s = block.style;
   const css: React.CSSProperties = {};
+
+  // Safety check: ensure layout exists
+  if (!s || !s.layout) {
+    console.warn('Block missing style.layout, using defaults:', block.id);
+    return {
+      display: 'block',
+      padding: '0',
+      margin: '0',
+      width: '100%',
+    };
+  }
+
   if (s.layout.display) css.display = s.layout.display;
   if (s.layout.flexDirection) css.flexDirection = s.layout.flexDirection as 'row' | 'column';
   if (s.layout.justifyContent) css.justifyContent = s.layout.justifyContent;
