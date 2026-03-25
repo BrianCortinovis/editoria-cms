@@ -178,7 +178,8 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
   const blockRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 0, h: 0 });
   const [resizing, setResizing] = useState(false);
-  const [toolbarPos, setToolbarPos] = useState<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center' | 'bottom-center' | 'center-center'>('top-left');
+  const [toolbarPos, setToolbarPos] = useState<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center' | 'bottom-center' | 'center-center' | 'outside-top-left' | 'outside-top-right' | 'outside-bottom-left' | 'outside-bottom-right'>('top-left');
+  const [toolbarOffset, setToolbarOffset] = useState({ x: 0, y: 0 });
   const [freeTransformActive, setFreeTransformActive] = useState(false);
   const longPressTimerRef = useRef<number | null>(null);
   // Store initial style values and rendered width when resize starts
@@ -853,6 +854,13 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
               toolbarPos === 'bottom-center' && 'bottom-2 left-1/2 -translate-x-1/2',
               toolbarPos === 'center-center' && 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2'
             )}
+            style={toolbarOffset.x !== 0 || toolbarOffset.y !== 0 ? {
+              transform: `translate(${toolbarOffset.x}px, ${toolbarOffset.y}px)`,
+              top: 'auto',
+              left: 'auto',
+              right: 'auto',
+              bottom: 'auto',
+            } : undefined}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Main toolbar bar */}
@@ -866,10 +874,34 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
                 e.stopPropagation();
                 e.preventDefault();
 
-                // Trigger block drag (same as clicking on empty area with long press)
+                // If Shift+drag: move toolbar freely outside element
+                if (e.shiftKey) {
+                  const start = { x: e.clientX, y: e.clientY };
+                  const initialOffset = { ...toolbarOffset };
+
+                  const handleMove = (moveEvent: MouseEvent) => {
+                    const dx = moveEvent.clientX - start.x;
+                    const dy = moveEvent.clientY - start.y;
+                    setToolbarOffset({
+                      x: initialOffset.x + dx,
+                      y: initialOffset.y + dy,
+                    });
+                  };
+
+                  const handleUp = () => {
+                    document.removeEventListener('mousemove', handleMove);
+                    document.removeEventListener('mouseup', handleUp);
+                  };
+
+                  document.addEventListener('mousemove', handleMove);
+                  document.addEventListener('mouseup', handleUp);
+                  return;
+                }
+
+                // Otherwise: drag the block itself
                 startFreeDragAt(e.clientX, e.clientY);
               }}
-              title="Trascina per spostare il blocco"
+              title="Trascina per spostare il blocco (Shift+Trascina per muovere la toolbar fuori)"
             >
               {/* Drag handle - free movement */}
               <button onMouseDown={handleFreeDragStart} className="p-2 cursor-grab active:cursor-grabbing rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Trascina per spostare liberamente">
