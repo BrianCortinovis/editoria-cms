@@ -23,6 +23,8 @@ interface UiState {
   snapToDocumentEdges: boolean;
   projectPalette: string[];
   previewMode: boolean;
+  selectedInnerTarget: { blockId: string; part: string } | null;
+  isEditingProps: boolean;
 
   // Actions
   setTheme: (theme: Theme) => void;
@@ -46,6 +48,8 @@ interface UiState {
   setProjectPalette: (colors: string[]) => void;
   setPreviewMode: (on: boolean) => void;
   togglePreviewMode: () => void;
+  setSelectedInnerTarget: (target: { blockId: string; part: string } | null) => void;
+  setIsEditingProps: (editing: boolean) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -67,6 +71,8 @@ export const useUiStore = create<UiState>()(
       snapToDocumentEdges: true,
       projectPalette: ['#1a1a2e', '#16213e', '#0f3460', '#e94560', '#ffffff', '#f1f1f1'],
       previewMode: false,
+      selectedInnerTarget: null,
+      isEditingProps: false,
 
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
@@ -94,6 +100,8 @@ export const useUiStore = create<UiState>()(
       setProjectPalette: (projectPalette) => set({ projectPalette }),
       setPreviewMode: (previewMode) => set({ previewMode }),
       togglePreviewMode: () => set((s) => ({ previewMode: !s.previewMode })),
+      setSelectedInnerTarget: (selectedInnerTarget) => set({ selectedInnerTarget }),
+      setIsEditingProps: (isEditingProps) => set({ isEditingProps }),
     }),
     {
       name: 'editoria-ui-store',
@@ -105,6 +113,7 @@ export const useUiStore = create<UiState>()(
           leftPanelTab: state.leftPanelTab === 'layers' ? 'layers' : 'blocks',
           snapEnabled: typeof state.snapEnabled === 'boolean' ? state.snapEnabled : true,
           snapToDocumentEdges: typeof state.snapToDocumentEdges === 'boolean' ? state.snapToDocumentEdges : true,
+          selectedInnerTarget: state.selectedInnerTarget ?? null,
         };
       },
     }

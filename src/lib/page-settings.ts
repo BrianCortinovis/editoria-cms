@@ -94,7 +94,7 @@ export function getPageBackgroundFrameStyle(settings: PageBackgroundSettings): C
   };
 
   if (settings.type === "color") {
-    style.background = settings.value || "#ffffff";
+    style.backgroundColor = settings.value || "#ffffff";
   } else if (settings.type === "gradient") {
     style.backgroundImage = settings.value;
   } else if (settings.type === "image") {

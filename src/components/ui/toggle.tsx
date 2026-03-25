@@ -23,14 +23,25 @@ export function Toggle({ checked, onChange, label, size = 'md' }: ToggleProps) {
     syncFieldElement(buttonRef.current);
   };
 
+  const stopEventPropagation = (event: React.SyntheticEvent<HTMLElement>) => {
+    event.stopPropagation();
+  };
+
   return (
-    <label className="flex items-center gap-2 cursor-pointer select-none">
+    <label
+      className="flex items-center gap-2 cursor-pointer select-none"
+      onMouseDown={stopEventPropagation}
+      onPointerDown={stopEventPropagation}
+      onClick={stopEventPropagation}
+    >
       <button
         ref={buttonRef}
         type="button"
         role="switch"
         aria-checked={checked}
         aria-label={label}
+        data-editor-input="true"
+        data-ai-ignore-field-context="true"
         data-field-name={label}
         onFocus={(event) => {
           captureFieldElement(event.currentTarget);
@@ -39,6 +50,10 @@ export function Toggle({ checked, onChange, label, size = 'md' }: ToggleProps) {
           onChange(!checked);
           requestAnimationFrame(refreshFieldContext);
         }}
+        onMouseDown={stopEventPropagation}
+        onPointerDown={stopEventPropagation}
+        onKeyDown={stopEventPropagation}
+        onKeyUp={stopEventPropagation}
         className={cn(
           'relative inline-flex shrink-0 rounded-full transition-colors duration-200',
           'focus:outline-none focus:ring-2 focus:ring-offset-1',
@@ -58,7 +73,14 @@ export function Toggle({ checked, onChange, label, size = 'md' }: ToggleProps) {
         />
       </button>
       {label && (
-        <span className="text-sm" style={{ color: 'var(--c-text-0)' }}>{label}</span>
+        <span
+          className="text-sm"
+          style={{ color: 'var(--c-text-0)' }}
+          onMouseDown={stopEventPropagation}
+          onPointerDown={stopEventPropagation}
+        >
+          {label}
+        </span>
       )}
     </label>
   );

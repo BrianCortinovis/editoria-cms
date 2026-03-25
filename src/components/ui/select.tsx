@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, type SelectHTMLAttributes } from 'react';
+import { forwardRef, useId, type SelectHTMLAttributes } from 'react';
 import { useFieldContextStore } from '@/lib/stores/field-context-store';
 import { cn } from '@/lib/utils/cn';
 
@@ -16,7 +16,8 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, label, options, id, ...props }, ref) => {
-    const selectId = id || label?.toLowerCase().replace(/\s+/g, '-');
+    const generatedId = useId();
+    const selectId = id || `select-${generatedId}`;
     const { setSelectedField, updatePageContext } = useFieldContextStore();
 
     const handleFocus = (e: React.FocusEvent<HTMLSelectElement>) => {
@@ -33,8 +34,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       // Collect page context
       const form = element.closest('form') || element.closest('[data-form]') || document;
       const allFields: Record<string, string> = {};
-      const inputs = form.querySelectorAll('input[name], textarea[name], select[name]');
-      inputs.forEach((input: any) => {
+      const inputs = form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input[name], textarea[name], select[name]');
+      inputs.forEach((input) => {
         if (input.name && input.value) {
           allFields[input.name] = input.value;
         }
@@ -48,6 +49,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       props.onFocus?.(e);
     };
 
+    const stopEventPropagation = (event: React.SyntheticEvent<HTMLSelectElement>) => {
+      event.stopPropagation();
+    };
+
     return (
       <div className="flex flex-col gap-1">
         {label && (
@@ -56,6 +61,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           </label>
         )}
         <select
+          data-editor-input="true"
+          data-ai-ignore-field-context="true"
           ref={ref}
           id={selectId}
           className={cn(
@@ -72,6 +79,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             paddingRight: '2rem',
           }}
           onFocus={handleFocus}
+          onMouseDown={stopEventPropagation}
+          onPointerDown={stopEventPropagation}
+          onClick={stopEventPropagation}
           {...props}
         >
           {options.map((opt) => (

@@ -18,21 +18,53 @@ const DEFAULT_PRESETS = [
   '#fefae0', '#dda15e', '#bc6c25', '#6c757d', '#495057', '#343a40',
 ];
 
+function toNativeColor(value: string) {
+  const normalized = value.trim().toLowerCase();
+
+  if (/^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(normalized)) {
+    if (normalized.length === 4) {
+      return `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`;
+    }
+    return normalized;
+  }
+
+  const rgba = normalized.match(/^rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (rgba) {
+    const [, r, g, b] = rgba;
+    return `#${[r, g, b]
+      .map((part) => Math.max(0, Math.min(255, Number(part))).toString(16).padStart(2, '0'))
+      .join('')}`;
+  }
+
+  return '#000000';
+}
+
 export function ColorPicker({ value, onChange, label, presets = DEFAULT_PRESETS }: ColorPickerProps) {
   const [showPicker, setShowPicker] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const projectPalette = useUiStore((s) => s.projectPalette);
-
-  // Merge project palette with default presets (project colors first, no duplicates)
-  const allPresets = [...new Set([...projectPalette, ...presets])];
+  const nativePickerValue = toNativeColor(value || '#000000');
+  const stopEventPropagation = (event: React.SyntheticEvent<HTMLElement>) => {
+    event.stopPropagation();
+  };
 
   return (
-    <div className="flex flex-col gap-1">
+    <div
+      data-editor-input="true"
+      data-ai-ignore-field-context="true"
+      className="flex flex-col gap-1"
+      onMouseDown={stopEventPropagation}
+      onPointerDown={stopEventPropagation}
+      onClick={stopEventPropagation}
+      onKeyDown={stopEventPropagation}
+      onKeyUp={stopEventPropagation}
+    >
       {label && (
         <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{label}</span>
       )}
       <div className="relative">
         <button
+          type="button"
           onClick={() => setShowPicker(!showPicker)}
           className={cn(
             'flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm',
@@ -50,17 +82,24 @@ export function ColorPicker({ value, onChange, label, presets = DEFAULT_PRESETS 
         </button>
 
         {showPicker && (
-          <div className="absolute top-full left-0 mt-1 p-3 bg-white dark:bg-zinc-800 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-700 z-50 w-64">
+          <div className="absolute top-full left-0 mt-1 p-3 bg-white dark:bg-zinc-800 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-700 z-50 w-72">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+              Spettro Colore
+            </div>
             <input
               ref={inputRef}
               type="color"
-              value={value || '#000000'}
+              data-editor-input="true"
+              data-ai-ignore-field-context="true"
+              value={nativePickerValue}
               onChange={(e) => onChange(e.target.value)}
-              className="w-full h-8 rounded cursor-pointer border-0 p-0"
+              className="w-full h-12 rounded cursor-pointer border-0 p-0"
             />
             <div className="mt-2 flex items-center gap-1">
               <input
                 type="text"
+                data-editor-input="true"
+                data-ai-ignore-field-context="true"
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder="#000000"
@@ -75,6 +114,7 @@ export function ColorPicker({ value, onChange, label, presets = DEFAULT_PRESETS 
                 <div className="mt-1 flex flex-wrap gap-1">
                   {projectPalette.map((color) => (
                     <button
+                      type="button"
                       key={`proj-${color}`}
                       onClick={() => { onChange(color); setShowPicker(false); }}
                       className={cn(
@@ -94,6 +134,7 @@ export function ColorPicker({ value, onChange, label, presets = DEFAULT_PRESETS 
             <div className="mt-1 grid grid-cols-8 gap-1">
               {presets.map((color) => (
                 <button
+                  type="button"
                   key={color}
                   onClick={() => { onChange(color); setShowPicker(false); }}
                   className={cn(
@@ -106,6 +147,7 @@ export function ColorPicker({ value, onChange, label, presets = DEFAULT_PRESETS 
               ))}
             </div>
             <button
+              type="button"
               onClick={() => { onChange('transparent'); setShowPicker(false); }}
               className="mt-2 w-full text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 py-1"
             >

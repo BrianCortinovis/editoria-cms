@@ -9,6 +9,8 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Canvas } from './Canvas';
 import { PreviewMode } from './PreviewMode';
 import { Toolbar } from './Toolbar';
+import { AiBuildWizard } from '@/components/ai/AiBuildWizard';
+import { buildDefaultPageMeta } from '@/lib/pages/page-seo';
 import { LeftPanel } from '@/components/panels/LeftPanel';
 import { RightPanel } from '@/components/panels/RightPanel';
 import { HelpCenter } from '@/components/help/HelpCenter';
@@ -38,7 +40,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
     setLeftPanelOpen, setRightPanelOpen,
     previewMode, setPreviewMode,
   } = useUiStore();
-  const { blocks, pageMeta, setPageMeta, loadPage, addBlock } = usePageStore();
+  const { blocks, pageMeta, setPageMeta, loadPage, addBlock, replacePage } = usePageStore();
   const [saving, setSaving] = useState(false);
   const [recovered, setRecovered] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
@@ -48,6 +50,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
   const [seoStep, setSeoStep] = useState<'idle' | 'analyzing' | 'saving' | 'done' | 'error'>('idle');
   const [seoStepMessage, setSeoStepMessage] = useState<string>('Pronto ad analizzare la pagina.');
   const [seoResultPreview, setSeoResultPreview] = useState<Record<string, unknown> | null>(null);
+  const [aiBuildOpen, setAiBuildOpen] = useState(false);
   const pageApiUrl = `/api/builder/pages/${pageId}`;
 
   const persistPage = useCallback(async (nextBlocks = blocks, nextMeta = pageMeta) => {
@@ -82,6 +85,27 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
       setSaving(false);
     }
   }, [persistPage]);
+
+  const handleClearPage = useCallback(async () => {
+    setSaving(true);
+    setSaveState('idle');
+    setSaveMessage(null);
+    try {
+      replacePage([], {});
+      clearAutosave(projectId, pageId);
+      await persistPage([], {});
+      setSaveState('saved');
+      setSaveMessage('Pagina svuotata');
+      toast.success('Pagina svuotata e salvata');
+    } catch (error) {
+      console.error('Clear page error:', error);
+      setSaveState('error');
+      setSaveMessage(error instanceof Error ? error.message : 'Svuotamento non riuscito');
+      toast.error(error instanceof Error ? error.message : 'Svuotamento non riuscito');
+    } finally {
+      setSaving(false);
+    }
+  }, [pageId, persistPage, projectId, replacePage]);
 
   const handleSeoOptimize = useCallback(async () => {
     if (!currentTenant?.id) {
@@ -176,14 +200,37 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
     }
 
     const tag = target.tagName.toLowerCase();
-    return (
-      target.isContentEditable ||
-      tag === 'input' ||
-      tag === 'textarea' ||
-      tag === 'select' ||
-      Boolean(target.closest('[contenteditable="true"]'))
-    );
+
+    // Direct editable elements
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable) {
+      return true;
+    }
+
+    // Check if inside editor interactive regions (RightPanel, etc)
+    if (Boolean(target.closest('[data-editor-interactive-root="true"]')) || Boolean(target.closest('[data-editor-input="true"]'))) {
+      return true;
+    }
+
+    // Contenteditable areas
+    if (Boolean(target.closest('[contenteditable="true"]'))) {
+      return true;
+    }
+
+    return false;
   }, []);
+
+  const hasFocusedEditableElement = useCallback(() => {
+    if (typeof document === 'undefined') {
+      return false;
+    }
+
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement)) {
+      return false;
+    }
+
+    return isEditableTarget(active);
+  }, [isEditableTarget]);
 
   const parseTranslate = useCallback((transform?: string) => {
     if (!transform) return { x: 0, y: 0 };
@@ -207,7 +254,12 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
       .then((r) => r.json())
       .then((data) => {
         const serverBlocks = data.page?.blocks || [];
-        const serverMeta = data.page?.meta || {};
+        const serverMeta = buildDefaultPageMeta({
+          title: data.page?.title || projectName,
+          slug: data.page?.slug || 'homepage',
+          blocks: serverBlocks,
+          currentMeta: data.page?.meta || {},
+        });
         // Use autosave ONLY if server has nothing (empty page) and autosave has content
         if (serverBlocks.length === 0 && autosave && autosave.blocks.length > 0) {
           loadPage(autosave.blocks, serverMeta);
@@ -231,7 +283,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           loadPage([], {});
         }
       });
-  }, [loadPage, pageApiUrl, projectId, pageId]);
+  }, [loadPage, pageApiUrl, projectId, pageId, projectName]);
 
   // Warn before leaving with unsaved work
   useEffect(() => {
@@ -247,7 +299,13 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const { isEditingProps } = useUiStore.getState();
+
+      // Skip if event came from an editable context
       if (isEditableTarget(e.target)) {
+        return;
+      }
+      if (hasFocusedEditableElement()) {
         return;
       }
 
@@ -260,12 +318,21 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
         e.preventDefault();
         void handleSave();
       }
-      // Delete/Backspace: Delete selected block
-      if ((e.key === 'Delete' || e.key === 'Backspace') && !previewMode) {
-        const { selectedBlockId, removeBlock } = usePageStore.getState();
-        if (selectedBlockId) {
+      // Delete/Backspace: Delete selected block (only if no input is focused)
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !previewMode && !isEditingProps) {
+        // If event came from an input/textarea, NEVER process it
+        const target = e.target;
+        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+          return; // Let browser handle it normally
+        }
+
+        // Check if focused element is editable
+        if (!hasFocusedEditableElement()) {
           e.preventDefault();
-          removeBlock(selectedBlockId);
+          const { selectedBlockIds, removeBlock } = usePageStore.getState();
+          if (selectedBlockIds.length > 0) {
+            [...selectedBlockIds].reverse().forEach((id) => removeBlock(id));
+          }
         }
       }
       // Ctrl/Cmd+D: Duplicate selected block
@@ -301,6 +368,11 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           console.error('Paste error:', err);
         }
       }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !previewMode) {
+        e.preventDefault();
+        const { selectAllBlocks } = usePageStore.getState();
+        selectAllBlocks();
+      }
 
       // Arrow keys: nudge selected block
       if (!previewMode && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
@@ -325,9 +397,9 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
         }
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [handleSave, isEditableTarget, parseTranslate, previewMode, setPreviewMode]);
+    window.addEventListener('keydown', handler, { passive: false });
+    return () => window.removeEventListener('keydown', handler, { passive: false });
+  }, [handleSave, hasFocusedEditableElement, isEditableTarget, parseTranslate, previewMode, setPreviewMode]);
 
   // Drag handlers
   const handleDragStart = () => {
@@ -390,6 +462,8 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
         <Toolbar
           projectId={projectId}
           onSave={() => void handleSave()}
+          onClearPage={() => void handleClearPage()}
+          onOpenAiBuild={() => setAiBuildOpen(true)}
           onPreview={handlePreview}
           onExport={() => void handleExport()}
           onSeoOptimize={openSeoDialog}
@@ -407,6 +481,21 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
             <button onClick={() => setRecovered(false)} className="ml-2 underline opacity-80 hover:opacity-100">OK</button>
           </div>
         )}
+
+        <AiBuildWizard
+          open={aiBuildOpen}
+          tenantId={currentTenant?.id}
+          currentBlocks={blocks}
+          currentMeta={pageMeta}
+          onClose={() => setAiBuildOpen(false)}
+          onApply={async (nextBlocks, nextMeta) => {
+            replacePage(nextBlocks, nextMeta);
+            await persistPage(nextBlocks, nextMeta);
+            setSaveState('saved');
+            setSaveMessage('Pagina generata');
+            toast.success('Pagina generata con BUILD IA');
+          }}
+        />
 
         {seoDialogOpen && (
           <div className="fixed inset-0 z-[10000] flex items-center justify-center">
