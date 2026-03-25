@@ -3,7 +3,7 @@
 import {
   Save, Undo2, Redo2, Monitor, Tablet, Smartphone,
   Eye, Download, Sparkles, Grid3X3, SquareDashed,
-  PanelLeft, PanelRight, Trash,
+  PanelLeft, PanelRight, Trash, Copy,
   // Block tools
   Type, Image, Columns3, Layers, Minus, Play,
   Megaphone, Quote, Mail, BarChart3, Code, Table, MapPin,
@@ -83,7 +83,7 @@ export function Toolbar({
   // CSS variable for active button state
   const activeButtonStyle = { background: "var(--c-accent-soft)", color: "var(--c-accent)" };
 
-  const { undo, redo, canUndo, canRedo, addBlock, replacePage } = usePageStore();
+  const { undo, redo, canUndo, canRedo, addBlock, replacePage, selectedBlockId } = usePageStore();
   const [showLayoutPresets, setShowLayoutPresets] = useState(false);
 
   const addQuickBlock = (type: BlockType) => {
@@ -312,6 +312,49 @@ export function Toolbar({
           <LayoutTemplate size={15} />
           <span className="hidden lg:inline text-xs">Layout</span>
         </Button>
+
+        {/* Block selection tools - visible only when block is selected */}
+        {selectedBlockId && (
+          <>
+            <div className="w-px h-6" style={{ background: "var(--c-border)" }} />
+            <div className="flex items-center gap-0.5 pl-2">
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => {
+                  const { selectedBlockId, duplicateBlock } = usePageStore.getState();
+                  if (selectedBlockId) duplicateBlock(selectedBlockId);
+                }}
+                title="Duplica (Ctrl+D)"
+              >
+                <Copy size={14} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => {
+                  const { selectedBlockIds, removeBlock } = usePageStore.getState();
+                  if (selectedBlockIds.length > 0) {
+                    [...selectedBlockIds].reverse().forEach((id) => removeBlock(id));
+                  }
+                }}
+                title="Elimina (Delete)"
+              >
+                <Trash size={14} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="xs"
+                title="Snap magnete"
+                onClick={() => {
+                  useUiStore.getState().toggleSnapEnabled?.();
+                }}
+              >
+                <Magnet size={14} style={{ opacity: useUiStore((s) => s.snapEnabled) ? 1 : 0.5 }} />
+              </Button>
+            </div>
+          </>
+        )}
 
         {/* Spacer */}
         <div className="flex-1" />
