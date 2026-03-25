@@ -397,8 +397,8 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
         }
       }
     };
-    window.addEventListener('keydown', handler, { passive: false });
-    return () => window.removeEventListener('keydown', handler, { passive: false });
+    window.addEventListener('keydown', handler as EventListener, { passive: false } as AddEventListenerOptions);
+    return () => window.removeEventListener('keydown', handler as EventListener, { passive: false } as EventListenerOptions);
   }, [handleSave, hasFocusedEditableElement, isEditableTarget, parseTranslate, previewMode, setPreviewMode]);
 
   // Drag handlers
@@ -459,6 +459,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
       onDragEnd={handleDragEnd}
     >
       <div className="h-full w-full min-w-0 max-w-full flex flex-col overflow-hidden" style={{ background: "var(--c-bg-0)" }}>
+        {/* Top Toolbar */}
         <Toolbar
           projectId={projectId}
           onSave={() => void handleSave()}
@@ -669,14 +670,6 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           {rightPanelOpen && (
             <div className="w-[340px] shrink-0 h-full relative border-l" style={{ borderColor: 'var(--c-border)' }}>
               <RightPanel />
-              <button
-                onClick={() => setRightPanelOpen(false)}
-                className="absolute top-2 left-2 p-1 rounded z-10"
-                style={{ background: 'var(--c-bg-2)' }}
-                title="Chiudi pannello"
-              >
-                <ChevronRight size={14} />
-              </button>
             </div>
           )}
 

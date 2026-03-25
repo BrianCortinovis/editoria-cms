@@ -208,7 +208,7 @@ export function RightPanel() {
         {rightPanelTab === 'animation' && <AnimationEditor block={block} />}
         {rightPanelTab === 'shape' && <ShapeTabContent block={block} />}
         {rightPanelTab === 'position' && <PositionSizeEditor block={block} />}
-        {rightPanelTab === 'tools' && <ToolsTabContent projectPalette={projectPalette} onPaletteChange={setProjectPalette} />}
+        {rightPanelTab === 'tools' && <ToolsTabContent block={block} projectPalette={projectPalette} onPaletteChange={setProjectPalette} />}
       </div>
     </div>
   );
@@ -4134,10 +4134,202 @@ function DividerSection({ label, config, block, position }: { label: string; con
   );
 }
 
-function ToolsTabContent({ projectPalette, onPaletteChange }: { projectPalette: string[]; onPaletteChange: (colors: string[]) => void }) {
+function AlignmentTools({ block }: { block: Block }) {
+  const { updateBlockStyle } = usePageStore();
+  const blocks = usePageStore((s) => s.blocks);
+
+  // Find parent block info for snapping relative to parent
+  const findBlockAndParent = (blocks: Block[], id: string, parent: Block | null = null): { block: Block | null; parent: Block | null } => {
+    for (const b of blocks) {
+      if (b.id === id) return { block: b, parent };
+      const result = findBlockAndParent(b.children, id, b);
+      if (result.block) return result;
+    }
+    return { block: null, parent: null };
+  };
+
+  const { parent } = findBlockAndParent(blocks, block.id);
+
+  const centerOnPage = () => {
+    if (!block.style?.layout) return;
+    updateBlockStyle(block.id, {
+      layout: {
+        ...block.style.layout,
+        position: 'relative',
+        margin: { top: 'auto', right: 'auto', bottom: 'auto', left: 'auto' },
+        width: block.style.layout.width || '100%',
+      },
+    });
+  };
+
+  const centerOnParent = () => {
+    if (!block.style?.layout || !parent) return;
+    updateBlockStyle(block.id, {
+      layout: {
+        ...block.style.layout,
+        margin: { top: 'auto', right: 'auto', bottom: 'auto', left: 'auto' },
+      },
+    });
+  };
+
+  const alignLeft = () => {
+    if (!block.style?.layout) return;
+    updateBlockStyle(block.id, {
+      layout: {
+        ...block.style.layout,
+        margin: { ...block.style.layout.margin, left: '0', right: 'auto' },
+      },
+    });
+  };
+
+  const alignRight = () => {
+    if (!block.style?.layout) return;
+    updateBlockStyle(block.id, {
+      layout: {
+        ...block.style.layout,
+        margin: { ...block.style.layout.margin, right: '0', left: 'auto' },
+      },
+    });
+  };
+
+  const alignTop = () => {
+    if (!block.style?.layout) return;
+    updateBlockStyle(block.id, {
+      layout: {
+        ...block.style.layout,
+        margin: { ...block.style.layout.margin, top: '0', bottom: 'auto' },
+      },
+    });
+  };
+
+  const alignBottom = () => {
+    if (!block.style?.layout) return;
+    updateBlockStyle(block.id, {
+      layout: {
+        ...block.style.layout,
+        margin: { ...block.style.layout.margin, bottom: '0', top: 'auto' },
+      },
+    });
+  };
+
+  return (
+    <div className="border rounded-lg p-3 space-y-3" style={{ borderColor: 'var(--c-border)' }}>
+      <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--c-text-1)' }}>
+        <Move size={12} /> Allineamento & Snap
+      </h4>
+
+      <div className="space-y-2">
+        <button
+          onClick={centerOnPage}
+          className="w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+          style={{ background: 'var(--c-accent-soft)', color: 'var(--c-accent)' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = '0.9';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = '1';
+          }}
+          title="Centra il blocco sulla pagina (auto margin)"
+        >
+          Centra sulla pagina
+        </button>
+
+        {parent && (
+          <button
+            onClick={centerOnParent}
+            className="w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+            style={{ background: 'var(--c-accent-soft)', color: 'var(--c-accent)' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.opacity = '0.9';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.opacity = '1';
+            }}
+            title="Centra il blocco nella sezione genitore"
+          >
+            Centra sulla sezione
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-3 gap-1.5">
+        <button
+          onClick={alignLeft}
+          className="px-2 py-2 rounded-lg text-xs font-medium transition-colors"
+          style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-0)' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--c-accent-soft)';
+            e.currentTarget.style.color = 'var(--c-accent)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'var(--c-bg-2)';
+            e.currentTarget.style.color = 'var(--c-text-0)';
+          }}
+          title="Allinea a sinistra"
+        >
+          <ArrowLeft size={14} />
+        </button>
+
+        <button
+          onClick={alignTop}
+          className="px-2 py-2 rounded-lg text-xs font-medium transition-colors"
+          style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-0)' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--c-accent-soft)';
+            e.currentTarget.style.color = 'var(--c-accent)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'var(--c-bg-2)';
+            e.currentTarget.style.color = 'var(--c-text-0)';
+          }}
+          title="Allinea in alto"
+        >
+          <ArrowUp size={14} />
+        </button>
+
+        <button
+          onClick={alignRight}
+          className="px-2 py-2 rounded-lg text-xs font-medium transition-colors"
+          style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-0)' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--c-accent-soft)';
+            e.currentTarget.style.color = 'var(--c-accent)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'var(--c-bg-2)';
+            e.currentTarget.style.color = 'var(--c-text-0)';
+          }}
+          title="Allinea a destra"
+        >
+          <ArrowRight size={14} />
+        </button>
+
+        <button
+          onClick={alignBottom}
+          className="col-span-3 px-2 py-2 rounded-lg text-xs font-medium transition-colors"
+          style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-0)' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--c-accent-soft)';
+            e.currentTarget.style.color = 'var(--c-accent)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'var(--c-bg-2)';
+            e.currentTarget.style.color = 'var(--c-text-0)';
+          }}
+          title="Allinea in basso"
+        >
+          <ArrowDown size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ToolsTabContent({ block, projectPalette, onPaletteChange }: { block: Block | null; projectPalette: string[]; onPaletteChange: (colors: string[]) => void }) {
   return (
     <div className="space-y-4">
       <SnapGridSettings />
+      {block && <AlignmentTools block={block} />}
       <div className="border rounded-lg p-3 space-y-1.5" style={{ borderColor: 'var(--c-border)' }}>
         <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--c-text-1)' }}>
           <Layers size={12} /> Tools blocco

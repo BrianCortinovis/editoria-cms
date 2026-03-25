@@ -27,6 +27,8 @@ import { useState } from 'react';
 interface ToolbarProps {
   projectId: string;
   onSave: () => void;
+  onClearPage?: () => void;
+  onOpenAiBuild?: () => void;
   onPreview: () => void;
   onExport: () => void;
   onSeoOptimize?: () => void;
