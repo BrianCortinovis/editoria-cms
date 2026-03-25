@@ -13,7 +13,7 @@ import {
   Trash2, Copy, Eye, EyeOff, Settings2,
   Move, FlipHorizontal2, Lock, Unlock,
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
-  Magnet, AlignCenterHorizontal, AlignCenterVertical
+  Magnet, AlignCenterHorizontal, AlignCenterVertical, RotateCcw
 } from 'lucide-react';
 import { DEVICE_WIDTHS } from '@/lib/config/breakpoints';
 import { generateDividerSvg, dividerToClipPath, generateDividerGradientMask } from '@/lib/shapes/dividers';
@@ -1006,6 +1006,21 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
               </button>
 
               <div className="w-px h-7 mx-1" style={{ background: 'rgba(0,0,0,0.2)' }} />
+
+              {/* Reset toolbar position */}
+              <button
+                onClick={() => {
+                  setToolbarPos('top-left');
+                  setToolbarOffset({ x: 0, y: 0 });
+                }}
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: 'var(--c-bg-0)', background: 'transparent' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                title="Reset toolbar position"
+              >
+                <RotateCcw size={18} />
+              </button>
 
               {/* Delete */}
               <button onClick={() => removeBlock(block.id)} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,59,48,0.2)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Elimina (Delete)">
