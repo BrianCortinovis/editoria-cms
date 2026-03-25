@@ -345,6 +345,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
       }
       // Ctrl/Cmd+C: Copy selected block (store in localStorage)
       if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !previewMode) {
+        e.preventDefault();
         const { selectedBlockId, blocks } = usePageStore.getState();
         if (selectedBlockId) {
           const block = blocks.find(b => b.id === selectedBlockId);
@@ -353,19 +354,55 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           }
         }
       }
+      // Ctrl/Cmd+X: Cut selected block (copy + delete)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'x' && !previewMode) {
+        e.preventDefault();
+        const { selectedBlockIds, blocks, removeBlock } = usePageStore.getState();
+        if (selectedBlockIds.length > 0) {
+          // Copy all selected blocks
+          const selectedBlocks = blocks.filter(b => selectedBlockIds.includes(b.id));
+          if (selectedBlocks.length > 0) {
+            localStorage.setItem('copiedBlock', JSON.stringify(selectedBlocks.length === 1 ? selectedBlocks[0] : selectedBlocks));
+          }
+          // Delete all selected blocks
+          [...selectedBlockIds].reverse().forEach((id) => removeBlock(id));
+        }
+      }
       // Ctrl/Cmd+V: Paste copied block
       if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !previewMode) {
         e.preventDefault();
         try {
           const copied = localStorage.getItem('copiedBlock');
           if (copied) {
-            const block = JSON.parse(copied);
-            block.id = generateId();
+            const data = JSON.parse(copied);
             const { addBlock } = usePageStore.getState();
-            addBlock(block);
+            // Handle both single block and array of blocks
+            const blocksToAdd = Array.isArray(data) ? data : [data];
+            blocksToAdd.forEach(block => {
+              block.id = generateId();
+              addBlock(block);
+            });
           }
         } catch (err) {
           console.error('Paste error:', err);
+        }
+      }
+      // Ctrl/Cmd+Z: Undo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey && !previewMode) {
+        e.preventDefault();
+        // Assuming there's an undo function in the store
+        const store = usePageStore.getState();
+        if ('undo' in store && typeof store.undo === 'function') {
+          (store.undo as () => void)();
+        }
+      }
+      // Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z: Redo
+      if (((e.ctrlKey || e.metaKey) && e.key === 'y' || (e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') && !previewMode) {
+        e.preventDefault();
+        // Assuming there's a redo function in the store
+        const store = usePageStore.getState();
+        if ('redo' in store && typeof store.redo === 'function') {
+          (store.redo as () => void)();
         }
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !previewMode) {
