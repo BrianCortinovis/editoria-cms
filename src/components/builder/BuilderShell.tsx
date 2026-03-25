@@ -319,20 +319,24 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
         void handleSave();
       }
       // Delete/Backspace: Delete selected block (only if no input is focused)
-      if ((e.key === 'Delete' || e.key === 'Backspace') && !previewMode && !isEditingProps) {
-        // If event came from an input/textarea, NEVER process it
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !previewMode) {
+        // If event came from an input/textarea directly, NEVER process it
         const target = e.target;
         if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
           return; // Let browser handle it normally
         }
 
-        // Check if focused element is editable
-        if (!hasFocusedEditableElement()) {
-          e.preventDefault();
-          const { selectedBlockIds, removeBlock } = usePageStore.getState();
-          if (selectedBlockIds.length > 0) {
-            [...selectedBlockIds].reverse().forEach((id) => removeBlock(id));
-          }
+        // Check if focused element is contenteditable or inside one
+        const active = document.activeElement;
+        if (active instanceof HTMLElement && (active.isContentEditable || active.closest('[contenteditable="true"]'))) {
+          return; // Let contenteditable handle it
+        }
+
+        // If we have selected blocks and not in an editable context, delete them
+        e.preventDefault();
+        const { selectedBlockIds, removeBlock } = usePageStore.getState();
+        if (selectedBlockIds.length > 0) {
+          [...selectedBlockIds].reverse().forEach((id) => removeBlock(id));
         }
       }
       // Ctrl/Cmd+D: Duplicate selected block
