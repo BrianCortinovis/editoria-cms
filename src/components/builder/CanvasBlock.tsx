@@ -863,173 +863,28 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
             } : undefined}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Main toolbar bar */}
-            <div className="flex items-center gap-1 rounded-xl px-3 py-1.5 shadow-lg cursor-grab active:cursor-grabbing" style={{ background: 'var(--c-accent)' }}
+            {/* Minimal toolbar bar - just for dragging */}
+            <div className="flex items-center gap-1 rounded-xl px-2 py-1 shadow-lg cursor-grab active:cursor-grabbing" style={{ background: 'var(--c-accent)' }}
               onMouseDown={(e) => {
-                // If clicking on a button inside, let it handle it
-                if ((e.target as HTMLElement).closest('button')) {
-                  return;
-                }
-
                 e.stopPropagation();
                 e.preventDefault();
-
-                // If Shift+drag: move toolbar freely outside element
-                if (e.shiftKey) {
-                  const start = { x: e.clientX, y: e.clientY };
-                  const initialOffset = { ...toolbarOffset };
-
-                  const handleMove = (moveEvent: MouseEvent) => {
-                    const dx = moveEvent.clientX - start.x;
-                    const dy = moveEvent.clientY - start.y;
-                    setToolbarOffset({
-                      x: initialOffset.x + dx,
-                      y: initialOffset.y + dy,
-                    });
-                  };
-
-                  const handleUp = () => {
-                    document.removeEventListener('mousemove', handleMove);
-                    document.removeEventListener('mouseup', handleUp);
-                  };
-
-                  document.addEventListener('mousemove', handleMove);
-                  document.addEventListener('mouseup', handleUp);
-                  return;
-                }
-
-                // Otherwise: drag the block itself
+                // Drag the block
                 startFreeDragAt(e.clientX, e.clientY);
               }}
-              title="Trascina per spostare il blocco (Shift+Trascina per muovere la toolbar fuori)"
+              title="Trascina per spostare il blocco"
             >
-              {/* Drag handle - free movement */}
-              <button onMouseDown={handleFreeDragStart} className="p-2 cursor-grab active:cursor-grabbing rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Trascina per spostare liberamente">
-                <Move size={20} />
-              </button>
-
-              <div className="w-px h-7 mx-1" style={{ background: 'rgba(0,0,0,0.2)' }} />
+              {/* Grab icon */}
+              <Move size={16} style={{ color: 'var(--c-bg-0)', flexShrink: 0 }} />
 
               {/* Label */}
-              <span className="text-[13px] px-1.5 font-semibold select-none max-w-[140px] truncate" style={{ color: 'var(--c-bg-0)' }}>
+              <span className="text-[11px] px-1 font-semibold select-none max-w-[80px] truncate" style={{ color: 'var(--c-bg-0)' }}>
                 {block.label}
               </span>
-
-              <div className="w-px h-7 mx-1" style={{ background: 'rgba(0,0,0,0.2)' }} />
-
-              {/* Nudge 1px arrows */}
-              <button onClick={() => nudge(-1, 0)} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Sinistra 1px">
-                <ArrowLeft size={16} />
-              </button>
-              <button onClick={() => nudge(0, -1)} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Su 1px">
-                <ArrowUp size={16} />
-              </button>
-              <button onClick={() => nudge(0, 1)} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Giu 1px">
-                <ArrowDown size={16} />
-              </button>
-              <button onClick={() => nudge(1, 0)} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Destra 1px">
-                <ArrowRight size={16} />
-              </button>
-
-              <div className="w-px h-7 mx-1" style={{ background: 'rgba(0,0,0,0.2)' }} />
-
-              {/* Snap magnet */}
-              <button
-                onClick={toggleSnapEnabled}
-                className="p-2 rounded-lg transition-colors"
-                style={{ color: 'var(--c-bg-0)', background: snapEnabled ? 'rgba(0,0,0,0.2)' : 'transparent' }} onMouseEnter={(e) => !snapEnabled && (e.currentTarget.style.background = 'rgba(0,0,0,0.1)')} onMouseLeave={(e) => !snapEnabled && (e.currentTarget.style.background = 'transparent')}
-                title={snapEnabled ? 'Magnete ON (5px)' : 'Magnete OFF'}
-              >
-                <Magnet size={18} />
-              </button>
-
-              {/* Center horizontal on page */}
-              <button onClick={() => centerOnPage('h')} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Centra orizzontale pagina">
-                <AlignCenterHorizontal size={18} />
-              </button>
-
-              {/* Center vertical on page */}
-              <button onClick={() => centerOnPage('v')} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Centra verticale pagina">
-                <AlignCenterVertical size={18} />
-              </button>
-
-              <div className="w-px h-7 mx-1" style={{ background: 'rgba(0,0,0,0.2)' }} />
-
-              {/* Mirror resize */}
-              <button
-                onClick={() => setMirrorResize(!mirrorResize)}
-                className="p-2 rounded-lg transition-colors"
-                style={{ color: 'var(--c-bg-0)', background: mirrorResize ? 'rgba(0,0,0,0.2)' : 'transparent' }} onMouseEnter={(e) => !mirrorResize && (e.currentTarget.style.background = 'rgba(0,0,0,0.1)')} onMouseLeave={(e) => !mirrorResize && (e.currentTarget.style.background = 'transparent')}
-                title={mirrorResize ? 'Resize speculare ON' : 'Resize speculare OFF'}
-              >
-                <FlipHorizontal2 size={18} />
-              </button>
-
-              {/* Duplicate */}
-              <button onClick={() => duplicateBlock(block.id)} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Duplica (Ctrl+D)">
-                <Copy size={18} />
-              </button>
-
-              {/* Settings */}
-              <button onClick={() => { setRightPanelOpen(true); setRightPanelTab('properties'); }} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Proprieta">
-                <Settings2 size={18} />
-              </button>
-
-              {/* Free Transform - only show if block has shape */}
-              {block.shape?.type === 'clip-path' && block.shape?.value && (
-                <button
-                  onClick={() => setFreeTransformActive(!freeTransformActive)}
-                  className="p-2 rounded-lg transition-colors"
-                  style={{
-                    color: 'var(--c-bg-0)',
-                    background: freeTransformActive ? 'rgba(0,0,0,0.3)' : 'transparent'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
-                  onMouseLeave={(e) => !freeTransformActive && (e.currentTarget.style.background = 'transparent')}
-                  title="Trasformazione Libera"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    {/* Diagonal arrows icon for free transform */}
-                    <path d="M3 3h5v5M21 21h-5v-5M8 8l8 8M3 21l18-18" />
-                  </svg>
-                </button>
-              )}
-
-              {/* Visibility */}
-              <button onClick={() => updateBlock(block.id, { hidden: !block.hidden })} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title={block.hidden ? 'Mostra' : 'Nascondi'}>
-                {block.hidden ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-
-              {/* Lock */}
-              <button onClick={() => updateBlock(block.id, { locked: !block.locked })} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title={block.locked ? 'Sblocca' : 'Blocca'}>
-                {block.locked ? <Lock size={18} /> : <Unlock size={18} />}
-              </button>
-
-              <div className="w-px h-7 mx-1" style={{ background: 'rgba(0,0,0,0.2)' }} />
-
-              {/* Reset toolbar position */}
-              <button
-                onClick={() => {
-                  setToolbarPos('top-left');
-                  setToolbarOffset({ x: 0, y: 0 });
-                }}
-                className="p-2 rounded-lg transition-colors"
-                style={{ color: 'var(--c-bg-0)', background: 'transparent' }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                title="Reset toolbar position"
-              >
-                <RotateCcw size={18} />
-              </button>
-
-              {/* Delete */}
-              <button onClick={() => removeBlock(block.id)} className="p-2 rounded-lg transition-colors" style={{ color: 'var(--c-bg-0)', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,59,48,0.2)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'} title="Elimina (Delete)">
-                <Trash2 size={18} />
-              </button>
             </div>
 
-            {/* Toolbar position buttons - show on hover */}
-            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Toolbar position buttons - DEPRECATED: moved to main toolbar */}
+            {/* Hidden - block tools now in main toolbar */}
+            {false && <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => setToolbarPos('top-left')}
                 className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
@@ -1101,7 +956,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
                 title="Center"
               >⊙</button>
             </div>
-          </div>
+            }
 
           {/* Dimensions + position badge */}
           <div className="absolute bottom-2 right-2 text-sm font-mono px-3 py-1.5 rounded-lg z-50 pointer-events-none shadow-lg" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-0)' }}>
