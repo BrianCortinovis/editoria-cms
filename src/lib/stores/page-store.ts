@@ -25,6 +25,7 @@ interface PageState {
   replacePage: (blocks: Block[], meta?: Record<string, unknown>) => void;
   addBlock: (block: Block, parentId?: string | null, index?: number) => void;
   removeBlock: (id: string) => void;
+  removeBlocks: (ids: string[]) => void;
   updateBlock: (id: string, updates: Partial<Block>) => void;
   updateBlockProps: (id: string, props: Record<string, unknown>) => void;
   updateBlockStyle: (id: string, style: Partial<BlockStyle>) => void;
@@ -299,6 +300,22 @@ export const usePageStore = create<PageState>()((set, get) => ({
         selectedBlockId: state.selectedBlockId === id ? null : state.selectedBlockId,
         selectedBlockIds: state.selectedBlockIds.filter((selectedId) => selectedId !== id),
         editingBlockId: state.editingBlockId === id ? null : state.editingBlockId,
+        ...pushHistory({ ...state, blocks: newBlocks }),
+      };
+    }),
+
+  removeBlocks: (ids) =>
+    set((state) => {
+      let newBlocks = state.blocks;
+      // Remove all blocks in a single pass to avoid state sync issues
+      ids.forEach((id) => {
+        newBlocks = removeBlockFromTree(newBlocks, id);
+      });
+      return {
+        blocks: newBlocks,
+        selectedBlockId: ids.includes(state.selectedBlockId || '') ? null : state.selectedBlockId,
+        selectedBlockIds: state.selectedBlockIds.filter((selectedId) => !ids.includes(selectedId)),
+        editingBlockId: ids.includes(state.editingBlockId || '') ? null : state.editingBlockId,
         ...pushHistory({ ...state, blocks: newBlocks }),
       };
     }),

@@ -334,9 +334,9 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
 
         // If we have selected blocks and not in an editable context, delete them
         e.preventDefault();
-        const { selectedBlockIds, removeBlock } = usePageStore.getState();
+        const { selectedBlockIds, removeBlocks } = usePageStore.getState();
         if (selectedBlockIds.length > 0) {
-          [...selectedBlockIds].reverse().forEach((id) => removeBlock(id));
+          removeBlocks(selectedBlockIds);
         }
       }
       // Ctrl/Cmd+D: Duplicate selected block
@@ -361,7 +361,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
       // Ctrl/Cmd+X: Cut selected block (copy + delete)
       if ((e.ctrlKey || e.metaKey) && e.key === 'x' && !previewMode) {
         e.preventDefault();
-        const { selectedBlockIds, blocks, removeBlock } = usePageStore.getState();
+        const { selectedBlockIds, blocks, removeBlocks } = usePageStore.getState();
         if (selectedBlockIds.length > 0) {
           // Copy all selected blocks
           const selectedBlocks = blocks.filter(b => selectedBlockIds.includes(b.id));
@@ -369,7 +369,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
             localStorage.setItem('copiedBlock', JSON.stringify(selectedBlocks.length === 1 ? selectedBlocks[0] : selectedBlocks));
           }
           // Delete all selected blocks
-          [...selectedBlockIds].reverse().forEach((id) => removeBlock(id));
+          removeBlocks(selectedBlockIds);
         }
       }
       // Ctrl/Cmd+V: Paste copied block
