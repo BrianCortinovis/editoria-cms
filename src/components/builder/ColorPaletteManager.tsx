@@ -5,6 +5,7 @@ import { Plus, Trash2, Check, Sparkles, Loader2 } from 'lucide-react';
 import { usePageStore } from '@/lib/stores/page-store';
 import { useAuthStore } from '@/lib/store';
 import { cn } from '@/lib/utils/cn';
+import { upsertPageBackgroundMeta } from '@/lib/page-settings';
 
 interface PaletteSet {
   id: string;
@@ -43,9 +44,9 @@ export function ColorPaletteManager({ currentPalette, onChange }: ColorPaletteMa
   const [copiedColor, setCopiedColor] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const [applyMode, setApplyMode] = useState<'bg' | 'text' | 'border' | null>(null);
+  const [applyMode, setApplyMode] = useState<'bg' | 'text' | 'border' | 'page-bg'>('bg');
 
-  const { selectedBlockId, updateBlockStyle, getSelectedBlock } = usePageStore();
+  const { selectedBlockId, updateBlockStyle, getSelectedBlock, updatePageMeta } = usePageStore();
   const selectedBlock = getSelectedBlock();
 
   const addColor = () => {
@@ -66,17 +67,21 @@ export function ColorPaletteManager({ currentPalette, onChange }: ColorPaletteMa
 
   // Apply a color directly to the selected block
   const applyColorToBlock = (color: string) => {
-    if (!selectedBlockId || !selectedBlock) return;
+    if (applyMode === 'page-bg') {
+      updatePageMeta((current) => upsertPageBackgroundMeta(current, { type: 'color', value: color }));
+      return;
+    }
+
+    if (!selectedBlockId) return;
+    const liveBlock = usePageStore.getState().getBlock(selectedBlockId);
+    if (!liveBlock) return;
 
     if (applyMode === 'bg') {
-      updateBlockStyle(selectedBlockId, { background: { ...selectedBlock.style.background, type: 'color', value: color } });
+      updateBlockStyle(selectedBlockId, { background: { ...liveBlock.style.background, type: 'color', value: color } });
     } else if (applyMode === 'text') {
-      updateBlockStyle(selectedBlockId, { typography: { ...selectedBlock.style.typography, color } });
+      updateBlockStyle(selectedBlockId, { typography: { ...liveBlock.style.typography, color } });
     } else if (applyMode === 'border') {
-      updateBlockStyle(selectedBlockId, { border: { ...selectedBlock.style.border, color, width: selectedBlock.style.border.width || '2px', style: selectedBlock.style.border.style || 'solid' } });
-    } else {
-      // Default: apply as background
-      updateBlockStyle(selectedBlockId, { background: { ...selectedBlock.style.background, type: 'color', value: color } });
+      updateBlockStyle(selectedBlockId, { border: { ...liveBlock.style.border, color, width: liveBlock.style.border.width || '2px', style: liveBlock.style.border.style || 'solid' } });
     }
   };
 
@@ -115,45 +120,44 @@ export function ColorPaletteManager({ currentPalette, onChange }: ColorPaletteMa
   return (
     <div className="space-y-4">
       {/* Apply mode selector - where to apply palette colors */}
-      {selectedBlock && (
-        <div>
-          <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
-            Applica colore a:
-          </span>
-          <div className="flex gap-1">
-            {[
-              { id: 'bg' as const, label: 'Sfondo', icon: '■' },
-              { id: 'text' as const, label: 'Testo', icon: 'A' },
-              { id: 'border' as const, label: 'Bordo', icon: '□' },
-            ].map(({ id, label, icon }) => (
-              <button
-                key={id}
-                onClick={() => setApplyMode(applyMode === id ? null : id)}
-                className={cn(
-                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-colors',
-                  applyMode === id
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                )}
-              >
-                <span className="text-sm">{icon}</span>
-                {label}
-              </button>
-            ))}
-          </div>
-          {applyMode && (
-            <p className="text-[9px] text-blue-500 mt-1">
-              Clicca un colore per applicarlo come {applyMode === 'bg' ? 'sfondo' : applyMode === 'text' ? 'colore testo' : 'colore bordo'} al blocco selezionato
-            </p>
-          )}
+      <div>
+        <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
+          Applica colore a:
+        </span>
+        <div className="flex gap-1">
+          {[
+            { id: 'bg' as const, label: 'Sfondo', icon: '■' },
+            { id: 'text' as const, label: 'Testo', icon: 'A' },
+            { id: 'border' as const, label: 'Bordo', icon: '□' },
+            { id: 'page-bg' as const, label: 'Pagina', icon: '▣' },
+          ].map(({ id, label, icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setApplyMode(id)}
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-colors',
+                applyMode === id
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+              )}
+            >
+              <span className="text-sm">{icon}</span>
+              {label}
+            </button>
+          ))}
         </div>
-      )}
+        <p className="text-[9px] text-blue-500 mt-1">
+          Clicca un colore per applicarlo come {applyMode === 'bg' ? 'sfondo blocco' : applyMode === 'text' ? 'colore testo' : applyMode === 'border' ? 'colore bordo' : 'sfondo pagina'}{applyMode === 'page-bg' ? '' : ' al blocco selezionato'}
+        </p>
+      </div>
 
       {/* Current palette */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Palette Corrente</span>
           <button
+            type="button"
             onClick={generateAiPalette}
             disabled={aiLoading}
             className="flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-600"
@@ -166,8 +170,9 @@ export function ColorPaletteManager({ currentPalette, onChange }: ColorPaletteMa
           {currentPalette.map((color, i) => (
             <div key={`${color}-${i}`} className="group relative">
               <button
+                type="button"
                 onClick={() => {
-                  if (applyMode && selectedBlock) {
+                  if (selectedBlock || applyMode === 'page-bg') {
                     applyColorToBlock(color);
                   } else {
                     copyColor(color);
@@ -185,6 +190,7 @@ export function ColorPaletteManager({ currentPalette, onChange }: ColorPaletteMa
                 )}
               </button>
               <button
+                type="button"
                 onClick={(e) => { e.stopPropagation(); removeColor(i); }}
                 className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
@@ -201,7 +207,7 @@ export function ColorPaletteManager({ currentPalette, onChange }: ColorPaletteMa
               onChange={(e) => setNewColor(e.target.value)}
               className="w-10 h-10 rounded-lg cursor-pointer border-2 border-dashed border-zinc-300 dark:border-zinc-600"
             />
-            <button onClick={addColor} className="w-8 h-4 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:bg-zinc-200 text-[8px] text-zinc-500">
+            <button type="button" onClick={addColor} className="w-8 h-4 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:bg-zinc-200 text-[8px] text-zinc-500">
               <Plus size={10} />
             </button>
           </div>
@@ -215,6 +221,7 @@ export function ColorPaletteManager({ currentPalette, onChange }: ColorPaletteMa
           {displayPalettes.map((palette) => (
             <button
               key={palette.id}
+              type="button"
               onClick={() => applyPalette(palette)}
               className="flex items-center gap-2 p-2 rounded-lg border border-zinc-100 dark:border-zinc-800 hover:border-blue-300 dark:hover:border-blue-700 transition-colors text-left"
             >
@@ -232,7 +239,7 @@ export function ColorPaletteManager({ currentPalette, onChange }: ColorPaletteMa
           ))}
         </div>
         {!showAll && (
-          <button onClick={() => setShowAll(true)} className="w-full text-center text-[10px] text-blue-500 hover:text-blue-600 mt-2 py-1">
+          <button type="button" onClick={() => setShowAll(true)} className="w-full text-center text-[10px] text-blue-500 hover:text-blue-600 mt-2 py-1">
             Mostra tutte ({BUILTIN_PALETTES.length})
           </button>
         )}

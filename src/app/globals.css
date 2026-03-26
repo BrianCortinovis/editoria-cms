@@ -156,3 +156,9 @@ body {
 .tiptap img { max-width: 100%; border-radius: 6px; margin: 1em 0; }
 .tiptap a { color: var(--c-accent); text-decoration: underline; }
 .tiptap p.is-editor-empty:first-child::before { content: attr(data-placeholder); float: left; color: var(--c-text-3); pointer-events: none; height: 0; }
+
+/* Empty block outline - shows dashed border for empty/placeholder blocks */
+.sb-empty-outline {
+  outline: 2px dashed var(--c-accent) !important;
+  outline-offset: 2px;
+}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { writeActivityLog, writePageAuditLog } from "@/lib/security/audit";
+import { buildDefaultPageMeta, slugifyPageTitle } from "@/lib/pages/page-seo";
 
 const PAGE_EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
 
@@ -54,9 +55,10 @@ export async function POST(request: Request) {
 
   const body = await request.json();
   const { tenant_id, title, slug, page_type, meta, blocks } = body;
+  const normalizedSlug = typeof slug === "string" && slug.trim() ? slug.trim() : slugifyPageTitle(String(title || ""));
 
-  if (!tenant_id || !title || !slug) {
-    return NextResponse.json({ error: "tenant_id, title, slug required" }, { status: 400 });
+  if (!tenant_id || !title || !normalizedSlug) {
+    return NextResponse.json({ error: "tenant_id, title required" }, { status: 400 });
   }
 
   const supabase = await createServerSupabaseClient();
@@ -85,9 +87,14 @@ export async function POST(request: Request) {
     .insert({
       tenant_id,
       title,
-      slug,
+      slug: normalizedSlug,
       page_type: page_type || "custom",
-      meta: meta || {},
+      meta: buildDefaultPageMeta({
+        title,
+        slug: normalizedSlug,
+        blocks: Array.isArray(blocks) ? blocks : [],
+        currentMeta: meta || {},
+      }),
       blocks: blocks || [],
       created_by: user.id,
     })

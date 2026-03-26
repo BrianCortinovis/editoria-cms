@@ -17,6 +17,7 @@ import type { AdvancedGradient, AnimationEffect, Block, BlockAnimation, BlockEff
 import { createBlock } from '@/lib/types';
 import { getBlockDefinition } from '@/lib/blocks/registry';
 import { generateId } from '@/lib/utils/id';
+import { extractPageBackgroundSettings, upsertPageBackgroundMeta } from '@/lib/page-settings';
 import toast from 'react-hot-toast';
 import '@/lib/blocks/init';
 
@@ -36,7 +37,413 @@ interface AiAction {
   zoom?: number;
   direction?: 'up' | 'down';
   panel?: 'left' | 'right' | 'ai';
+  pageBackground?: Record<string, unknown>;
   children?: AiAction[];
+}
+
+function extractRequestedCount(text: string, fallback = 4) {
+  const match = text.match(/(\d{1,2})/);
+  if (!match) return fallback;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? Math.max(1, Math.min(value, 20)) : fallback;
+}
+
+function extractQuotedText(text: string) {
+  const match = text.match(/["“](.+?)["”]/);
+  return match?.[1]?.trim() || null;
+}
+
+function extractUrl(text: string) {
+  return text.match(/https?:\/\/[^\s]+/i)?.[0] || null;
+}
+
+function extractColorToken(text: string) {
+  const hex = text.match(/#(?:[0-9a-f]{3}|[0-9a-f]{6})\b/i)?.[0];
+  if (hex) return hex;
+
+  const named = [
+    'bianco', 'white', 'nero', 'black', 'rosso', 'red', 'blu', 'blue', 'verde', 'green',
+    'giallo', 'yellow', 'arancione', 'orange', 'viola', 'purple', 'grigio', 'gray', 'grey',
+  ].find((token) => new RegExp(`\\b${token}\\b`, 'i').test(text));
+
+  const colorMap: Record<string, string> = {
+    bianco: '#ffffff',
+    white: '#ffffff',
+    nero: '#000000',
+    black: '#000000',
+    rosso: '#dc2626',
+    red: '#dc2626',
+    blu: '#2563eb',
+    blue: '#2563eb',
+    verde: '#16a34a',
+    green: '#16a34a',
+    giallo: '#eab308',
+    yellow: '#eab308',
+    arancione: '#f97316',
+    orange: '#f97316',
+    viola: '#7c3aed',
+    purple: '#7c3aed',
+    grigio: '#6b7280',
+    gray: '#6b7280',
+    grey: '#6b7280',
+  };
+
+  return named ? colorMap[named] : null;
+}
+
+function buildNavigationItems(count: number, iconOnly = false) {
+  const icons = ['home', 'newspaper', 'folder', 'tag', 'image', 'calendar', 'mail', 'search', 'menu', 'layers', 'user', 'phone'];
+  return Array.from({ length: count }).map((_, index) => ({
+    id: generateId(),
+    label: iconOnly ? `V${index + 1}` : `Voce ${index + 1}`,
+    url: '#',
+    icon: icons[index % icons.length],
+    children: [],
+  }));
+}
+
+function extractAxisNumber(text: string, axis: 'x' | 'y') {
+  const match = text.match(new RegExp(`${axis}\\s*(-?\\d{1,4})`, 'i'));
+  return match ? Number(match[1]) : null;
+}
+
+function inferSelectedBlockActionsFromPrompt(userPrompt: string, selectedBlock: Block | null): AiAction[] | null {
+  if (!selectedBlock) {
+    return null;
+  }
+
+  const lower = userPrompt.toLowerCase();
+  const quoted = extractQuotedText(userPrompt);
+  const url = extractUrl(userPrompt);
+  const color = extractColorToken(userPrompt);
+  const propUpdates: Record<string, unknown> = {};
+  const styleUpdates: Record<string, unknown> = {};
+  const layoutStyleUpdates: Record<string, unknown> = {};
+
+  const paddingMatch = userPrompt.match(/padding\s*(-?\d{1,4})/i);
+  if (paddingMatch) {
+    const paddingValue = `${Number(paddingMatch[1])}px`;
+    layoutStyleUpdates.padding = {
+      top: paddingValue,
+      right: paddingValue,
+      bottom: paddingValue,
+      left: paddingValue,
+    };
+  }
+
+  const minHeightMatch = userPrompt.match(/(?:altezza|min-height)\s*(-?\d{1,4})(px|vh|%)?/i);
+  if (minHeightMatch && /(altezza|min-height)/i.test(lower) && !/\bhero\b/.test(lower)) {
+    layoutStyleUpdates.minHeight = `${Number(minHeightMatch[1])}${minHeightMatch[2] || 'px'}`;
+  }
+
+  const maxWidthMatch = userPrompt.match(/(?:max width|max-width|larghezza massima)\s*(-?\d{1,4})(px|%|vw)?/i);
+  if (maxWidthMatch) {
+    layoutStyleUpdates.maxWidth = `${Number(maxWidthMatch[1])}${maxWidthMatch[2] || 'px'}`;
+  }
+
+  if (selectedBlock.type === 'hero') {
+    if (/\b(titolo|headline)\b/i.test(lower) && quoted) {
+      propUpdates.title = quoted;
+    }
+    if (/\b(sottotitolo|subtitle|descrizione)\b/i.test(lower) && quoted) {
+      propUpdates.subtitle = quoted;
+    }
+    if (/\b(eyebrow|badge|sopratitolo)\b/i.test(lower) && quoted) {
+      propUpdates.eyebrow = quoted;
+    }
+    if (/\b(cta|pulsante|button)\b/i.test(lower) && /\b(testo|label|scritta)\b/i.test(lower) && quoted) {
+      propUpdates.ctaText = quoted;
+    }
+    if (/\b(cta|pulsante|button)\b/i.test(lower) && url) {
+      propUpdates.ctaUrl = url;
+    }
+    if (/\b(sfondo|background|immagine)\b/i.test(lower) && url) {
+      propUpdates.backgroundImage = url;
+    }
+    if (/\b(centra|centro|center)\b/i.test(lower)) {
+      propUpdates.textAlign = 'center';
+      propUpdates.contentPosition = 'center';
+    } else if (/\b(sinistra|left)\b/i.test(lower)) {
+      propUpdates.textAlign = 'left';
+      propUpdates.contentPosition = 'left';
+    } else if (/\b(destra|right)\b/i.test(lower)) {
+      propUpdates.textAlign = 'right';
+      propUpdates.contentPosition = 'right';
+    }
+    if (/\b(glass)\b/i.test(lower)) propUpdates.panelStyle = 'glass';
+    if (/\b(light|chiaro)\b/i.test(lower) && /\b(panel|pannello)\b/i.test(lower)) propUpdates.panelStyle = 'solid-light';
+    if (/\b(dark|scuro)\b/i.test(lower) && /\b(panel|pannello)\b/i.test(lower)) propUpdates.panelStyle = 'solid-dark';
+    if (/\b(senza pannello|nessun pannello|panel none)\b/i.test(lower)) propUpdates.panelStyle = 'none';
+    if (/\b(overlay)\b/i.test(lower) && color) propUpdates.overlayColor = color;
+
+    const opacityMatch = userPrompt.match(/(\d{1,3})\s*%/);
+    if (/\b(overlay)\b/i.test(lower) && opacityMatch) {
+      propUpdates.overlayOpacity = Math.max(0, Math.min(1, Number(opacityMatch[1]) / 100));
+    }
+
+    const offsetX = extractAxisNumber(userPrompt, 'x');
+    const offsetY = extractAxisNumber(userPrompt, 'y');
+    if (/\b(contenuto)\b/i.test(lower)) {
+      if (offsetX !== null) propUpdates.contentOffsetX = offsetX;
+      if (offsetY !== null) propUpdates.contentOffsetY = offsetY;
+    }
+    if (/\b(cta|pulsante|button)\b/i.test(lower)) {
+      if (offsetX !== null) propUpdates.ctaOffsetX = offsetX;
+      if (offsetY !== null) propUpdates.ctaOffsetY = offsetY;
+    }
+  }
+
+  if (selectedBlock.type === 'slideshow') {
+    const offsetX = extractAxisNumber(userPrompt, 'x');
+    const offsetY = extractAxisNumber(userPrompt, 'y');
+    if (/\b(contenuto|testo)\b/i.test(lower)) {
+      if (offsetX !== null) propUpdates.contentOffsetX = offsetX;
+      if (offsetY !== null) propUpdates.contentOffsetY = offsetY;
+    }
+    if (/\b(pulsanti|cta|buttons)\b/i.test(lower)) {
+      if (offsetX !== null) propUpdates.buttonsOffsetX = offsetX;
+      if (offsetY !== null) propUpdates.buttonsOffsetY = offsetY;
+    }
+    if (/\b(centra|centro|center)\b/i.test(lower)) propUpdates.contentPosition = 'center';
+    if (/\b(sinistra|left)\b/i.test(lower)) propUpdates.contentPosition = 'center-left';
+    if (/\b(basso|bottom)\b/i.test(lower)) propUpdates.contentPosition = 'bottom-left';
+    if (/\b(glass)\b/i.test(lower)) propUpdates.panelStyle = 'glass';
+    if (/\b(light|chiaro)\b/i.test(lower) && /\b(panel|pannello)\b/i.test(lower)) propUpdates.panelStyle = 'solid-light';
+    if (/\b(dark|scuro)\b/i.test(lower) && /\b(panel|pannello)\b/i.test(lower)) propUpdates.panelStyle = 'solid-dark';
+  }
+
+  if (selectedBlock.type === 'article-hero') {
+    if (/\b(centra|centro|center)\b/i.test(lower)) propUpdates.contentAlign = 'center';
+    if (/\b(sinistra|left)\b/i.test(lower)) propUpdates.contentAlign = 'left';
+    if (/\b(destra|right)\b/i.test(lower)) propUpdates.contentAlign = 'right';
+    if (/\b(glass)\b/i.test(lower)) propUpdates.panelStyle = 'glass';
+    if (/\b(dark|scuro)\b/i.test(lower) && /\b(panel|pannello)\b/i.test(lower)) propUpdates.panelStyle = 'solid-dark';
+    if (/\b(senza pannello|nessun pannello|panel none)\b/i.test(lower)) propUpdates.panelStyle = 'none';
+    if (/\b(overlay)\b/i.test(lower) && color) propUpdates.overlayColor = color;
+    const opacityMatch = userPrompt.match(/(\d{1,3})\s*%/);
+    if (/\b(overlay)\b/i.test(lower) && opacityMatch) {
+      propUpdates.overlayOpacity = Math.max(0, Math.min(1, Number(opacityMatch[1]) / 100));
+    }
+  }
+
+  if (selectedBlock.type === 'navigation') {
+    if (/(menu|voci|pulsanti|button)/i.test(lower) && /\b(\d{1,2})\b/.test(lower)) {
+      const count = extractRequestedCount(lower, 6);
+      const iconOnly = /(solo icone|icone singole|icon only)/i.test(lower);
+      propUpdates.mode = 'custom';
+      propUpdates.items = buildNavigationItems(count, iconOnly);
+      propUpdates.iconOnly = iconOnly;
+      if (/(quadrat|square)/i.test(lower)) {
+        propUpdates.buttonShape = 'square';
+      }
+    }
+    if (/\b(verticale|sidebar|laterale)\b/i.test(lower)) {
+      propUpdates.layout = 'vertical';
+      propUpdates.placement = /\bdestra|right\b/i.test(lower) ? 'right' : 'left';
+    }
+    if (/\b(orizzontale|horizontal|top)\b/i.test(lower)) {
+      propUpdates.layout = 'horizontal';
+      propUpdates.placement = /\bbasso|bottom\b/i.test(lower) ? 'bottom' : 'top';
+    }
+    if (/\b(glass)\b/i.test(lower)) propUpdates.variant = 'glass';
+    if (/\b(minimal)\b/i.test(lower)) propUpdates.variant = 'minimal';
+    if (/\b(boxed|boxed|card)\b/i.test(lower) || /\b(quadrat|square)\b/i.test(lower)) propUpdates.variant = 'boxed';
+    if (/\b(cta|pulsante finale)\b/i.test(lower) && quoted) propUpdates.ctaText = quoted;
+    if (/\b(cta|pulsante finale)\b/i.test(lower) && url) propUpdates.ctaUrl = url;
+  }
+
+  if (selectedBlock.type === 'text') {
+    if (quoted) {
+      if (/\b(titolo|headline)\b/i.test(lower)) {
+        propUpdates.content = `<h2>${quoted}</h2>`;
+      } else if (/\b(paragrafo|testo|contenuto|scrivi)\b/i.test(lower)) {
+        propUpdates.content = `<p>${quoted}</p>`;
+      }
+    }
+    if (/\b(drop cap|capolettera)\b/i.test(lower)) {
+      propUpdates.dropCap = !/\b(no|off|false|disattiva)\b/i.test(lower);
+    }
+    const cols = extractRequestedCount(lower, 1);
+    if (/\bcolonn/.test(lower) && /\d/.test(lower)) {
+      propUpdates.columns = cols;
+    }
+  }
+
+  if (selectedBlock.type === 'section' || selectedBlock.type === 'container') {
+    if (color && /\b(sfondo|background)\b/i.test(lower)) {
+      styleUpdates.background = {
+        ...selectedBlock.style.background,
+        type: 'color',
+        value: color,
+      };
+    }
+    if (Object.keys(layoutStyleUpdates).length > 0) {
+      styleUpdates.layout = {
+        ...selectedBlock.style.layout,
+        ...layoutStyleUpdates,
+      };
+    }
+    if (selectedBlock.type === 'section' && /\b(full width|larghezza piena|tutta larghezza)\b/i.test(lower)) {
+      propUpdates.fullWidth = !/\b(no|off|false|disattiva)\b/i.test(lower);
+    }
+  }
+
+  if (selectedBlock.type === 'columns') {
+    if (/\b(\d{1,2})\s*colonn/i.test(lower) || /\bcolonn/i.test(lower) && /\d/.test(lower)) {
+      const count = Math.max(1, Math.min(6, extractRequestedCount(lower, Number(selectedBlock.props.columnCount || 2))));
+      propUpdates.columnCount = count;
+      propUpdates.columnWidths = Array.from({ length: count }).map(() => `${Math.round(100 / count)}%`);
+    }
+    const gapMatch = userPrompt.match(/gap\s*(-?\d{1,4})/i);
+    if (gapMatch) {
+      propUpdates.gap = `${Number(gapMatch[1])}px`;
+    }
+    if (/\bmobile\b/i.test(lower) && /\bstack\b/i.test(lower)) {
+      propUpdates.stackOnMobile = !/\b(no|off|false|disattiva)\b/i.test(lower);
+    }
+  }
+
+  if (selectedBlock.type === 'carousel') {
+    const widthMatch = userPrompt.match(/(?:card width|larghezza card)\s*(-?\d{1,4})/i);
+    if (widthMatch) {
+      propUpdates.cardWidth = `${Number(widthMatch[1])}px`;
+    }
+    const gapMatch = userPrompt.match(/gap\s*(-?\d{1,4})/i);
+    if (gapMatch) {
+      propUpdates.gap = `${Number(gapMatch[1])}px`;
+    }
+    if (/\b(minimal|elevated|dark)\b/i.test(lower)) {
+      const cardStyle = ['minimal', 'elevated', 'dark'].find((token) => new RegExp(`\\b${token}\\b`, 'i').test(lower));
+      if (cardStyle) propUpdates.cardStyle = cardStyle;
+    }
+    if (/\b(frecce|arrows)\b/i.test(lower)) {
+      propUpdates.showArrows = !/\b(no|off|false|disattiva)\b/i.test(lower);
+    }
+    if (/\b(dots|indicatori|punti)\b/i.test(lower)) {
+      propUpdates.showDots = !/\b(no|off|false|disattiva)\b/i.test(lower);
+    }
+  }
+
+  const actions: AiAction[] = [];
+
+  if (Object.keys(propUpdates).length > 0) {
+    actions.push({
+      action: 'update-block-props',
+      blockId: selectedBlock.id,
+      props: propUpdates,
+    });
+  }
+
+  if (Object.keys(styleUpdates).length > 0) {
+    actions.push({
+      action: 'update-block-style',
+      blockId: selectedBlock.id,
+      style: styleUpdates,
+    });
+  }
+
+  if (actions.length === 0) {
+    return null;
+  }
+
+  return actions;
+}
+
+function detectDirectEditorActions(userPrompt: string, selectedBlockId: string | null): AiAction[] | null {
+  const lower = userPrompt.toLowerCase();
+  const targetPosition = selectedBlockId ? 'after' : undefined;
+
+  const isCreateIntent = /(aggiungi|metti|inserisci|crea|fammi|genera|costruisci|prepara)/i.test(lower);
+  if (!isCreateIntent) {
+    return null;
+  }
+
+  if (/(menu bar|menubar|navbar|nav bar|header|topbar|navigazione|menu)/i.test(lower)) {
+    const count = extractRequestedCount(lower, 6);
+    const iconOnly = /(solo icone|icone singole|icon only)/i.test(lower);
+    const square = /(quadrat|square)/i.test(lower);
+    const bottom = /(in basso|bottom)/i.test(lower);
+    const side = /(sidebar|laterale|a sinistra|a destra)/i.test(lower);
+    const vertical = /(verticale|sidebar|laterale)/i.test(lower);
+
+    return [
+      {
+        action: 'add-block',
+        blockType: 'navigation',
+        label: `Menu bar ${count} pulsanti`,
+        targetBlockId: selectedBlockId || undefined,
+        position: targetPosition,
+        props: {
+          mode: 'custom',
+          layout: vertical ? 'vertical' : 'horizontal',
+          placement: side ? 'left' : bottom ? 'bottom' : 'top',
+          variant: square ? 'boxed' : iconOnly ? 'boxed' : 'inline',
+          iconOnly,
+          buttonShape: square || iconOnly ? 'square' : 'auto',
+          buttonSize: count >= 10 ? 'small' : 'medium',
+          showIcons: true,
+          showBadges: false,
+          items: Array.from({ length: count }).map((_, index) => ({
+            id: generateId(),
+            label: iconOnly ? `V${index + 1}` : `Voce ${index + 1}`,
+            url: '#',
+            icon: ['home', 'newspaper', 'folder', 'tag', 'image', 'calendar', 'mail', 'search', 'menu', 'layers', 'user', 'phone'][index % 12],
+            children: [],
+          })),
+        },
+      },
+    ];
+  }
+
+  if (/(slideshow|slider|carousel hero)/i.test(lower)) {
+    return [
+      {
+        action: 'add-block',
+        blockType: 'slideshow',
+        label: 'Slideshow',
+        targetBlockId: selectedBlockId || undefined,
+        position: targetPosition,
+        props: {
+          templateId: 'slideshow-editorial-hero',
+          autoplay: true,
+          showDots: true,
+          showArrows: true,
+        },
+      },
+    ];
+  }
+
+  if (/(galleria|gallery|masonry)/i.test(lower)) {
+    return [
+      {
+        action: 'add-block',
+        blockType: 'image-gallery',
+        label: 'Galleria media',
+        targetBlockId: selectedBlockId || undefined,
+        position: targetPosition,
+        props: {
+          templateId: /(masonry)/i.test(lower) ? 'gallery-masonry-story' : 'gallery-editorial-grid',
+        },
+      },
+    ];
+  }
+
+  if (/(griglia articoli|article grid|news grid|colonna articoli)/i.test(lower)) {
+    return [
+      {
+        action: 'add-block',
+        blockType: 'article-grid',
+        label: 'Griglia articoli',
+        targetBlockId: selectedBlockId || undefined,
+        position: targetPosition,
+        props: {
+          templateId: /(compact|minimal)/i.test(lower) ? 'article-grid-compact-list' : 'article-grid-newsroom-3',
+        },
+      },
+    ];
+  }
+
+  return null;
 }
 
 const GENERIC_EDITOR_ACTIONS = new Set([
@@ -58,6 +465,7 @@ const GENERIC_EDITOR_ACTIONS = new Set([
   'toggle-grid',
   'toggle-outlines',
   'open-panel',
+  'update-page-background',
   'convert-block',
   'undo',
   'redo',
@@ -101,40 +509,162 @@ const BLOCK_TYPE_ALIASES: Record<string, BlockType> = {
 };
 
 function parseAiResponse(content: string): AiAction[] | null {
-  let cleaned = content.trim();
-  cleaned = cleaned.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
-  cleaned = cleaned.replace(/^```\s*/i, '').replace(/\s*```$/i, '');
+  const normalizeCandidate = (raw: string) => raw
+    .trim()
+    .replace(/^```(?:json|javascript|js)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/\u00A0/g, ' ');
 
-  try {
-    const parsed = JSON.parse(cleaned);
+  const stripComments = (raw: string) => {
+    let output = '';
+    let inString = false;
+    let stringQuote = '';
+    let escaped = false;
+
+    for (let index = 0; index < raw.length; index += 1) {
+      const current = raw[index];
+      const next = raw[index + 1];
+
+      if (inString) {
+        output += current;
+        if (escaped) {
+          escaped = false;
+        } else if (current === '\\') {
+          escaped = true;
+        } else if (current === stringQuote) {
+          inString = false;
+          stringQuote = '';
+        }
+        continue;
+      }
+
+      if (current === '"' || current === "'") {
+        inString = true;
+        stringQuote = current;
+        output += current;
+        continue;
+      }
+
+      if (current === '/' && next === '/') {
+        index += 2;
+        while (index < raw.length) {
+          const lookahead = raw.slice(index);
+          if (
+            raw[index] === '\n'
+            || raw[index] === '\r'
+            || /^(\s*,?\s*"[^"]+"\s*:)/.test(lookahead)
+            || /^(\s*[}\]])/.test(lookahead)
+          ) {
+            index -= 1;
+            break;
+          }
+          index += 1;
+        }
+        continue;
+      }
+
+      if (current === '/' && next === '*') {
+        index += 2;
+        while (index < raw.length && !(raw[index] === '*' && raw[index + 1] === '/')) {
+          index += 1;
+        }
+        index += 1;
+        continue;
+      }
+
+      output += current;
+    }
+
+    return output;
+  };
+
+  const stripTrailingCommas = (raw: string) => raw.replace(/,\s*([}\]])/g, '$1');
+
+  const extractJsonCandidate = (raw: string) => {
+    const start = raw.search(/[[{]/);
+    if (start < 0) return null;
+
+    const open = raw[start];
+    const close = open === '[' ? ']' : '}';
+    let depth = 0;
+    let inString = false;
+    let stringQuote = '';
+    let escaped = false;
+
+    for (let index = start; index < raw.length; index += 1) {
+      const current = raw[index];
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (current === '\\') {
+          escaped = true;
+        } else if (current === stringQuote) {
+          inString = false;
+          stringQuote = '';
+        }
+        continue;
+      }
+
+      if (current === '"' || current === "'") {
+        inString = true;
+        stringQuote = current;
+        continue;
+      }
+
+      if (current === open) depth += 1;
+      if (current === close) depth -= 1;
+
+      if (depth === 0) {
+        return raw.slice(start, index + 1);
+      }
+    }
+
+    return raw.slice(start);
+  };
+
+  const asActions = (parsed: unknown): AiAction[] | null => {
     if (Array.isArray(parsed)) {
-      const filtered = parsed.filter((item) => item?.action && GENERIC_EDITOR_ACTIONS.has(item.action));
+      const filtered = parsed.filter((item): item is AiAction =>
+        Boolean(item && typeof item === 'object' && 'action' in item && GENERIC_EDITOR_ACTIONS.has(String((item as AiAction).action)))
+      );
       return filtered.length > 0 ? filtered : null;
     }
-    if (parsed.action && GENERIC_EDITOR_ACTIONS.has(parsed.action)) return [parsed];
+
+    if (
+      parsed
+      && typeof parsed === 'object'
+      && 'action' in parsed
+      && GENERIC_EDITOR_ACTIONS.has(String((parsed as AiAction).action))
+    ) {
+      return [parsed as AiAction];
+    }
+
     return null;
-  } catch {
-    const match = cleaned.match(/\[[\s\S]*\]/);
-    if (match) {
-      try {
-        const parsed = JSON.parse(match[0]);
-        if (Array.isArray(parsed)) {
-          const filtered = parsed.filter((item) => item?.action && GENERIC_EDITOR_ACTIONS.has(item.action));
-          return filtered.length > 0 ? filtered : null;
-        }
-      } catch { }
-    }
+  };
 
-    const objMatch = cleaned.match(/\{[\s\S]*"action"[\s\S]*\}/);
-    if (objMatch) {
-      try {
-        const parsed = JSON.parse(objMatch[0]);
-        if (parsed.action && GENERIC_EDITOR_ACTIONS.has(parsed.action)) return [parsed];
-      } catch { }
+  const tryParse = (raw: string) => {
+    const normalized = stripTrailingCommas(stripComments(normalizeCandidate(raw)));
+    try {
+      return asActions(JSON.parse(normalized));
+    } catch {
+      return null;
     }
+  };
 
+  const direct = tryParse(content);
+  if (direct) {
+    return direct;
+  }
+
+  const candidate = extractJsonCandidate(normalizeCandidate(content));
+  if (!candidate) {
     return null;
   }
+
+  return tryParse(candidate);
 }
 
 function sanitizeFieldResponse(content: string) {
@@ -261,6 +791,43 @@ function buildPageState(blocks: Block[], selectedBlockId?: string | null): strin
   return lines.join('\n');
 }
 
+function summarizeBlockForPrompt(block: Block, depth = 0): Record<string, unknown> {
+  const primitiveProps = Object.fromEntries(
+    Object.entries(block.props || {})
+      .filter(([, value]) => ['string', 'number', 'boolean'].includes(typeof value))
+      .slice(0, 12)
+  );
+
+  return {
+    id: block.id,
+    type: block.type,
+    label: block.label,
+    props: primitiveProps,
+    dataSource: block.dataSource
+      ? Object.fromEntries(
+          Object.entries(block.dataSource)
+            .filter(([, value]) => ['string', 'number', 'boolean'].includes(typeof value))
+            .slice(0, 12)
+        )
+      : null,
+    style: {
+      layout: block.style.layout,
+      background: block.style.background,
+      typography: block.style.typography,
+      border: block.style.border,
+    },
+    childCount: block.children.length,
+    children:
+      depth >= 1
+        ? block.children.slice(0, 8).map((child) => ({
+            id: child.id,
+            type: child.type,
+            label: child.label,
+          }))
+        : block.children.slice(0, 8).map((child) => summarizeBlockForPrompt(child, depth + 1)),
+  };
+}
+
 function findBlockLocation(blocks: Block[], targetId: string, parentId: string | null = null): { parentId: string | null; index: number } | null {
   for (let index = 0; index < blocks.length; index += 1) {
     const block = blocks[index];
@@ -279,9 +846,27 @@ function findBlockLocation(blocks: Block[], targetId: string, parentId: string |
   return null;
 }
 
-function buildSmartEditorPrompt(blocks: Block[], selectedBlock: Block | null, userPrompt: string): string {
+function buildPageBackgroundState(pageMeta: Record<string, unknown>) {
+  const settings = extractPageBackgroundSettings(pageMeta);
+  const summary = [
+    `type=${settings.type}`,
+    settings.value ? `value=${JSON.stringify(settings.value)}` : null,
+    settings.images.length > 0 ? `images=${settings.images.length}` : null,
+    settings.overlay ? `overlay=${JSON.stringify(settings.overlay)}` : null,
+    settings.fixed ? 'fixed=true' : null,
+  ].filter(Boolean);
+
+  return summary.length > 0 ? summary.join(' | ') : 'type=none';
+}
+
+function buildSmartEditorPrompt(
+  blocks: Block[],
+  pageMeta: Record<string, unknown>,
+  selectedBlock: Block | null,
+  userPrompt: string,
+): string {
   const selectedBlockDetail = selectedBlock
-    ? `Props: ${JSON.stringify(Object.fromEntries(Object.entries(selectedBlock.props).filter(([, value]) => ['string', 'number', 'boolean'].includes(typeof value)).slice(0, 6)), null, 0)}`
+    ? `Contesto blocco: ${JSON.stringify(summarizeBlockForPrompt(selectedBlock), null, 2)}`
     : '';
 
   const focusSection = selectedBlock
@@ -290,9 +875,14 @@ L'utente ha selezionato: [${selectedBlock.type}] id="${selectedBlock.id}" label=
 ${selectedBlockDetail}
 
 REGOLE:
-1. Se l'utente chiede di cambiare questo blocco, lavora prima su questo blocco.
-2. Se chiede di aggiungere dentro questa sezione, puoi usare "add-block" con "position":"inside" oppure "convert-block" se sta trasformando il blocco.
-3. Se chiede di aggiungere prima o dopo, usa "targetBlockId":"${selectedBlock.id}" e "position":"before|after".`
+1. OGNI modifica richiesta deve riguardare prima questo blocco.
+2. Se l'utente chiede di mettere, aggiungere o inserire qualcosa DENTRO questo blocco:
+   - preferisci "update-block-props" per aggiornare il contenuto del blocco esistente
+   - oppure usa "convert-block" se il blocco va trasformato in un altro tipo
+   - NON usare "add-block" separato se l'intento e modificare il blocco selezionato
+3. Usa "add-block" solo se l'utente chiede esplicitamente prima, dopo o dentro come nuovo blocco separato.
+4. Se chiede di aggiungere prima o dopo, usa "targetBlockId":"${selectedBlock.id}" e "position":"before|after".
+5. Se chiede di cambiare contenuto, colori, sfondo, testo, CTA, posizione interna o stile, usa "update-block-props" o "update-block-style" sul blocco selezionato.`
     : `# NESSUN BLOCCO SELEZIONATO
 L'utente non ha selezionato un blocco specifico. L'IA puo costruire o modificare l'intera pagina.`;
 
@@ -301,8 +891,15 @@ Rispondi SEMPRE e SOLO con un JSON array di azioni, oppure con un oggetto JSON s
 
 ${focusSection}
 
+${selectedBlock ? `# VINCOLO DI TARGET
+Se stai MODIFICANDO il blocco selezionato e non hai un altro target esplicito, considera il blocco selezionato come target implicito.
+Quindi per update-block-props, update-block-style, update-block-shape, rename-block, duplicate-block, move-block, toggle-visibility, toggle-lock e convert-block puoi riferirti al blocco selezionato anche senza blockId diverso.` : ''}
+
 # STATO PAGINA
 ${buildPageState(blocks, selectedBlock?.id)}
+
+# SFONDO PAGINA
+${buildPageBackgroundState(pageMeta)}
 
 # AZIONI DISPONIBILI
 - add-block
@@ -323,6 +920,7 @@ ${buildPageState(blocks, selectedBlock?.id)}
 - toggle-grid
 - toggle-outlines
 - open-panel
+- update-page-background
 - convert-block
 - undo
 - redo
@@ -332,10 +930,31 @@ ${buildPageState(blocks, selectedBlock?.id)}
 - Nessun markdown
 - Nessun testo fuori dal JSON
 - Se l'utente chiede un layout, crea piu blocchi reali del builder
+- Se l'utente chiede di cambiare lo sfondo della pagina, NON usare un blocco: usa "update-page-background"
 - Se serve una griglia giornalistica, usa "columns" con "children"
 - Per header/menu/topbar usa "navigation"
 - Per notizia principale usa "article-hero"
 - Per colonne di notizie usa "article-grid" o "sidebar"
+- Se l'utente chiede esplicitamente di METTERE o AGGIUNGERE un elemento del builder, non rispondere in prosa: restituisci azioni operative
+- Se chiede una menu bar con un numero preciso di pulsanti/voci, crea davvero quel numero di item nel blocco navigation
+
+# FORMATO update-page-background
+{
+  "action": "update-page-background",
+  "pageBackground": {
+    "type": "none|color|gradient|image|slideshow|custom-css",
+    "value": "",
+    "images": [],
+    "overlay": "",
+    "size": "cover",
+    "position": "center",
+    "repeat": "no-repeat",
+    "fixed": false,
+    "customCss": "",
+    "minHeight": "100%",
+    "slideshowDurationMs": 16000
+  }
+}
 
 # FORMATO add-block
 {
@@ -366,6 +985,37 @@ ${buildPageState(blocks, selectedBlock?.id)}
 
 # RICHIESTA UTENTE
 ${userPrompt}`;
+}
+
+function normalizeEditorActions(actions: AiAction[], selectedBlockId: string | null): AiAction[] {
+  return actions.map((action) => {
+    if (!selectedBlockId) {
+      return action;
+    }
+
+    if (
+      !action.blockId
+      && [
+        'remove-block',
+        'duplicate-block',
+        'update-block-props',
+        'update-block-style',
+        'update-block-shape',
+        'move-block',
+        'rename-block',
+        'toggle-visibility',
+        'toggle-lock',
+        'convert-block',
+      ].includes(action.action)
+    ) {
+      return {
+        ...action,
+        blockId: selectedBlockId,
+      };
+    }
+
+    return action;
+  });
 }
 
 function inferDividerGradientDirection(angle?: number): 'vertical' | 'horizontal' | 'diagonal' {
@@ -512,6 +1162,8 @@ export function GlobalAiChat() {
     selectedBlockId,
     selectBlock,
     replacePage,
+    pageMeta,
+    updatePageMeta,
     removeBlock,
     updateBlock,
     updateBlockProps,
@@ -673,11 +1325,12 @@ Sono pronto ad aiutarti a generare contenuto per questo campo!`;
             break;
           }
           case 'remove-block': {
-            if (!action.blockId) {
+            const targetId = action.blockId || selectedBlockId;
+            if (!targetId) {
               results.push('✗ blockId mancante');
               break;
             }
-            removeBlock(action.blockId);
+            removeBlock(targetId);
             results.push(`- Rimosso blocco`);
             break;
           }
@@ -689,20 +1342,32 @@ Sono pronto ad aiutarti a generare contenuto per questo campo!`;
             break;
           }
           case 'update-block-props': {
-            if (!action.blockId || !action.props) break;
-            updateBlockProps(action.blockId, action.props);
+            const targetId = action.blockId || selectedBlockId;
+            if (!targetId || !action.props) {
+              results.push('✗ target o props mancanti');
+              break;
+            }
+            updateBlockProps(targetId, action.props);
             results.push(`~ Aggiornate proprietà`);
             break;
           }
           case 'update-block-style': {
-            if (!action.blockId || !action.style) break;
-            updateBlockStyle(action.blockId, action.style);
+            const targetId = action.blockId || selectedBlockId;
+            if (!targetId || !action.style) {
+              results.push('✗ target o stile mancanti');
+              break;
+            }
+            updateBlockStyle(targetId, action.style);
             results.push(`~ Aggiornato stile`);
             break;
           }
           case 'update-block-shape': {
-            if (!action.blockId) break;
-            updateBlockShape(action.blockId, action.shape ?? null);
+            const targetId = action.blockId || selectedBlockId;
+            if (!targetId) {
+              results.push('✗ target mancante');
+              break;
+            }
+            updateBlockShape(targetId, action.shape ?? null);
             results.push('~ Aggiornata forma');
             break;
           }
@@ -789,6 +1454,19 @@ Sono pronto ad aiutarti a generare contenuto per questo campo!`;
             if (action.panel === 'right') setRightPanelOpen(true);
             if (action.panel === 'ai') setExpanded(true);
             results.push(`⇢ Pannello ${action.panel || 'richiesto'} aperto`);
+            break;
+          }
+          case 'update-page-background': {
+            if (!action.pageBackground || typeof action.pageBackground !== 'object') {
+              results.push('✗ pageBackground mancante');
+              break;
+            }
+
+            updatePageMeta((current) => upsertPageBackgroundMeta(current, action.pageBackground || {}));
+            const next = extractPageBackgroundSettings(
+              upsertPageBackgroundMeta(usePageStore.getState().pageMeta, action.pageBackground || {})
+            );
+            results.push(`~ Sfondo pagina aggiornato (${next.type})`);
             break;
           }
           case 'convert-block': {
@@ -1086,7 +1764,7 @@ ISTRUZIONI OBBLIGATORIE:
           contextualPrompt += '\n- Questo campo accetta una sola scelta tra le opzioni disponibili.';
         }
       } else {
-        contextualPrompt = buildSmartEditorPrompt(blocks, selectedBlock, inputValue);
+        contextualPrompt = buildSmartEditorPrompt(blocks, pageMeta, selectedBlock, inputValue);
       }
 
       const response = await fetch('/api/ai/dispatch', {
@@ -1101,6 +1779,7 @@ ISTRUZIONI OBBLIGATORIE:
             : `Sei un assistente AI specializzato in layout giornalistici e tool visuali per un CMS.
 COMPITI:
 1. Quando l'utente richiede layout/blocchi/design → rispondi SOLO con JSON array di add-block actions
+1b. Quando l'utente chiede di cambiare lo sfondo pagina o il background del documento → usa update-page-background
 2. Quando l'utente modifica un blocco selezionato con gradienti, divisori, effetti, animazioni o shape → rispondi SOLO con un JSON object della action specializzata corretta
 2. Per domande generiche → rispondi in testo italiano
 3. Usa i blockType reali del builder. Se l'utente dice header/menu bar/topbar usa "navigation". Se dice notizia principale usa "article-hero". Se dice colonna notizie usa "article-grid" o "sidebar". Se serve un layout complesso usa "columns" con "children".
@@ -1120,11 +1799,29 @@ Rispondi SEMPRE in italiano.`,
           ? resolveStructuredBuilderCommand(data.content, inputValue)
           : null;
 
+        const directActions = !effectiveSelectedField && isEditorContext
+          ? detectDirectEditorActions(inputValue, selectedBlockId)
+          : null;
+        const selectedBlockFallbackActions = !effectiveSelectedField && isEditorContext
+          ? inferSelectedBlockActionsFromPrompt(inputValue, selectedBlock)
+          : null;
+
         if (actions && actions.length > 0 && !effectiveSelectedField && isEditorContext) {
-          const results = executeActions(actions);
+          const normalizedActions = normalizeEditorActions(actions, selectedBlockId);
+          const results = executeActions(normalizedActions);
           const resultMsg = `Fatto!\n${results.join('\n')}`;
           setMessages((prev) => [...prev, { role: 'assistant', content: resultMsg }]);
           toast.success('✓ Blocchi creati!');
+        } else if (directActions && directActions.length > 0 && !effectiveSelectedField && isEditorContext) {
+          const results = executeActions(directActions);
+          const resultMsg = `Fatto!\n${results.join('\n')}`;
+          setMessages((prev) => [...prev, { role: 'assistant', content: resultMsg }]);
+          toast.success('✓ Builder applicato dal comando diretto!');
+        } else if (selectedBlockFallbackActions && selectedBlockFallbackActions.length > 0 && !effectiveSelectedField && isEditorContext) {
+          const results = executeActions(selectedBlockFallbackActions);
+          const resultMsg = `Fatto!\n${results.join('\n')}`;
+          setMessages((prev) => [...prev, { role: 'assistant', content: resultMsg }]);
+          toast.success('✓ Modifica applicata al blocco selezionato!');
         } else if (builderCommand && !effectiveSelectedField && isEditorContext) {
           const result = executeBuilderCommand(builderCommand);
           setMessages((prev) => [...prev, { role: 'assistant', content: `Fatto!\n${result}` }]);

@@ -12,10 +12,11 @@ import '@/lib/blocks/init';
 import { useState } from 'react';
 
 function LayerItem({ block, depth = 0 }: { block: Block; depth?: number }) {
-  const { selectedBlockId, selectBlock, updateBlock, hoveredBlockId, hoverBlock } = usePageStore();
+  const { selectedBlockId, selectedBlockIds, selectBlock, toggleBlockSelection, updateBlock, hoveredBlockId, hoverBlock } = usePageStore();
   const [expanded, setExpanded] = useState(true);
 
-  const isSelected = selectedBlockId === block.id;
+  const isSelected = selectedBlockIds.includes(block.id);
+  const isPrimarySelected = selectedBlockId === block.id;
   const isHovered = hoveredBlockId === block.id;
   const hasChildren = block.children.length > 0;
 
@@ -34,9 +35,15 @@ function LayerItem({ block, depth = 0 }: { block: Block; depth?: number }) {
         style={{
           paddingLeft: 8 + depth * 16,
           background: isSelected ? 'var(--c-accent-soft)' : isHovered ? 'var(--c-bg-1)' : '',
-          color: isSelected ? 'var(--c-accent)' : 'var(--c-text-0)',
+          color: isPrimarySelected ? 'var(--c-accent)' : 'var(--c-text-0)',
         }}
-        onClick={() => selectBlock(block.id)}
+        onClick={(e) => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey) {
+            toggleBlockSelection(block.id);
+          } else {
+            selectBlock(block.id);
+          }
+        }}
         onMouseEnter={() => hoverBlock(block.id)}
         onMouseLeave={() => hoverBlock(null)}
       >

@@ -8,11 +8,18 @@ const cmsFormBlock: BlockDefinition = {
   icon: 'FormInput',
   category: 'editorial',
   defaultProps: {
+    templateId: 'form-editorial-card',
     formSlug: '',
     showTitle: true,
     showDescription: true,
     submitButtonText: '',
+    buttonPaddingX: 20,
+    buttonPaddingY: 14,
+    buttonRadius: 12,
     layout: 'stacked',
+    visualStyle: 'editorial',
+    introBadge: 'Contatti redazione',
+    supportText: 'Ti rispondiamo dal desk entro 24 ore',
   },
   defaultStyle: {
     layout: {

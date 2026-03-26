@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Mail, Lock, Loader2, Newspaper, ArrowRight } from "lucide-react";
+import { Mail, Loader2, Newspaper, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,7 +20,7 @@ export default function LoginPage() {
     setError("");
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -29,7 +29,21 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push("/dashboard");
+      let nextPath = "/dashboard";
+
+      if (data.user?.id) {
+        const { data: memberships } = await supabase
+          .from("user_tenants")
+          .select("role")
+          .eq("user_id", data.user.id);
+
+        const roles = (memberships || []).map((item) => item.role);
+        if (roles.includes("contributor")) {
+          nextPath = "/giornalista";
+        }
+      }
+
+      router.push(nextPath);
     }
   };
 

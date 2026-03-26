@@ -27,6 +27,7 @@ export function RenderRelatedContent({ block, data, style, tenantSlug }: Props) 
   const showDate = block.props.showDate !== false;
   const showExcerpt = block.props.showExcerpt !== false;
   const showImage = block.props.showImage !== false;
+  const cardStyle = String(block.props.cardStyle || 'default');
 
   return (
     <section style={style} data-block="related-content">
@@ -40,7 +41,16 @@ export function RenderRelatedContent({ block, data, style, tenantSlug }: Props) 
           const excerpt = item.excerpt || item.summary || '';
 
           return (
-            <article key={item.id || index} style={{ border: '1px solid var(--e-color-border, #dbe2ea)', borderRadius: '16px', overflow: 'hidden', background: 'var(--e-color-surface, #fff)' }}>
+            <article
+              key={item.id || index}
+              style={{
+                border: cardStyle === 'minimal' ? 'none' : `1px solid ${cardStyle === 'outline' ? 'var(--e-color-primary, #8B0000)' : 'var(--e-color-border, #dbe2ea)'}`,
+                borderRadius: '16px',
+                overflow: 'hidden',
+                background: cardStyle === 'minimal' ? 'transparent' : cardStyle === 'default' ? 'var(--e-color-surface, #fff)' : '#fff',
+                boxShadow: cardStyle === 'elevated' ? '0 14px 32px rgba(15,23,42,0.08)' : 'none',
+              }}
+            >
               {showImage && image && (
                 <div style={{ aspectRatio: '16/9', overflow: 'hidden' }}>
                   <img src={image} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />

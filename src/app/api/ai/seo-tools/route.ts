@@ -4,6 +4,8 @@ import { callAI } from "@/lib/ai/providers";
 import { isModuleActive, getModuleConfig } from "@/lib/modules";
 import { resolveProvider, type ResolvedProvider } from "@/lib/ai/resolver";
 
+const SEO_EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
+
 interface ArticleWithMetrics {
   id: string;
   title: string;
@@ -89,12 +91,12 @@ export async function POST(request: NextRequest) {
     if (!isTrustedInternalCall && user) {
       const { data: membership } = await supabase
         .from("user_tenants")
-        .select("id")
+        .select("id, role")
         .eq("user_id", user.id)
         .eq("tenant_id", tenant_id)
         .single();
 
-      if (!membership) {
+      if (!membership || !SEO_EDITOR_ROLES.has(membership.role)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }

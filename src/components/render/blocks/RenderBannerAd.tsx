@@ -12,8 +12,12 @@ export function RenderBannerAd({ block, style }: Props) {
   const fallbackUrl = sanitizeExternalUrl(String(block.props.fallbackUrl || '#')) || '#';
   const width = Number(block.props.width || 728);
   const height = Number(block.props.height || 90);
+  const format = String(block.props.format || 'leaderboard');
   const label = String(block.props.label || 'Pubblicità');
   const showLabel = block.props.showLabel !== false;
+  const responsive = block.props.responsive !== false;
+  const frameWidth = responsive ? '100%' : `${width}px`;
+  const frameMaxWidth = responsive ? `${width}px` : 'none';
 
   return (
     <div style={{ ...style, textAlign: 'center' }} data-block="banner-ad">
@@ -27,15 +31,15 @@ export function RenderBannerAd({ block, style }: Props) {
           title={label}
           srcDoc={`<!doctype html><html><body style="margin:0">${adCode}</body></html>`}
           sandbox="allow-popups allow-popups-to-escape-sandbox"
-          style={{ width: '100%', minHeight: `${height}px`, border: 'none', background: 'transparent' }}
+          style={{ width: frameWidth, maxWidth: frameMaxWidth, minHeight: `${height}px`, border: 'none', background: 'transparent' }}
         />
       ) : fallbackImage ? (
         <a href={fallbackUrl} target="_blank" rel="noopener noreferrer sponsored" style={{ display: 'inline-block' }}>
-          <img src={fallbackImage} alt={label} style={{ width: '100%', maxWidth: `${width}px`, height: `${height}px`, objectFit: 'cover', borderRadius: '12px' }} />
+          <img src={fallbackImage} alt={label} style={{ width: frameWidth, maxWidth: frameMaxWidth, height: `${height}px`, objectFit: 'cover', borderRadius: '12px' }} />
         </a>
       ) : (
-        <div style={{ width: '100%', maxWidth: `${width}px`, minHeight: `${height}px`, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', border: '1px dashed var(--e-color-border, #dbe2ea)', color: 'var(--e-color-textSecondary)' }}>
-          {label} {width}x{height}
+        <div style={{ width: frameWidth, maxWidth: frameMaxWidth, minHeight: `${height}px`, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', border: '1px dashed var(--e-color-border, #dbe2ea)', color: 'var(--e-color-textSecondary)' }}>
+          {format} · {label} {width}x{height}
         </div>
       )}
     </div>

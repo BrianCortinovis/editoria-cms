@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { ChevronDown, ChevronRight, Plus, Trash2, Sparkles } from 'lucide-react';
 import { usePageStore } from '@/lib/stores/page-store';
 import type { Block, AdvancedGradient, GradientStop } from '@/lib/types';
@@ -26,7 +26,7 @@ export function GradientEditor({ block }: GradientEditorProps) {
   const [open, setOpen] = useState(true);
   const [aiModalOpen, setAiModalOpen] = useState(false);
 
-  const updateGradient = useCallback((updates: Partial<AdvancedGradient>) => {
+  const updateGradient = (updates: Partial<AdvancedGradient>) => {
     // Use current gradient value from block prop, not stale closure value
     const currentGradient = block.style.background.advancedGradient || gradient;
     const updated = { ...currentGradient, ...updates };
@@ -39,7 +39,7 @@ export function GradientEditor({ block }: GradientEditorProps) {
         value: cssValue,
       },
     });
-  }, [block, updateBlockStyle]);
+  };
 
   const updateStop = (index: number, updates: Partial<GradientStop>) => {
     const stops = [...gradient.stops];
@@ -287,6 +287,8 @@ export function GradientEditor({ block }: GradientEditorProps) {
             onClose={() => setAiModalOpen(false)}
             defaultPrompt="Suggest a beautiful gradient for this block type: {context}. Return a pure JSON object matching AdvancedGradient type."
             contextData={contextData}
+            blockId={block.id}
+            fieldName="advanced-gradient"
             title="Suggerisci Gradiente"
             onApply={(result) => {
               try {

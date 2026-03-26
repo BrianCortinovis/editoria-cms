@@ -8,6 +8,7 @@ const carouselBlock: BlockDefinition = {
   icon: 'GalleryHorizontalEnd',
   category: 'media',
   defaultProps: {
+    templateId: 'carousel-editorial-rail',
     items: [
       { id: '1', type: 'article', image: '', title: 'Articolo in evidenza', excerpt: 'Breve descrizione dell\'articolo con anteprima del contenuto...',
         category: 'Politica', date: '2024-03-15', author: 'Mario Rossi', url: '#',
@@ -42,6 +43,15 @@ const carouselBlock: BlockDefinition = {
     transitionSpeed: 400,
     height: 'auto',
     cardStyle: 'elevated',
+    arrowStyle: 'circle',
+    controlsOffsetX: 0,
+    controlsOffsetY: 0,
+    buttonPaddingX: 14,
+    buttonPaddingY: 10,
+    buttonRadius: 12,
+    buttonBgColor: '',
+    buttonTextColor: '',
+    buttonBorderColor: '',
     showCategory: true,
     showDate: true,
     showAuthor: true,

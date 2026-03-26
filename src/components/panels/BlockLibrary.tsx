@@ -10,12 +10,30 @@ import { cn } from '@/lib/utils/cn';
 import { Search } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { upsertPageBackgroundMeta } from '@/lib/page-settings';
+import { TemplateSelector } from './TemplateSelector';
+import { NavigationTemplateSelector } from './NavigationTemplateSelector';
+import { BannerTemplateSelector } from './BannerTemplateSelector';
 
 // Import block definitions to register them
 import '@/lib/blocks/init';
 
 function DraggableBlockItem({ definition }: { definition: BlockDefinition }) {
   const { addBlock } = usePageStore();
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  // Template-enabled block types
+  const TEMPLATE_BLOCKS = ['banner-dynamic', 'slideshow', 'image-gallery', 'video', 'navigation', 'banner-module'];
+  const hasTemplates = TEMPLATE_BLOCKS.includes(definition.type);
+
+  // Map block types to template categories
+  const templateCategoryMap: Record<string, 'banner' | 'slideshow' | 'gallery' | 'video' | 'navigation' | 'banner-module'> = {
+    'banner-dynamic': 'banner',
+    'slideshow': 'slideshow',
+    'image-gallery': 'gallery',
+    'video': 'video',
+    'navigation': 'navigation',
+    'banner-module': 'banner-module',
+  };
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `library-${definition.type}`,
@@ -25,6 +43,12 @@ function DraggableBlockItem({ definition }: { definition: BlockDefinition }) {
   const IconComponent = (Icons as unknown as Record<string, React.ComponentType<{ size?: number }>>)[definition.icon] || Icons.Box;
 
   const handleClick = () => {
+    // Show template selector for blocks that support templates
+    if (hasTemplates && !showTemplates) {
+      setShowTemplates(true);
+      return;
+    }
+
     const block = createBlock(
       definition.type,
       definition.label,
@@ -39,31 +63,53 @@ function DraggableBlockItem({ definition }: { definition: BlockDefinition }) {
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      onClick={handleClick}
-      className={cn(
-        'flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-grab active:cursor-grabbing transition-all',
-        isDragging && 'opacity-50 scale-95'
+    <>
+      <div
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        onClick={handleClick}
+        className={cn(
+          'flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-grab active:cursor-grabbing transition-all',
+          isDragging && 'opacity-50 scale-95'
+        )}
+        style={{
+          color: 'var(--c-text-0)',
+          ...(!isDragging && { '--hover-bg': 'var(--c-bg-1)' } as React.CSSProperties),
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--c-bg-1)')}
+        onMouseLeave={(e) => (e.currentTarget.style.background = '')}
+        title={definition.description}
+      >
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--c-bg-1)' }}>
+          <IconComponent size={16} />
+        </div>
+        <div className="min-w-0">
+          <div className="text-xs font-medium truncate">{definition.label}</div>
+          <div className="text-[10px] truncate" style={{ color: 'var(--c-text-2)' }}>
+            {hasTemplates ? definition.type === 'navigation' ? '20+ templates disponibili' : definition.type === 'banner-module' ? '11 templates disponibili' : '10+ templates disponibili' : definition.description}
+          </div>
+        </div>
+      </div>
+
+      {/* Template Selector Modal */}
+      {showTemplates && definition.type === 'navigation' && (
+        <NavigationTemplateSelector
+          onClose={() => setShowTemplates(false)}
+        />
       )}
-      style={{
-        color: 'var(--c-text-0)',
-        ...(!isDragging && { '--hover-bg': 'var(--c-bg-1)' } as React.CSSProperties),
-      }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--c-bg-1)')}
-      onMouseLeave={(e) => (e.currentTarget.style.background = '')}
-      title={definition.description}
-    >
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--c-bg-1)' }}>
-        <IconComponent size={16} />
-      </div>
-      <div className="min-w-0">
-        <div className="text-xs font-medium truncate">{definition.label}</div>
-        <div className="text-[10px] truncate" style={{ color: 'var(--c-text-2)' }}>{definition.description}</div>
-      </div>
-    </div>
+      {showTemplates && definition.type === 'banner-module' && (
+        <BannerTemplateSelector
+          onClose={() => setShowTemplates(false)}
+        />
+      )}
+      {showTemplates && definition.type !== 'navigation' && definition.type !== 'banner-module' && (
+        <TemplateSelector
+          category={templateCategoryMap[definition.type] as 'banner' | 'slideshow' | 'gallery' | 'video'}
+          onClose={() => setShowTemplates(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -183,7 +229,6 @@ export function BlockLibrary() {
         />
       </div>
 
-      {/* Categorized list */}
       {search ? (
         <div className="space-y-0.5">
           {BACKGROUND_STARTERS.filter((item) =>

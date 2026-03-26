@@ -1,6 +1,7 @@
 import type { Block, DividerConfig } from '@/lib/types';
 import { generateDividerSvg } from '@/lib/shapes/dividers';
 import { buildAnimatedGradientKeyframes } from '@/lib/shapes/gradients';
+import { resolveMenuIconGlyph } from '@/lib/site/navigation';
 
 export function generateFullHtml(
   blocks: Block[],
@@ -34,6 +35,19 @@ ${css}
 
 ${animationKeyframes}
 
+    .sb-nav { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 1.5rem; }
+    .sb-nav-logo-wrap { display:flex; align-items:center; gap:0.75rem; }
+    .sb-nav-logo-image { height:40px; width:auto; object-fit:contain; }
+    .sb-nav-logo { font-weight:700; font-size:1.15rem; }
+    .sb-nav-links { display:flex; align-items:center; gap:0.85rem; flex-wrap:wrap; }
+    .sb-nav-links-compact { gap:0.5rem; }
+    .sb-nav-link { display:inline-flex; align-items:center; justify-content:flex-start; gap:0.5rem; font-weight:600; }
+    .sb-nav-icon { opacity:0.8; font-size:0.9rem; }
+    .sb-nav-badge { display:inline-flex; align-items:center; justify-content:center; padding:0.15rem 0.42rem; border-radius:999px; background:#8B0000; color:#fff; font-size:0.68rem; line-height:1.1; }
+    .sb-nav-cta { display:inline-flex; align-items:center; justify-content:center; padding:0.72rem 1rem; border-radius:12px; background:#8B0000; color:#fff; font-weight:700; }
+    .sb-nav-vertical, .sb-nav-left, .sb-nav-right { flex-direction:column; align-items:stretch; }
+    .sb-nav-bottom { position:sticky; bottom:0; }
+
     /* Responsive */
     @media (max-width: 768px) {
       .sb-columns { flex-direction: column !important; }
@@ -42,7 +56,8 @@ ${animationKeyframes}
       .sb-hero h1 { font-size: 2rem !important; }
       .sb-counter-grid { flex-direction: column !important; gap: 24px !important; }
       .sb-nav { flex-wrap: wrap; }
-      .sb-nav-links { display: none; }
+      .sb-nav-links { width: 100%; justify-content: flex-start; overflow-x: auto; padding-top: 0.35rem; }
+      .sb-nav-bottom .sb-nav-links { justify-content: space-around; }
       .sb-gallery-grid { grid-template-columns: 1fr !important; }
       .sb-footer-grid { grid-template-columns: 1fr !important; }
     }
@@ -325,9 +340,55 @@ function textToHtml(block: Block, cls: string): string {
 }
 
 function navToHtml(block: Block, cls: string): string {
-  const p = block.props as { logo: { value: string }; items: { label: string; url: string }[] };
-  const links = (p.items || []).map((item) => `      <a href="${escapeHtml(item.url)}">${escapeHtml(item.label)}</a>`).join('\n');
-  return `  <nav class="${cls} sb-nav">\n    <div class="sb-nav-logo">${escapeHtml(p.logo?.value || 'Logo')}</div>\n    <div class="sb-nav-links">\n${links}\n    </div>\n  </nav>\n`;
+  const p = block.props as {
+    logo?: { value?: string };
+    logoText?: string;
+    logoUrl?: string;
+    items?: Array<{ label: string; url: string; icon?: string; badge?: string }>;
+    ctaText?: string;
+    ctaUrl?: string;
+    layout?: string;
+    placement?: string;
+    compact?: boolean;
+    showIcons?: boolean;
+    showBadges?: boolean;
+    iconOnly?: boolean;
+    buttonShape?: string;
+    buttonSize?: string;
+    buttonPaddingX?: number;
+    buttonPaddingY?: number;
+    buttonRadius?: number;
+    iconSize?: number;
+    ctaPaddingX?: number;
+    ctaPaddingY?: number;
+    ctaRadius?: number;
+  };
+  const logoText = String(p.logoText || p.logo?.value || 'Logo');
+  const layout = String(p.layout || 'horizontal');
+  const placement = String(p.placement || 'top');
+  const compact = Boolean(p.compact);
+  const showIcons = p.showIcons !== false;
+  const showBadges = p.showBadges !== false;
+  const iconOnly = Boolean(p.iconOnly);
+  const buttonPaddingX = Number(p.buttonPaddingX || 16);
+  const buttonPaddingY = Number(p.buttonPaddingY || 10);
+  const buttonRadius = Number(p.buttonRadius || 12);
+  const iconSize = Number(p.iconSize || 15);
+  const buttonSize = String(p.buttonSize || 'medium');
+  const buttonBoxSize = buttonSize === 'small' ? 42 : buttonSize === 'large' ? 58 : 50;
+  const linkRadius = p.buttonShape === 'square' ? `${Math.min(buttonRadius, 16)}px` : p.buttonShape === 'rounded' ? '999px' : `${buttonRadius}px`;
+  const linkStyle = iconOnly
+    ? `display:inline-flex;align-items:center;justify-content:center;width:${buttonBoxSize}px;min-width:${buttonBoxSize}px;height:${buttonBoxSize}px;border-radius:${linkRadius};`
+    : `padding:${buttonPaddingY}px ${buttonPaddingX}px;border-radius:${linkRadius};`;
+  const ctaPaddingX = Number(p.ctaPaddingX || 18);
+  const ctaPaddingY = Number(p.ctaPaddingY || 11);
+  const ctaRadius = Number(p.ctaRadius || 12);
+  const links = (p.items || []).map((item) => {
+    const icon = showIcons ? resolveMenuIconGlyph(item.icon) : '';
+    const badge = showBadges && item.badge ? `<span class="sb-nav-badge">${escapeHtml(item.badge)}</span>` : '';
+    return `      <a href="${escapeHtml(item.url)}" class="sb-nav-link" style="${linkStyle}">${icon ? `<span class="sb-nav-icon" style="font-size:${iconSize}px">${escapeHtml(icon)}</span>` : ''}${iconOnly ? '' : `<span>${escapeHtml(item.label)}</span>`}${badge}</a>`;
+  }).join('\n');
+  return `  <nav class="${cls} sb-nav sb-nav-${escapeHtml(layout)} sb-nav-${escapeHtml(placement)}">\n    <div class="sb-nav-logo-wrap">${p.logoUrl ? `<img src="${escapeHtml(String(p.logoUrl))}" alt="${escapeHtml(logoText)}" class="sb-nav-logo-image">` : ''}<div class="sb-nav-logo">${escapeHtml(logoText)}</div></div>\n    <div class="sb-nav-links${compact ? ' sb-nav-links-compact' : ''}">\n${links}\n    </div>\n    ${p.ctaText ? `<a href="${escapeHtml(String(p.ctaUrl || '#'))}" class="sb-nav-cta" style="padding:${ctaPaddingY}px ${ctaPaddingX}px;border-radius:${ctaRadius}px">${escapeHtml(String(p.ctaText))}</a>` : ''}\n  </nav>\n`;
 }
 
 function footerToHtml(block: Block, cls: string): string {
@@ -346,11 +407,13 @@ function dividerToHtml(config: DividerConfig): string {
 }
 
 function bannerToHtml(block: Block, cls: string): string {
-  const p = block.props as { format: string; width: number; height: number; adCode: string; label: string; showLabel: boolean };
+  const p = block.props as { format: string; width: number; height: number; adCode: string; label: string; showLabel: boolean; responsive?: boolean };
+  const widthStyle = p.responsive === false ? `${p.width}px` : '100%';
+  const maxWidthStyle = p.responsive === false ? 'none' : `${p.width}px`;
   if (p.adCode) {
-    return `  <div class="${cls}" style="text-align:center">\n    ${p.showLabel ? `<small>${escapeHtml(p.label || 'ADV')}</small>` : ''}\n    ${p.adCode}\n  </div>\n`;
+    return `  <div class="${cls}" style="text-align:center">\n    ${p.showLabel ? `<small>${escapeHtml(p.label || 'ADV')}</small>` : ''}\n    <div style="width:${widthStyle};max-width:${maxWidthStyle};margin:0 auto">${p.adCode}</div>\n  </div>\n`;
   }
-  return `  <div class="${cls}" style="text-align:center">\n    ${p.showLabel ? `<small>${escapeHtml(p.label || 'ADV')}</small>` : ''}\n    <div style="width:${p.width}px;height:${p.height}px;background:#eee;display:inline-flex;align-items:center;justify-content:center;max-width:100%">${p.format}</div>\n  </div>\n`;
+  return `  <div class="${cls}" style="text-align:center">\n    ${p.showLabel ? `<small>${escapeHtml(p.label || 'ADV')}</small>` : ''}\n    <div style="width:${widthStyle};max-width:${maxWidthStyle};height:${p.height}px;background:#eee;display:inline-flex;align-items:center;justify-content:center">${p.format}</div>\n  </div>\n`;
 }
 
 function quoteToHtml(block: Block, cls: string): string {

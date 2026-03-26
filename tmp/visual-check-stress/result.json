@@ -1,0 +1,105 @@
+{
+  "pageId": "ae8ec1e3-40e2-4c82-931b-e293027a051b",
+  "slug": "motore-render-stress",
+  "screenshotDir": "/Users/briancortinovis/Documents/editoria-cms/tmp/visual-check-stress",
+  "editorBlockCount": 14,
+  "verify": {
+    "page": {
+      "id": "ae8ec1e3-40e2-4c82-931b-e293027a051b",
+      "title": "Stress Test Motore Render",
+      "slug": "motore-render-stress",
+      "tenant_id": "125172d3-f498-439f-a045-61e409dac706"
+    },
+    "summary": {
+      "blockCount": 14,
+      "maxDepth": 3,
+      "blockTypes": {
+        "navigation": 1,
+        "section": 3,
+        "text": 7,
+        "columns": 2,
+        "slideshow": 1
+      },
+      "features": {
+        "animations": 3,
+        "scrollGradients": 1,
+        "advancedGradients": 2,
+        "customCss": 4,
+        "clipPaths": 2,
+        "topDividers": 1,
+        "bottomDividers": 1,
+        "glassmorphism": 3,
+        "noise": 1,
+        "grain": 1,
+        "backgroundImages": 1,
+        "backgroundVideos": 0,
+        "parallaxBackgrounds": 1,
+        "responsiveTablet": 0,
+        "responsiveMobile": 1,
+        "hiddenBlocks": 0,
+        "lockedBlocks": 0,
+        "positionedBlocks": 4,
+        "overlappingCandidates": 2
+      },
+      "blockIds": [
+        "c2a6b385-fb7f-468c-8359-a356e40e1b5c",
+        "910c4b6a-a84c-4925-80cf-78712d2f60d6",
+        "bbc69798-27e5-4a74-9583-e4de656a00a8",
+        "6a347517-1a7b-41b4-9853-e1244283b912",
+        "af19e746-f9a9-47d6-b62a-86eef108318f",
+        "b9e88fad-81c2-4fa5-b283-f8a05d5aba3b",
+        "a2dd9ee6-1821-4a7b-9f8d-8913d9f79bd6",
+        "592d1f84-531b-45ac-868d-fd58695a53b3",
+        "12607ddc-566c-4b44-840d-32050a728343",
+        "3895b21d-1d49-4513-a68c-909f95a41aca",
+        "d9c2633a-6a5a-44fd-b9f8-35542c0c8308",
+        "36ce028c-fc69-4c5f-b79f-fa0f0788ca20",
+        "b8153017-027f-4d6c-b902-0a1f3f30f021",
+        "a9d072ad-fc81-4078-98ff-6a9ee8727c1c"
+      ]
+    },
+    "render": {
+      "publicPath": "/site/valbrembana/motore-render-stress",
+      "status": 200,
+      "htmlChecks": {
+        "allBlockWrappersPresent": true,
+        "missingBlockWrappers": [],
+        "customCssScopesMissing": [],
+        "scrollGradientAttrsMissing": [],
+        "animationAttrsMissing": []
+      }
+    }
+  },
+  "markers": [
+    {
+      "marker": "VALBREMBANA LAB",
+      "inEditor": true,
+      "inPreview": true,
+      "inPublicPage": true
+    },
+    {
+      "marker": "Forme, sfumature e overlay reali",
+      "inEditor": true,
+      "inPreview": true,
+      "inPublicPage": true
+    },
+    {
+      "marker": "Paesaggi in apertura",
+      "inEditor": true,
+      "inPreview": true,
+      "inPublicPage": true
+    },
+    {
+      "marker": "Centro con texture e overlay",
+      "inEditor": true,
+      "inPreview": true,
+      "inPublicPage": true
+    },
+    {
+      "marker": "Z-index e overlap test",
+      "inEditor": true,
+      "inPreview": true,
+      "inPublicPage": true
+    }
+  ]
+}

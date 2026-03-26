@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
@@ -20,6 +21,7 @@ export default function ImpostazioniPage() {
   const { currentTenant, currentRole, setCurrentTenant } = useAuthStore();
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("general");
+  const [loadedSettings, setLoadedSettings] = useState<Record<string, string>>({});
 
   // General
   const [name, setName] = useState("");
@@ -48,25 +50,48 @@ export default function ImpostazioniPage() {
 
   useEffect(() => {
     if (!currentTenant) return;
-    setName(currentTenant.name);
-    setSlug(currentTenant.slug);
-    setDomain(currentTenant.domain ?? "");
-    setLogoUrl(currentTenant.logo_url ?? "");
+    const tenantId = currentTenant.id;
+    const tenantName = currentTenant.name;
+    const tenantSlug = currentTenant.slug;
+    const tenantDomain = currentTenant.domain ?? "";
+    const tenantLogoUrl = currentTenant.logo_url ?? "";
+    const tenantTheme = (currentTenant.theme_config ?? {}) as Record<string, string>;
 
-    const theme = (currentTenant.theme_config ?? {}) as Record<string, string>;
-    setPrimaryColor(theme.primary_color ?? "#8B0000");
-    setFontSerif(theme.font_serif ?? "Playfair Display");
-    setFontSans(theme.font_sans ?? "Inter");
+    const supabase = createClient();
 
-    const settings = (currentTenant.settings ?? {}) as Record<string, string>;
-    setFacebook(settings.facebook ?? "");
-    setInstagram(settings.instagram ?? "");
-    setTwitter(settings.twitter ?? "");
-    setTelegram(settings.telegram ?? "");
-    setYoutube(settings.youtube ?? "");
-    setSiteDescription(settings.site_description ?? "");
-    setGoogleAnalytics(settings.google_analytics ?? "");
-    setGoogleAdsense(settings.google_adsense ?? "");
+    async function loadTenantSettings() {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("settings")
+        .eq("id", tenantId)
+        .single();
+
+      if (error) {
+        toast.error("Errore caricamento impostazioni");
+        return;
+      }
+
+      setName(tenantName);
+      setSlug(tenantSlug);
+      setDomain(tenantDomain);
+      setLogoUrl(tenantLogoUrl);
+      setPrimaryColor(tenantTheme.primary_color ?? "#8B0000");
+      setFontSerif(tenantTheme.font_serif ?? "Playfair Display");
+      setFontSans(tenantTheme.font_sans ?? "Inter");
+
+      const settings = (data?.settings ?? {}) as Record<string, string>;
+      setLoadedSettings(settings);
+      setFacebook(settings.facebook ?? "");
+      setInstagram(settings.instagram ?? "");
+      setTwitter(settings.twitter ?? "");
+      setTelegram(settings.telegram ?? "");
+      setYoutube(settings.youtube ?? "");
+      setSiteDescription(settings.site_description ?? "");
+      setGoogleAnalytics(settings.google_analytics ?? "");
+      setGoogleAdsense(settings.google_adsense ?? "");
+    }
+
+    void loadTenantSettings();
   }, [currentTenant]);
 
   const handleSave = async () => {
@@ -87,6 +112,7 @@ export default function ImpostazioniPage() {
           font_sans: fontSans,
         },
         settings: {
+          ...loadedSettings,
           facebook,
           instagram,
           twitter,
@@ -112,7 +138,7 @@ export default function ImpostazioniPage() {
           domain: domain || null,
           logo_url: logoUrl || null,
           theme_config: { primary_color: primaryColor, font_serif: fontSerif, font_sans: fontSans },
-          settings: { facebook, instagram, twitter, telegram, youtube, site_description: siteDescription, google_analytics: googleAnalytics, google_adsense: googleAdsense },
+          settings: {},
         },
         currentRole
       );
@@ -197,7 +223,9 @@ export default function ImpostazioniPage() {
             </div>
             {logoUrl && (
               <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "var(--c-bg-2)" }}>
-                <img src={logoUrl} alt="Logo" className="h-12 w-auto" />
+                <div className="relative h-12 w-28 shrink-0">
+                  <Image src={logoUrl} alt="Logo" fill className="object-contain object-left" unoptimized />
+                </div>
                 <span className="text-xs" style={{ color: "var(--c-text-2)" }}>Preview logo</span>
               </div>
             )}

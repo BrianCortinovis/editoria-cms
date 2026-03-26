@@ -7,6 +7,7 @@ import { useAuthStore } from "@/lib/store";
 import { useAIStatus } from "@/lib/ai-status";
 import { useFieldContextStore } from "@/lib/stores/field-context-store";
 import { usePageStore } from "@/lib/stores/page-store";
+import { useAIConfigStore } from "@/lib/stores/ai-config-store";
 import type { Tables } from "@/types/database";
 
 type EditorPageOption = Pick<
@@ -68,7 +69,7 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
   const editorCanUndo = usePageStore((state) => state.historyIndex > 0);
   const editorCanRedo = usePageStore((state) => state.historyIndex < state.history.length - 1);
 
-  const [aiProvider, setAiProvider] = useState<'claude' | 'openai' | 'gemini'>('claude');
+  const { provider: aiProvider, model: selectedModel, setConfig } = useAIConfigStore();
   const [showProviderMenu, setShowProviderMenu] = useState(false);
   const [providerMenuStep, setProviderMenuStep] = useState<"providers" | "models">("providers");
   const [providerMenuProvider, setProviderMenuProvider] = useState<'claude' | 'openai' | 'gemini'>('claude');
@@ -105,7 +106,6 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
   ] as const;
 
   const currentProviderData = providers.find(p => p.value === aiProvider);
-  const [selectedModel, setSelectedModel] = useState(currentProviderData?.models[0]?.id || '');
   const providerMenuData = providers.find((p) => p.value === providerMenuProvider);
   const selectedModelData = currentProviderData?.models.find((model) => model.id === selectedModel) || currentProviderData?.models[0] || null;
   const selectedEditorPage = useMemo(
@@ -430,8 +430,7 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
                         <button
                           key={model.id}
                           onClick={() => {
-                            setAiProvider(providerMenuProvider);
-                            setSelectedModel(model.id);
+                            setConfig(providerMenuProvider, model.id);
                             setShowProviderMenu(false);
                             setProviderMenuStep("providers");
                           }}

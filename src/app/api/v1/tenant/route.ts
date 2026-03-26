@@ -1,6 +1,26 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
+function extractPublicActiveModules(themeConfig: Record<string, unknown> | null | undefined): string[] {
+  if (!themeConfig || typeof themeConfig !== "object") {
+    return [];
+  }
+
+  const fromArray = themeConfig.active_modules;
+  if (Array.isArray(fromArray)) {
+    return fromArray.filter((item): item is string => typeof item === "string");
+  }
+
+  const fromMap = themeConfig.public_modules;
+  if (fromMap && typeof fromMap === "object") {
+    return Object.entries(fromMap)
+      .filter(([, enabled]) => Boolean(enabled))
+      .map(([moduleId]) => moduleId);
+  }
+
+  return [];
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const tenantSlug = searchParams.get("tenant");
@@ -13,7 +33,7 @@ export async function GET(request: Request) {
 
   const { data: tenant, error } = await supabase
     .from("tenants")
-    .select("name, slug, domain, logo_url, theme_config, settings")
+    .select("name, slug, domain, logo_url, theme_config")
     .eq("slug", tenantSlug)
     .single();
 
@@ -21,11 +41,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
-  const activeModules = Object.entries(
-    ((tenant.settings as { modules?: Record<string, boolean | { enabled?: boolean }> } | null)?.modules) || {}
-  )
-    .filter(([, config]) => typeof config === "boolean" ? config : Boolean(config?.enabled))
-    .map(([moduleId]) => moduleId);
+  const activeModules = extractPublicActiveModules(
+    (tenant.theme_config as Record<string, unknown> | null | undefined) ?? null
+  );
 
   return NextResponse.json({ tenant: {
     name: tenant.name,

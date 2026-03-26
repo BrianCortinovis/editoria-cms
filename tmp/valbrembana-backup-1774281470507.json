@@ -1,0 +1,191 @@
+{
+  "tenant": {
+    "id": "125172d3-f498-439f-a045-61e409dac706",
+    "name": "Val Brembana Web",
+    "slug": "valbrembana"
+  },
+  "site_pages": {
+    "count": 3,
+    "sample": [
+      {
+        "id": "24933eab-6aa7-4868-abbc-035d544c794a",
+        "title": "Homepage",
+        "slug": "homepage"
+      },
+      {
+        "id": "c6400f6b-12ff-4ab2-99fe-257ff80d97d3",
+        "title": "Chi siamo",
+        "slug": "chi-siamo"
+      },
+      {
+        "id": "fdcf320d-9c8f-4465-b241-22b84b8fd0a9",
+        "title": "Contatti",
+        "slug": "contatti"
+      }
+    ]
+  },
+  "articles": {
+    "count": 17,
+    "sample": [
+      {
+        "id": "a514836a-5645-45b2-9ef1-cd0ac6f49cd6",
+        "title": "San Giovanni Bianco apre il polo civico serale: studio, coworking e sportello giovani nello stesso spazio",
+        "slug": "san-giovanni-bianco-polo-civico-serale",
+        "status": "published"
+      },
+      {
+        "id": "a04f72a0-fd8d-4092-8b11-be84db87c13f",
+        "title": "San Pellegrino, il weekend del basket riaccende il palazzetto con tre derby giovanili",
+        "slug": "san-pellegrino-weekend-basket-derby-giovanili",
+        "status": "published"
+      },
+      {
+        "id": "5c947b5c-95ce-45ea-8fb8-ce058b243313",
+        "title": "Cultura in quota, una rassegna diffusa porta concerti e parole nei borghi alti",
+        "slug": "cultura-in-quota-rassegna-diffusa-borghi-alti",
+        "status": "published"
+      },
+      {
+        "id": "49ecea9d-997a-4cef-a1af-0f4489c1a1a2",
+        "title": "Archivio vivo, la memoria della valle entra nei laboratori scolastici con immagini, audio e mappe narrate",
+        "slug": "archivio-vivo-memoria-valle-laboratori-scolastici",
+        "status": "published"
+      },
+      {
+        "id": "abf4ded0-56db-4600-939b-6c74d6734d88",
+        "title": "Editoriale, il centro della valle non si rilancia con slogan ma con servizi visibili",
+        "slug": "editoriale-centro-valle-servizi-visibili",
+        "status": "published"
+      }
+    ]
+  },
+  "categories": {
+    "count": 5,
+    "sample": [
+      {
+        "id": "7c65e9be-3184-4e3b-92be-d19a05281610",
+        "name": "Cronaca",
+        "slug": "cronaca"
+      },
+      {
+        "id": "0a86387b-2023-4433-9aaa-99e4835e3d48",
+        "name": "Sport",
+        "slug": "sport"
+      },
+      {
+        "id": "cc59df0f-4618-43d9-a6ad-d0830fd6e801",
+        "name": "Cultura",
+        "slug": "cultura"
+      },
+      {
+        "id": "fc02c6bd-83e9-447c-b4a6-7cbe0d10d64d",
+        "name": "Territorio",
+        "slug": "territorio"
+      },
+      {
+        "id": "8b13e43e-4a00-4a58-8f46-186082651f34",
+        "name": "Editoriali",
+        "slug": "editoriali"
+      }
+    ]
+  },
+  "tags": {
+    "count": 8,
+    "sample": [
+      {
+        "id": "ce454485-66a3-4190-bceb-fadf4ffbed3e",
+        "name": "Montagna",
+        "slug": "montagna"
+      },
+      {
+        "id": "fed928c1-0072-4b8d-8476-55695e85a8f7",
+        "name": "Comuni",
+        "slug": "comuni"
+      },
+      {
+        "id": "25a38841-0b7d-487c-aa54-05f03e40f673",
+        "name": "Inchieste",
+        "slug": "inchieste"
+      },
+      {
+        "id": "d43bc385-a6ea-4577-9653-0ec56c16ab59",
+        "name": "Turismo",
+        "slug": "turismo"
+      },
+      {
+        "id": "50e13af2-9665-42e6-b84c-62e04bca3dc9",
+        "name": "Basket",
+        "slug": "basket"
+      }
+    ]
+  },
+  "breaking_news": {
+    "count": null,
+    "sample": {
+      "error": "column breaking_news.title does not exist"
+    }
+  },
+  "banners": {
+    "count": 4,
+    "sample": [
+      {
+        "id": "9907413a-cfc1-416a-8351-90725b010208",
+        "name": "Header partner montagna",
+        "position": "header"
+      },
+      {
+        "id": "4deb587c-305a-49a7-8604-1cf19596fd3e",
+        "name": "Sidebar special edition",
+        "position": "sidebar"
+      },
+      {
+        "id": "9d78e469-dcb6-4249-b43c-0d42f1b95093",
+        "name": "Footer tourisme valley",
+        "position": "footer"
+      },
+      {
+        "id": "c0adbcf4-dbd2-4a3b-b7c9-fe087375b24b",
+        "name": "Interstitial comparsa demo",
+        "position": "interstitial"
+      }
+    ]
+  },
+  "site_forms": {
+    "count": 2,
+    "sample": [
+      {
+        "id": "ea60d8df-5346-447f-85f4-f68276555e05",
+        "name": "Newsletter Valle",
+        "slug": "newsletter-valle"
+      },
+      {
+        "id": "46094cd5-e856-404b-ada9-74f5f795ef11",
+        "name": "Contatti Redazione",
+        "slug": "contatti-redazione"
+      }
+    ]
+  },
+  "redirects": {
+    "count": null,
+    "sample": {
+      "error": "column redirects.target_url does not exist"
+    }
+  },
+  "events": {
+    "count": 3,
+    "sample": [
+      {
+        "id": "a25cde26-df78-496d-a522-d3f62b047238",
+        "title": "Forum di valle: come si legge una homepage editoriale"
+      },
+      {
+        "id": "963e4f2c-69f2-438b-a60d-e5efc176469a",
+        "title": "Passeggiata guidata tra archivi, botteghe e memoria di borgo"
+      },
+      {
+        "id": "d90836a5-7d57-4c6f-9f5b-c5b58d924e62",
+        "title": "Weekend sportivo in quota tra trail, famiglie e attivita per ragazzi"
+      }
+    ]
+  }
+}

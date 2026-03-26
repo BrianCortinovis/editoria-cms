@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { Sparkles, Loader2, X, Check } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
+import { usePageStore } from '@/lib/stores/page-store';
 import { isModuleActive } from '@/lib/modules';
 import toast from 'react-hot-toast';
+import type { Block } from '@/lib/types';
 
 interface AIModalProps {
   isOpen: boolean;
@@ -14,6 +16,80 @@ interface AIModalProps {
   systemPrompt?: string;
   onApply: (result: string) => void;
   title?: string;
+  blockId?: string;
+  fieldName?: string;
+}
+
+const JSON_FIELD_NAMES = new Set([
+  'layout',
+  'background',
+  'typography',
+  'border',
+  'animation',
+  'advanced-gradient',
+  'glassmorphism',
+  'clip-path-shape',
+]);
+
+function unwrapAiResponse(raw: string): string {
+  const trimmed = raw.trim();
+  const fencedMatch = trimmed.match(/```(?:json|css|html)?\s*([\s\S]*?)```/i);
+  if (fencedMatch?.[1]) {
+    return fencedMatch[1].trim();
+  }
+  return trimmed;
+}
+
+function sanitizeContextValue(value: unknown, depth = 0): unknown {
+  if (value == null) return value;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.slice(0, 6).map((item) => sanitizeContextValue(item, depth + 1));
+  }
+
+  if (typeof value === 'object') {
+    if (depth >= 2) {
+      return '[object]';
+    }
+
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .slice(0, 12)
+        .map(([key, nestedValue]) => [key, sanitizeContextValue(nestedValue, depth + 1)])
+    );
+  }
+
+  return String(value);
+}
+
+function summarizeBlockForAi(block: Block, depth = 0): Record<string, unknown> {
+  return {
+    id: block.id,
+    type: block.type,
+    label: block.label,
+    hidden: block.hidden,
+    locked: block.locked,
+    props: sanitizeContextValue(block.props),
+    style: {
+      layout: sanitizeContextValue(block.style.layout),
+      background: sanitizeContextValue(block.style.background),
+      typography: sanitizeContextValue(block.style.typography),
+      border: sanitizeContextValue(block.style.border),
+    },
+    dataSource: sanitizeContextValue(block.dataSource),
+    childCount: block.children.length,
+    children:
+      depth >= 1
+        ? block.children.slice(0, 6).map((child) => ({
+            id: child.id,
+            type: child.type,
+            label: child.label,
+          }))
+        : block.children.slice(0, 6).map((child) => summarizeBlockForAi(child, depth + 1)),
+  };
 }
 
 export function AIModal({
@@ -24,8 +100,11 @@ export function AIModal({
   systemPrompt,
   onApply,
   title = 'Assistente IA',
+  blockId,
+  fieldName,
 }: AIModalProps) {
   const { currentTenant } = useAuthStore();
+  const { getBlock, getBlockLocation, blocks, pageMeta } = usePageStore();
   const [prompt, setPrompt] = useState(defaultPrompt);
   const [result, setResult] = useState('');
   const [loading, setLoading] = useState(false);
@@ -45,14 +124,61 @@ export function AIModal({
     }
 
     // In dev, use a placeholder tenant if not set
-    const tenant = currentTenant || { id: 'dev-tenant' } as any;
+    const tenant = currentTenant ?? { id: 'dev-tenant' };
 
     setLoading(true);
     setSubmitted(false);
     setResult('');
 
     try {
-      const finalPrompt = prompt.replace('{context}', contextData);
+      const liveBlock = blockId ? getBlock(blockId) : null;
+      const liveLocation = blockId ? getBlockLocation(blockId) : null;
+      const contextSections = [
+        fieldName ? `CAMPO O OBIETTIVO:\n${fieldName}` : '',
+        contextData ? `CONTESTO FORNITO:\n${contextData}` : '',
+        liveBlock
+          ? `BLOCCO O SEZIONE ATTIVA:\n${JSON.stringify(
+              {
+                ...summarizeBlockForAi(liveBlock),
+                location: liveLocation,
+              },
+              null,
+              2
+            )}`
+          : '',
+        blocks.length > 0
+          ? `PAGINA / STRUTTURA INTORNO:\n${JSON.stringify(
+              {
+                pageMeta: sanitizeContextValue(pageMeta),
+                rootBlocks: blocks.slice(0, 8).map((rootBlock) => ({
+                  id: rootBlock.id,
+                  type: rootBlock.type,
+                  label: rootBlock.label,
+                  childCount: rootBlock.children.length,
+                })),
+              },
+              null,
+              2
+            )}`
+          : '',
+      ].filter(Boolean).join('\n\n');
+
+      const finalPrompt = prompt.replace('{context}', contextSections || contextData);
+      const expectsJson = fieldName ? JSON_FIELD_NAMES.has(fieldName) : false;
+      const normalizedPrompt = fieldName
+        ? [
+            `Campo: ${fieldName}`,
+            contextSections ? `Contesto: ${contextSections}` : '',
+            '',
+            `Richiesta: ${finalPrompt}`,
+            '',
+            expectsJson
+              ? 'Rispondi SOLO con un oggetto JSON valido, senza spiegazioni o markdown.'
+              : 'Rispondi SOLO con il risultato finale, senza spiegazioni o markdown.',
+          ]
+            .filter(Boolean)
+            .join('\n')
+        : finalPrompt;
 
       // In development, mock a response for testing
       if (process.env.NODE_ENV === 'development') {
@@ -82,7 +208,7 @@ export function AIModal({
           mockResponse = JSON.stringify({ success: true, message: 'Mock response per testing locale' }, null, 2);
         }
 
-        setResult(mockResponse);
+        setResult(unwrapAiResponse(mockResponse));
         setSubmitted(true);
         setLoading(false);
         return;
@@ -95,7 +221,7 @@ export function AIModal({
           tenant_id: tenant.id,
           task: 'seo',
           system: systemPrompt || 'Sei un assistente editoriale per un CMS giornalistico italiano. Rispondi in modo conciso e utile.',
-          prompt: finalPrompt,
+          prompt: normalizedPrompt,
         }),
       });
 
@@ -106,10 +232,10 @@ export function AIModal({
         return;
       }
 
-      setResult(data.text);
+      setResult(unwrapAiResponse(data.text));
       setSubmitted(true);
       setLoading(false);
-    } catch (error) {
+    } catch {
       toast.error('Errore di comunicazione');
       setLoading(false);
     }

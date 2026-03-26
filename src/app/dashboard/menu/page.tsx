@@ -13,6 +13,7 @@ interface SourceItem {
   label: string;
   url: string;
   kind: "page" | "category" | "tag";
+  icon: string;
 }
 
 const MENU_KEYS: Array<{ key: SiteMenuKey; label: string }> = [
@@ -109,6 +110,23 @@ function ItemEditor({
         </select>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <input
+          value={item.icon || ""}
+          onChange={(event) => onChange({ ...item, icon: event.target.value })}
+          placeholder="Icona es. home, newspaper, play"
+          className="w-full px-3 py-2 rounded-lg text-sm"
+          style={{ border: "1px solid var(--c-border)" }}
+        />
+        <input
+          value={item.badge || ""}
+          onChange={(event) => onChange({ ...item, badge: event.target.value })}
+          placeholder="Badge es. Live, New"
+          className="w-full px-3 py-2 rounded-lg text-sm"
+          style={{ border: "1px solid var(--c-border)" }}
+        />
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <button onClick={onMoveUp} className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--c-bg-1)", color: "var(--c-text-1)" }}>
           <ArrowUp className="w-4 h-4 inline mr-1" /> Su
@@ -190,9 +208,9 @@ export default function MenuPage() {
         if (cancelled) return;
 
         const nextSources: SourceItem[] = [
-          ...((pagesRes.data || []).map((page) => ({ id: String(page.id), label: String(page.title), url: `/${String(page.slug)}`, kind: "page" as const }))),
-          ...((categoriesRes.data || []).map((category) => ({ id: String(category.id), label: `Categoria: ${String(category.name)}`, url: `/categoria/${String(category.slug)}`, kind: "category" as const }))),
-          ...((tagsRes.data || []).map((tag) => ({ id: String(tag.id), label: `Tag: ${String(tag.name)}`, url: `/tag/${String(tag.slug)}`, kind: "tag" as const }))),
+          ...((pagesRes.data || []).map((page) => ({ id: String(page.id), label: String(page.title), url: `/${String(page.slug)}`, kind: "page" as const, icon: "file" }))),
+          ...((categoriesRes.data || []).map((category) => ({ id: String(category.id), label: `Categoria: ${String(category.name)}`, url: `/categoria/${String(category.slug)}`, kind: "category" as const, icon: "folder" }))),
+          ...((tagsRes.data || []).map((tag) => ({ id: String(tag.id), label: `Tag: ${String(tag.name)}`, url: `/tag/${String(tag.slug)}`, kind: "tag" as const, icon: "tag" }))),
         ];
 
         setSources(nextSources);
@@ -251,6 +269,7 @@ export default function MenuPage() {
         id: generateId(),
         label: "Nuova voce",
         url: "#",
+        icon: "menu",
         sourceType: "custom",
         target: "_self",
         children: [],
@@ -265,6 +284,7 @@ export default function MenuPage() {
         id: generateId(),
         label: source.label.replace(/^Categoria: |^Tag: /, ""),
         url: source.url,
+        icon: source.icon,
         sourceType: source.kind,
         sourceId: source.id,
         target: "_self",

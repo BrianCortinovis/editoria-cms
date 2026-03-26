@@ -4,7 +4,7 @@ import { useUiStore } from '@/lib/stores/ui-store';
 import { BlockLibrary } from './BlockLibrary';
 import { LayerTree } from './LayerTree';
 import { cn } from '@/lib/utils/cn';
-import { LayoutGrid, Layers } from 'lucide-react';
+import { LayoutGrid, Layers, Palette, Zap, GitBranch, Settings } from 'lucide-react';
 
 export function LeftPanel() {
   const { leftPanelTab, setLeftPanelTab } = useUiStore();
@@ -37,7 +37,7 @@ export function LeftPanel() {
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-40">
         {leftPanelTab === 'blocks' && <BlockLibrary />}
         {leftPanelTab === 'layers' && <LayerTree />}
       </div>

@@ -8,17 +8,39 @@ import {
   AlertTriangle,
   XCircle,
   FileText,
-  Lock,
   Users,
   Eye,
   Database,
-  Globe,
   Download,
   Trash2,
 } from "lucide-react";
 
+function ComplianceItem({
+  status,
+  title,
+  desc,
+}: {
+  status: "ok" | "warn" | "fail";
+  title: string;
+  desc: string;
+}) {
+  const icons = { ok: CheckCircle, warn: AlertTriangle, fail: XCircle };
+  const colors = { ok: "var(--c-success)", warn: "var(--c-warning)", fail: "var(--c-danger)" };
+  const Icon = icons[status];
+
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-lg" style={{ background: "var(--c-bg-2)" }}>
+      <Icon className="w-4 h-4 shrink-0 mt-0.5" style={{ color: colors[status] }} />
+      <div>
+        <p className="text-xs font-medium" style={{ color: "var(--c-text-0)" }}>{title}</p>
+        <p className="text-[11px] mt-0.5" style={{ color: "var(--c-text-2)" }}>{desc}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function GdprPage() {
-  const { currentTenant, currentRole } = useAuthStore();
+  const { currentRole } = useAuthStore();
   const [activeTab, setActiveTab] = useState("status");
   const isAdmin = currentRole === "super_admin";
 
@@ -28,21 +50,6 @@ export default function GdprPage() {
     { id: "policies", label: "Policy CMS" },
     { id: "cookies", label: "Cookie" },
   ];
-
-  const ComplianceItem = ({ status, title, desc }: { status: "ok" | "warn" | "fail"; title: string; desc: string }) => {
-    const icons = { ok: CheckCircle, warn: AlertTriangle, fail: XCircle };
-    const colors = { ok: "var(--c-success)", warn: "var(--c-warning)", fail: "var(--c-danger)" };
-    const Icon = icons[status];
-    return (
-      <div className="flex items-start gap-3 p-3 rounded-lg" style={{ background: "var(--c-bg-2)" }}>
-        <Icon className="w-4 h-4 shrink-0 mt-0.5" style={{ color: colors[status] }} />
-        <div>
-          <p className="text-xs font-medium" style={{ color: "var(--c-text-0)" }}>{title}</p>
-          <p className="text-[11px] mt-0.5" style={{ color: "var(--c-text-2)" }}>{desc}</p>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -113,16 +120,19 @@ export default function GdprPage() {
                 <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: "var(--c-bg-2)" }}>
                   <div>
                     <p className="text-xs font-medium" style={{ color: "var(--c-text-0)" }}>Diritto di accesso (Art. 15)</p>
-                    <p className="text-[11px]" style={{ color: "var(--c-text-2)" }}>Esporta tutti i dati di un utente</p>
+                    <p className="text-[11px]" style={{ color: "var(--c-text-2)" }}>Workflow ancora da implementare in modo operativo e tracciato</p>
                   </div>
-                  <button className="btn btn-secondary text-xs"><Download className="w-3.5 h-3.5" /> Esporta</button>
+                  <button className="btn btn-secondary text-xs opacity-60 cursor-not-allowed" disabled><Download className="w-3.5 h-3.5" /> In arrivo</button>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: "var(--c-bg-2)" }}>
                   <div>
                     <p className="text-xs font-medium" style={{ color: "var(--c-text-0)" }}>Diritto alla cancellazione (Art. 17)</p>
-                    <p className="text-[11px]" style={{ color: "var(--c-text-2)" }}>Elimina tutti i dati personali di un utente</p>
+                    <p className="text-[11px]" style={{ color: "var(--c-text-2)" }}>Richiede procedura sicura con export, verifica tenant e audit dedicato</p>
                   </div>
-                  <button className="btn btn-danger text-xs"><Trash2 className="w-3.5 h-3.5" /> Cancella</button>
+                  <button className="btn btn-danger text-xs opacity-60 cursor-not-allowed" disabled><Trash2 className="w-3.5 h-3.5" /> In arrivo</button>
+                </div>
+                <div className="p-3 rounded-lg text-[11px]" style={{ background: "rgba(245,158,11,0.10)", color: "var(--c-text-1)", border: "1px solid rgba(245,158,11,0.35)" }}>
+                  Questa sezione non simula più azioni non implementate. Finché il workflow GDPR operativo non è completo, il CMS lo dichiara esplicitamente.
                 </div>
               </div>
             </div>

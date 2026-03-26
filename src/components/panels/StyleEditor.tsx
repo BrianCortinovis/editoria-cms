@@ -13,12 +13,45 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { GradientEditor } from './GradientEditor';
 import { EffectsEditor } from './EffectsEditor';
 import AIButton from '@/components/ai/AIButton';
+import { useAuthStore } from '@/lib/store';
 
 interface StyleEditorProps {
   block: Block;
 }
 
-function Section({ title, defaultOpen = false, children, blockId, fieldName, contextData }: { title: string; defaultOpen?: boolean; children: React.ReactNode; blockId?: string; fieldName?: string; contextData?: string }) {
+function parseAiObject<T>(raw: string): T | null {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    const fencedMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fencedMatch?.[1]) {
+      try {
+        return JSON.parse(fencedMatch[1]) as T;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
+function Section({
+  title,
+  defaultOpen = false,
+  children,
+  blockId,
+  fieldName,
+  contextData,
+  onAiApply,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+  blockId?: string;
+  fieldName?: string;
+  contextData?: string;
+  onAiApply?: (result: string) => void;
+}) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border-b pb-3 mb-3" style={{ borderColor: 'var(--c-border)' }}>
@@ -45,9 +78,10 @@ function Section({ title, defaultOpen = false, children, blockId, fieldName, con
               {
                 id: `suggest-${fieldName}`,
                 label: 'Suggerisci',
-                prompt: `Suggest styling improvements for the ${title} section of this block: {context}. Return JSON with relevant CSS properties.`,
+                prompt: `Analizza questa sezione ${title} del blocco e genera SOLO un oggetto JSON valido con le proprietà aggiornate più adatte. Applica un risultato reale e operativo, non commenti.`,
               },
             ]}
+            onApply={onAiApply ? (_actionId, result) => onAiApply(result) : undefined}
             compact
           />
         )}
@@ -88,8 +122,23 @@ function SpacingInput({ label, value, onChange }: {
 
 export function StyleEditor({ block }: StyleEditorProps) {
   const { updateBlockStyle } = usePageStore();
+  const currentTenant = useAuthStore((state) => state.currentTenant);
 
   const s = block.style;
+  const tenantTheme = (currentTenant?.theme_config ?? {}) as Record<string, unknown>;
+  const headingFont = String(tenantTheme.font_serif || 'Playfair Display');
+  const bodyFont = String(tenantTheme.font_sans || 'Inter');
+  // Essential fonts only - most commonly used
+  const fontPresets = [
+    headingFont,
+    bodyFont,
+    'Inter',
+    'DM Sans',
+    'Open Sans',
+    'Playfair Display',
+    'Merriweather',
+    'Lora',
+  ].filter((font, index, fonts) => fonts.indexOf(font) === index);
 
   const updateLayout = (updates: Partial<BlockStyle['layout']>) => {
     // Use current layout from block prop
@@ -124,6 +173,10 @@ export function StyleEditor({ block }: StyleEditorProps) {
         blockId={block.id}
         fieldName="layout"
         contextData={JSON.stringify({ layout: s.layout, blockType: block.type })}
+        onAiApply={(result) => {
+          const parsed = parseAiObject<Partial<BlockStyle['layout']>>(result);
+          if (parsed) updateLayout(parsed);
+        }}
       >
         <Select
           label="Display"
@@ -188,6 +241,10 @@ export function StyleEditor({ block }: StyleEditorProps) {
         blockId={block.id}
         fieldName="background"
         contextData={JSON.stringify({ background: s.background, blockType: block.type })}
+        onAiApply={(result) => {
+          const parsed = parseAiObject<Partial<BlockStyle['background']>>(result);
+          if (parsed) updateBg(parsed);
+        }}
       >
         <Select
           label="Tipo"
@@ -215,7 +272,11 @@ export function StyleEditor({ block }: StyleEditorProps) {
           </>
         )}
         {(s.background.type === 'image' || s.background.type === 'video') && (
-          <Input label="Overlay (rgba)" value={s.background.overlay || ''} onChange={(e) => updateBg({ overlay: e.target.value })} placeholder="rgba(0,0,0,0.5)" />
+          <ColorPicker
+            label="Overlay"
+            value={s.background.overlay || ''}
+            onChange={(overlay) => updateBg({ overlay })}
+          />
         )}
       </Section>
 
@@ -231,8 +292,113 @@ export function StyleEditor({ block }: StyleEditorProps) {
         blockId={block.id}
         fieldName="typography"
         contextData={JSON.stringify({ typography: s.typography, blockType: block.type })}
+        onAiApply={(result) => {
+          const parsed = parseAiObject<Partial<BlockStyle['typography']>>(result);
+          if (parsed) updateTypo(parsed);
+        }}
       >
-        <Input label="Font Family" value={s.typography.fontFamily || ''} onChange={(e) => updateTypo({ fontFamily: e.target.value })} placeholder="Inter, sans-serif" />
+        <div className="space-y-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--c-text-2)' }}>
+            Font Preset
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {/* Heading Font */}
+            <button
+              type="button"
+              onClick={() => updateTypo({ fontFamily: headingFont })}
+              className="rounded overflow-hidden transition-colors border-2"
+              style={{
+                borderColor: s.typography.fontFamily === headingFont ? 'var(--c-accent)' : 'transparent',
+                background: 'var(--c-bg-1)',
+                padding: '0.5rem',
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: headingFont,
+                  fontSize: '10px',
+                  color: 'var(--c-text-0)',
+                  fontWeight: 600,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {headingFont.split(',')[0]}
+              </div>
+              <div style={{ fontSize: '8px', color: 'var(--c-text-2)', marginTop: '2px' }}>
+                Titoli
+              </div>
+            </button>
+
+            {/* Body Font */}
+            <button
+              type="button"
+              onClick={() => updateTypo({ fontFamily: bodyFont })}
+              className="rounded overflow-hidden transition-colors border-2"
+              style={{
+                borderColor: s.typography.fontFamily === bodyFont ? 'var(--c-accent)' : 'transparent',
+                background: 'var(--c-bg-1)',
+                padding: '0.5rem',
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: bodyFont,
+                  fontSize: '10px',
+                  color: 'var(--c-text-0)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {bodyFont.split(',')[0]}
+              </div>
+              <div style={{ fontSize: '8px', color: 'var(--c-text-2)', marginTop: '2px' }}>
+                Corpo
+              </div>
+            </button>
+
+            {/* Other Fonts */}
+            {fontPresets
+              .filter((f) => f !== headingFont && f !== bodyFont)
+              .map((font) => (
+                <button
+                  key={font}
+                  type="button"
+                  onClick={() => updateTypo({ fontFamily: font })}
+                  className="rounded overflow-hidden transition-colors border-2"
+                  style={{
+                    borderColor: s.typography.fontFamily === font ? 'var(--c-accent)' : 'transparent',
+                    background: 'var(--c-bg-1)',
+                    padding: '0.5rem',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: font,
+                      fontSize: '9px',
+                      color: 'var(--c-text-0)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {font.split(',')[0]}
+                  </div>
+                  <div style={{ fontSize: '7px', color: 'var(--c-text-2)', marginTop: '2px' }}>
+                    Preview
+                  </div>
+                </button>
+              ))}
+          </div>
+        </div>
+        <Select
+          label="Font Family"
+          value={s.typography.fontFamily || ''}
+          onChange={(e) => updateTypo({ fontFamily: e.target.value })}
+          options={fontPresets.map((font) => ({ value: font, label: font }))}
+        />
         <Input label="Dimensione" value={s.typography.fontSize || ''} onChange={(e) => updateTypo({ fontSize: e.target.value })} placeholder="16px" />
         <Select
           label="Peso"
@@ -250,6 +416,17 @@ export function StyleEditor({ block }: StyleEditorProps) {
         <Input label="Interlinea" value={s.typography.lineHeight || ''} onChange={(e) => updateTypo({ lineHeight: e.target.value })} placeholder="1.5" />
         <Input label="Spaziatura lettere" value={s.typography.letterSpacing || ''} onChange={(e) => updateTypo({ letterSpacing: e.target.value })} placeholder="0.5px" />
         <ColorPicker label="Colore testo" value={s.typography.color || ''} onChange={(v) => updateTypo({ color: v })} />
+        <Select
+          label="Trasformazione"
+          value={s.typography.textTransform || 'none'}
+          onChange={(e) => updateTypo({ textTransform: e.target.value === 'none' ? '' : e.target.value })}
+          options={[
+            { value: 'none', label: 'Nessuna' },
+            { value: 'uppercase', label: 'Maiuscolo' },
+            { value: 'lowercase', label: 'Minuscolo' },
+            { value: 'capitalize', label: 'Capitalize' },
+          ]}
+        />
         <Select
           label="Allineamento"
           value={s.typography.textAlign || 'left'}
@@ -269,6 +446,10 @@ export function StyleEditor({ block }: StyleEditorProps) {
         blockId={block.id}
         fieldName="border"
         contextData={JSON.stringify({ border: s.border, blockType: block.type })}
+        onAiApply={(result) => {
+          const parsed = parseAiObject<Partial<BlockStyle['border']>>(result);
+          if (parsed) updateBorder(parsed);
+        }}
       >
         <Input label="Spessore" value={s.border.width || ''} onChange={(e) => updateBorder({ width: e.target.value })} placeholder="1px" />
         <Select

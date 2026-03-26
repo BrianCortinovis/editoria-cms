@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -36,11 +37,13 @@ import {
   PanelBottom,
   Mail,
   Download,
+  Share2,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { useThemeStore } from "@/lib/theme";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import type { UserRole } from "@/types/database";
 
 export const mainNav = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
@@ -49,6 +52,7 @@ export const mainNav = [
   { href: "/dashboard/footer", label: "Footer", icon: PanelBottom },
   { href: "/dashboard/editor", label: "Editor", icon: Globe },
   { href: "/dashboard/layout", label: "Layout", icon: LayoutTemplate },
+  { href: "/dashboard/templates", label: "Template", icon: Layers },
   { href: "/dashboard/articoli", label: "Articoli", icon: FileText },
   { href: "/dashboard/media", label: "Media", icon: Image },
   { href: "/dashboard/categorie", label: "Categorie", icon: FolderOpen },
@@ -57,6 +61,8 @@ export const mainNav = [
 
 export const editorialNav = [
   { href: "/dashboard/redazione", label: "Redazione", icon: Newspaper },
+  { href: "/dashboard/desk", label: "Desk", icon: FileText },
+  { href: "/dashboard/social", label: "Social", icon: Share2 },
   { href: "/dashboard/newsletter", label: "Newsletter", icon: Mail },
   { href: "/dashboard/breaking-news", label: "Breaking", icon: Zap },
   { href: "/dashboard/eventi", label: "Eventi", icon: Calendar },
@@ -85,6 +91,68 @@ export const systemNav = [
   { href: "/dashboard/impostazioni", label: "Config", icon: Settings },
 ];
 
+function filterNavByRole(
+  items: Array<{ href: string; label: string; icon: typeof LayoutDashboard }>,
+  role: UserRole | null,
+  section: "main" | "editorial" | "adv" | "system"
+) {
+  if (!role) return items;
+
+  if (role === "contributor") {
+    const contributorAllowed = new Set(
+      section === "main"
+        ? ["/dashboard", "/dashboard/articoli", "/dashboard/media"]
+        : section === "editorial"
+          ? ["/dashboard/desk"]
+          : []
+    );
+    return items.filter((item) => contributorAllowed.has(item.href));
+  }
+
+  if (role === "advertiser") {
+    const advertiserAllowed = new Set(
+      section === "main"
+        ? ["/dashboard", "/dashboard/media"]
+        : section === "adv"
+          ? ["/dashboard/adv", "/dashboard/banner", "/dashboard/inserzionisti", "/dashboard/contabilita"]
+          : section === "system"
+            ? ["/dashboard/impostazioni"]
+            : []
+    );
+    return items.filter((item) => advertiserAllowed.has(item.href));
+  }
+
+  if (role === "editor") {
+    if (section === "system") {
+      const editorAllowed = new Set([
+        "/dashboard/seo",
+        "/dashboard/ia",
+        "/dashboard/activity-log",
+      ]);
+      return items.filter((item) => editorAllowed.has(item.href));
+    }
+    return items;
+  }
+
+  if (role === "chief_editor") {
+    if (section === "system") {
+      const chiefAllowed = new Set([
+        "/dashboard/testata",
+        "/dashboard/seo",
+        "/dashboard/redirect",
+        "/dashboard/ia",
+        "/dashboard/utenti",
+        "/dashboard/activity-log",
+        "/dashboard/impostazioni",
+      ]);
+      return items.filter((item) => chiefAllowed.has(item.href));
+    }
+    return items;
+  }
+
+  return items;
+}
+
 function NavItem({ href, label, icon: Icon, isActive, onClick }: {
   href: string; label: string; icon: typeof LayoutDashboard; isActive: boolean; onClick: () => void;
 }) {
@@ -102,20 +170,38 @@ function NavItem({ href, label, icon: Icon, isActive, onClick }: {
   );
 }
 
-function SectionLabel({ label }: { label: string }) {
+function SectionToggle({
+  label,
+  isOpen,
+  onToggle,
+}: {
+  label: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <div className="px-1 pt-2 pb-1">
-      <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-center" style={{ color: "var(--c-text-3)" }}>
+    <button
+      type="button"
+      onClick={onToggle}
+      className="w-full px-1 pt-2 pb-1 flex items-center justify-center gap-1.5 rounded-lg transition"
+      style={{ color: "var(--c-text-3)" }}
+      title={isOpen ? `Chiudi ${label}` : `Apri ${label}`}
+    >
+      <span className="text-[8px] font-semibold uppercase tracking-[0.18em] text-center">
         {label}
-      </div>
-    </div>
+      </span>
+      <ChevronDown
+        className="w-3 h-3 transition-transform"
+        style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+      />
+    </button>
   );
 }
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentTenant, tenants, setCurrentTenant, reset, profile } = useAuthStore();
+  const { currentTenant, currentRole, tenants, setCurrentTenant, reset, profile } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
 
   const handleLogout = async () => {
@@ -132,6 +218,24 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
+
+  const visibleMainNav = filterNavByRole(mainNav, currentRole, "main");
+  const visibleEditorialNav = filterNavByRole(editorialNav, currentRole, "editorial");
+  const visibleAdvNav = filterNavByRole(advNav, currentRole, "adv");
+  const visibleSystemNav = filterNavByRole(systemNav, currentRole, "system");
+  const [collapsedSections, setCollapsedSections] = useState({
+    main: false,
+    editorial: false,
+    adv: false,
+    system: false,
+  });
+
+  const toggleSection = (section: "main" | "editorial" | "adv" | "system") => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
 
   return (
     <>
@@ -174,17 +278,33 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-1.5 py-1 space-y-0.5">
-          <SectionLabel label="CMS" />
-          {mainNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />)}
-          <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
-          <SectionLabel label="Redazione" />
-          {editorialNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />)}
-          <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
-          <SectionLabel label="ADV" />
-          {advNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />)}
-          <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
-          <SectionLabel label="Sistema" />
-          {systemNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />)}
+          {visibleMainNav.length > 0 && (
+            <>
+              <SectionToggle label="CMS" isOpen={!collapsedSections.main} onToggle={() => toggleSection("main")} />
+              {!collapsedSections.main ? visibleMainNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
+            </>
+          )}
+          {visibleEditorialNav.length > 0 && (
+            <>
+              <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
+              <SectionToggle label="Redazione" isOpen={!collapsedSections.editorial} onToggle={() => toggleSection("editorial")} />
+              {!collapsedSections.editorial ? visibleEditorialNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
+            </>
+          )}
+          {visibleAdvNav.length > 0 && (
+            <>
+              <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
+              <SectionToggle label="ADV" isOpen={!collapsedSections.adv} onToggle={() => toggleSection("adv")} />
+              {!collapsedSections.adv ? visibleAdvNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
+            </>
+          )}
+          {visibleSystemNav.length > 0 && (
+            <>
+              <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
+              <SectionToggle label="Sistema" isOpen={!collapsedSections.system} onToggle={() => toggleSection("system")} />
+              {!collapsedSections.system ? visibleSystemNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
+            </>
+          )}
         </nav>
 
         {/* Footer */}

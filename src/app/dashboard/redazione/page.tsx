@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import {
@@ -60,7 +61,7 @@ const statusStyles: Record<string, React.CSSProperties> = {
 };
 
 export default function RedazionePage() {
-  const { currentTenant } = useAuthStore();
+  const { currentTenant, currentRole } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<WorkflowStats>({
     drafts: 0,
@@ -77,87 +78,96 @@ export default function RedazionePage() {
   const [savingRules, setSavingRules] = useState(false);
 
   const loadRedazione = useCallback(async () => {
-    if (!currentTenant) return;
+    if (!currentTenant) {
+      setLoading(false);
+      return;
+    }
 
-    setLoading(true);
-    const supabase = createClient();
-    const now = new Date().toISOString();
+    try {
+      setLoading(true);
+      const supabase = createClient();
+      const now = new Date().toISOString();
 
-    const [
-      draftsRes,
-      reviewRes,
-      approvedRes,
-      scheduledRes,
-      publishedRes,
-      breakingRes,
-      focusRes,
-      scheduledListRes,
-      eventsRes,
-      siteConfigRes,
-    ] = await Promise.all([
-      supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).eq("status", "draft"),
-      supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).eq("status", "in_review"),
-      supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).eq("status", "approved"),
-      supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).not("scheduled_at", "is", null).gt("scheduled_at", now),
-      supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).eq("status", "published"),
-      supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).eq("is_breaking", true),
-      supabase
-        .from("articles")
-        .select("id, title, status, scheduled_at, updated_at, profiles!articles_author_id_fkey(full_name)")
-        .eq("tenant_id", currentTenant.id)
-        .in("status", ["draft", "in_review", "approved"])
-        .order("updated_at", { ascending: false })
-        .limit(6),
-      supabase
-        .from("articles")
-        .select("id, title, status, scheduled_at, updated_at, profiles!articles_author_id_fkey(full_name)")
-        .eq("tenant_id", currentTenant.id)
-        .not("scheduled_at", "is", null)
-        .gt("scheduled_at", now)
-        .order("scheduled_at", { ascending: true })
-        .limit(5),
-      supabase
-        .from("events")
-        .select("id, title, starts_at, location")
-        .eq("tenant_id", currentTenant.id)
-        .gte("starts_at", now)
-        .order("starts_at", { ascending: true })
-        .limit(5),
-      supabase
-        .from("site_config")
-        .select("theme")
-        .eq("tenant_id", currentTenant.id)
-        .maybeSingle(),
-    ]);
+      const [
+        draftsRes,
+        reviewRes,
+        approvedRes,
+        scheduledRes,
+        publishedRes,
+        breakingRes,
+        focusRes,
+        scheduledListRes,
+        eventsRes,
+        siteConfigRes,
+      ] = await Promise.all([
+        supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).eq("status", "draft"),
+        supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).eq("status", "in_review"),
+        supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).eq("status", "approved"),
+        supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).not("scheduled_at", "is", null).gt("scheduled_at", now),
+        supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).eq("status", "published"),
+        supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", currentTenant.id).eq("is_breaking", true),
+        supabase
+          .from("articles")
+          .select("id, title, status, scheduled_at, updated_at, profiles!articles_author_id_fkey(full_name)")
+          .eq("tenant_id", currentTenant.id)
+          .in("status", ["draft", "in_review", "approved"])
+          .order("updated_at", { ascending: false })
+          .limit(6),
+        supabase
+          .from("articles")
+          .select("id, title, status, scheduled_at, updated_at, profiles!articles_author_id_fkey(full_name)")
+          .eq("tenant_id", currentTenant.id)
+          .not("scheduled_at", "is", null)
+          .gt("scheduled_at", now)
+          .order("scheduled_at", { ascending: true })
+          .limit(5),
+        supabase
+          .from("events")
+          .select("id, title, starts_at, location")
+          .eq("tenant_id", currentTenant.id)
+          .gte("starts_at", now)
+          .order("starts_at", { ascending: true })
+          .limit(5),
+        supabase
+          .from("site_config")
+          .select("theme")
+          .eq("tenant_id", currentTenant.id)
+          .maybeSingle(),
+      ]);
 
-    setStats({
-      drafts: draftsRes.count ?? 0,
-      inReview: reviewRes.count ?? 0,
-      approved: approvedRes.count ?? 0,
-      scheduled: scheduledRes.count ?? 0,
-      published: publishedRes.count ?? 0,
-      breaking: breakingRes.count ?? 0,
-    });
+      setStats({
+        drafts: draftsRes.count ?? 0,
+        inReview: reviewRes.count ?? 0,
+        approved: approvedRes.count ?? 0,
+        scheduled: scheduledRes.count ?? 0,
+        published: publishedRes.count ?? 0,
+        breaking: breakingRes.count ?? 0,
+      });
 
-    const mapArticles = (rows: unknown[] | null | undefined) =>
-      ((rows || []) as Array<Record<string, unknown>>).map((row) => ({
-        id: String(row.id || ""),
-        title: String(row.title || "Articolo"),
-        status: String(row.status || "draft"),
-        scheduled_at: row.scheduled_at ? String(row.scheduled_at) : null,
-        updated_at: String(row.updated_at || new Date().toISOString()),
-        author_name:
-          Array.isArray(row.profiles) && row.profiles[0]?.full_name
-            ? String(row.profiles[0].full_name)
-            : "—",
-      }));
+      const mapArticles = (rows: unknown[] | null | undefined) =>
+        ((rows || []) as Array<Record<string, unknown>>).map((row) => ({
+          id: String(row.id || ""),
+          title: String(row.title || "Articolo"),
+          status: String(row.status || "draft"),
+          scheduled_at: row.scheduled_at ? String(row.scheduled_at) : null,
+          updated_at: String(row.updated_at || new Date().toISOString()),
+          author_name:
+            Array.isArray(row.profiles) && row.profiles[0]?.full_name
+              ? String(row.profiles[0].full_name)
+              : "—",
+        }));
 
-    setFocusArticles(mapArticles(focusRes.data));
-    setScheduledArticles(mapArticles(scheduledListRes.data));
-    setUpcomingEvents((eventsRes.data || []) as UpcomingEvent[]);
-    const automation = ((siteConfigRes.data?.theme as Record<string, unknown> | null)?.editorialAutomation || {}) as Record<string, unknown>;
-    setHomepageFreshHours(typeof automation.homepageFreshHours === "number" ? automation.homepageFreshHours : 0);
-    setLoading(false);
+      setFocusArticles(mapArticles(focusRes.data));
+      setScheduledArticles(mapArticles(scheduledListRes.data));
+      setUpcomingEvents((eventsRes.data || []) as UpcomingEvent[]);
+      const automation = ((siteConfigRes.data?.theme as Record<string, unknown> | null)?.editorialAutomation || {}) as Record<string, unknown>;
+      setHomepageFreshHours(typeof automation.homepageFreshHours === "number" ? automation.homepageFreshHours : 0);
+    } catch (error) {
+      console.error(error);
+      toast.error("Errore nel caricamento della pagina Redazione");
+    } finally {
+      setLoading(false);
+    }
   }, [currentTenant]);
 
   useEffect(() => {
@@ -187,7 +197,10 @@ export default function RedazionePage() {
   ];
 
   const saveEditorialAutomation = async () => {
-    if (!currentTenant) return;
+    if (!currentTenant) {
+      toast.error("Tenant non disponibile");
+      return;
+    }
     setSavingRules(true);
     const supabase = createClient();
     const { data: currentConfig } = await supabase
@@ -213,9 +226,20 @@ export default function RedazionePage() {
     setSavingRules(false);
     if (error) {
       console.error(error);
+      toast.error("Salvataggio regole non riuscito");
       return;
     }
+    toast.success("Regole redazionali salvate");
   };
+
+  const roleLabels: Record<string, string> = {
+    super_admin: "Super Admin",
+    chief_editor: "Caporedattore",
+    editor: "Editor",
+    advertiser: "Inserzionista",
+    contributor: "Collaboratore",
+  };
+  const roleLabel = currentRole ? roleLabels[currentRole] || currentRole : "Ruolo non definito";
 
   return (
     <div className="space-y-6">
@@ -228,6 +252,40 @@ export default function RedazionePage() {
         </p>
       </div>
 
+      <section
+        className="rounded-2xl px-4 py-4"
+        style={{
+          background: "linear-gradient(135deg, rgba(14,165,233,0.08), rgba(59,130,246,0.04))",
+          border: "1px solid var(--c-border)",
+        }}
+      >
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>
+              Stato operativo redazione
+            </div>
+            <p className="text-sm mt-1" style={{ color: "var(--c-text-2)" }}>
+              La pagina usa il tenant attivo per caricare solo articoli, eventi e configurazioni della testata corrente. Non sostituisce i permessi dei moduli: li organizza in un hub più rapido.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold" style={{ background: "var(--c-bg-1)", color: "var(--c-text-1)", border: "1px solid var(--c-border)" }}>
+              Tenant: {currentTenant?.name || "Nessuno"}
+            </span>
+            <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold" style={{ background: "var(--c-bg-1)", color: "var(--c-text-1)", border: "1px solid var(--c-border)" }}>
+              Ruolo: {roleLabel}
+            </span>
+            <button
+              type="button"
+              onClick={() => void loadRedazione()}
+              className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold transition"
+              style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}
+            >
+              Aggiorna dati
+            </button>
+          </div>
+        </div>
+      </section>
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         {workflowCards.map((card) => {
           const Icon = card.icon;

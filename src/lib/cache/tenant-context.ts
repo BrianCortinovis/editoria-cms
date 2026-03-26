@@ -6,9 +6,22 @@
 
 const tenantCache = new Map<string, { id: string; expiresAt: number }>();
 
+function normalizeTenantSlug(rawSlug: string | null | undefined): string | null {
+  if (!rawSlug) return null;
+  const slug = rawSlug.trim().toLowerCase();
+  if (!slug) return null;
+  if (!/^[a-z0-9-]+$/.test(slug)) return null;
+  return slug;
+}
+
 export async function getTenantIdFromSlug(slug: string): Promise<string | null> {
+  const normalizedSlug = normalizeTenantSlug(slug);
+  if (!normalizedSlug) {
+    return null;
+  }
+
   // Check cache first (1 minute TTL)
-  const cached = tenantCache.get(slug);
+  const cached = tenantCache.get(normalizedSlug);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.id;
   }
@@ -20,7 +33,7 @@ export async function getTenantIdFromSlug(slug: string): Promise<string | null> 
     const { data, error } = await supabase
       .from('tenants')
       .select('id')
-      .eq('slug', slug)
+      .eq('slug', normalizedSlug)
       .single();
 
     if (error || !data) {
@@ -28,7 +41,7 @@ export async function getTenantIdFromSlug(slug: string): Promise<string | null> 
     }
 
     // Cache for 1 minute
-    tenantCache.set(slug, {
+    tenantCache.set(normalizedSlug, {
       id: data.id,
       expiresAt: Date.now() + 60000,
     });
@@ -44,7 +57,9 @@ export async function getTenantFromRequest(request: Request): Promise<
   { tenantId: string; tenantSlug: string } | null
 > {
   const url = new URL(request.url);
-  const tenantSlug = url.searchParams.get('tenant') || url.pathname.split('/')[1];
+  const tenantSlug = normalizeTenantSlug(
+    request.headers.get('x-tenant-slug') || url.searchParams.get('tenant')
+  );
 
   if (!tenantSlug) {
     return null;

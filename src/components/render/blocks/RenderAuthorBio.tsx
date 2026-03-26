@@ -9,8 +9,11 @@ export function RenderAuthorBio({ block, style }: Props) {
   const name = (block.props.name as string) || '';
   const role = (block.props.role as string) || '';
   const bio = (block.props.bio as string) || '';
-  const avatarUrl = (block.props.avatarUrl as string) || '';
+  const avatarUrl = String(block.props.avatarUrl || block.props.avatar || '');
   const layout = (block.props.layout as string) || 'horizontal';
+  const socialLinks = Array.isArray(block.props.socialLinks)
+    ? (block.props.socialLinks as Array<{ platform?: string; url?: string }>).filter((item) => item?.url)
+    : [];
 
   const isVertical = layout === 'vertical';
 
@@ -56,6 +59,26 @@ export function RenderAuthorBio({ block, style }: Props) {
           <p style={{ fontSize: '0.9rem', lineHeight: '1.7', color: 'var(--e-color-textSecondary)', margin: 0 }}>
             {bio}
           </p>
+        )}
+        {socialLinks.length > 0 && (
+          <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', marginTop: '0.9rem' }}>
+            {socialLinks.map((item, index) => (
+              <a
+                key={`${item.platform || 'social'}-${index}`}
+                href={item.url || '#'}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  color: 'var(--e-color-primary, #8B0000)',
+                  textDecoration: 'none',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                }}
+              >
+                {item.platform || 'social'}
+              </a>
+            ))}
+          </div>
         )}
       </div>
     </div>

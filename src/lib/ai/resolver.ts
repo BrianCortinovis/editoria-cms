@@ -4,18 +4,18 @@ export type AITask = "seo" | "titles" | "social" | "translate" | "summary" | "la
 
 // Default best provider per task (opinionated)
 const BEST_PROVIDER_PER_TASK: Record<AITask, AIProvider> = {
-  seo: "openai",        // GPT is great at structured SEO output
+  seo: "claude",        // Claude for structured output
   titles: "claude",      // Claude excels at creative writing
-  social: "gemini",      // Gemini is fast and good for short-form
+  social: "claude",      // Claude for quality short-form
   translate: "claude",   // Claude produces natural translations
-  summary: "openai",     // GPT is solid for summarization
+  summary: "claude",     // Claude is excellent for summarization
   layout: "claude",      // Claude is best at code analysis
-  search: "openai",      // GPT is fast for semantic matching
+  search: "claude",      // Claude for semantic understanding
   related: "claude",     // Claude understands content similarity well
-  summarize: "openai",   // GPT is solid for summarization
+  summarize: "claude",   // Claude is excellent for summarization
   chatbot: "claude",     // Claude excels at conversational AI
-  "field-assist": "openai",
-  "color-palette": "openai",
+  "field-assist": "claude",
+  "color-palette": "claude",
 };
 
 interface AIConfig {

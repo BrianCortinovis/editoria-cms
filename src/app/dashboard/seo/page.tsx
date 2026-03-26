@@ -11,9 +11,7 @@ import {
   Eye,
   TrendingUp,
   CheckCircle,
-  AlertTriangle,
   XCircle,
-  ExternalLink,
   Rss,
   Loader2,
 } from "lucide-react";
@@ -31,15 +29,41 @@ interface ArticleSEO {
   published_at: string | null;
 }
 
+interface SeoAnalysisSuggestion {
+  article_title?: string;
+  suggested_meta_title?: string;
+}
+
+interface SeoAnalysisStats {
+  total: number;
+  with_meta_title: number;
+  with_meta_desc: number;
+}
+
+interface SeoAnalysisResult {
+  error?: string;
+  message?: string;
+  count?: number;
+  analysis?: string;
+  stats?: SeoAnalysisStats;
+  suggestions?: SeoAnalysisSuggestion[];
+}
+
 export default function SeoPage() {
-  const { currentTenant } = useAuthStore();
+  const { currentTenant, currentRole } = useAuthStore();
   const [articles, setArticles] = useState<ArticleSEO[]>([]);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [analysisResult, setAnalysisResult] = useState<SeoAnalysisResult | null>(null);
+  const [siteSettings, setSiteSettings] = useState<Record<string, string>>({});
+  const canUseSeoTools =
+    currentRole === "super_admin" ||
+    currentRole === "chief_editor" ||
+    currentRole === "editor";
 
   useEffect(() => {
     if (!currentTenant) return;
+    const tenantId = currentTenant.id;
     const supabase = createClient();
 
     supabase.from("articles")
@@ -52,14 +76,21 @@ export default function SeoPage() {
         if (data) setArticles(data as ArticleSEO[]);
         setLoading(false);
       });
+
+    supabase
+      .from("tenants")
+      .select("settings")
+      .eq("id", tenantId)
+      .single()
+      .then(({ data }) => {
+        setSiteSettings((data?.settings ?? {}) as Record<string, string>);
+      });
   }, [currentTenant]);
 
   const withMeta = articles.filter(a => a.meta_title && a.meta_description);
   const withOG = articles.filter(a => a.og_image_url);
   const totalViews = articles.reduce((s, a) => s + a.view_count, 0);
   const seoScore = articles.length > 0 ? Math.round((withMeta.length / articles.length) * 100) : 0;
-
-  const settings = (currentTenant?.settings ?? {}) as Record<string, string>;
 
   const ScoreCircle = ({ score }: { score: number }) => {
     const color = score >= 80 ? "var(--c-success)" : score >= 50 ? "var(--c-warning)" : "var(--c-danger)";
@@ -85,7 +116,7 @@ export default function SeoPage() {
   );
 
   const handleSEOAnalysis = async () => {
-    if (!currentTenant || articles.length === 0) return;
+    if (!currentTenant || articles.length === 0 || !canUseSeoTools) return;
     setAnalyzing(true);
     try {
       const response = await fetch("/api/ai/seo-tools", {
@@ -98,7 +129,7 @@ export default function SeoPage() {
         }),
       });
 
-      const result = await response.json();
+      const result = (await response.json()) as SeoAnalysisResult;
       if (!response.ok) {
         toast.error(result.error || "Errore nell'analisi SEO");
         return;
@@ -115,7 +146,7 @@ export default function SeoPage() {
   };
 
   const handleGenerateMeta = async () => {
-    if (!currentTenant || articles.length === 0) return;
+    if (!currentTenant || articles.length === 0 || !canUseSeoTools) return;
     setAnalyzing(true);
     try {
       const response = await fetch("/api/ai/seo-tools", {
@@ -128,7 +159,7 @@ export default function SeoPage() {
         }),
       });
 
-      const result = await response.json();
+      const result = (await response.json()) as SeoAnalysisResult;
       if (!response.ok) {
         toast.error(result.error || "Errore nella generazione");
         return;
@@ -143,6 +174,17 @@ export default function SeoPage() {
       setAnalyzing(false);
     }
   };
+
+  if (!canUseSeoTools) {
+    return (
+      <div className="max-w-2xl text-center py-20">
+        <BarChart3 className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
+        <p className="text-sm" style={{ color: "var(--c-text-2)" }}>
+          Solo editor, caporedattori e super admin possono usare gli strumenti SEO del CMS.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -187,6 +229,15 @@ export default function SeoPage() {
                 {analyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BarChart3 className="w-3.5 h-3.5" />}
                 Analizza
               </button>
+              <button
+                onClick={handleGenerateMeta}
+                disabled={analyzing || articles.length === 0}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50"
+                style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)", border: "1px solid var(--c-border)" }}
+              >
+                {analyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                Genera Meta
+              </button>
               <div className="relative">
                 <AIButton
                   actions={[
@@ -218,8 +269,8 @@ export default function SeoPage() {
             <CheckItem ok={true} label="Open Graph tags per ogni articolo" />
             <CheckItem ok={true} label="Slug SEO-friendly automatici" />
             <CheckItem ok={true} label="Tempo di lettura calcolato" />
-            <CheckItem ok={!!settings.google_analytics} label={`Google Analytics ${settings.google_analytics ? "configurato" : "non configurato"}`} />
-            <CheckItem ok={!!settings.site_description} label={`Meta description sito ${settings.site_description ? "presente" : "mancante"}`} />
+            <CheckItem ok={!!siteSettings.google_analytics} label={`Google Analytics ${siteSettings.google_analytics ? "configurato" : "non configurato"}`} />
+            <CheckItem ok={!!siteSettings.site_description} label={`Meta description sito ${siteSettings.site_description ? "presente" : "mancante"}`} />
             <CheckItem ok={seoScore >= 80} label={`${seoScore}% articoli con meta completi`} />
           </div>
         </div>
@@ -275,7 +326,7 @@ export default function SeoPage() {
             {analysisResult.suggestions && Array.isArray(analysisResult.suggestions) && (
               <div className="mt-3 space-y-1">
                 <p className="text-xs font-semibold" style={{ color: "var(--c-text-0)" }}>Suggerimenti:</p>
-                {analysisResult.suggestions.slice(0, 3).map((s: any, i: number) => (
+                {analysisResult.suggestions.slice(0, 3).map((s, i) => (
                   <div key={i} className="text-xs p-2 rounded" style={{ background: "var(--c-bg-1)" }}>
                     <p style={{ color: "var(--c-text-1)" }}><strong>{s.article_title}</strong></p>
                     <p style={{ color: "var(--c-text-2)" }}>Title: {s.suggested_meta_title?.slice(0, 50)}...</p>

@@ -1,21 +1,17 @@
 'use client';
-
 import { useState } from 'react';
 import { usePageStore } from '@/lib/stores/page-store';
 import { useUiStore } from '@/lib/stores/ui-store';
-import type { Block, BlockStyle } from '@/lib/types';
+import type { Block } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { ColorPicker } from '@/components/ui/color-picker';
 import { Slider } from '@/components/ui/slider';
 import { Toggle } from '@/components/ui/toggle';
 import { cn } from '@/lib/utils/cn';
 import { ClipPathEditor } from '@/components/shapes/ClipPathEditor';
 import {
-  ChevronDown, ChevronRight, MousePointer, Move, Magnet, Ruler,
-  Type, Image, MousePointerClick, Layers, Box, Pentagon,
-  Maximize2, Square, Circle, Triangle, Hexagon, Star, Heart,
-  Sparkles
+  Move, Magnet, Pentagon,
+  Square, Circle, Triangle, Hexagon, Star, Heart,
 } from 'lucide-react';
 
 // ============================
@@ -23,11 +19,18 @@ import {
 // ============================
 
 export function SnapGridSettings() {
-  const { showGrid, toggleGrid, showOutlines, toggleOutlines } = useUiStore();
-  const [snapEnabled, setSnapEnabled] = useState(true);
-  const [snapSize, setSnapSize] = useState(1);
-  const [showGuides, setShowGuides] = useState(true);
-  const [showRulers, setShowRulers] = useState(false);
+  const {
+    showGrid,
+    toggleGrid,
+    gridSize,
+    setGridSize,
+    showOutlines,
+    toggleOutlines,
+    snapEnabled,
+    toggleSnapEnabled,
+    snapToDocumentEdges,
+    toggleSnapToDocumentEdges,
+  } = useUiStore();
 
   return (
     <div className="space-y-3 p-3 border rounded-lg" style={{ borderColor: 'var(--c-border)' }}>
@@ -37,16 +40,15 @@ export function SnapGridSettings() {
 
       <Toggle label="Griglia visibile" checked={showGrid} onChange={toggleGrid} size="sm" />
       <Toggle label="Contorni blocchi" checked={showOutlines} onChange={toggleOutlines} size="sm" />
-      <Toggle label="Magneti (snap)" checked={snapEnabled} onChange={setSnapEnabled} size="sm" />
-      <Toggle label="Guide intelligenti" checked={showGuides} onChange={setShowGuides} size="sm" />
-      <Toggle label="Righelli (rulers)" checked={showRulers} onChange={setShowRulers} size="sm" />
+      <Toggle label="Magneti (snap)" checked={snapEnabled} onChange={toggleSnapEnabled} size="sm" />
+      <Toggle label="Aggancio bordi pagina" checked={snapToDocumentEdges} onChange={toggleSnapToDocumentEdges} size="sm" />
 
-      {snapEnabled && (
+      {showGrid && (
         <div>
           <Slider
-            label="Precisione snap"
-            value={snapSize}
-            onChange={setSnapSize}
+            label="Dimensione griglia"
+            value={gridSize}
+            onChange={setGridSize}
             min={1}
             max={50}
             suffix="px"
@@ -55,18 +57,18 @@ export function SnapGridSettings() {
             {[1, 2, 5, 8, 10, 16, 20].map((v) => (
               <button
                 key={v}
-                onClick={() => setSnapSize(v)}
+                onClick={() => setGridSize(v)}
                 className={cn(
                   'px-2 py-0.5 rounded text-[10px] font-mono transition-colors'
                 )}
-                style={snapSize === v ? { background: 'var(--c-accent)', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
+                style={gridSize === v ? { background: 'var(--c-accent)', color: 'white' } : { background: 'var(--c-bg-1)', color: 'var(--c-text-1)' }}
                 onMouseEnter={(e) => {
-                  if (snapSize !== v) {
+                  if (gridSize !== v) {
                     e.currentTarget.style.background = 'var(--c-accent-soft)';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (snapSize !== v) {
+                  if (gridSize !== v) {
                     e.currentTarget.style.background = 'var(--c-bg-1)';
                   }
                 }}
@@ -82,187 +84,11 @@ export function SnapGridSettings() {
 }
 
 // ============================
-// TEXT OVERLAY ON IMAGES
-// ============================
-
-interface OverlayEditorProps {
-  block: Block;
-}
-
-export function OverlayEditor({ block }: OverlayEditorProps) {
-  const { updateBlockProps, updateBlockStyle } = usePageStore();
-  const props = block.props as Record<string, unknown>;
-
-  // Overlay text settings
-  const overlayText = (props.overlayText as string) || '';
-  const overlayPosition = (props.overlayPosition as string) || 'center';
-  const overlayBg = (props.overlayBg as string) || 'rgba(0,0,0,0.5)';
-  const overlayTextColor = (props.overlayTextColor as string) || '#ffffff';
-  const overlayFontSize = (props.overlayFontSize as string) || '24px';
-  const overlayFontWeight = (props.overlayFontWeight as string) || '700';
-  const overlayBlur = (props.overlayBlur as number) || 0;
-
-  return (
-    <div className="space-y-3 p-3 border rounded-lg" style={{ borderColor: 'var(--c-border)' }}>
-      <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--c-text-1)' }}>
-        <Layers size={12} /> Overlay Testo su Immagine
-      </h4>
-
-      <div className="flex items-center gap-1">
-        <div className="flex-1">
-          <Input
-            label="Testo overlay"
-            value={overlayText}
-            onChange={(e) => updateBlockProps(block.id, { overlayText: e.target.value })}
-            placeholder="Testo sovrapposto all'immagine..."
-          />
-        </div>
-        <div className="pt-4">
-        </div>
-      </div>
-
-      <Select
-        label="Posizione overlay"
-        value={overlayPosition}
-        onChange={(e) => updateBlockProps(block.id, { overlayPosition: e.target.value })}
-        options={[
-          { value: 'top-left', label: 'Alto Sinistra' },
-          { value: 'top-center', label: 'Alto Centro' },
-          { value: 'top-right', label: 'Alto Destra' },
-          { value: 'center-left', label: 'Centro Sinistra' },
-          { value: 'center', label: 'Centro' },
-          { value: 'center-right', label: 'Centro Destra' },
-          { value: 'bottom-left', label: 'Basso Sinistra' },
-          { value: 'bottom-center', label: 'Basso Centro' },
-          { value: 'bottom-right', label: 'Basso Destra' },
-        ]}
-      />
-
-      <ColorPicker label="Sfondo overlay" value={overlayBg} onChange={(v) => updateBlockProps(block.id, { overlayBg: v })} />
-      <ColorPicker label="Colore testo" value={overlayTextColor} onChange={(v) => updateBlockProps(block.id, { overlayTextColor: v })} />
-
-      <Input
-        label="Dimensione font"
-        value={overlayFontSize}
-        onChange={(e) => updateBlockProps(block.id, { overlayFontSize: e.target.value })}
-        placeholder="24px"
-      />
-
-      <Select
-        label="Peso font"
-        value={overlayFontWeight}
-        onChange={(e) => updateBlockProps(block.id, { overlayFontWeight: e.target.value })}
-        options={[
-          { value: '300', label: 'Light' },
-          { value: '400', label: 'Regular' },
-          { value: '600', label: 'Semibold' },
-          { value: '700', label: 'Bold' },
-          { value: '900', label: 'Black' },
-        ]}
-      />
-
-      <Slider label="Blur sfondo" value={overlayBlur} onChange={(v) => updateBlockProps(block.id, { overlayBlur: v })} min={0} max={20} suffix="px" />
-    </div>
-  );
-}
-
-// ============================
-// INTERACTIVE BUTTONS
-// ============================
-
-export function ButtonEditor({ block }: { block: Block }) {
-  const { updateBlockProps } = usePageStore();
-  const props = block.props as Record<string, unknown>;
-
-  const buttons = (props.buttons as Array<{
-    id: string; text: string; url: string; style: string;
-    bgColor: string; textColor: string; borderRadius: string;
-    size: string; icon: string; target: string;
-  }>) || [];
-
-  const addButton = () => {
-    const newBtn = {
-      id: Date.now().toString(),
-      text: 'Click qui',
-      url: '#',
-      style: 'filled',
-      bgColor: 'var(--c-accent)',
-      textColor: 'white',
-      borderRadius: '8px',
-      size: 'md',
-      icon: '',
-      target: '_self',
-    };
-    updateBlockProps(block.id, { buttons: [...buttons, newBtn] });
-  };
-
-  const updateButton = (btnId: string, updates: Record<string, string>) => {
-    updateBlockProps(block.id, {
-      buttons: buttons.map(b => b.id === btnId ? { ...b, ...updates } : b),
-    });
-  };
-
-  const removeButton = (btnId: string) => {
-    updateBlockProps(block.id, { buttons: buttons.filter(b => b.id !== btnId) });
-  };
-
-  return (
-    <div className="space-y-3 p-3 border rounded-lg" style={{ borderColor: 'var(--c-border)' }}>
-      <div className="flex items-center justify-between">
-        <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--c-text-1)' }}>
-          <MousePointerClick size={12} /> Pulsanti Interattivi
-        </h4>
-        <button onClick={addButton} className="text-[10px] font-medium transition-colors" style={{ color: 'var(--c-accent)' }} onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--c-accent-hover)')} onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--c-accent)')}>+ Aggiungi</button>
-      </div>
-
-      {buttons.map((btn) => (
-        <div key={btn.id} className="p-2 rounded-lg space-y-2" style={{ background: 'var(--c-bg-1)' }}>
-          <div className="flex gap-2">
-            <Input label="Testo" value={btn.text} onChange={(e) => updateButton(btn.id, { text: e.target.value })} />
-            <Input label="URL" value={btn.url} onChange={(e) => updateButton(btn.id, { url: e.target.value })} />
-          </div>
-          <div className="flex gap-2">
-            <Select
-              label="Stile"
-              value={btn.style}
-              onChange={(e) => updateButton(btn.id, { style: e.target.value })}
-              options={[
-                { value: 'filled', label: 'Pieno' },
-                { value: 'outline', label: 'Contorno' },
-                { value: 'ghost', label: 'Ghost' },
-                { value: 'gradient', label: 'Gradiente' },
-              ]}
-            />
-            <Select
-              label="Dimensione"
-              value={btn.size}
-              onChange={(e) => updateButton(btn.id, { size: e.target.value })}
-              options={[
-                { value: 'sm', label: 'Piccolo' },
-                { value: 'md', label: 'Medio' },
-                { value: 'lg', label: 'Grande' },
-                { value: 'xl', label: 'Extra Large' },
-              ]}
-            />
-          </div>
-          <div className="flex gap-2">
-            <div className="flex-1"><ColorPicker label="Sfondo" value={btn.bgColor} onChange={(v) => updateButton(btn.id, { bgColor: v })} /></div>
-            <div className="flex-1"><ColorPicker label="Testo" value={btn.textColor} onChange={(v) => updateButton(btn.id, { textColor: v })} /></div>
-          </div>
-          <Input label="Border Radius" value={btn.borderRadius} onChange={(e) => updateButton(btn.id, { borderRadius: e.target.value })} placeholder="8px" />
-          <button onClick={() => removeButton(btn.id)} className="text-[10px] transition-colors" style={{ color: 'var(--c-danger)' }} onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')} onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}>Rimuovi pulsante</button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ============================
 // SHAPE TOOLS
 // ============================
 
 export function ShapeTools({ block }: { block: Block }) {
-  const { updateBlockShape, updateBlockStyle } = usePageStore();
+  const { updateBlockShape } = usePageStore();
   const [shapeTab, setShapeTab] = useState<'preset' | 'editor'>('preset');
 
   const SHAPES = [

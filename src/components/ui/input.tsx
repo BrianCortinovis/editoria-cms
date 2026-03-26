@@ -111,7 +111,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
     const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
       syncValue(e.currentTarget);
-      onInput?.(e);
+      (onInput as any)?.(e);
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

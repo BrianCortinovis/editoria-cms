@@ -14,7 +14,6 @@ import {
   Check,
   Clock,
   Ticket,
-  Image as ImageIcon,
   Loader2,
 } from "lucide-react";
 import AIButton from "@/components/ai/AIButton";
@@ -74,7 +73,13 @@ export default function EventiPage() {
     setLoading(false);
   }, [currentTenant]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const resetForm = () => {
     setTitle(""); setDescription(""); setLocation(""); setImageUrl("");
@@ -123,7 +128,8 @@ export default function EventiPage() {
     };
 
     if (editingId) {
-      const { tenant_id, ...updatePayload } = payload;
+      const { tenant_id: tenantIdToDrop, ...updatePayload } = payload;
+      void tenantIdToDrop;
       const { error } = await supabase.from("events").update(updatePayload).eq("id", editingId);
       if (error) { toast.error(error.message); setSaving(false); return; }
       toast.success("Evento aggiornato");

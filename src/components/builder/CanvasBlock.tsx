@@ -13,7 +13,7 @@ import {
   Trash2, Copy, Eye, EyeOff, Settings2,
   Move, FlipHorizontal2, Lock, Unlock,
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
-  Magnet, AlignCenterHorizontal, AlignCenterVertical, RotateCcw
+  Magnet, AlignCenterHorizontal, AlignCenterVertical, RotateCcw, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { DEVICE_WIDTHS } from '@/lib/config/breakpoints';
 import { generateDividerSvg, dividerToClipPath, generateDividerGradientMask } from '@/lib/shapes/dividers';
@@ -31,10 +31,13 @@ import { RenderTabs } from '@/components/render/blocks/RenderTabs';
 import { RenderTable } from '@/components/render/blocks/RenderTable';
 import { RenderCode } from '@/components/render/blocks/RenderCode';
 import { RenderSlideshow } from '@/components/render/blocks/RenderSlideshow';
+import { RenderBannerModule } from '@/components/render/blocks/RenderBannerModule';
+import { BannerModuleEditor } from '@/components/panels/BannerModuleEditor';
 
 interface CanvasBlockProps {
   block: Block;
   selected: boolean;
+  primarySelected: boolean;
   showOutlines: boolean;
 }
 
@@ -49,6 +52,7 @@ const CANVAS_REAL_RENDER_BLOCKS = new Set<Block['type']>([
   'table',
   'code',
   'slideshow',
+  'banner-module',
 ]);
 
 // ================================================================
@@ -158,7 +162,7 @@ function ResizeHandle({ dir, onDrag }: {
 // ================================================================
 // MAIN CANVAS BLOCK
 // ================================================================
-export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps) {
+export function CanvasBlock({ block, selected, primarySelected, showOutlines }: CanvasBlockProps) {
   const {
     selectBlock, removeBlock, duplicateBlock, updateBlock, updateBlockStyle, updateBlockShape,
     hoveredBlockId, hoverBlock, setEditingBlock, editingBlockId, moveBlock, blocks
@@ -178,9 +182,10 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
   const blockRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 0, h: 0 });
   const [resizing, setResizing] = useState(false);
-  const [toolbarPos, setToolbarPos] = useState<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center' | 'bottom-center' | 'center-center' | 'outside-top-left' | 'outside-top-right' | 'outside-bottom-left' | 'outside-bottom-right'>('top-left');
   const [toolbarOffset, setToolbarOffset] = useState({ x: 0, y: 0 });
   const [freeTransformActive, setFreeTransformActive] = useState(false);
+  const [toolbarExpanded, setToolbarExpanded] = useState(true);
+  const [showBannerEditor, setShowBannerEditor] = useState(false);
   const longPressTimerRef = useRef<number | null>(null);
   // Store initial style values and rendered width when resize starts
   const initStyleRef = useRef(block.style);
@@ -603,8 +608,8 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
     const myW = Math.round(rect.width / zoom);
     const myH = Math.round(rect.height / zoom);
 
-    // Get page container position
-    const pageEl = el.closest('[style*="minHeight"]') as HTMLElement;
+    // Get page surface (the container with data-page-surface="true")
+    const pageEl = document.querySelector('[data-page-surface="true"]') as HTMLElement;
     if (!pageEl) return;
     const pageRect = pageEl.getBoundingClientRect();
     const pageW = Math.round(pageRect.width / zoom);
@@ -672,6 +677,9 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
   const isHovered = hoveredBlockId === block.id;
   const snapGuidePageRect = getPageMetrics().pageRect;
 
+  // Check if block is empty (no children, minimal content)
+  const isEmpty = block.children.length === 0 && !block.props?.content && !block.props?.text && !block.props?.html;
+
   return (
     <div
       style={{ position: 'relative' }}
@@ -684,7 +692,7 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
         data-block-id={block.id}
         ref={(node) => { setNodeRef(node); (blockRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
         style={wrapperStyle}
-        className={cn('sb-block-wrapper', selected && 'sb-selected', isEditing && 'sb-editing', isHovered && !selected && 'sb-hovered')}
+        className={cn('sb-block-wrapper', selected && 'sb-selected', isEditing && 'sb-editing', isHovered && !selected && 'sb-hovered', showOutlines && isEmpty && 'sb-empty-outline')}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onMouseDown={handleSurfaceMouseDown}
@@ -756,7 +764,8 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
                       {child ? (
                         <CanvasBlock
                           block={child}
-                          selected={usePageStore.getState().selectedBlockId === child.id}
+                          selected={usePageStore.getState().selectedBlockIds?.includes(child.id) ?? false}
+                          primarySelected={usePageStore.getState().selectedBlockId === child.id}
                           showOutlines={showOutlines}
                         />
                       ) : (
@@ -786,7 +795,8 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
                 <CanvasBlock
                   key={child.id}
                   block={child}
-                  selected={usePageStore.getState().selectedBlockId === child.id}
+                  selected={usePageStore.getState().selectedBlockIds?.includes(child.id) ?? false}
+                  primarySelected={usePageStore.getState().selectedBlockId === child.id}
                   showOutlines={showOutlines}
                 />
               ))}
@@ -844,119 +854,201 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
           {/* ================================================================ */}
           <div
             data-block-toolbar="true"
-            className={cn(
-              "absolute flex items-center gap-1 z-50 group",
-              toolbarPos === 'top-left' && 'top-2 left-2',
-              toolbarPos === 'top-right' && 'top-2 right-2',
-              toolbarPos === 'bottom-left' && 'bottom-2 left-2',
-              toolbarPos === 'bottom-right' && 'bottom-2 right-2',
-              toolbarPos === 'top-center' && 'top-2 left-1/2 -translate-x-1/2',
-              toolbarPos === 'bottom-center' && 'bottom-2 left-1/2 -translate-x-1/2',
-              toolbarPos === 'center-center' && 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2'
-            )}
-            style={toolbarOffset.x !== 0 || toolbarOffset.y !== 0 ? {
+            className="absolute flex items-center gap-1 z-[9999] group top-2 left-2"
+            style={{
               transform: `translate(${toolbarOffset.x}px, ${toolbarOffset.y}px)`,
               top: 'auto',
               left: 'auto',
               right: 'auto',
               bottom: 'auto',
-            } : undefined}
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Minimal toolbar bar - just for dragging */}
-            <div className="flex items-center gap-1 rounded-xl px-2 py-1 shadow-lg cursor-grab active:cursor-grabbing" style={{ background: 'var(--c-accent)' }}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                // Drag the block
-                startFreeDragAt(e.clientX, e.clientY);
-              }}
-              title="Trascina per spostare il blocco"
-            >
-              {/* Grab icon */}
-              <Move size={16} style={{ color: 'var(--c-bg-0)', flexShrink: 0 }} />
+            {/* Block editing toolbar - collapsible */}
+            <div className="flex items-center gap-1 rounded-lg px-1.5 py-1.5 shadow-xl border border-blue-400" style={{ background: '#1e40af', backdropFilter: 'blur(8px)' }}>
+              {/* Grab/Move icon - draggable */}
+              <div
+                className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-blue-600 transition-colors shrink-0"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  startFreeDragAt(e.clientX, e.clientY);
+                }}
+                title="Trascina per spostare il blocco"
+              >
+                <Move size={16} style={{ color: '#fff', flexShrink: 0 }} />
+              </div>
 
-              {/* Label */}
-              <span className="text-[11px] px-1 font-semibold select-none max-w-[80px] truncate" style={{ color: 'var(--c-bg-0)' }}>
-                {block.label}
-              </span>
-            </div>
+              {/* Expand/collapse button */}
+              <button
+                className="p-1 rounded hover:bg-blue-600 transition-colors shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setToolbarExpanded(!toolbarExpanded);
+                }}
+                title={toolbarExpanded ? 'Riduci toolbar' : 'Espandi toolbar'}
+              >
+                {toolbarExpanded ? (
+                  <ChevronDown size={14} style={{ color: '#fff' }} />
+                ) : (
+                  <ChevronRight size={14} style={{ color: '#fff' }} />
+                )}
+              </button>
 
-            {/* Toolbar position buttons - DEPRECATED: moved to main toolbar */}
-            {/* Hidden - block tools now in main toolbar */}
-            {false && <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                onClick={() => setToolbarPos('top-left')}
-                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
-                style={{
-                  background: toolbarPos === 'top-left' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
-                  color: 'white',
-                  transform: toolbarPos === 'top-left' ? 'scale(1.1)' : 'scale(0.9)'
+              {/* Collapsed view - show only label */}
+              {!toolbarExpanded && (
+                <span className="text-xs px-1 font-semibold select-none truncate" style={{ color: '#fff' }}>
+                  {block.label}
+                </span>
+              )}
+
+              {/* Expanded view - show all tools */}
+              {toolbarExpanded && (
+                <>
+                  {/* Separator */}
+                  <div className="h-4 w-px bg-blue-300 opacity-50" />
+
+                  {/* Show Empty Outlines Toggle */}
+                  <button
+                    className="p-1 rounded hover:bg-blue-600 transition-colors shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const { toggleOutlines } = useUiStore.getState();
+                      toggleOutlines();
+                    }}
+                    title={showOutlines ? 'Nascondi contorni vuoti' : 'Mostra contorni vuoti'}
+                  >
+                    {showOutlines ? (
+                      <Eye size={14} style={{ color: '#fff' }} />
+                    ) : (
+                      <EyeOff size={14} style={{ color: '#fff', opacity: 0.5 }} />
+                    )}
+                  </button>
+
+                  {/* Duplica button */}
+                  <button
+                    className="p-1 rounded hover:bg-blue-600 transition-colors shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const { duplicateBlock } = usePageStore.getState();
+                      duplicateBlock(block.id);
+                    }}
+                    title="Duplica (Ctrl+D)"
+                  >
+                    <Copy size={14} style={{ color: '#fff' }} />
+                  </button>
+
+                  {/* Elimina button */}
+                  <button
+                    className="p-1 rounded hover:bg-blue-600 transition-colors shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const { removeBlock } = usePageStore.getState();
+                      removeBlock(block.id);
+                    }}
+                    title="Elimina (Delete)"
+                  >
+                    <Trash2 size={14} style={{ color: '#fff' }} />
+                  </button>
+
+                  {/* Snap toggle */}
+                  <button
+                    className="p-1 rounded hover:bg-blue-600 transition-colors shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const { toggleSnapEnabled } = useUiStore.getState();
+                      toggleSnapEnabled?.();
+                    }}
+                    title="Magneti"
+                  >
+                    <Magnet size={14} style={{ color: '#fff', opacity: snapEnabled ? 1 : 0.5 }} />
+                  </button>
+
+                  {/* Banner Module Editor button */}
+                  {block.type === 'banner-module' && (
+                    <>
+                      <div className="h-4 w-px bg-blue-300 opacity-50" />
+                      <button
+                        className="p-1 rounded hover:bg-blue-600 transition-colors shrink-0 text-xs font-bold px-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowBannerEditor(true);
+                        }}
+                        title="Modifica Banner"
+                      >
+                        ✎ Edit
+                      </button>
+                    </>
+                  )}
+
+                  {/* Alignment tools separator */}
+                  <div className="h-4 w-px bg-blue-300 opacity-50" />
+
+                  {/* Center horizontally */}
+                  <button
+                    className="p-1 rounded hover:bg-blue-600 transition-colors shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      centerOnPage('h');
+                    }}
+                    title="Centra orizzontalmente"
+                  >
+                    <AlignCenterHorizontal size={14} style={{ color: '#fff' }} />
+                  </button>
+
+                  {/* Center vertically */}
+                  <button
+                    className="p-1 rounded hover:bg-blue-600 transition-colors shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      centerOnPage('v');
+                    }}
+                    title="Centra verticalmente"
+                  >
+                    <AlignCenterVertical size={14} style={{ color: '#fff' }} />
+                  </button>
+
+                  {/* Block label */}
+                  <span className="text-xs px-1.5 font-semibold select-none max-w-[80px] truncate ml-auto" style={{ color: '#fff' }}>
+                    {block.label}
+                  </span>
+                </>
+              )}
+
+              {/* Toolbar grab area - empty space to drag the toolbar */}
+              <div
+                className="cursor-grab active:cursor-grabbing ml-2 px-3 py-1.5 rounded hover:bg-blue-600 transition-colors"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  const startX = e.clientX;
+                  const startY = e.clientY;
+                  const toolbarDiv = (e.currentTarget as HTMLElement).closest('[data-block-toolbar="true"]') as HTMLElement;
+                  if (!toolbarDiv) return;
+
+                  const onMove = (moveEvent: MouseEvent) => {
+                    const dx = moveEvent.clientX - startX;
+                    const dy = moveEvent.clientY - startY;
+                    setToolbarOffset({
+                      x: toolbarOffset.x + dx,
+                      y: toolbarOffset.y + dy,
+                    });
+                  };
+                  const onUp = () => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                  };
+                  document.addEventListener('mousemove', onMove);
+                  document.addEventListener('mouseup', onUp);
                 }}
-                title="Top-Left"
-              >↖</button>
-              <button
-                onClick={() => setToolbarPos('top-center')}
-                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
-                style={{
-                  background: toolbarPos === 'top-center' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
-                  color: 'white',
-                  transform: toolbarPos === 'top-center' ? 'scale(1.1)' : 'scale(0.9)'
-                }}
-                title="Top-Center"
-              >⬆</button>
-              <button
-                onClick={() => setToolbarPos('top-right')}
-                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
-                style={{
-                  background: toolbarPos === 'top-right' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
-                  color: 'white',
-                  transform: toolbarPos === 'top-right' ? 'scale(1.1)' : 'scale(0.9)'
-                }}
-                title="Top-Right"
-              >↗</button>
-              <button
-                onClick={() => setToolbarPos('bottom-left')}
-                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
-                style={{
-                  background: toolbarPos === 'bottom-left' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
-                  color: 'white',
-                  transform: toolbarPos === 'bottom-left' ? 'scale(1.1)' : 'scale(0.9)'
-                }}
-                title="Bottom-Left"
-              >↙</button>
-              <button
-                onClick={() => setToolbarPos('bottom-center')}
-                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
-                style={{
-                  background: toolbarPos === 'bottom-center' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
-                  color: 'white',
-                  transform: toolbarPos === 'bottom-center' ? 'scale(1.1)' : 'scale(0.9)'
-                }}
-                title="Bottom-Center"
-              >⬇</button>
-              <button
-                onClick={() => setToolbarPos('bottom-right')}
-                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
-                style={{
-                  background: toolbarPos === 'bottom-right' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
-                  color: 'white',
-                  transform: toolbarPos === 'bottom-right' ? 'scale(1.1)' : 'scale(0.9)'
-                }}
-                title="Bottom-Right"
-              >↘</button>
-              <button
-                onClick={() => setToolbarPos('center-center')}
-                className="w-6 h-6 rounded-sm text-[9px] flex items-center justify-center font-bold transition-all"
-                style={{
-                  background: toolbarPos === 'center-center' ? 'var(--c-accent)' : 'rgba(0,0,0,0.3)',
-                  color: 'white',
-                  transform: toolbarPos === 'center-center' ? 'scale(1.1)' : 'scale(0.9)'
-                }}
-                title="Center"
-              >⊙</button>
+                title="Trascina la toolbar"
+                style={{ minWidth: '24px', minHeight: '24px' }}
+              />
             </div>
-            }
+          </div>
+
+          {/* Toolbar position buttons - DEPRECATED: moved to main toolbar */}
+          {/* Hidden - block tools now in main toolbar */}
 
           {/* Dimensions + position badge */}
           <div className="absolute bottom-2 right-2 text-sm font-mono px-3 py-1.5 rounded-lg z-50 pointer-events-none shadow-lg" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-0)' }}>
@@ -1023,6 +1115,14 @@ export function CanvasBlock({ block, selected, showOutlines }: CanvasBlockProps)
           </div>
         </>
       )}
+
+      {/* Banner Module Editor Modal */}
+      {showBannerEditor && block.type === 'banner-module' && (
+        <BannerModuleEditor
+          block={block}
+          onClose={() => setShowBannerEditor(false)}
+        />
+      )}
       </div>
     </div>
   );
@@ -1049,6 +1149,7 @@ function BlockContent({
     case 'text': return <TextContent block={block} isEditing={isEditing} />;
     case 'divider': return <DividerContent block={block} />;
     case 'banner-ad': return <BannerAdContent block={block} />;
+    case 'banner-dynamic': return <BannerDynamicContent block={block} data={previewData} loading={previewLoading} />;
     case 'quote': return <QuoteContent block={block} />;
     case 'navigation':
       return (
@@ -1093,6 +1194,8 @@ function BlockContent({
     case 'author-bio': return <AuthorBioContent block={block} />;
     case 'slideshow':
       return <RenderSlideshow block={block} style={renderStyle || {}} />;
+    case 'banner-module':
+      return <RenderBannerModule block={block} style={renderStyle || {}} />;
     case 'article-grid': return <ArticleGridPreview block={block} data={previewData} loading={previewLoading} />;
     case 'article-hero': return <ArticleHeroPreview block={block} data={previewData} loading={previewLoading} />;
     case 'breaking-ticker': return <BreakingTickerPreview data={previewData} loading={previewLoading} />;
@@ -1272,13 +1375,31 @@ function BreakingTickerPreview({ data, loading }: { data: unknown[]; loading: bo
   const items = (data as PreviewBreaking[]).slice(0, 3);
   if (loading) return <PreviewLoading label="breaking news" />;
 
+  const tickerText = items.length > 0 ? items.map((item) => item.text).join(' • ') : 'Le breaking news attive del CMS appariranno qui.';
+
   return (
-    <div className="rounded-lg px-4 py-3 flex items-center gap-3 overflow-hidden" style={{ background: '#991b1b', color: '#fff' }}>
-      <span className="text-[10px] font-bold uppercase tracking-[0.22em]">Breaking</span>
-      <div className="text-sm whitespace-nowrap overflow-hidden text-ellipsis">
-        {items.length > 0 ? items.map((item) => item.text).join(' • ') : 'Le breaking news attive del CMS appariranno qui.'}
+    <>
+      <style>{`
+        @keyframes breaking-ticker-scroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-100%); }
+        }
+      `}</style>
+      <div className="rounded-lg px-4 py-3 flex items-center gap-3 overflow-hidden relative" style={{ background: '#991b1b', color: '#fff' }}>
+        <span className="text-[10px] font-bold uppercase tracking-[0.22em] flex-shrink-0">Breaking</span>
+        <div className="flex-1 overflow-hidden">
+          <div style={{
+            display: 'flex',
+            animation: 'breaking-ticker-scroll 15s linear infinite',
+            whiteSpace: 'nowrap',
+            gap: '24px',
+          }}>
+            <span className="text-sm">{tickerText}</span>
+            <span className="text-sm">{tickerText}</span>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1464,6 +1585,45 @@ function BannerAdContent({ block }: { block: Block }) {
       <div className="border-2 border-dashed flex items-center justify-center text-sm font-mono rounded" style={{ width: p.width || 728, height: p.height || 90, maxWidth: '100%', background: 'var(--c-bg-1)', borderColor: 'var(--c-border)', color: 'var(--c-text-2)' }}>
         {p.format} ({p.width}x{p.height})
       </div>
+    </div>
+  );
+}
+
+function BannerDynamicContent({ block, data, loading }: { block: Block; data: unknown[]; loading: boolean }) {
+  const p = block.props as { height?: number; banners?: any[] };
+  const height = p.height || 300;
+  const banners = (data as any[]) || p.banners || [];
+
+  if (loading) return <PreviewLoading label="banner dinamico" />;
+
+  return (
+    <div
+      style={{
+        height: `${height}px`,
+        background: '#1a1a1a url(data:image/svg+xml,%3Csvg%20width%3D%2240%27%20height%3D%2740%27%20xmlns%3D%27http://www.w3.org/2000/svg%27%3E%3Cg%20fill%3D%27%23333%27%20fill-opacity%3D%270.1%27%3E%3Cpath%20d%3D%27M0%200h40v40H0z%27/%3E%3C/g%3E%3C/svg%3E)',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#fff',
+        fontSize: '14px',
+        textAlign: 'center',
+      }}
+    >
+      {banners.length > 0 ? (
+        <div>
+          <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>
+            {banners[0].title || 'Banner dinamico'}
+          </div>
+          <div style={{ fontSize: '12px', opacity: 0.8 }}>
+            {banners.length} banner con transizioni e effetti
+          </div>
+        </div>
+      ) : (
+        'Banner dinamico - aggiungi contenuti'
+      )}
     </div>
   );
 }
@@ -3445,6 +3605,19 @@ function SlideshowContent({ block }: { block: Block }) {
 // ================================================================
 // CSS BUILDER
 // ================================================================
+function buildCSSFiltersString(filters: any): string {
+  if (!filters) return '';
+  const parts: string[] = [];
+  if (filters.blur) parts.push(`blur(${filters.blur}px)`);
+  if (filters.brightness && filters.brightness !== 100) parts.push(`brightness(${filters.brightness}%)`);
+  if (filters.contrast && filters.contrast !== 100) parts.push(`contrast(${filters.contrast}%)`);
+  if (filters.saturation && filters.saturation !== 100) parts.push(`saturate(${filters.saturation}%)`);
+  if (filters.hueRotate && filters.hueRotate !== 0) parts.push(`hue-rotate(${filters.hueRotate}deg)`);
+  if (filters.opacity && filters.opacity !== 100) parts.push(`opacity(${filters.opacity}%)`);
+  if (filters.dropShadow) parts.push(`drop-shadow(0 ${filters.dropShadow}px ${filters.dropShadow * 1.5}px rgba(0,0,0,0.2))`);
+  return parts.join(' ');
+}
+
 function buildCssFromBlockStyle(block: Block): React.CSSProperties {
   const s = block.style;
   const css: React.CSSProperties = {};
@@ -3513,7 +3686,14 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
     if (nonTranslate) css.transform = nonTranslate;
   }
   if (s.transition) css.transition = s.transition;
-  if (s.filter) css.filter = s.filter;
+
+  // Apply filters: both manual filter string and CSS filters object
+  const manualFilter = s.filter || '';
+  const cssFiltersString = buildCSSFiltersString(s.effects?.filters);
+  if (manualFilter || cssFiltersString) {
+    css.filter = [manualFilter, cssFiltersString].filter(Boolean).join(' ');
+  }
+
   if (s.backdropFilter) (css as Record<string,string>).backdropFilter = s.backdropFilter;
   if (s.mixBlendMode) (css as Record<string,string>).mixBlendMode = s.mixBlendMode;
   if (s.textShadow) (css as Record<string,string>).textShadow = s.textShadow;

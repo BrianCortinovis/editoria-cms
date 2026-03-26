@@ -31,6 +31,7 @@ import './definitions/custom-html';
 import './definitions/article-grid';
 import './definitions/article-hero';
 import './definitions/banner-zone';
+import './definitions/banner-module';
 import './definitions/breaking-ticker';
 import './definitions/category-nav';
 import './definitions/event-list';

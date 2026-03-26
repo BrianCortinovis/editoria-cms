@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Plus, Trash2, Sparkles } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { ChevronDown, ChevronRight, Trash2, Sparkles } from 'lucide-react';
 import { usePageStore } from '@/lib/stores/page-store';
 import type { Block } from '@/lib/types';
 import { AIModal } from '@/components/ai/AIModal';
@@ -65,14 +65,14 @@ export function ClipPathEditor({ block }: ClipPathEditorProps) {
 
   const currentClipPath = block.shape?.value || generatePolygonCss(points);
 
-  const updateClipPath = (newPoints: Point[], useBezier: boolean = false) => {
+  const updateClipPath = useCallback((newPoints: Point[], useBezier: boolean = false) => {
     setPoints(newPoints);
     const css = useBezier ? generatePathCss(newPoints) : generatePolygonCss(newPoints);
     updateBlockShape(block.id, {
       type: 'clip-path',
       value: css,
     });
-  };
+  }, [block.id, updateBlockShape]);
 
   const handleCanvasClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!drawingMode) return;
@@ -113,7 +113,7 @@ export function ClipPathEditor({ block }: ClipPathEditorProps) {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [selectedPointIdx, points, isBezierMode]);
+  }, [selectedPointIdx, points, isBezierMode, updateClipPath]);
 
   const removePoint = (idx: number) => {
     if (points.length > 3) {
@@ -384,6 +384,8 @@ export function ClipPathEditor({ block }: ClipPathEditorProps) {
             onClose={() => setAiModalOpen(false)}
             defaultPrompt="Suggest a beautiful clip-path shape for this block: {context}. Return JSON with shape (organic|geometric) and CSS value (polygon or path)."
             contextData={contextData}
+            blockId={block.id}
+            fieldName="clip-path-shape"
             title="Suggerisci Forma"
             onApply={(result) => {
               try {

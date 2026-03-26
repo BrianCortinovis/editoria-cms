@@ -44,16 +44,19 @@ function normalizeOptions(options?: CmsFormField['options']) {
 function renderField(
   field: CmsFormField,
   values: Record<string, string | boolean>,
-  onChange: (name: string, value: string | boolean) => void
+  onChange: (name: string, value: string | boolean) => void,
+  visualStyle: string
 ) {
+  const isDark = visualStyle === 'dark';
+  const isGlass = visualStyle === 'glass';
   const commonStyle: React.CSSProperties = {
     width: '100%',
     padding: '0.75rem 0.9rem',
-    border: '1px solid var(--e-color-border, #d1d5db)',
+    border: isGlass ? '1px solid rgba(255,255,255,0.22)' : '1px solid var(--e-color-border, #d1d5db)',
     borderRadius: 'var(--e-border-radius, 10px)',
     fontSize: '0.95rem',
-    color: 'var(--e-color-text, #111827)',
-    background: 'var(--e-color-surface, #ffffff)',
+    color: isDark ? '#f8fafc' : 'var(--e-color-text, #111827)',
+    background: isGlass ? 'rgba(255,255,255,0.12)' : isDark ? 'rgba(255,255,255,0.04)' : 'var(--e-color-surface, #ffffff)',
   };
 
   const label = field.label || field.name;
@@ -156,9 +159,40 @@ export function RenderCmsForm({ block, data, style, tenantSlug }: Props) {
   );
 
   const submitButtonText = String(block.props.submitButtonText || '').trim() || 'Invia';
+  const buttonPaddingX = Number(block.props.buttonPaddingX || 20);
+  const buttonPaddingY = Number(block.props.buttonPaddingY || 14);
+  const buttonRadius = Number(block.props.buttonRadius || 12);
   const showTitle = (block.props.showTitle as boolean) ?? true;
   const showDescription = (block.props.showDescription as boolean) ?? true;
   const layout = String(block.props.layout || 'stacked');
+  const visualStyle = String(block.props.visualStyle || 'editorial');
+  const introBadge = String(block.props.introBadge || '').trim();
+  const supportText = String(block.props.supportText || '').trim();
+  const isSplit = layout === 'split';
+  const isGlass = visualStyle === 'glass';
+  const isDark = visualStyle === 'dark';
+  const wrapperStyle: React.CSSProperties = {
+    display: 'grid',
+    gap: '1.5rem',
+    gridTemplateColumns: isSplit ? 'minmax(220px, 0.9fr) minmax(0, 1.1fr)' : '1fr',
+    alignItems: 'start',
+  };
+  const formStyle: React.CSSProperties = {
+    display: 'grid',
+    gap: visualStyle === 'compact' ? '0.8rem' : '1rem',
+    gridTemplateColumns: layout === 'inline' ? 'repeat(2, minmax(0, 1fr))' : '1fr',
+  };
+  const submitStyle: React.CSSProperties = {
+    padding: `${buttonPaddingY}px ${buttonPaddingX}px`,
+    border: 'none',
+    borderRadius: `${buttonRadius}px`,
+    background: isDark ? '#f8fafc' : 'var(--e-color-primary, #8b0000)',
+    color: isDark ? '#0f172a' : '#fff',
+    fontWeight: 700,
+    cursor: sending ? 'wait' : 'pointer',
+    opacity: sending ? 0.8 : 1,
+    boxShadow: isGlass ? '0 12px 28px rgba(15,23,42,0.12)' : 'none',
+  };
 
   const handleChange = (name: string, value: string | boolean) => {
     setValues((current) => ({ ...current, [name]: value }));
@@ -219,43 +253,55 @@ export function RenderCmsForm({ block, data, style, tenantSlug }: Props) {
 
   return (
     <section style={style} data-block="cms-form">
-      {showTitle && (
-        <h3 style={{ fontFamily: 'var(--e-font-heading)', fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-          {form.name}
-        </h3>
-      )}
-      {showDescription && form.description && (
-        <p style={{ color: 'var(--e-color-textSecondary, #6b7280)', marginBottom: '1rem' }}>{form.description}</p>
-      )}
-
-      <form
-        onSubmit={handleSubmit}
-        data-form="cms-form"
-        style={{ display: 'grid', gap: '1rem', gridTemplateColumns: layout === 'inline' ? 'repeat(2, minmax(0, 1fr))' : '1fr' }}
-      >
-        {form.fields.map((field) => renderField(field, values, handleChange))}
-        <input type="text" name="website" value="" onChange={() => undefined} tabIndex={-1} autoComplete="off" style={{ display: 'none' }} />
-        <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-start' }}>
-          <button
-            type="submit"
-            disabled={sending}
-            style={{
-              padding: '0.85rem 1.4rem',
-              border: 'none',
-              borderRadius: 'var(--e-border-radius, 10px)',
-              background: 'var(--e-color-primary, #8b0000)',
-              color: '#fff',
-              fontWeight: 600,
-              cursor: sending ? 'wait' : 'pointer',
-              opacity: sending ? 0.8 : 1,
-            }}
-          >
-            {sending ? 'Invio in corso...' : submitButtonText}
-          </button>
-          {message && <p style={{ color: 'var(--e-color-success, #047857)', margin: 0 }}>{message}</p>}
-          {error && <p style={{ color: 'var(--e-color-danger, #b91c1c)', margin: 0 }}>{error}</p>}
+      <div style={wrapperStyle}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+          {introBadge && (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 'fit-content',
+                padding: '0.2rem 0.55rem',
+                borderRadius: '999px',
+                background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(139,0,0,0.1)',
+                color: isDark ? '#f8fafc' : 'var(--e-color-primary, #8b0000)',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+              }}
+            >
+              {introBadge}
+            </span>
+          )}
+          {showTitle && (
+            <h3 style={{ fontFamily: 'var(--e-font-heading)', fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
+              {form.name}
+            </h3>
+          )}
+          {showDescription && form.description && (
+            <p style={{ color: isDark ? 'rgba(248,250,252,0.78)' : 'var(--e-color-textSecondary, #6b7280)', margin: 0 }}>{form.description}</p>
+          )}
+          {supportText && (
+            <p style={{ color: isDark ? 'rgba(248,250,252,0.74)' : 'var(--e-color-textSecondary, #64748b)', margin: 0 }}>
+              {supportText}
+            </p>
+          )}
         </div>
-      </form>
+
+        <form onSubmit={handleSubmit} data-form="cms-form" style={formStyle}>
+          {form.fields.map((field) => renderField(field, values, handleChange, visualStyle))}
+          <input type="text" name="website" value="" onChange={() => undefined} tabIndex={-1} autoComplete="off" style={{ display: 'none' }} />
+          <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-start' }}>
+            <button type="submit" disabled={sending} style={submitStyle}>
+              {sending ? 'Invio in corso...' : submitButtonText}
+            </button>
+            {message && <p style={{ color: 'var(--e-color-success, #047857)', margin: 0 }}>{message}</p>}
+            {error && <p style={{ color: 'var(--e-color-danger, #b91c1c)', margin: 0 }}>{error}</p>}
+          </div>
+        </form>
+      </div>
     </section>
   );
 }

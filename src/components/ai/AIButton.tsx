@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useAuthStore } from "@/lib/store";
+import { usePageStore } from "@/lib/stores/page-store";
 import { isModuleActive } from "@/lib/modules";
 import { useAIStatus } from "@/lib/ai-status";
 import { parseAICommand, type AICommand } from "@/lib/ai/command-parser";
 import { parseNaturalLanguage, detectContextFromText } from "@/lib/ai/natural-language-executor";
 import toast from "react-hot-toast";
 import { Sparkles, Loader2, Copy, Check, X } from "lucide-react";
+import type { Block } from "@/lib/types";
 
 interface AIAction {
   id: string;
@@ -16,6 +18,193 @@ interface AIAction {
 }
 
 export type { AICommand } from "@/lib/ai/command-parser";
+
+const JSON_FIELD_NAMES = new Set([
+  "layout",
+  "background",
+  "typography",
+  "border",
+  "animation",
+  "advanced-gradient",
+  "glassmorphism",
+  "clip-path-shape",
+]);
+
+function unwrapAiResponse(raw: string): string {
+  const trimmed = raw.trim();
+  const fencedMatch = trimmed.match(/```(?:json|css|html)?\s*([\s\S]*?)```/i);
+  if (fencedMatch?.[1]) {
+    return fencedMatch[1].trim();
+  }
+  return trimmed;
+}
+
+function shouldForceJson(fieldName?: string, taskType?: AIButtonProps["taskType"]) {
+  if (!fieldName) return false;
+  if (taskType === "layout") return true;
+  return JSON_FIELD_NAMES.has(fieldName);
+}
+
+function buildDispatchPrompt({
+  actionPrompt,
+  fieldName,
+  fieldValue,
+  contextToUse,
+  forceJson,
+}: {
+  actionPrompt: string;
+  fieldName?: string;
+  fieldValue?: string;
+  contextToUse: string;
+  forceJson: boolean;
+}) {
+  if (!fieldName) {
+    return actionPrompt.replace("{context}", contextToUse);
+  }
+
+  if (forceJson) {
+    return [
+      `Campo: ${fieldName}`,
+      fieldValue ? `Valore attuale: ${fieldValue}` : "",
+      contextToUse ? `Contesto: ${contextToUse}` : "",
+      "",
+      `Richiesta: ${actionPrompt.replace("{context}", contextToUse)}`,
+      "",
+      "Rispondi SOLO con un oggetto JSON valido contenente il nuovo valore o le proprietà aggiornate del campo, senza spiegazioni, senza markdown.",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  return [
+    `Campo: ${fieldName}`,
+    fieldValue ? `Valore attuale: ${fieldValue}` : "",
+    contextToUse ? `Contesto: ${contextToUse}` : "",
+    "",
+    `Richiesta: ${actionPrompt.replace("{context}", contextToUse)}`,
+    "",
+    "Rispondi SOLO con il nuovo valore finale del campo, senza spiegazioni, senza introduzioni, senza markdown.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function sanitizeContextValue(value: unknown, depth = 0): unknown {
+  if (value == null) return value;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.slice(0, 6).map((item) => sanitizeContextValue(item, depth + 1));
+  }
+
+  if (typeof value === "object") {
+    if (depth >= 2) {
+      return "[object]";
+    }
+
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .slice(0, 12)
+        .map(([key, nestedValue]) => [key, sanitizeContextValue(nestedValue, depth + 1)])
+    );
+  }
+
+  return String(value);
+}
+
+function summarizeBlockForAi(block: Block, depth = 0): Record<string, unknown> {
+  return {
+    id: block.id,
+    type: block.type,
+    label: block.label,
+    hidden: block.hidden,
+    locked: block.locked,
+    props: sanitizeContextValue(block.props),
+    style: {
+      layout: sanitizeContextValue(block.style.layout),
+      background: sanitizeContextValue(block.style.background),
+      typography: sanitizeContextValue(block.style.typography),
+      border: sanitizeContextValue(block.style.border),
+    },
+    dataSource: sanitizeContextValue(block.dataSource),
+    childCount: block.children.length,
+    children:
+      depth >= 1
+        ? block.children.slice(0, 6).map((child) => ({
+            id: child.id,
+            type: child.type,
+            label: child.label,
+          }))
+        : block.children.slice(0, 6).map((child) => summarizeBlockForAi(child, depth + 1)),
+  };
+}
+
+function buildAiContextString({
+  fieldValue,
+  contextData,
+  fieldName,
+  block,
+  blockLocation,
+  pageMeta,
+  rootBlocks,
+}: {
+  fieldValue?: string;
+  contextData?: string;
+  fieldName?: string;
+  block: Block | null;
+  blockLocation: { parentId: string | null; index: number; siblingsCount: number } | null;
+  pageMeta: Record<string, unknown>;
+  rootBlocks: Block[];
+}) {
+  const sections: string[] = [];
+
+  if (fieldName) {
+    sections.push(`CAMPO O OBIETTIVO:\n${fieldName}`);
+  }
+
+  if (fieldValue) {
+    sections.push(`VALORE ATTUALE:\n${fieldValue}`);
+  }
+
+  if (contextData) {
+    sections.push(`CONTESTO FORNITO:\n${contextData}`);
+  }
+
+  if (block) {
+    sections.push(
+      `BLOCCO O SEZIONE ATTIVA:\n${JSON.stringify(
+        {
+          ...summarizeBlockForAi(block),
+          location: blockLocation,
+        },
+        null,
+        2
+      )}`
+    );
+  }
+
+  if (rootBlocks.length > 0) {
+    sections.push(
+      `PAGINA / STRUTTURA INTORNO:\n${JSON.stringify(
+        {
+          pageMeta: sanitizeContextValue(pageMeta),
+          rootBlocks: rootBlocks.slice(0, 8).map((rootBlock) => ({
+            id: rootBlock.id,
+            type: rootBlock.type,
+            label: rootBlock.label,
+            childCount: rootBlock.children.length,
+          })),
+        },
+        null,
+        2
+      )}`
+    );
+  }
+
+  return sections.filter(Boolean).join("\n\n");
+}
 
 interface AIButtonProps {
   /** Actions available in this context */
@@ -46,6 +235,7 @@ interface AIButtonProps {
 
 export default function AIButton({ actions, fieldValue, contextData: contextDataProp, systemPrompt, onResult, onCommand, onApply, compact, blockId, fieldName, taskType, autoApply = true }: AIButtonProps) {
   const { currentTenant } = useAuthStore();
+  const { getBlock, getBlockLocation, blocks, pageMeta } = usePageStore();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, string>>({});
@@ -60,8 +250,19 @@ export default function AIButton({ actions, fieldValue, contextData: contextData
     useAIStatus.getState().set({ message: action.label + "...", provider: "" });
 
     try {
-      const contextToUse = fieldValue || contextDataProp || "";
+      const liveBlock = blockId ? getBlock(blockId) : null;
+      const liveLocation = blockId ? getBlockLocation(blockId) : null;
+      const contextToUse = buildAiContextString({
+        fieldValue,
+        contextData: contextDataProp,
+        fieldName,
+        block: liveBlock,
+        blockLocation: liveLocation,
+        pageMeta,
+        rootBlocks: blocks,
+      });
       const effectiveTaskType = taskType || (onCommand || blockId ? 'layout' : 'chatbot');
+      const forceJson = shouldForceJson(fieldName, effectiveTaskType);
       const res = await fetch("/api/ai/dispatch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -69,14 +270,20 @@ export default function AIButton({ actions, fieldValue, contextData: contextData
           tenant_id: currentTenant.id,
           taskType: effectiveTaskType,
           systemPrompt: systemPrompt || "Sei un assistente editoriale operativo per un CMS giornalistico italiano. Quando l'utente ti chiede un risultato per un campo o un modulo, genera direttamente l'output finale, senza spiegazioni inutili.",
-          prompt: action.prompt.replace("{context}", contextToUse),
+          prompt: buildDispatchPrompt({
+            actionPrompt: action.prompt,
+            fieldName,
+            fieldValue,
+            contextToUse,
+            forceJson,
+          }),
         }),
       });
 
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Errore IA"); setLoading(null); return; }
 
-      const result = data.content || "";
+      const result = unwrapAiResponse(data.content || "");
       setResults(prev => ({ ...prev, [action.id]: result }));
 
       // Try to parse as command first

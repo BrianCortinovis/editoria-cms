@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { useAuthStore } from '@/lib/store';
+import { useAIConfigStore } from '@/lib/stores/ai-config-store';
 import { X, Sparkles, Send } from 'lucide-react';
 import type { AIMessage, AIProvider } from '@/lib/ai/providers';
 import { QUICK_PROMPTS } from '@/lib/ai/prompts';
@@ -28,10 +29,9 @@ const PROVIDERS: { value: AIProvider; label: string; models: string[] }[] = [
 export function AiPanel() {
   const { aiPanelOpen, setAiPanelOpen } = useUiStore();
   const { currentTenant } = useAuthStore();
+  const { provider: selectedProvider, model: selectedModel, setConfig } = useAIConfigStore();
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [selectedProvider, setSelectedProvider] = useState<AIProvider>('claude');
-  const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-20250514');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -39,9 +39,8 @@ export function AiPanel() {
   const currentProviderModels = PROVIDERS.find(p => p.value === selectedProvider)?.models || [];
 
   const handleProviderChange = (provider: AIProvider) => {
-    setSelectedProvider(provider);
     const models = PROVIDERS.find(p => p.value === provider)?.models || [];
-    setSelectedModel(models[0] || '');
+    setConfig(provider as any, models[0] || '');
   };
 
   const scrollToBottom = () => {
@@ -197,7 +196,7 @@ export function AiPanel() {
           {currentProviderModels.map((model) => (
             <button
               key={model}
-              onClick={() => setSelectedModel(model)}
+              onClick={() => setConfig(selectedProvider, model)}
               className={`text-xs px-2 py-1.5 rounded border transition ${
                 selectedModel === model ? 'font-semibold' : ''
               }`}

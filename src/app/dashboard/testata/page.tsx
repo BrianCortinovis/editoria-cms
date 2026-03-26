@@ -6,9 +6,49 @@ import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
 import { Save, Building2, Loader2, Users, Plus, X, Edit2 } from "lucide-react";
 
+type TeamMember = {
+  id: string;
+  nome: string;
+  email: string;
+  ruolo: 'giornalista' | 'editor' | 'videomaker' | 'operatore';
+};
+
+function Field({
+  label,
+  value,
+  onChange,
+  placeholder,
+  span2,
+  type,
+  readOnly,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  span2?: boolean;
+  type?: string;
+  readOnly: boolean;
+}) {
+  return (
+    <div className={span2 ? "sm:col-span-2" : ""}>
+      <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>{label}</label>
+      <input
+        type={type || "text"}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="input w-full mt-1"
+        readOnly={readOnly}
+      />
+    </div>
+  );
+}
+
 export default function TestataPage() {
   const { currentTenant, currentRole } = useAuthStore();
   const [saving, setSaving] = useState(false);
+  const [loadedSettings, setLoadedSettings] = useState<Record<string, unknown>>({});
   const isAdmin = currentRole === "super_admin" || currentRole === "chief_editor";
 
   // Dati testata
@@ -34,13 +74,6 @@ export default function TestataPage() {
   const [iscrRoc, setIscrRoc] = useState("");
   const [tipologia, setTipologia] = useState("quotidiano_online");
 
-  // Team members
-  type TeamMember = {
-    id: string;
-    nome: string;
-    email: string;
-    ruolo: 'giornalista' | 'editor' | 'videomaker' | 'operatore';
-  };
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [showAddMember, setShowAddMember] = useState(false);
   const [newMember, setNewMember] = useState<Omit<TeamMember, 'id'>>({ nome: '', email: '', ruolo: 'giornalista' });
@@ -48,34 +81,53 @@ export default function TestataPage() {
 
   useEffect(() => {
     if (!currentTenant) return;
-    const s = (currentTenant.settings ?? {}) as Record<string, any>;
-    setRagioneSociale(s.ragione_sociale ?? "");
-    setPartitaIva(s.partita_iva ?? "");
-    setCodiceFiscale(s.codice_fiscale ?? "");
-    setIndirizzo(s.indirizzo ?? "");
-    setCitta(s.citta ?? "");
-    setCap(s.cap ?? "");
-    setProvincia(s.provincia ?? "");
-    setNazione(s.nazione ?? "IT");
-    setTelefono(s.telefono ?? "");
-    setEmail(s.email_testata ?? "");
-    setPec(s.pec ?? "");
-    setSdi(s.sdi ?? "");
-    setDirettoreResponsabile(s.direttore_responsabile ?? "");
-    setRegistroTribunale(s.registro_tribunale ?? "");
-    setNumRegistro(s.num_registro ?? "");
-    setDataRegistro(s.data_registro ?? "");
-    setEditore(s.editore ?? "");
-    setIscrRoc(s.iscr_roc ?? "");
-    setTipologia(s.tipologia ?? "quotidiano_online");
-    setTeamMembers(s.team_members ?? []);
+    const tenantId = currentTenant.id;
+    const supabase = createClient();
+
+    async function loadTenantSheet() {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("settings")
+        .eq("id", tenantId)
+        .single();
+
+      if (error) {
+        toast.error("Errore caricamento scheda testata");
+        return;
+      }
+
+      const s = (data?.settings ?? {}) as Record<string, unknown>;
+      setLoadedSettings(s);
+      setRagioneSociale(typeof s.ragione_sociale === "string" ? s.ragione_sociale : "");
+      setPartitaIva(typeof s.partita_iva === "string" ? s.partita_iva : "");
+      setCodiceFiscale(typeof s.codice_fiscale === "string" ? s.codice_fiscale : "");
+      setIndirizzo(typeof s.indirizzo === "string" ? s.indirizzo : "");
+      setCitta(typeof s.citta === "string" ? s.citta : "");
+      setCap(typeof s.cap === "string" ? s.cap : "");
+      setProvincia(typeof s.provincia === "string" ? s.provincia : "");
+      setNazione(typeof s.nazione === "string" ? s.nazione : "IT");
+      setTelefono(typeof s.telefono === "string" ? s.telefono : "");
+      setEmail(typeof s.email_testata === "string" ? s.email_testata : "");
+      setPec(typeof s.pec === "string" ? s.pec : "");
+      setSdi(typeof s.sdi === "string" ? s.sdi : "");
+      setDirettoreResponsabile(typeof s.direttore_responsabile === "string" ? s.direttore_responsabile : "");
+      setRegistroTribunale(typeof s.registro_tribunale === "string" ? s.registro_tribunale : "");
+      setNumRegistro(typeof s.num_registro === "string" ? s.num_registro : "");
+      setDataRegistro(typeof s.data_registro === "string" ? s.data_registro : "");
+      setEditore(typeof s.editore === "string" ? s.editore : "");
+      setIscrRoc(typeof s.iscr_roc === "string" ? s.iscr_roc : "");
+      setTipologia(typeof s.tipologia === "string" ? s.tipologia : "quotidiano_online");
+      setTeamMembers(Array.isArray(s.team_members) ? (s.team_members as TeamMember[]) : []);
+    }
+
+    void loadTenantSheet();
   }, [currentTenant]);
 
   const handleSave = async () => {
     if (!currentTenant) return;
     setSaving(true);
     const supabase = createClient();
-    const existingSettings = (currentTenant.settings ?? {}) as Record<string, unknown>;
+    const existingSettings = loadedSettings;
 
     const { error } = await supabase.from("tenants").update({
       settings: {
@@ -111,7 +163,7 @@ export default function TestataPage() {
     setShowAddMember(false);
   };
 
-  const handleEditMember = (member: typeof teamMembers[0]) => {
+  const handleEditMember = (member: TeamMember) => {
     setNewMember(member);
     setEditingId(member.id);
     setShowAddMember(true);
@@ -122,16 +174,6 @@ export default function TestataPage() {
     toast.success("Membro rimosso");
   };
 
-  const Field = ({ label, value, onChange, placeholder, span2, type }: {
-    label: string; value: string; onChange: (v: string) => void; placeholder?: string; span2?: boolean; type?: string;
-  }) => (
-    <div className={span2 ? "sm:col-span-2" : ""}>
-      <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>{label}</label>
-      <input type={type || "text"} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        className="input w-full mt-1" readOnly={!isAdmin} />
-    </div>
-  );
-
   return (
     <div className="max-w-4xl space-y-6">
       {/* Dati Fiscali */}
@@ -140,18 +182,18 @@ export default function TestataPage() {
           <Building2 className="w-4 h-4" /> Dati Fiscali & Societari
         </div>
         <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Field label="Ragione Sociale" value={ragioneSociale} onChange={setRagioneSociale} placeholder="Es: Val Brembana Web S.r.l." span2 />
-          <Field label="Partita IVA" value={partitaIva} onChange={setPartitaIva} placeholder="01234567890" />
-          <Field label="Codice Fiscale" value={codiceFiscale} onChange={setCodiceFiscale} placeholder="01234567890" />
-          <Field label="Indirizzo" value={indirizzo} onChange={setIndirizzo} placeholder="Via Roma, 1" span2 />
-          <Field label="Città" value={citta} onChange={setCitta} placeholder="San Pellegrino Terme" />
-          <Field label="CAP" value={cap} onChange={setCap} placeholder="24016" />
-          <Field label="Provincia" value={provincia} onChange={setProvincia} placeholder="BG" />
-          <Field label="Nazione" value={nazione} onChange={setNazione} placeholder="IT" />
-          <Field label="Telefono" value={telefono} onChange={setTelefono} placeholder="+39 0345..." />
-          <Field label="Email" value={email} onChange={setEmail} placeholder="info@testata.it" type="email" />
-          <Field label="PEC" value={pec} onChange={setPec} placeholder="testata@pec.it" type="email" />
-          <Field label="Codice SDI" value={sdi} onChange={setSdi} placeholder="XXXXXXX" />
+          <Field label="Ragione Sociale" value={ragioneSociale} onChange={setRagioneSociale} placeholder="Es: Val Brembana Web S.r.l." span2 readOnly={!isAdmin} />
+          <Field label="Partita IVA" value={partitaIva} onChange={setPartitaIva} placeholder="01234567890" readOnly={!isAdmin} />
+          <Field label="Codice Fiscale" value={codiceFiscale} onChange={setCodiceFiscale} placeholder="01234567890" readOnly={!isAdmin} />
+          <Field label="Indirizzo" value={indirizzo} onChange={setIndirizzo} placeholder="Via Roma, 1" span2 readOnly={!isAdmin} />
+          <Field label="Città" value={citta} onChange={setCitta} placeholder="San Pellegrino Terme" readOnly={!isAdmin} />
+          <Field label="CAP" value={cap} onChange={setCap} placeholder="24016" readOnly={!isAdmin} />
+          <Field label="Provincia" value={provincia} onChange={setProvincia} placeholder="BG" readOnly={!isAdmin} />
+          <Field label="Nazione" value={nazione} onChange={setNazione} placeholder="IT" readOnly={!isAdmin} />
+          <Field label="Telefono" value={telefono} onChange={setTelefono} placeholder="+39 0345..." readOnly={!isAdmin} />
+          <Field label="Email" value={email} onChange={setEmail} placeholder="info@testata.it" type="email" readOnly={!isAdmin} />
+          <Field label="PEC" value={pec} onChange={setPec} placeholder="testata@pec.it" type="email" readOnly={!isAdmin} />
+          <Field label="Codice SDI" value={sdi} onChange={setSdi} placeholder="XXXXXXX" readOnly={!isAdmin} />
         </div>
       </div>
 
@@ -159,7 +201,7 @@ export default function TestataPage() {
       <div className="card">
         <div className="card-header">Dati Editoriali & Registrazione</div>
         <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Field label="Direttore Responsabile" value={direttoreResponsabile} onChange={setDirettoreResponsabile} placeholder="Nome Cognome" span2 />
+          <Field label="Direttore Responsabile" value={direttoreResponsabile} onChange={setDirettoreResponsabile} placeholder="Nome Cognome" span2 readOnly={!isAdmin} />
           <div>
             <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Tipologia testata</label>
             <select value={tipologia} onChange={e => setTipologia(e.target.value)} className="input w-full mt-1" disabled={!isAdmin}>
@@ -170,11 +212,11 @@ export default function TestataPage() {
               <option value="altro">Altro</option>
             </select>
           </div>
-          <Field label="Editore" value={editore} onChange={setEditore} placeholder="Società editrice" span2 />
-          <Field label="Tribunale di registrazione" value={registroTribunale} onChange={setRegistroTribunale} placeholder="Es: Tribunale di Bergamo" />
-          <Field label="Numero registro stampa" value={numRegistro} onChange={setNumRegistro} placeholder="N. XX/2024" />
-          <Field label="Data registrazione" value={dataRegistro} onChange={setDataRegistro} type="date" />
-          <Field label="Iscrizione ROC" value={iscrRoc} onChange={setIscrRoc} placeholder="N. XXXXX" />
+          <Field label="Editore" value={editore} onChange={setEditore} placeholder="Società editrice" span2 readOnly={!isAdmin} />
+          <Field label="Tribunale di registrazione" value={registroTribunale} onChange={setRegistroTribunale} placeholder="Es: Tribunale di Bergamo" readOnly={!isAdmin} />
+          <Field label="Numero registro stampa" value={numRegistro} onChange={setNumRegistro} placeholder="N. XX/2024" readOnly={!isAdmin} />
+          <Field label="Data registrazione" value={dataRegistro} onChange={setDataRegistro} type="date" readOnly={!isAdmin} />
+          <Field label="Iscrizione ROC" value={iscrRoc} onChange={setIscrRoc} placeholder="N. XXXXX" readOnly={!isAdmin} />
         </div>
       </div>
 
@@ -215,7 +257,7 @@ export default function TestataPage() {
                 />
                 <select
                   value={newMember.ruolo}
-                  onChange={e => setNewMember({ ...newMember, ruolo: e.target.value as any })}
+                  onChange={e => setNewMember({ ...newMember, ruolo: e.target.value as TeamMember["ruolo"] })}
                   className="input w-full"
                 >
                   <option value="giornalista">Giornalista</option>

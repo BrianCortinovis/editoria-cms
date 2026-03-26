@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Block } from '@/lib/types/block';
 import { sanitizeHtml } from '@/lib/security/html';
 
@@ -22,6 +22,10 @@ export function RenderTabs({ block, style }: Props) {
   const alignment = String(block.props.alignment || 'left');
   const variant = String(block.props.style || 'default');
   const currentTab = tabs.find((tab) => tab.id === activeTab) || tabs[0];
+
+  useEffect(() => {
+    setActiveTab(initialTabId);
+  }, [initialTabId]);
 
   return (
     <div style={style} data-block="tabs">

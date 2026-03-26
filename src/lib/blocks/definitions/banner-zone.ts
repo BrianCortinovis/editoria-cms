@@ -8,7 +8,13 @@ const bannerZoneBlock: BlockDefinition = {
   icon: 'Megaphone',
   category: 'monetization',
   defaultProps: {
+    templateId: 'banner-sidebar-single',
     position: 'sidebar',
+    scrollingRow: false,
+    maxVisible: 1,
+    gap: 12,
+    minItemWidth: 220,
+    cardFrame: false,
     fallbackHtml: '',
   },
   defaultStyle: {

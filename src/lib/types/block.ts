@@ -5,7 +5,7 @@
 export type BlockType =
   | 'section' | 'container' | 'columns'
   | 'hero' | 'text' | 'image-gallery' | 'video' | 'audio'
-  | 'banner-ad' | 'navigation' | 'footer' | 'sidebar'
+  | 'banner-ad' | 'banner-dynamic' | 'banner-module' | 'navigation' | 'footer' | 'sidebar'
   | 'social' | 'author-bio' | 'related-content' | 'newsletter'
   | 'timeline' | 'quote' | 'accordion' | 'tabs' | 'map'
   | 'code' | 'table' | 'divider' | 'counter' | 'comparison'
@@ -125,8 +125,19 @@ export interface GrainEffect {
   size: number;
 }
 
+export interface CSSFiltersEffect {
+  blur: number;          // 0-20px
+  brightness: number;    // 50-150%
+  contrast: number;      // 50-150%
+  saturation: number;    // 0-200%
+  hueRotate: number;     // 0-360°
+  opacity: number;       // 0-100%
+  dropShadow: number;    // 0-20px
+}
+
 export interface BlockEffects {
   glassmorphism?: GlassmorphismEffect;
+  filters?: CSSFiltersEffect;
   noise?: NoiseEffect;
   grain?: GrainEffect;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
@@ -20,7 +21,6 @@ import {
   Loader2,
   Monitor,
   Smartphone,
-  Calendar,
 } from "lucide-react";
 import AIButton from "@/components/ai/AIButton";
 
@@ -98,7 +98,13 @@ export default function BannerPage() {
     setLoading(false);
   }, [currentTenant]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const resetForm = () => {
     setName(""); setPosition("sidebar"); setType("image"); setImageUrl("");
@@ -139,7 +145,8 @@ export default function BannerPage() {
     };
 
     if (editingId) {
-      const { tenant_id, ...updatePayload } = payload;
+      const { tenant_id: tenantIdToDrop, ...updatePayload } = payload;
+      void tenantIdToDrop;
       const { error } = await supabase.from("banners").update(updatePayload).eq("id", editingId);
       if (error) { toast.error(error.message); setSaving(false); return; }
       toast.success("Banner aggiornato");
@@ -209,6 +216,22 @@ export default function BannerPage() {
               },
             ]}
             contextData={banners.map(b => `${b.name} (${b.position}, ${b.impressions} imp, ${b.clicks} click, CTR: ${b.impressions > 0 ? ((b.clicks / b.impressions) * 100).toFixed(2) : 0}%)`).join(" | ")}
+            onApply={(actionId, result) => {
+              setShowForm(true);
+              if (actionId === "suggerisci_copy") {
+                setType("html");
+                setHtmlContent(result);
+                if (!name.trim()) {
+                  setName("Banner AI");
+                }
+              } else {
+                setHtmlContent((prev) =>
+                  prev.trim()
+                    ? `${prev}\n\n<!-- Analisi IA -->\n${result}`
+                    : `<!-- Analisi IA -->\n${result}`
+                );
+              }
+            }}
           />
           <button onClick={() => { resetForm(); setShowForm(true); }}
             className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
@@ -364,7 +387,16 @@ export default function BannerPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {b.image_url ? (
-                          <img src={b.image_url} alt="" className="w-12 h-8 object-cover rounded" style={{ border: "1px solid var(--c-border)" }} />
+                          <div className="relative w-12 h-8">
+                            <Image
+                              src={b.image_url}
+                              alt={b.name}
+                              fill
+                              className="object-cover rounded"
+                              style={{ border: "1px solid var(--c-border)" }}
+                              unoptimized
+                            />
+                          </div>
                         ) : (
                           <div className="w-12 h-8 rounded flex items-center justify-center" style={{ background: "var(--c-bg-2)" }}>
                             {b.type === "html" ? <Code className="w-4 h-4" style={{ color: "var(--c-text-3)" }} /> : <ImageIcon className="w-4 h-4" style={{ color: "var(--c-text-3)" }} />}

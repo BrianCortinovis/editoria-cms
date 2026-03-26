@@ -11,6 +11,7 @@ const breakingTickerBlock: BlockDefinition = {
     speed: 50,
     icon: 'Zap',
     label: 'ULTIMA ORA',
+    direction: 'left',
   },
   defaultStyle: {
     layout: {

@@ -77,6 +77,9 @@ export function NewsletterSignupModule({ block, data, style, tenantSlug, compact
   }, [block, globalConfig, mode]);
 
   const compact = compactDefault || config.compact;
+  const buttonPaddingX = Number(block.props.buttonPaddingX || 20);
+  const buttonPaddingY = Number(block.props.buttonPaddingY || 14);
+  const buttonRadius = Number(block.props.buttonRadius || 12);
   const themeStyles = config.theme === 'dark'
     ? { background: '#0f172a', foreground: '#e2e8f0', muted: '#94a3b8', border: '#1e293b' }
     : config.theme === 'accent'
@@ -194,8 +197,8 @@ export function NewsletterSignupModule({ block, data, style, tenantSlug, compact
           type="submit"
           disabled={status === 'submitting'}
           style={{
-            padding: '0.85rem 1.25rem',
-            borderRadius: '12px',
+            padding: `${buttonPaddingY}px ${buttonPaddingX}px`,
+            borderRadius: `${buttonRadius}px`,
             border: 'none',
             background: 'var(--e-color-primary, #8B0000)',
             color: '#fff',

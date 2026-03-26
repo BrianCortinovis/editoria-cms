@@ -6,6 +6,33 @@ import { useAuthStore } from "@/lib/store";
 import { Loader2 } from "lucide-react";
 import type { UserRole } from "@/types/database";
 
+function sanitizeTenantForClient(tenant: Record<string, unknown>) {
+  const rawSettings =
+    tenant.settings && typeof tenant.settings === "object"
+      ? (tenant.settings as Record<string, unknown>)
+      : {};
+  const activeModules = Array.isArray(rawSettings.active_modules)
+    ? rawSettings.active_modules.filter((value): value is string => typeof value === "string")
+    : [];
+
+  return {
+    id: String(tenant.id ?? ""),
+    name: String(tenant.name ?? ""),
+    slug: String(tenant.slug ?? ""),
+    domain: typeof tenant.domain === "string" ? tenant.domain : null,
+    logo_url: typeof tenant.logo_url === "string" ? tenant.logo_url : null,
+    theme_config:
+      tenant.theme_config && typeof tenant.theme_config === "object"
+        ? (tenant.theme_config as Record<string, unknown>)
+        : {},
+    settings: {
+      active_modules: activeModules,
+    },
+    created_at: String(tenant.created_at ?? ""),
+    updated_at: String(tenant.updated_at ?? ""),
+  };
+}
+
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const { setUser, setProfile, setTenants, setCurrentTenant } = useAuthStore();
@@ -34,13 +61,13 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       // Fetch tenants with roles
       const { data: userTenants } = await supabase
         .from("user_tenants")
-        .select("role, tenants(*)")
+        .select("role, tenants(id, name, slug, domain, logo_url, theme_config, settings, created_at, updated_at)")
         .eq("user_id", user.id);
 
       if (userTenants && userTenants.length > 0) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mapped = userTenants.map((ut: any) => ({
-          ...ut.tenants,
+          ...sanitizeTenantForClient(ut.tenants || {}),
           role: ut.role as UserRole,
         }));
 

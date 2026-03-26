@@ -6,14 +6,6 @@ import { useAuthStore } from '@/lib/store';
 import toast from 'react-hot-toast';
 import { Sparkles, Save, Loader2, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 
-interface AIProvider {
-  name: string;
-  key: string;
-  apiKey: string;
-  model?: string;
-  status: 'active' | 'inactive' | 'error';
-}
-
 interface AISettings {
   claude_api_key: string;
   claude_model: string;
@@ -65,7 +57,7 @@ const DEFAULT_MODELS = {
 };
 
 export default function IAPage() {
-  const { currentTenant } = useAuthStore();
+  const { currentTenant, currentRole } = useAuthStore();
   const [settings, setSettings] = useState<AISettings>({
     claude_api_key: '',
     claude_model: DEFAULT_MODELS.claude,
@@ -79,44 +71,46 @@ export default function IAPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [statuses, setStatuses] = useState<Record<string, 'active' | 'inactive' | 'error'>>({});
+  const canManageAi = currentRole === 'super_admin';
 
   useEffect(() => {
-    loadSettings();
-  }, [currentTenant]);
+    if (!canManageAi || !currentTenant) return;
+    const tenantId = currentTenant.id;
 
-  const loadSettings = async () => {
-    if (!currentTenant) return;
-    setLoading(true);
-    const supabase = createClient();
+    async function loadSettings() {
+      const supabase = createClient();
 
-    try {
-      const { data: tenant } = await supabase
-        .from('tenants')
-        .select('settings')
-        .eq('id', currentTenant.id)
-        .single();
+      try {
+        const { data: tenant } = await supabase
+          .from('tenants')
+          .select('settings')
+          .eq('id', tenantId)
+          .single();
 
-      if (tenant?.settings?.module_config?.ai_assistant) {
-        const aiConfig = tenant.settings.module_config.ai_assistant;
-        setSettings(prev => ({
-          ...prev,
-          claude_api_key: aiConfig.claude_api_key || '',
-          claude_model: aiConfig.claude_model || DEFAULT_MODELS.claude,
-          openai_api_key: aiConfig.openai_api_key || '',
-          openai_model: aiConfig.openai_model || DEFAULT_MODELS.openai,
-          gemini_api_key: aiConfig.gemini_api_key || '',
-          gemini_model: aiConfig.gemini_model || DEFAULT_MODELS.gemini,
-          ollama_url: aiConfig.ollama_url || '',
-          ollama_model: aiConfig.ollama_model || DEFAULT_MODELS.ollama,
-        }));
+        if (tenant?.settings?.module_config?.ai_assistant) {
+          const aiConfig = tenant.settings.module_config.ai_assistant;
+          setSettings(prev => ({
+            ...prev,
+            claude_api_key: aiConfig.claude_api_key || '',
+            claude_model: aiConfig.claude_model || DEFAULT_MODELS.claude,
+            openai_api_key: aiConfig.openai_api_key || '',
+            openai_model: aiConfig.openai_model || DEFAULT_MODELS.openai,
+            gemini_api_key: aiConfig.gemini_api_key || '',
+            gemini_model: aiConfig.gemini_model || DEFAULT_MODELS.gemini,
+            ollama_url: aiConfig.ollama_url || '',
+            ollama_model: aiConfig.ollama_model || DEFAULT_MODELS.ollama,
+          }));
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+        toast.error('Errore caricamento impostazioni');
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-      toast.error('Errore caricamento impostazioni');
-    } finally {
-      setLoading(false);
     }
-  };
+
+    void loadSettings();
+  }, [currentTenant, canManageAi]);
 
   const checkProviderStatus = async (providerKey: string) => {
     // Dummy status check - in production would test API key
@@ -179,6 +173,17 @@ export default function IAPage() {
       setSaving(false);
     }
   };
+
+  if (!canManageAi) {
+    return (
+      <div className="max-w-2xl text-center py-20">
+        <Sparkles className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
+        <p className="text-sm" style={{ color: "var(--c-text-2)" }}>
+          Solo i Super Admin possono gestire provider e credenziali IA del tenant.
+        </p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -288,7 +293,7 @@ export default function IAPage() {
                     className="text-xs mt-1 inline-block"
                     style={{ color: 'var(--c-accent)' }}
                   >
-                    → Come ottenere l'API key
+                    → Come ottenere l&apos;API key
                   </a>
                 </div>
 

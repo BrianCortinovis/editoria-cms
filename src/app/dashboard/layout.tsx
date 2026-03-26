@@ -6,6 +6,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import AuthProvider from "@/components/layout/AuthProvider";
 import { GlobalAiChat } from "@/components/ai/GlobalAiChat";
+import { DashboardInteractiveGuide } from "@/components/help/DashboardInteractiveGuide";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -13,6 +14,7 @@ const pageTitles: Record<string, string> = {
   "/dashboard/footer": "Footer",
   "/dashboard/editor": "Editor Grafico",
   "/dashboard/layout": "Layout Sito",
+  "/dashboard/templates": "Libreria Template",
   "/dashboard/articoli": "Articoli",
   "/dashboard/media": "Media Library",
   "/dashboard/categorie": "Categorie",
@@ -21,6 +23,8 @@ const pageTitles: Record<string, string> = {
   "/dashboard/eventi": "Eventi",
   "/dashboard/commenti": "Commenti",
   "/dashboard/redazione": "Redazione",
+  "/dashboard/desk": "Desk Giornalisti",
+  "/dashboard/social": "Social Publishing",
   "/dashboard/newsletter": "Newsletter",
   "/dashboard/adv": "ADV",
   "/dashboard/form": "Form & Submissions",
@@ -88,6 +92,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   : "mx-auto w-full min-w-0 max-w-[1500px]"
               }
             >
+              {!isFullscreen ? (
+                <div className="mb-4">
+                  <DashboardInteractiveGuide />
+                </div>
+              ) : null}
               {children}
             </div>
           </main>

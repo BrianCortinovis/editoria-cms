@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/lib/store';
+import { buildCanonicalPathFromSlug, buildDefaultPageMeta, derivePageDescription, slugifyPageTitle } from '@/lib/pages/page-seo';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import {
@@ -42,6 +43,15 @@ export default function PaginePage() {
   const [showNewPage, setShowNewPage] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState('');
   const [newPageSlug, setNewPageSlug] = useState('');
+  const [newPageMetaTitle, setNewPageMetaTitle] = useState('');
+  const [newPageMetaDescription, setNewPageMetaDescription] = useState('');
+  const [newPageOgTitle, setNewPageOgTitle] = useState('');
+  const [newPageOgDescription, setNewPageOgDescription] = useState('');
+  const [slugManual, setSlugManual] = useState(false);
+  const [metaTitleManual, setMetaTitleManual] = useState(false);
+  const [metaDescriptionManual, setMetaDescriptionManual] = useState(false);
+  const [ogTitleManual, setOgTitleManual] = useState(false);
+  const [ogDescriptionManual, setOgDescriptionManual] = useState(false);
   const [creating, setCreating] = useState(false);
   const [publishingPageId, setPublishingPageId] = useState<string | null>(null);
   const [deletingPageId, setDeletingPageId] = useState<string | null>(null);
@@ -90,11 +100,53 @@ export default function PaginePage() {
     return () => window.clearTimeout(timer);
   }, [currentTenant, loadPages]);
 
+  useEffect(() => {
+    const title = newPageTitle.trim();
+    const suggestedSlug = slugifyPageTitle(title);
+    const suggestedDescription = derivePageDescription(title, []);
+
+    if (!slugManual) {
+      setNewPageSlug(suggestedSlug);
+    }
+    if (!metaTitleManual) {
+      setNewPageMetaTitle(title);
+    }
+    if (!metaDescriptionManual) {
+      setNewPageMetaDescription(suggestedDescription);
+    }
+    if (!ogTitleManual) {
+      setNewPageOgTitle(title);
+    }
+    if (!ogDescriptionManual) {
+      setNewPageOgDescription(suggestedDescription);
+    }
+  }, [
+    metaDescriptionManual,
+    metaTitleManual,
+    newPageTitle,
+    ogDescriptionManual,
+    ogTitleManual,
+    slugManual,
+  ]);
+
   const handleCreatePage = async () => {
-    if (!newPageTitle.trim() || !newPageSlug.trim() || !currentTenant) return;
+    if (!newPageTitle.trim() || !currentTenant) return;
 
     setCreating(true);
     const supabase = createClient();
+
+    const nextMeta = buildDefaultPageMeta({
+      title: newPageTitle,
+      slug: newPageSlug,
+      currentMeta: {
+        title: newPageMetaTitle,
+        description: newPageMetaDescription,
+        canonicalPath: buildCanonicalPathFromSlug(newPageSlug),
+        focusKeyword: newPageTitle.trim(),
+        ogTitle: newPageOgTitle,
+        ogDescription: newPageOgDescription,
+      },
+    });
 
     const { data, error } = await supabase
       .from('site_pages')
@@ -103,6 +155,7 @@ export default function PaginePage() {
         title: newPageTitle,
         slug: newPageSlug,
         page_type: newPageSlug === 'homepage' ? 'homepage' : 'custom',
+        meta: nextMeta,
         is_published: false,
         blocks: [],
         sort_order: 0,
@@ -115,6 +168,15 @@ export default function PaginePage() {
       await loadPages();
       setNewPageTitle('');
       setNewPageSlug('');
+      setNewPageMetaTitle('');
+      setNewPageMetaDescription('');
+      setNewPageOgTitle('');
+      setNewPageOgDescription('');
+      setSlugManual(false);
+      setMetaTitleManual(false);
+      setMetaDescriptionManual(false);
+      setOgTitleManual(false);
+      setOgDescriptionManual(false);
       setShowNewPage(false);
     } else if (error) {
       toast.error(error.message || 'Errore creazione pagina');
@@ -359,7 +421,10 @@ export default function PaginePage() {
                 <input
                   type="text"
                   value={newPageSlug}
-                  onChange={(e) => setNewPageSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                  onChange={(e) => {
+                    setSlugManual(true);
+                    setNewPageSlug(slugifyPageTitle(e.target.value));
+                  }}
                   placeholder="es: chi-siamo, team, contatti..."
                   className="w-full px-3 py-2 rounded-lg border transition focus:outline-none"
                   style={{
@@ -373,6 +438,97 @@ export default function PaginePage() {
                 <p className="text-[11px] mt-1" style={{ color: 'var(--c-text-2)' }}>
                   URL: {pagePreviewPath}
                 </p>
+              </div>
+
+              <div className="border rounded-xl p-4 space-y-4" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)' }}>
+                <div>
+                  <h3 className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
+                    SEO Default
+                  </h3>
+                  <p className="text-[11px] mt-1" style={{ color: 'var(--c-text-2)' }}>
+                    Vengono precompilati dal titolo ma restano modificabili a mano.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>
+                    Meta Title
+                  </label>
+                  <input
+                    type="text"
+                    value={newPageMetaTitle}
+                    onChange={(e) => {
+                      setMetaTitleManual(true);
+                      setNewPageMetaTitle(e.target.value);
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border transition focus:outline-none"
+                    style={{
+                      background: 'var(--c-bg-1)',
+                      borderColor: 'var(--c-border)',
+                      color: 'var(--c-text-0)',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>
+                    Meta Description
+                  </label>
+                  <textarea
+                    value={newPageMetaDescription}
+                    onChange={(e) => {
+                      setMetaDescriptionManual(true);
+                      setNewPageMetaDescription(e.target.value);
+                    }}
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-lg border transition focus:outline-none"
+                    style={{
+                      background: 'var(--c-bg-1)',
+                      borderColor: 'var(--c-border)',
+                      color: 'var(--c-text-0)',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>
+                    Open Graph Title
+                  </label>
+                  <input
+                    type="text"
+                    value={newPageOgTitle}
+                    onChange={(e) => {
+                      setOgTitleManual(true);
+                      setNewPageOgTitle(e.target.value);
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border transition focus:outline-none"
+                    style={{
+                      background: 'var(--c-bg-1)',
+                      borderColor: 'var(--c-border)',
+                      color: 'var(--c-text-0)',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>
+                    Open Graph Description
+                  </label>
+                  <textarea
+                    value={newPageOgDescription}
+                    onChange={(e) => {
+                      setOgDescriptionManual(true);
+                      setNewPageOgDescription(e.target.value);
+                    }}
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-lg border transition focus:outline-none"
+                    style={{
+                      background: 'var(--c-bg-1)',
+                      borderColor: 'var(--c-border)',
+                      color: 'var(--c-text-0)',
+                    }}
+                  />
+                </div>
               </div>
 
             </div>
@@ -392,7 +548,7 @@ export default function PaginePage() {
               </button>
               <button
                 onClick={handleCreatePage}
-                disabled={!newPageTitle.trim() || !newPageSlug.trim() || creating}
+                disabled={!newPageTitle.trim() || creating}
                 className="flex-1 px-4 py-2 rounded-lg text-white font-medium transition disabled:opacity-50"
                 style={{ background: 'var(--c-accent)' }}
                 onMouseEnter={(e) => !creating && (e.currentTarget.style.opacity = '0.9')}

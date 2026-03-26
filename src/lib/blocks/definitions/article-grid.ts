@@ -8,6 +8,7 @@ const articleGridBlock: BlockDefinition = {
   icon: 'LayoutGrid',
   category: 'editorial',
   defaultProps: {
+    templateId: 'article-grid-newsroom-3',
     columns: 3,
     limit: 9,
     categorySlug: '',
@@ -17,6 +18,8 @@ const articleGridBlock: BlockDefinition = {
     showAuthor: true,
     showDate: true,
     cardStyle: 'default',
+    imageAspectRatio: '16/9',
+    cardPadding: '16px',
   },
   defaultStyle: {
     layout: {

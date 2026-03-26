@@ -1,6 +1,7 @@
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { assertTrustedMutationRequest } from '@/lib/security/request';
 import { NextRequest, NextResponse } from 'next/server';
+import { buildDefaultPageMeta, slugifyPageTitle } from '@/lib/pages/page-seo';
 
 const PAGE_EDITOR_ROLES = new Set(['super_admin', 'chief_editor', 'editor']);
 
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { id, title, slug, blocks, meta, tenant_id, is_published } = body;
+    const normalizedSlug = typeof slug === 'string' && slug.trim() ? slug.trim() : slugifyPageTitle(String(title || ''));
 
     // Verify user has access to this tenant
     const { data: access } = await supabase
@@ -75,9 +77,14 @@ export async function POST(request: NextRequest) {
         .from('site_pages')
         .update({
           title,
-          slug,
+          slug: normalizedSlug,
           blocks: blocks || [],
-          meta: meta || {},
+          meta: buildDefaultPageMeta({
+            title,
+            slug: normalizedSlug,
+            blocks: Array.isArray(blocks) ? blocks : [],
+            currentMeta: meta || {},
+          }),
           is_published: Boolean(is_published),
           updated_at: new Date().toISOString(),
         })
@@ -94,9 +101,14 @@ export async function POST(request: NextRequest) {
         .insert([{
           tenant_id,
           title,
-          slug,
+          slug: normalizedSlug,
           blocks: blocks || [],
-          meta: meta || {},
+          meta: buildDefaultPageMeta({
+            title,
+            slug: normalizedSlug,
+            blocks: Array.isArray(blocks) ? blocks : [],
+            currentMeta: meta || {},
+          }),
           is_published: Boolean(is_published),
         }])
         .select()

@@ -8,6 +8,7 @@ const slideshowBlock: BlockDefinition = {
   icon: 'GalleryHorizontal',
   category: 'media',
   defaultProps: {
+    templateId: 'slideshow-editorial-hero',
     slides: [
       {
         id: '1', type: 'image', image: '', title: 'Slide 1', description: 'Descrizione slide', link: '',
@@ -34,6 +35,18 @@ const slideshowBlock: BlockDefinition = {
     showDots: true,
     showArrows: true,
     showProgress: false,
+    contentPosition: 'bottom-left',
+    contentOffsetX: 0,
+    contentOffsetY: 0,
+    buttonsOffsetX: 0,
+    buttonsOffsetY: 0,
+    buttonPaddingX: 16,
+    buttonPaddingY: 12,
+    buttonRadius: 12,
+    buttonBgColor: '',
+    buttonTextColor: '',
+    buttonBorderColor: '',
+    panelStyle: 'none',
     dotsPosition: 'bottom',
     arrowStyle: 'circle',
     height: '500px',

@@ -4,12 +4,7 @@ import {
   Save, Undo2, Redo2, Monitor, Tablet, Smartphone,
   Eye, Download, Sparkles, Grid3X3, SquareDashed,
   PanelLeft, PanelRight, Trash, Copy,
-  // Block tools
-  Type, Image, Columns3, Layers, Minus, Play,
-  Megaphone, Quote, Mail, BarChart3, Code, Table, MapPin,
-  Menu, PanelBottom, FileCode, GalleryHorizontal, LayoutTemplate,
-  FormInput,
-  Maximize2, ScanLine, Search, Magnet
+  Maximize2, ScanLine, Search, Magnet, LayoutTemplate
 } from 'lucide-react';
 import { LayoutPresets } from './LayoutPresets';
 import { AdminMenu } from './AdminMenu';
@@ -17,11 +12,6 @@ import { useUiStore } from '@/lib/stores/ui-store';
 import { usePageStore } from '@/lib/stores/page-store';
 import { Button } from '@/components/ui/button';
 import type { DeviceMode } from '@/lib/config/breakpoints';
-import type { BlockType } from '@/lib/types';
-import { createBlock } from '@/lib/types';
-import { getBlockDefinition } from '@/lib/blocks/registry';
-import { generateId } from '@/lib/utils/id';
-import '@/lib/blocks/init';
 import { useState } from 'react';
 
 interface ToolbarProps {
@@ -38,28 +28,7 @@ interface ToolbarProps {
   saveMessage?: string | null;
 }
 
-// Quick-add block tools
-const QUICK_BLOCKS: { type: BlockType; icon: typeof Type; label: string; shortLabel: string }[] = [
-  { type: 'section', icon: Layers, label: 'Sezione', shortLabel: 'Sez' },
-  { type: 'columns', icon: Columns3, label: 'Colonne', shortLabel: 'Col' },
-  { type: 'hero', icon: Layers, label: 'Hero', shortLabel: 'Hero' },
-  { type: 'text', icon: Type, label: 'Testo', shortLabel: 'Txt' },
-  { type: 'image-gallery', icon: Image, label: 'Galleria', shortLabel: 'Img' },
-  { type: 'video', icon: Play, label: 'Video', shortLabel: 'Vid' },
-  { type: 'divider', icon: Minus, label: 'Divisore', shortLabel: 'Div' },
-  { type: 'navigation', icon: Menu, label: 'Nav', shortLabel: 'Nav' },
-  { type: 'footer', icon: PanelBottom, label: 'Footer', shortLabel: 'Ftr' },
-  { type: 'banner-ad', icon: Megaphone, label: 'Banner ADV', shortLabel: 'ADV' },
-  { type: 'quote', icon: Quote, label: 'Citazione', shortLabel: 'Cit' },
-  { type: 'newsletter', icon: Mail, label: 'Newsletter', shortLabel: 'NL' },
-  { type: 'cms-form', icon: FormInput, label: 'Form CMS', shortLabel: 'Form' },
-  { type: 'counter', icon: BarChart3, label: 'Contatori', shortLabel: 'Cnt' },
-  { type: 'slideshow', icon: GalleryHorizontal, label: 'Slideshow', shortLabel: 'Sld' },
-  { type: 'code', icon: Code, label: 'Codice', shortLabel: 'Cod' },
-  { type: 'table', icon: Table, label: 'Tabella', shortLabel: 'Tab' },
-  { type: 'map', icon: MapPin, label: 'Mappa', shortLabel: 'Map' },
-  { type: 'custom-html', icon: FileCode, label: 'HTML Custom', shortLabel: 'HTM' },
-];
+// Quick-add block tools - REMOVED: moved to block editing toolbar
 
 export function Toolbar({
   projectId,
@@ -83,20 +52,8 @@ export function Toolbar({
   // CSS variable for active button state
   const activeButtonStyle = { background: "var(--c-accent-soft)", color: "var(--c-accent)" };
 
-  const { undo, redo, canUndo, canRedo, addBlock, replacePage, selectedBlockId } = usePageStore();
+  const { undo, redo, canUndo, canRedo, replacePage, selectedBlockId } = usePageStore();
   const [showLayoutPresets, setShowLayoutPresets] = useState(false);
-
-  const addQuickBlock = (type: BlockType) => {
-    const def = getBlockDefinition(type);
-    if (def) {
-      const block = createBlock(def.type, def.label, def.defaultProps, def.defaultStyle);
-      block.id = generateId();
-      if (def.defaultDataSource) {
-        block.dataSource = JSON.parse(JSON.stringify(def.defaultDataSource));
-      }
-      addBlock(block);
-    }
-  };
 
   const devices: { mode: DeviceMode; icon: typeof Monitor; label: string }[] = [
     { mode: 'desktop', icon: Monitor, label: 'Desktop' },
@@ -347,10 +304,10 @@ export function Toolbar({
                 size="xs"
                 title="Snap magnete"
                 onClick={() => {
-                  useUiStore.getState().toggleSnapEnabled?.();
+                  toggleSnapEnabled?.();
                 }}
               >
-                <Magnet size={14} style={{ opacity: useUiStore((s) => s.snapEnabled) ? 1 : 0.5 }} />
+                <Magnet size={14} style={{ opacity: snapEnabled ? 1 : 0.5 }} />
               </Button>
             </div>
           </>
@@ -409,24 +366,6 @@ export function Toolbar({
 
       </div>
 
-      {/* Secondary toolbar - Quick add blocks */}
-      <div className="h-9 border-b flex items-center px-3 gap-0.5 overflow-x-auto" style={{ background: "var(--c-bg-2)", borderColor: "var(--c-border)" }}>
-        <span className="text-[10px] font-semibold uppercase tracking-wider mr-2 shrink-0" style={{ color: "var(--c-text-2)" }}>
-          Aggiungi:
-        </span>
-        {QUICK_BLOCKS.map(({ type, icon: Icon, label, shortLabel }) => (
-          <button
-            key={type}
-            onClick={() => addQuickBlock(type)}
-            title={`Aggiungi ${label}`}
-            style={{ color: "var(--c-text-1)" }}
-            className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium hover:text-accent transition-colors shrink-0 whitespace-nowrap"
-          >
-            <Icon size={12} />
-            <span className="hidden xl:inline">{shortLabel}</span>
-          </button>
-        ))}
-      </div>
       {/* Layout Presets Modal */}
       <LayoutPresets open={showLayoutPresets} onClose={() => setShowLayoutPresets(false)} />
     </div>

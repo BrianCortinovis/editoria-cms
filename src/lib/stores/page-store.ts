@@ -9,6 +9,7 @@ interface PageState {
   blocks: Block[];
   pageMeta: Record<string, unknown>;
   selectedBlockId: string | null;
+  selectedBlockIds: string[];
   hoveredBlockId: string | null;
   editingBlockId: string | null;
 
@@ -29,8 +30,14 @@ interface PageState {
   updateBlockStyle: (id: string, style: Partial<BlockStyle>) => void;
   updateBlockShape: (id: string, shape: BlockShape | null) => void;
   moveBlock: (id: string, newParentId: string | null, newIndex: number) => void;
+  moveBlockRelative: (id: string, offset: number) => void;
+  swapBlockWithSibling: (id: string, offset: number) => void;
   duplicateBlock: (id: string) => void;
   selectBlock: (id: string | null) => void;
+  toggleBlockSelection: (id: string) => void;
+  selectBlocks: (ids: string[], primaryId?: string | null) => void;
+  selectAllBlocks: () => void;
+  clearSelection: () => void;
   hoverBlock: (id: string | null) => void;
   setEditingBlock: (id: string | null) => void;
 
@@ -43,6 +50,7 @@ interface PageState {
   // Helpers
   getBlock: (id: string) => Block | null;
   getSelectedBlock: () => Block | null;
+  getBlockLocation: (id: string) => { parentId: string | null; index: number; siblingsCount: number } | null;
 }
 
 function findBlock(blocks: Block[], id: string): Block | null {
@@ -70,6 +78,24 @@ function updateBlockInTree(blocks: Block[], id: string, updater: (b: Block) => B
   });
 }
 
+function findBlockLocation(
+  blocks: Block[],
+  id: string,
+  parentId: string | null = null
+): { parentId: string | null; index: number; siblingsCount: number } | null {
+  const index = blocks.findIndex((block) => block.id === id);
+  if (index !== -1) {
+    return { parentId, index, siblingsCount: blocks.length };
+  }
+
+  for (const block of blocks) {
+    const found = findBlockLocation(block.children, id, block.id);
+    if (found) return found;
+  }
+
+  return null;
+}
+
 function deepCloneBlock(block: Block): Block {
   return {
     ...block,
@@ -78,11 +104,24 @@ function deepCloneBlock(block: Block): Block {
   };
 }
 
+function flattenBlockIds(blocks: Block[]): string[] {
+  return blocks.flatMap((block) => [block.id, ...flattenBlockIds(block.children)]);
+}
+
 function cloneHistoryEntry(blocks: Block[], pageMeta: Record<string, unknown>) {
   return {
     blocks: JSON.parse(JSON.stringify(blocks)),
     pageMeta: JSON.parse(JSON.stringify(pageMeta ?? {})),
   };
+}
+
+let historyCommitTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearScheduledHistoryCommit() {
+  if (historyCommitTimer) {
+    clearTimeout(historyCommitTimer);
+    historyCommitTimer = null;
+  }
 }
 
 function pushHistory(state: PageState): Partial<PageState> {
@@ -93,6 +132,16 @@ function pushHistory(state: PageState): Partial<PageState> {
     history: newHistory,
     historyIndex: newHistory.length - 1,
   };
+}
+
+function scheduleHistoryCommit(
+  set: (partial: Partial<PageState> | ((state: PageState) => Partial<PageState> | PageState)) => void
+) {
+  clearScheduledHistoryCommit();
+  historyCommitTimer = setTimeout(() => {
+    set((state) => pushHistory(state) as Partial<PageState>);
+    historyCommitTimer = null;
+  }, 220);
 }
 
 // Auto-save key prefix
@@ -150,6 +199,7 @@ export const usePageStore = create<PageState>()((set, get) => ({
   blocks: [],
   pageMeta: {},
   selectedBlockId: null,
+  selectedBlockIds: [],
   hoveredBlockId: null,
   editingBlockId: null,
   history: [cloneHistoryEntry([], {})],
@@ -158,12 +208,14 @@ export const usePageStore = create<PageState>()((set, get) => ({
   setBlocks: (blocks) =>
     set((state) => ({
       blocks,
+      selectedBlockIds: [],
       ...pushHistory({ ...state, blocks }),
     })),
 
   setPageMeta: (pageMeta) =>
     set((state) => ({
       pageMeta,
+      selectedBlockIds: state.selectedBlockIds,
       ...pushHistory({ ...state, pageMeta }),
     })),
 
@@ -172,30 +224,39 @@ export const usePageStore = create<PageState>()((set, get) => ({
       const nextMeta = updater(state.pageMeta);
       return {
         pageMeta: nextMeta,
+        selectedBlockIds: state.selectedBlockIds,
         ...pushHistory({ ...state, pageMeta: nextMeta }),
       };
     }),
 
   loadPage: (blocks, pageMeta = {}) =>
-    set(() => ({
+    set(() => {
+      clearScheduledHistoryCommit();
+      return ({
       blocks,
       pageMeta,
       selectedBlockId: null,
+      selectedBlockIds: [],
       hoveredBlockId: null,
       editingBlockId: null,
       history: [cloneHistoryEntry(blocks, pageMeta)],
       historyIndex: 0,
-    })),
+      });
+    }),
 
   replacePage: (blocks, pageMeta = {}) =>
-    set((state) => ({
+    set((state) => {
+      clearScheduledHistoryCommit();
+      return ({
       blocks,
       pageMeta,
       selectedBlockId: null,
+      selectedBlockIds: [],
       hoveredBlockId: null,
       editingBlockId: null,
       ...pushHistory({ ...state, blocks, pageMeta }),
-    })),
+      });
+    }),
 
   addBlock: (block, parentId = null, index) =>
     set((state) => {
@@ -225,6 +286,7 @@ export const usePageStore = create<PageState>()((set, get) => ({
       return {
         blocks: newBlocks,
         selectedBlockId: newBlock.id,
+        selectedBlockIds: [newBlock.id],
         ...pushHistory({ ...state, blocks: newBlocks }),
       };
     }),
@@ -235,6 +297,7 @@ export const usePageStore = create<PageState>()((set, get) => ({
       return {
         blocks: newBlocks,
         selectedBlockId: state.selectedBlockId === id ? null : state.selectedBlockId,
+        selectedBlockIds: state.selectedBlockIds.filter((selectedId) => selectedId !== id),
         editingBlockId: state.editingBlockId === id ? null : state.editingBlockId,
         ...pushHistory({ ...state, blocks: newBlocks }),
       };
@@ -243,10 +306,11 @@ export const usePageStore = create<PageState>()((set, get) => ({
   updateBlock: (id, updates) =>
     set((state) => {
       const newBlocks = updateBlockInTree(state.blocks, id, (b) => ({ ...b, ...updates }));
-      return {
+      const nextState = {
         blocks: newBlocks,
-        ...pushHistory({ ...state, blocks: newBlocks }),
       };
+      queueMicrotask(() => scheduleHistoryCommit(set));
+      return nextState;
     }),
 
   updateBlockProps: (id, props) =>
@@ -255,10 +319,11 @@ export const usePageStore = create<PageState>()((set, get) => ({
         ...b,
         props: { ...b.props, ...props },
       }));
-      return {
+      const nextState = {
         blocks: newBlocks,
-        ...pushHistory({ ...state, blocks: newBlocks }),
       };
+      queueMicrotask(() => scheduleHistoryCommit(set));
+      return nextState;
     }),
 
   updateBlockStyle: (id, style) =>
@@ -282,19 +347,21 @@ export const usePageStore = create<PageState>()((set, get) => ({
           effects: style.effects ?? b.style.effects,
         },
       }));
-      return {
+      const nextState = {
         blocks: newBlocks,
-        ...pushHistory({ ...state, blocks: newBlocks }),
       };
+      queueMicrotask(() => scheduleHistoryCommit(set));
+      return nextState;
     }),
 
   updateBlockShape: (id, shape) =>
     set((state) => {
       const newBlocks = updateBlockInTree(state.blocks, id, (b) => ({ ...b, shape }));
-      return {
+      const nextState = {
         blocks: newBlocks,
-        ...pushHistory({ ...state, blocks: newBlocks }),
       };
+      queueMicrotask(() => scheduleHistoryCommit(set));
+      return nextState;
     }),
 
   moveBlock: (id, newParentId, newIndex) =>
@@ -314,6 +381,65 @@ export const usePageStore = create<PageState>()((set, get) => ({
       } else {
         newBlocks.splice(newIndex, 0, block);
       }
+
+      return {
+        blocks: newBlocks,
+        ...pushHistory({ ...state, blocks: newBlocks }),
+      };
+    }),
+
+  moveBlockRelative: (id, offset) =>
+    set((state) => {
+      const location = findBlockLocation(state.blocks, id);
+      if (!location) return state;
+
+      const targetIndex = Math.max(0, Math.min(location.siblingsCount - 1, location.index + offset));
+      if (targetIndex === location.index) return state;
+
+      const block = findBlock(state.blocks, id);
+      if (!block) return state;
+
+      let newBlocks = removeBlockFromTree(state.blocks, id);
+
+      if (location.parentId) {
+        newBlocks = produce(newBlocks, (draft) => {
+          const parent = findBlock(draft, location.parentId!);
+          if (parent) {
+            parent.children.splice(targetIndex, 0, block);
+          }
+        });
+      } else {
+        newBlocks.splice(targetIndex, 0, block);
+      }
+
+      return {
+        blocks: newBlocks,
+        ...pushHistory({ ...state, blocks: newBlocks }),
+      };
+    }),
+
+  swapBlockWithSibling: (id, offset) =>
+    set((state) => {
+      const location = findBlockLocation(state.blocks, id);
+      if (!location) return state;
+
+      const targetIndex = location.index + offset;
+      if (targetIndex < 0 || targetIndex >= location.siblingsCount) return state;
+
+      const swapInList = (list: Block[]) => {
+        const next = [...list];
+        [next[location.index], next[targetIndex]] = [next[targetIndex], next[location.index]];
+        return next;
+      };
+
+      const newBlocks = location.parentId
+        ? produce(state.blocks, (draft) => {
+            const parent = findBlock(draft, location.parentId!);
+            if (parent) {
+              parent.children = swapInList(parent.children);
+            }
+          })
+        : swapInList(state.blocks);
 
       return {
         blocks: newBlocks,
@@ -346,11 +472,45 @@ export const usePageStore = create<PageState>()((set, get) => ({
       return {
         blocks: newBlocks,
         selectedBlockId: clone.id,
+        selectedBlockIds: [clone.id],
         ...pushHistory({ ...state, blocks: newBlocks }),
       };
     }),
 
-  selectBlock: (id) => set({ selectedBlockId: id }),
+  selectBlock: (id) => set({ selectedBlockId: id, selectedBlockIds: id ? [id] : [] }),
+  toggleBlockSelection: (id) =>
+    set((state) => {
+      const isSelected = state.selectedBlockIds.includes(id);
+      if (isSelected) {
+        const remaining = state.selectedBlockIds.filter((selectedId) => selectedId !== id);
+        return {
+          selectedBlockIds: remaining,
+          selectedBlockId: state.selectedBlockId === id ? (remaining[remaining.length - 1] ?? null) : state.selectedBlockId,
+        };
+      }
+
+      return {
+        selectedBlockIds: [...state.selectedBlockIds, id],
+        selectedBlockId: id,
+      };
+    }),
+  selectBlocks: (ids, primaryId = null) =>
+    set(() => {
+      const uniqueIds = [...new Set(ids.filter(Boolean))];
+      return {
+        selectedBlockIds: uniqueIds,
+        selectedBlockId: primaryId && uniqueIds.includes(primaryId) ? primaryId : (uniqueIds[uniqueIds.length - 1] ?? null),
+      };
+    }),
+  selectAllBlocks: () =>
+    set((state) => {
+      const ids = flattenBlockIds(state.blocks);
+      return {
+        selectedBlockIds: ids,
+        selectedBlockId: ids[0] ?? null,
+      };
+    }),
+  clearSelection: () => set({ selectedBlockId: null, selectedBlockIds: [] }),
   hoverBlock: (id) => set({ hoveredBlockId: id }),
   setEditingBlock: (id) => set({ editingBlockId: id }),
 
@@ -387,15 +547,20 @@ export const usePageStore = create<PageState>()((set, get) => ({
     if (!selectedBlockId) return null;
     return findBlock(blocks, selectedBlockId);
   },
+  getBlockLocation: (id) => findBlockLocation(get().blocks, id),
 }));
 
 // Auto-save on every blocks change (debounced)
 let _autosaveTimer: ReturnType<typeof setTimeout> | null = null;
 usePageStore.subscribe((state, prevState) => {
-  if (state.blocks !== prevState.blocks && state.blocks.length > 0) {
+  if (state.blocks !== prevState.blocks) {
     if (_autosaveTimer) clearTimeout(_autosaveTimer);
     _autosaveTimer = setTimeout(() => {
-      autosaveBlocks(state.blocks, _autosaveProjectId, _autosavePageId);
+      if (state.blocks.length > 0) {
+        autosaveBlocks(state.blocks, _autosaveProjectId, _autosavePageId);
+      } else {
+        clearAutosave(_autosaveProjectId, _autosavePageId);
+      }
     }, 500);
   }
 });

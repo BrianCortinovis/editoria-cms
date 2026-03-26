@@ -1,0 +1,589 @@
+{
+  "id": "1df97de1-9d58-41a2-b47d-2c00a6cf04d7",
+  "slug": "homepage",
+  "blocks": [
+    {
+      "id": "xTqsOLGjWZYV",
+      "type": "navigation",
+      "label": "Menu di navigazione",
+      "props": {
+        "mode": "global",
+        "items": [
+          {
+            "id": "1",
+            "url": "/",
+            "label": "Home",
+            "children": []
+          },
+          {
+            "id": "2",
+            "url": "/chi-siamo",
+            "label": "Chi Siamo",
+            "children": []
+          },
+          {
+            "id": "3",
+            "url": "/servizi",
+            "label": "Servizi",
+            "children": [
+              {
+                "id": "3a",
+                "url": "/servizi/web-design",
+                "label": "Web Design"
+              },
+              {
+                "id": "3b",
+                "url": "/servizi/seo",
+                "label": "SEO"
+              }
+            ]
+          },
+          {
+            "id": "4",
+            "url": "/contatti",
+            "label": "Contatti",
+            "children": []
+          }
+        ],
+        "ctaUrl": "",
+        "layout": "horizontal",
+        "sticky": true,
+        "ctaText": "",
+        "itemGap": 24,
+        "justify": "space-between",
+        "logoUrl": "",
+        "menuKey": "primary",
+        "variant": "inline",
+        "logoText": "SiteName",
+        "transparent": false,
+        "showDescriptions": false,
+        "hamburgerBreakpoint": 768
+      },
+      "shape": null,
+      "style": {
+        "border": {},
+        "layout": {
+          "width": "100%",
+          "margin": {
+            "top": "0",
+            "left": "0",
+            "right": "0",
+            "bottom": "0"
+          },
+          "zIndex": 1000,
+          "display": "flex",
+          "padding": {
+            "top": "16px",
+            "left": "32px",
+            "right": "32px",
+            "bottom": "16px"
+          },
+          "maxWidth": "100%",
+          "position": "sticky",
+          "alignItems": "center",
+          "justifyContent": "space-between"
+        },
+        "shadow": "0 2px 8px rgba(0,0,0,0.1)",
+        "background": {
+          "type": "color",
+          "value": "#ffffff"
+        },
+        "typography": {}
+      },
+      "hidden": false,
+      "locked": false,
+      "children": [],
+      "animation": null,
+      "dataSource": {
+        "params": {
+          "menu": "primary"
+        },
+        "endpoint": "site-navigation"
+      },
+      "responsive": {}
+    },
+    {
+      "id": "UIks1E8hHaqq",
+      "type": "hero",
+      "label": "Hero principale",
+      "props": {
+        "title": "Titolo Principale",
+        "ctaUrl": "#",
+        "ctaText": "Scopri di più",
+        "ctaStyle": "primary",
+        "subtitle": "Sottotitolo di supporto",
+        "titleTag": "h1",
+        "videoUrl": "",
+        "alignment": "center",
+        "videoLoop": true,
+        "videoMuted": true,
+        "overlayColor": "#000000",
+        "videoAutoplay": true,
+        "overlayOpacity": 0.5
+      },
+      "shape": null,
+      "style": {
+        "border": {},
+        "layout": {
+          "width": "100%",
+          "margin": {
+            "top": "0",
+            "left": "0",
+            "right": "0",
+            "bottom": "0"
+          },
+          "display": "flex",
+          "padding": {
+            "top": "120px",
+            "left": "48px",
+            "right": "48px",
+            "bottom": "120px"
+          },
+          "maxWidth": "100%",
+          "minHeight": "600px",
+          "alignItems": "center",
+          "flexDirection": "column",
+          "justifyContent": "center"
+        },
+        "background": {
+          "type": "color",
+          "value": "#1a1a2e"
+        },
+        "typography": {
+          "color": "#ffffff",
+          "textAlign": "center"
+        }
+      },
+      "hidden": false,
+      "locked": false,
+      "children": [],
+      "animation": null,
+      "responsive": {}
+    },
+    {
+      "id": "lsa4d5hkcFcy",
+      "type": "columns",
+      "label": "Fascia principale",
+      "props": {
+        "gap": "24px",
+        "columnCount": 3,
+        "columnWidths": [
+          "24%",
+          "52%",
+          "24%"
+        ],
+        "stackOnMobile": true
+      },
+      "shape": null,
+      "style": {
+        "border": {},
+        "layout": {
+          "gap": "24px",
+          "width": "100%",
+          "margin": {
+            "top": "0",
+            "left": "0",
+            "right": "0",
+            "bottom": "0"
+          },
+          "display": "flex",
+          "padding": {
+            "top": "0",
+            "left": "0",
+            "right": "0",
+            "bottom": "0"
+          },
+          "maxWidth": "1200px",
+          "alignItems": "stretch",
+          "flexDirection": "row"
+        },
+        "background": {
+          "type": "none",
+          "value": ""
+        },
+        "typography": {}
+      },
+      "hidden": false,
+      "locked": false,
+      "children": [
+        {
+          "id": "ue6UwuMcpnQC",
+          "type": "article-grid",
+          "label": "Colonna sinistra",
+          "props": {
+            "limit": 4,
+            "columns": 1,
+            "showDate": true,
+            "cardStyle": "default",
+            "showImage": true,
+            "showAuthor": true,
+            "showExcerpt": true,
+            "categorySlug": "",
+            "showCategory": true
+          },
+          "shape": null,
+          "style": {
+            "border": {},
+            "layout": {
+              "gap": "24px",
+              "width": "100%",
+              "margin": {
+                "top": "0",
+                "left": "0",
+                "right": "0",
+                "bottom": "0"
+              },
+              "display": "grid",
+              "padding": {
+                "top": "24px",
+                "left": "0",
+                "right": "0",
+                "bottom": "24px"
+              },
+              "maxWidth": "1200px"
+            },
+            "background": {
+              "type": "none",
+              "value": ""
+            },
+            "typography": {}
+          },
+          "hidden": false,
+          "locked": false,
+          "children": [],
+          "animation": null,
+          "dataSource": {
+            "params": {
+              "limit": "9",
+              "status": "published"
+            },
+            "endpoint": "articles"
+          },
+          "responsive": {}
+        },
+        {
+          "id": "FHeXkz0t9dxA",
+          "type": "slideshow",
+          "label": "Slideshow articoli",
+          "props": {
+            "loop": true,
+            "height": "500px",
+            "slides": [
+              {
+                "id": "1",
+                "link": "",
+                "type": "image",
+                "image": "",
+                "title": "Slide 1",
+                "buttons": [
+                  {
+                    "id": "btn1",
+                    "url": "#",
+                    "text": "Scopri di più",
+                    "style": "primary"
+                  }
+                ],
+                "overlay": {
+                  "color": "rgba(0,0,0,0.4)",
+                  "enabled": true,
+                  "position": "bottom-left"
+                },
+                "textStyle": {
+                  "color": "#ffffff",
+                  "descSize": "16px",
+                  "titleSize": "36px",
+                  "titleWeight": "700"
+                },
+                "description": "Descrizione slide"
+              },
+              {
+                "id": "2",
+                "link": "",
+                "type": "image",
+                "image": "",
+                "title": "Slide 2",
+                "buttons": [],
+                "overlay": {
+                  "color": "rgba(0,0,0,0.3)",
+                  "enabled": true,
+                  "position": "center"
+                },
+                "textStyle": {
+                  "color": "#ffffff",
+                  "descSize": "16px",
+                  "titleSize": "36px",
+                  "titleWeight": "700"
+                },
+                "description": "Seconda slide"
+              }
+            ],
+            "autoplay": true,
+            "interval": 5000,
+            "kenBurns": false,
+            "showDots": true,
+            "direction": "horizontal",
+            "objectFit": "cover",
+            "arrowStyle": "circle",
+            "showArrows": true,
+            "transition": "fade",
+            "dotsPosition": "bottom",
+            "pauseOnHover": true,
+            "showProgress": false,
+            "spaceBetween": 0,
+            "slidesPerView": 1,
+            "parallaxEffect": false,
+            "showThumbnails": false,
+            "transitionSpeed": 600,
+            "thumbnailPosition": "bottom"
+          },
+          "shape": null,
+          "style": {
+            "border": {},
+            "layout": {
+              "width": "100%",
+              "margin": {
+                "top": "0",
+                "left": "0",
+                "right": "0",
+                "bottom": "0"
+              },
+              "display": "block",
+              "padding": {
+                "top": "0",
+                "left": "0",
+                "right": "0",
+                "bottom": "0"
+              },
+              "maxWidth": "100%",
+              "overflow": "hidden"
+            },
+            "background": {
+              "type": "none",
+              "value": ""
+            },
+            "typography": {}
+          },
+          "hidden": false,
+          "locked": false,
+          "children": [],
+          "animation": null,
+          "responsive": {}
+        },
+        {
+          "id": "0hazXq9M20If",
+          "type": "article-grid",
+          "label": "Colonna destra",
+          "props": {
+            "limit": 4,
+            "columns": 1,
+            "showDate": true,
+            "cardStyle": "default",
+            "showImage": true,
+            "showAuthor": true,
+            "showExcerpt": true,
+            "categorySlug": "",
+            "showCategory": true
+          },
+          "shape": null,
+          "style": {
+            "border": {},
+            "layout": {
+              "gap": "24px",
+              "width": "100%",
+              "margin": {
+                "top": "0",
+                "left": "0",
+                "right": "0",
+                "bottom": "0"
+              },
+              "display": "grid",
+              "padding": {
+                "top": "24px",
+                "left": "0",
+                "right": "0",
+                "bottom": "24px"
+              },
+              "maxWidth": "1200px"
+            },
+            "background": {
+              "type": "none",
+              "value": ""
+            },
+            "typography": {}
+          },
+          "hidden": false,
+          "locked": false,
+          "children": [],
+          "animation": null,
+          "dataSource": {
+            "params": {
+              "limit": "9",
+              "status": "published"
+            },
+            "endpoint": "articles"
+          },
+          "responsive": {}
+        }
+      ],
+      "animation": null,
+      "responsive": {}
+    },
+    {
+      "id": "YP5c53WbId0_",
+      "type": "video",
+      "label": "TG Video",
+      "props": {
+        "pip": false,
+        "url": "",
+        "loop": false,
+        "muted": false,
+        "poster": "",
+        "source": "youtube",
+        "caption": "",
+        "overlay": {
+          "color": "rgba(0,0,0,0.4)",
+          "title": "Video",
+          "enabled": true,
+          "position": "center",
+          "description": "",
+          "playButtonSize": "large",
+          "playButtonStyle": "circle"
+        },
+        "videoId": "",
+        "autoplay": false,
+        "chapters": [],
+        "controls": true,
+        "objectFit": "cover",
+        "thumbnail": {
+          "show": true,
+          "text": "Guarda il video",
+          "style": "overlay"
+        },
+        "aspectRatio": "16/9"
+      },
+      "shape": null,
+      "style": {
+        "border": {
+          "radius": "8px"
+        },
+        "layout": {
+          "width": "100%",
+          "margin": {
+            "top": "24px",
+            "left": "auto",
+            "right": "auto",
+            "bottom": "24px"
+          },
+          "display": "block",
+          "padding": {
+            "top": "0",
+            "left": "0",
+            "right": "0",
+            "bottom": "0"
+          },
+          "maxWidth": "960px",
+          "overflow": "hidden"
+        },
+        "background": {
+          "type": "none",
+          "value": ""
+        },
+        "typography": {}
+      },
+      "hidden": false,
+      "locked": false,
+      "children": [],
+      "animation": null,
+      "responsive": {}
+    },
+    {
+      "id": "drTKL3AeAv4W",
+      "type": "footer",
+      "label": "Footer",
+      "props": {
+        "mode": "global",
+        "links": [],
+        "columns": [
+          {
+            "text": "",
+            "links": [],
+            "title": "Chi Siamo"
+          },
+          {
+            "links": [],
+            "title": "Link Utili"
+          },
+          {
+            "text": "",
+            "links": [],
+            "title": "Contatti"
+          }
+        ],
+        "logoUrl": "",
+        "variant": "columns",
+        "copyright": "",
+        "newsletter": {
+          "title": "Resta aggiornato",
+          "enabled": false,
+          "formSlug": "",
+          "buttonText": "Iscriviti",
+          "description": ""
+        },
+        "description": "",
+        "socialLinks": [
+          {
+            "url": "#",
+            "platform": "facebook"
+          },
+          {
+            "url": "#",
+            "platform": "instagram"
+          },
+          {
+            "url": "#",
+            "platform": "twitter"
+          }
+        ]
+      },
+      "shape": null,
+      "style": {
+        "border": {},
+        "layout": {
+          "width": "100%",
+          "margin": {
+            "top": "0",
+            "left": "0",
+            "right": "0",
+            "bottom": "0"
+          },
+          "display": "block",
+          "padding": {
+            "top": "48px",
+            "left": "32px",
+            "right": "32px",
+            "bottom": "24px"
+          },
+          "maxWidth": "100%"
+        },
+        "background": {
+          "type": "color",
+          "value": "#1a1a2e"
+        },
+        "typography": {
+          "color": "#cccccc",
+          "fontSize": "14px"
+        }
+      },
+      "hidden": false,
+      "locked": false,
+      "children": [],
+      "animation": null,
+      "dataSource": {
+        "params": {},
+        "endpoint": "site-footer"
+      },
+      "responsive": {}
+    }
+  ],
+  "meta": {}
+}

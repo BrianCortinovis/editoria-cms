@@ -215,6 +215,8 @@ export function AnimationEditor({ block }: AnimationEditorProps) {
             onClose={() => setAiModalOpen(false)}
             defaultPrompt="Suggest a beautiful animation for this block type: {context}. Return a pure JSON object matching BlockAnimation type with trigger, effect, duration (100-3000), delay, easing."
             contextData={contextData}
+            blockId={block.id}
+            fieldName="animation"
             title="Suggerisci Animazione"
             onApply={(result) => {
               try {

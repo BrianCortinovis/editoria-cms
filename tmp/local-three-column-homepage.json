@@ -1,0 +1,306 @@
+[
+  {
+    "id": "navigation-ms85w4oo",
+    "type": "navigation",
+    "label": "Topbar Testata",
+    "props": {
+      "mode": "custom",
+      "logoText": "Val Brembana Web",
+      "logoUrl": "/logo-test.svg",
+      "items": [
+        {
+          "id": "m1",
+          "label": "Home",
+          "url": "/",
+          "children": []
+        },
+        {
+          "id": "m2",
+          "label": "Cronaca",
+          "url": "/cronaca",
+          "children": []
+        },
+        {
+          "id": "m3",
+          "label": "Politica",
+          "url": "/politica",
+          "children": []
+        },
+        {
+          "id": "m4",
+          "label": "Sport",
+          "url": "/sport",
+          "children": []
+        },
+        {
+          "id": "m5",
+          "label": "Cultura",
+          "url": "/cultura",
+          "children": []
+        }
+      ],
+      "layout": "horizontal",
+      "variant": "underline",
+      "sticky": false,
+      "justify": "space-between",
+      "itemGap": 24
+    },
+    "style": {
+      "layout": {
+        "display": "block",
+        "padding": {
+          "top": "18px",
+          "right": "24px",
+          "bottom": "18px",
+          "left": "24px"
+        },
+        "margin": {
+          "top": "0",
+          "right": "auto",
+          "bottom": "0",
+          "left": "auto"
+        },
+        "width": "100%",
+        "maxWidth": "1280px"
+      },
+      "background": {
+        "type": "color",
+        "value": "#ffffff"
+      },
+      "typography": {
+        "color": "#0f172a"
+      },
+      "border": {
+        "style": "solid",
+        "color": "#d4d4d8",
+        "width": "1px"
+      }
+    },
+    "shape": null,
+    "responsive": {},
+    "animation": null,
+    "children": [],
+    "locked": false,
+    "hidden": false,
+    "dataSource": {
+      "endpoint": "site-navigation",
+      "params": {
+        "menu": "primary"
+      }
+    }
+  },
+  {
+    "id": "columns-gqa33drq",
+    "type": "columns",
+    "label": "Fascia notizie 3 colonne",
+    "props": {
+      "columnCount": 3,
+      "columnWidths": [
+        "24%",
+        "52%",
+        "24%"
+      ],
+      "gap": "24px",
+      "stackOnMobile": true
+    },
+    "style": {
+      "layout": {
+        "display": "flex",
+        "padding": {
+          "top": "0",
+          "right": "24px",
+          "bottom": "0",
+          "left": "24px"
+        },
+        "margin": {
+          "top": "24px",
+          "right": "auto",
+          "bottom": "24px",
+          "left": "auto"
+        },
+        "width": "100%",
+        "maxWidth": "1280px",
+        "flexDirection": "row",
+        "gap": "24px",
+        "alignItems": "stretch"
+      },
+      "background": {
+        "type": "none",
+        "value": ""
+      },
+      "typography": {},
+      "border": {}
+    },
+    "shape": null,
+    "responsive": {},
+    "animation": null,
+    "children": [
+      {
+        "id": "article-grid-yblciz40",
+        "type": "article-grid",
+        "label": "Colonna sinistra notizie",
+        "props": {
+          "columns": 1,
+          "limit": 4,
+          "showImage": false,
+          "showExcerpt": true,
+          "showCategory": true,
+          "showAuthor": false,
+          "showDate": true,
+          "cardStyle": "compact"
+        },
+        "style": {
+          "layout": {
+            "display": "block",
+            "padding": {
+              "top": "0",
+              "right": "0",
+              "bottom": "0",
+              "left": "0"
+            },
+            "margin": {
+              "top": "0",
+              "right": "0",
+              "bottom": "0",
+              "left": "0"
+            },
+            "width": "100%",
+            "maxWidth": "100%"
+          },
+          "background": {
+            "type": "none",
+            "value": ""
+          },
+          "typography": {},
+          "border": {}
+        },
+        "shape": null,
+        "responsive": {},
+        "animation": null,
+        "children": [],
+        "locked": false,
+        "hidden": false,
+        "dataSource": {
+          "endpoint": "articles",
+          "params": {
+            "limit": "4",
+            "status": "published"
+          }
+        }
+      },
+      {
+        "id": "article-hero-k89eqawd",
+        "type": "article-hero",
+        "label": "Notizia centrale larga",
+        "props": {
+          "articleSlug": "",
+          "useFeatured": true,
+          "overlayColor": "rgba(0,0,0,0.42)",
+          "showCategory": true,
+          "showAuthor": true,
+          "showDate": true,
+          "showExcerpt": true,
+          "height": "620px"
+        },
+        "style": {
+          "layout": {
+            "display": "flex",
+            "padding": {
+              "top": "32px",
+              "right": "32px",
+              "bottom": "32px",
+              "left": "32px"
+            },
+            "margin": {
+              "top": "0",
+              "right": "0",
+              "bottom": "0",
+              "left": "0"
+            },
+            "width": "100%",
+            "maxWidth": "100%",
+            "flexDirection": "column",
+            "justifyContent": "flex-end",
+            "minHeight": "620px"
+          },
+          "background": {
+            "type": "image",
+            "value": ""
+          },
+          "typography": {
+            "color": "#ffffff"
+          },
+          "border": {}
+        },
+        "shape": null,
+        "responsive": {},
+        "animation": null,
+        "children": [],
+        "locked": false,
+        "hidden": false,
+        "dataSource": {
+          "endpoint": "articles",
+          "params": {
+            "featured": "true",
+            "limit": "1"
+          }
+        }
+      },
+      {
+        "id": "article-grid-b01e55if",
+        "type": "article-grid",
+        "label": "Colonna destra notizie",
+        "props": {
+          "columns": 1,
+          "limit": 4,
+          "showImage": false,
+          "showExcerpt": true,
+          "showCategory": true,
+          "showAuthor": false,
+          "showDate": true,
+          "cardStyle": "compact"
+        },
+        "style": {
+          "layout": {
+            "display": "block",
+            "padding": {
+              "top": "0",
+              "right": "0",
+              "bottom": "0",
+              "left": "0"
+            },
+            "margin": {
+              "top": "0",
+              "right": "0",
+              "bottom": "0",
+              "left": "0"
+            },
+            "width": "100%",
+            "maxWidth": "100%"
+          },
+          "background": {
+            "type": "none",
+            "value": ""
+          },
+          "typography": {},
+          "border": {}
+        },
+        "shape": null,
+        "responsive": {},
+        "animation": null,
+        "children": [],
+        "locked": false,
+        "hidden": false,
+        "dataSource": {
+          "endpoint": "articles",
+          "params": {
+            "limit": "4",
+            "status": "published"
+          }
+        }
+      }
+    ],
+    "locked": false,
+    "hidden": false
+  }
+]

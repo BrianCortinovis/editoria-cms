@@ -25,6 +25,7 @@ export default function ModuliPage() {
   const { currentTenant, currentRole } = useAuthStore();
   const [activeModules, setActiveModules] = useState<string[]>([]);
   const [moduleConfig, setModuleConfig] = useState<Record<string, Record<string, string>>>({});
+  const [loadedSettings, setLoadedSettings] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
 
@@ -32,9 +33,28 @@ export default function ModuliPage() {
 
   useEffect(() => {
     if (!currentTenant) return;
-    const settings = (currentTenant.settings ?? {}) as Record<string, unknown>;
-    setActiveModules((settings.active_modules as string[]) ?? []);
-    setModuleConfig((settings.module_config as Record<string, Record<string, string>>) ?? {});
+    const tenantId = currentTenant.id;
+    const supabase = createClient();
+
+    async function loadModuleSettings() {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("settings")
+        .eq("id", tenantId)
+        .single();
+
+      if (error) {
+        toast.error("Errore caricamento moduli");
+        return;
+      }
+
+      const settings = (data?.settings ?? {}) as Record<string, unknown>;
+      setLoadedSettings(settings);
+      setActiveModules((settings.active_modules as string[]) ?? []);
+      setModuleConfig((settings.module_config as Record<string, Record<string, string>>) ?? {});
+    }
+
+    void loadModuleSettings();
   }, [currentTenant]);
 
   const toggleModule = (moduleId: ModuleId) => {
@@ -56,7 +76,7 @@ export default function ModuliPage() {
     if (!currentTenant) return;
     setSaving(true);
     const supabase = createClient();
-    const existingSettings = (currentTenant.settings ?? {}) as Record<string, unknown>;
+    const existingSettings = loadedSettings;
 
     const { error } = await supabase.from("tenants").update({
       settings: {
@@ -67,7 +87,14 @@ export default function ModuliPage() {
     }).eq("id", currentTenant.id);
 
     if (error) toast.error(error.message);
-    else toast.success("Moduli salvati");
+    else {
+      setLoadedSettings((prev) => ({
+        ...prev,
+        active_modules: activeModules,
+        module_config: moduleConfig,
+      }));
+      toast.success("Moduli salvati");
+    }
     setSaving(false);
   };
 

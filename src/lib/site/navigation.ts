@@ -3,10 +3,36 @@ export interface SiteMenuItem {
   label: string;
   url: string;
   description?: string;
+  icon?: string;
+  badge?: string;
   target?: '_self' | '_blank';
   sourceType?: 'custom' | 'page' | 'category' | 'tag' | 'article';
   sourceId?: string;
   children?: SiteMenuItem[];
+}
+
+const MENU_ICON_GLYPHS: Record<string, string> = {
+  home: '⌂',
+  newspaper: '▦',
+  activity: '◈',
+  play: '▶',
+  layers: '☰',
+  map: '⌖',
+  calendar: '◷',
+  mail: '✉',
+  phone: '✆',
+  search: '⌕',
+  tag: '#',
+  folder: '▤',
+  file: '▣',
+  star: '★',
+  user: '◉',
+};
+
+export function resolveMenuIconGlyph(icon?: string): string {
+  const normalized = String(icon || '').trim().toLowerCase();
+  if (!normalized) return '';
+  return MENU_ICON_GLYPHS[normalized] || normalized.slice(0, 2).toUpperCase();
 }
 
 export interface SiteNavigationConfig {
@@ -42,6 +68,8 @@ function normalizeMenuItems(input: unknown): SiteMenuItem[] {
         label: label || url || 'Voce menu',
         url: url || '#',
         description: record.description ? String(record.description) : undefined,
+        icon: record.icon ? String(record.icon) : undefined,
+        badge: record.badge ? String(record.badge) : undefined,
         target: record.target === '_blank' ? '_blank' : '_self',
         sourceType: ['custom', 'page', 'category', 'tag', 'article'].includes(String(record.sourceType || ''))
           ? (record.sourceType as SiteMenuItem['sourceType'])

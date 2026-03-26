@@ -103,10 +103,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
   }
 
+  const supabase = await createServiceRoleClient();
+  const tenantId = await resolveTenantId(supabase, {
+    tenantId: request.nextUrl.searchParams.get('tenant_id') || undefined,
+    tenantSlug: request.nextUrl.searchParams.get('tenant') || undefined,
+    userId: actorId,
+  });
+
+  if (!tenantId) {
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: corsHeaders });
+  }
+
+  const { data: membership } = await supabase
+    .from('user_tenants')
+    .select('role')
+    .eq('tenant_id', tenantId)
+    .eq('user_id', actorId)
+    .maybeSingle();
+
+  if (!membership || !EDITOR_ROLES.has(membership.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: corsHeaders });
+  }
+
   return NextResponse.json(getCommandDiscovery(), {
     headers: {
       ...corsHeaders,
-      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+      'Cache-Control': 'private, no-cache, no-store, must-revalidate',
     },
   });
 }

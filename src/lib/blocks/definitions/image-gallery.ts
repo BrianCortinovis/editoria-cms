@@ -8,6 +8,7 @@ const imageGalleryBlock: BlockDefinition = {
   icon: 'GalleryVerticalEnd',
   category: 'media',
   defaultProps: {
+    templateId: 'gallery-editorial-grid',
     items: [
       {
         id: '1', type: 'image', src: '', alt: 'Immagine 1', caption: 'Didascalia foto',
@@ -39,6 +40,12 @@ const imageGalleryBlock: BlockDefinition = {
     objectFit: 'cover',
     borderRadius: '8px',
     hoverEffect: 'zoom',
+    buttonPaddingX: 14,
+    buttonPaddingY: 10,
+    buttonRadius: 12,
+    buttonBgColor: '',
+    buttonTextColor: '',
+    buttonBorderColor: '',
     lightbox: true,
     showCaptions: true,
     captionPosition: 'below',

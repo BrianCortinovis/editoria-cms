@@ -36,6 +36,19 @@ export function RenderSlideshow({ block, style }: Props) {
   const showArrows = block.props.showArrows !== false;
   const height = String(block.props.height || '500px');
   const objectFit = String(block.props.objectFit || 'cover') as React.CSSProperties['objectFit'];
+  const contentPosition = String(block.props.contentPosition || 'bottom-left');
+  const contentOffsetX = Number(block.props.contentOffsetX || 0);
+  const contentOffsetY = Number(block.props.contentOffsetY || 0);
+  const buttonsOffsetX = Number(block.props.buttonsOffsetX || 0);
+  const buttonsOffsetY = Number(block.props.buttonsOffsetY || 0);
+  const arrowStyle = String(block.props.arrowStyle || 'circle');
+  const panelStyle = String(block.props.panelStyle || 'none');
+  const buttonPaddingX = Number(block.props.buttonPaddingX || 16);
+  const buttonPaddingY = Number(block.props.buttonPaddingY || 12);
+  const buttonRadius = Number(block.props.buttonRadius || 12);
+  const buttonBgColor = String(block.props.buttonBgColor || '').trim();
+  const buttonTextColor = String(block.props.buttonTextColor || '').trim();
+  const buttonBorderColor = String(block.props.buttonBorderColor || '').trim();
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -53,6 +66,41 @@ export function RenderSlideshow({ block, style }: Props) {
   }
 
   const current = slides[index];
+  const contentPositionStyle: React.CSSProperties =
+    contentPosition === 'center'
+      ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', maxWidth: '680px' }
+      : contentPosition === 'center-left'
+        ? { left: '2rem', top: '50%', transform: 'translateY(-50%)', maxWidth: '620px' }
+        : { left: '2rem', right: '2rem', bottom: '2rem' };
+  const contentBaseTransform = typeof contentPositionStyle.transform === 'string' ? contentPositionStyle.transform : '';
+  const panelStyles: Record<string, React.CSSProperties> = {
+    none: {},
+    glass: {
+      background: 'rgba(255,255,255,0.12)',
+      backdropFilter: 'blur(18px)',
+      borderRadius: '22px',
+      border: '1px solid rgba(255,255,255,0.16)',
+      padding: '1rem 1.1rem',
+      boxShadow: '0 18px 40px rgba(15,23,42,0.2)',
+    },
+    'solid-dark': {
+      background: 'rgba(15,23,42,0.76)',
+      borderRadius: '20px',
+      border: '1px solid rgba(255,255,255,0.08)',
+      padding: '1rem 1.1rem',
+    },
+    'solid-light': {
+      background: 'rgba(255,255,255,0.92)',
+      color: '#0f172a',
+      borderRadius: '20px',
+      padding: '1rem 1.1rem',
+    },
+  };
+  const arrowBaseStyle: React.CSSProperties = arrowStyle === 'square'
+    ? { width: '44px', height: '44px', borderRadius: '12px' }
+    : arrowStyle === 'minimal'
+      ? { width: '32px', height: '32px', borderRadius: '999px', background: 'rgba(15,23,42,0.68)', color: '#fff' }
+      : { width: '40px', height: '40px', borderRadius: '999px' };
 
   return (
     <div style={{ ...style, position: 'relative', overflow: 'hidden', borderRadius: 'inherit', height }} data-block="slideshow">
@@ -66,7 +114,11 @@ export function RenderSlideshow({ block, style }: Props) {
         <div style={{ position: 'absolute', inset: 0, background: current.overlay.color || 'rgba(0,0,0,0.35)' }} />
       )}
 
-      <div style={{ position: 'absolute', left: '2rem', right: '2rem', bottom: '2rem', color: current.textStyle?.color || '#fff' }}>
+      <div
+        data-slideshow-part="content"
+        style={{ position: 'absolute', color: current.textStyle?.color || '#fff', ...contentPositionStyle, transform: `${contentBaseTransform} translate(${contentOffsetX}px, ${contentOffsetY}px)`.trim() }}
+      >
+        <div style={panelStyles[panelStyle]}>
         {current.title && (
           <h3 style={{ fontSize: current.textStyle?.titleSize || '2rem', fontWeight: current.textStyle?.titleWeight || 800, marginBottom: '0.45rem' }}>
             {current.title}
@@ -76,19 +128,23 @@ export function RenderSlideshow({ block, style }: Props) {
           <p style={{ maxWidth: '640px', fontSize: current.textStyle?.descSize || '1rem', lineHeight: 1.6 }}>{current.description}</p>
         )}
         {Array.isArray(current.buttons) && current.buttons.length > 0 && (
-          <div style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+          <div data-slideshow-part="buttons" style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap', marginTop: '1rem', transform: `translate(${buttonsOffsetX}px, ${buttonsOffsetY}px)` }}>
             {current.buttons.map((button) => (
               <a
                 key={button.id || button.text}
                 href={button.url || '#'}
                 style={{
-                  padding: '0.75rem 1rem',
-                  borderRadius: '12px',
+                  padding: `${buttonPaddingY}px ${buttonPaddingX}px`,
+                  borderRadius: `${buttonRadius}px`,
                   textDecoration: 'none',
                   fontWeight: 700,
-                  background: button.style === 'secondary' ? 'transparent' : '#fff',
-                  color: button.style === 'secondary' ? '#fff' : '#111827',
-                  border: button.style === 'secondary' ? '1px solid rgba(255,255,255,0.8)' : 'none',
+                  background: buttonBgColor || (button.style === 'secondary' ? 'transparent' : '#fff'),
+                  color: buttonTextColor || (button.style === 'secondary' ? '#fff' : '#111827'),
+                  border: buttonBorderColor
+                    ? `1px solid ${buttonBorderColor}`
+                    : button.style === 'secondary'
+                      ? '1px solid rgba(255,255,255,0.8)'
+                      : 'none',
                 }}
               >
                 {button.text}
@@ -96,12 +152,13 @@ export function RenderSlideshow({ block, style }: Props) {
             ))}
           </div>
         )}
+        </div>
       </div>
 
       {showArrows && slides.length > 1 && (
         <>
-          <button type="button" onClick={() => setIndex((currentIndex) => (currentIndex - 1 + slides.length) % slides.length)} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', width: '40px', height: '40px', borderRadius: '999px', border: 'none', background: 'rgba(255,255,255,0.9)', cursor: 'pointer' }}>‹</button>
-          <button type="button" onClick={() => setIndex((currentIndex) => (currentIndex + 1) % slides.length)} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', width: '40px', height: '40px', borderRadius: '999px', border: 'none', background: 'rgba(255,255,255,0.9)', cursor: 'pointer' }}>›</button>
+          <button type="button" onClick={() => setIndex((currentIndex) => (currentIndex - 1 + slides.length) % slides.length)} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', border: 'none', background: arrowStyle === 'minimal' ? 'rgba(15,23,42,0.68)' : 'rgba(255,255,255,0.9)', cursor: 'pointer', ...arrowBaseStyle }}>‹</button>
+          <button type="button" onClick={() => setIndex((currentIndex) => (currentIndex + 1) % slides.length)} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', border: 'none', background: arrowStyle === 'minimal' ? 'rgba(15,23,42,0.68)' : 'rgba(255,255,255,0.9)', cursor: 'pointer', ...arrowBaseStyle }}>›</button>
         </>
       )}
 

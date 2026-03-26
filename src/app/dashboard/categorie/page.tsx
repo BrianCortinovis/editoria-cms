@@ -51,7 +51,11 @@ export default function CategoriePage() {
   }, [currentTenant]);
 
   useEffect(() => {
-    loadCategories();
+    const timer = window.setTimeout(() => {
+      void loadCategories();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [loadCategories]);
 
   const resetForm = () => {
