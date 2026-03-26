@@ -164,8 +164,8 @@ function ResizeHandle({ dir, onDrag }: {
 // ================================================================
 export function CanvasBlock({ block, selected, primarySelected, showOutlines }: CanvasBlockProps) {
   const {
-    selectBlock, removeBlock, duplicateBlock, updateBlock, updateBlockStyle, updateBlockShape,
-    hoveredBlockId, hoverBlock, setEditingBlock, editingBlockId, moveBlock, blocks
+    selectBlock, selectBlocks, toggleBlockSelection, removeBlock, duplicateBlock, updateBlock, updateBlockStyle, updateBlockShape,
+    hoveredBlockId, hoverBlock, setEditingBlock, editingBlockId, moveBlock, blocks, selectedBlockIds, selectedBlockId
   } = usePageStore();
   const {
     setRightPanelOpen,
@@ -214,11 +214,57 @@ export function CanvasBlock({ block, selected, primarySelected, showOutlines }: 
     }
   }, [selected, resizing, block.style, zoom]);
 
+  // Keyboard movement for selected blocks with arrow keys
+  useEffect(() => {
+    if (!primarySelected) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return; // Skip if modifiers are held
+
+      e.preventDefault();
+      const step = e.shiftKey ? 10 : 1; // Hold Shift for 10px steps
+      const parseTranslate = (t?: string) => {
+        if (!t) return { x: 0, y: 0 };
+        const m = t.match(/translate\(\s*(-?[\d.]+)px\s*,\s*(-?[\d.]+)px\s*\)/);
+        return m ? { x: parseFloat(m[1]), y: parseFloat(m[2]) } : { x: 0, y: 0 };
+      };
+
+      // Move all selected blocks
+      selectedBlockIds.forEach((blockId) => {
+        const blockToMove = blocks.find(b => b.id === blockId);
+        if (!blockToMove) return;
+
+        const cur = parseTranslate(blockToMove.style.transform);
+        let newX = cur.x;
+        let newY = cur.y;
+
+        if (e.key === 'ArrowUp') newY -= step;
+        if (e.key === 'ArrowDown') newY += step;
+        if (e.key === 'ArrowLeft') newX -= step;
+        if (e.key === 'ArrowRight') newX += step;
+
+        const { updateBlockStyle: updateStyle } = usePageStore.getState();
+        updateStyle(blockId, {
+          transform: `translate(${newX}px, ${newY}px)`,
+        });
+      });
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [primarySelected, selectedBlockIds, blocks]);
+
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    selectBlock(block.id);
+    // Multi-select with Ctrl/Cmd+click
+    if (e.ctrlKey || e.metaKey) {
+      toggleBlockSelection(block.id);
+    } else {
+      selectBlock(block.id);
+    }
     setRightPanelOpen(true);
-  }, [block.id, selectBlock, setRightPanelOpen]);
+  }, [block.id, selectBlock, toggleBlockSelection, setRightPanelOpen]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -692,7 +738,7 @@ export function CanvasBlock({ block, selected, primarySelected, showOutlines }: 
         data-block-id={block.id}
         ref={(node) => { setNodeRef(node); (blockRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
         style={wrapperStyle}
-        className={cn('sb-block-wrapper', selected && 'sb-selected', isEditing && 'sb-editing', isHovered && !selected && 'sb-hovered', showOutlines && isEmpty && 'sb-empty-outline')}
+        className={cn('sb-block-wrapper', selected && 'sb-selected', isEditing && 'sb-editing', isHovered && !selected && 'sb-hovered', showOutlines && 'sb-show-outline')}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onMouseDown={handleSurfaceMouseDown}
