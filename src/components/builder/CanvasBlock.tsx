@@ -736,6 +736,7 @@ export function CanvasBlock({ block, selected, primarySelected, showOutlines }: 
       <div
         id={`editor-block-${block.id}`}
         data-block-id={block.id}
+        data-block-root="true"
         ref={(node) => { setNodeRef(node); (blockRef as React.MutableRefObject<HTMLDivElement | null>).current = node; }}
         style={wrapperStyle}
         className={cn('sb-block-wrapper', selected && 'sb-selected', isEditing && 'sb-editing', isHovered && !selected && 'sb-hovered', showOutlines && 'sb-show-outline')}
