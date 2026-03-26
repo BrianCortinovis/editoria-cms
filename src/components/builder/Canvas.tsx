@@ -251,7 +251,7 @@ export function Canvas() {
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'stretch',
-              padding: '0 12px',
+              padding: '0',
               boxShadow: deviceMode === 'desktop'
                 ? '0 30px 60px rgba(55, 65, 81, 0.18)'
                 : '0 24px 48px rgba(55, 65, 81, 0.22)',
