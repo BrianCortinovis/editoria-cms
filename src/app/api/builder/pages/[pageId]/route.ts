@@ -4,7 +4,7 @@ import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { writeActivityLog, writePageAuditLog } from "@/lib/security/audit";
 import { triggerPublish, type PublishTask } from "@/lib/publish/runner";
 
-const PAGE_EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
+const PAGE_EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
 
 // GET: Fetch a single page with full blocks
 export async function GET(

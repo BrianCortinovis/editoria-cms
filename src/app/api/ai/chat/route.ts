@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { resolveProvider } from '@/lib/ai/resolver';
-import { callAI } from '@/lib/ai/providers';
+import { callAIWithFallback } from '@/lib/ai/fallback';
 import { buildChatSystemPrompt } from '@/lib/ai/prompts';
 import type { AIMessage, AIProvider } from '@/lib/ai/providers';
 
@@ -65,43 +64,21 @@ export async function POST(request: NextRequest) {
       ...messages.filter(m => m.role !== 'system'),
     ];
 
-    // Resolve provider
-    let resolvedProvider;
-    if (overrideProvider) {
-      const credentials = {
-        ...aiConfig,
-        [overrideProvider === 'ollama' ? 'ollama_url' : `${overrideProvider}_api_key`]:
-          overrideProvider === 'ollama' ? aiConfig.ollama_url : aiConfig[`${overrideProvider}_api_key`],
-      };
-      resolvedProvider = resolveProvider(credentials, 'chatbot');
-      if (resolvedProvider.provider !== overrideProvider) {
-        return NextResponse.json({ error: `Provider ${overrideProvider} not configured` }, { status: 400 });
-      }
-    } else {
-      resolvedProvider = resolveProvider(aiConfig, 'chatbot');
-    }
-
-    // Override model if specified
-    if (overrideModel) {
-      resolvedProvider.model = overrideModel;
-    }
-
-    // Call AI with full conversation history
-    const result = await callAI(
-      resolvedProvider.provider,
-      allMessages,
-      {
-        apiKey: resolvedProvider.provider === 'ollama' ? resolvedProvider.apiKey : resolvedProvider.apiKey,
-        model: resolvedProvider.model,
-        ollamaUrl: resolvedProvider.provider === 'ollama' ? resolvedProvider.apiKey : undefined,
-      }
-    );
+    const result = await callAIWithFallback({
+      aiConfig,
+      task: 'chatbot',
+      messages: allMessages,
+      preferredProvider: overrideProvider,
+      preferredModel: overrideModel,
+    });
 
     return NextResponse.json({
       text: result.text,
       provider: result.provider,
       model: result.model,
       usage: result.usage,
+      fallbackUsed: result.fallbackUsed,
+      attempts: result.attempts,
     });
   } catch (error) {
     console.error('AI chat error:', error);

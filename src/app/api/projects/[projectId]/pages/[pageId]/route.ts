@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
-const PAGE_EDITOR_ROLES = new Set(['super_admin', 'chief_editor', 'editor']);
+const PAGE_EDITOR_ROLES = new Set(['admin', 'chief_editor', 'editor']);
 
 async function getAuthorizedPage(pageId: string, userId: string) {
   const supabase = await createServerSupabaseClient();

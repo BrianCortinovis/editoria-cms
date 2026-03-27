@@ -8,6 +8,11 @@ function isMissingRelation(error: { message?: string } | null | undefined) {
   return message.includes("schema cache") || message.includes("Could not find the table");
 }
 
+function isMissingProfileColumn(error: { message?: string } | null | undefined) {
+  const message = error?.message || "";
+  return message.includes("is_platform_superadmin") || message.includes("column");
+}
+
 export interface SuperadminSummary {
   totalUsers: number;
   totalSites: number;
@@ -106,13 +111,30 @@ export async function requireSuperAdmin() {
 
 export async function isUserSuperAdmin(userId: string) {
   const serviceClient = await createServiceRoleClient();
-  const { count, error } = await serviceClient
-    .from("user_tenants")
-    .select("id", { head: true, count: "exact" })
-    .eq("user_id", userId)
-    .eq("role", "super_admin");
+  const { data: profile, error } = await serviceClient
+    .from("profiles")
+    .select("is_platform_superadmin")
+    .eq("id", userId)
+    .maybeSingle();
 
-  return !error && Boolean(count);
+  if (!error) {
+    return Boolean(profile?.is_platform_superadmin);
+  }
+
+  if (!isMissingProfileColumn(error)) {
+    return false;
+  }
+
+  const { data: legacyMemberships, error: legacyError } = await serviceClient
+    .from("user_tenants")
+    .select("role")
+    .eq("user_id", userId);
+
+  if (legacyError) {
+    return false;
+  }
+
+  return (legacyMemberships || []).some((membership) => membership.role === "admin" || membership.role === "super_admin");
 }
 
 export async function getSuperadminOverview(): Promise<SuperadminOverview> {

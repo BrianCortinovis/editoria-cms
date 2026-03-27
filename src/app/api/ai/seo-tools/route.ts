@@ -4,7 +4,7 @@ import { callAI } from "@/lib/ai/providers";
 import { isModuleActive, getModuleConfig } from "@/lib/modules";
 import { resolveProvider, type ResolvedProvider } from "@/lib/ai/resolver";
 
-const SEO_EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
+const SEO_EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
 
 interface ArticleWithMetrics {
   id: string;

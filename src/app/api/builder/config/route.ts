@@ -5,7 +5,7 @@ import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { writeActivityLog } from "@/lib/security/audit";
 import { triggerPublish } from "@/lib/publish/runner";
 
-const CONFIG_EDIT_ROLES = new Set(["super_admin", "chief_editor"]);
+const CONFIG_EDIT_ROLES = new Set(["admin", "super_admin", "chief_editor"]);
 
 async function getTenantMembership(tenantId: string) {
   const supabase = await createServerSupabaseClient();

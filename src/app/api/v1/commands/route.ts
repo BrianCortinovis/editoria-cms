@@ -9,7 +9,7 @@ const BASE_CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-const EDITOR_ROLES = new Set(['super_admin', 'chief_editor', 'editor']);
+const EDITOR_ROLES = new Set(['admin', 'chief_editor', 'editor']);
 
 interface CommandsPayload {
   tenant_id?: string;

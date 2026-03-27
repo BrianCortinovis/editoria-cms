@@ -42,7 +42,7 @@ function ComplianceItem({
 export default function GdprPage() {
   const { currentRole } = useAuthStore();
   const [activeTab, setActiveTab] = useState("status");
-  const isAdmin = currentRole === "super_admin";
+  const isAdmin = currentRole === "admin";
 
   const tabs = [
     { id: "status", label: "Stato Compliance" },

@@ -68,6 +68,7 @@ async function main() {
     id: user.id,
     email,
     full_name: fullName,
+    is_platform_superadmin: true,
   });
   if (profileRes.error) {
     throw profileRes.error;
@@ -93,7 +94,7 @@ async function main() {
     if (membershipRes.data?.id) {
       const updateMembershipRes = await admin
         .from("user_tenants")
-        .update({ role: "super_admin" })
+        .update({ role: "admin" })
         .eq("id", membershipRes.data.id);
       if (updateMembershipRes.error) {
         throw updateMembershipRes.error;
@@ -102,7 +103,7 @@ async function main() {
       const insertMembershipRes = await admin.from("user_tenants").insert({
         user_id: user.id,
         tenant_id: tenant.id,
-        role: "super_admin",
+        role: "admin",
       });
       if (insertMembershipRes.error) {
         throw insertMembershipRes.error;

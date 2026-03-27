@@ -43,6 +43,9 @@ export interface PageContext {
   url?: string;
   path?: string;
   allFields?: Record<string, string>; // All fields on the page for AI context
+  headings?: string[];
+  sections?: string[];
+  actions?: string[];
   [key: string]: unknown;
 }
 
@@ -245,6 +248,29 @@ function collectPageContext(element: SupportedFieldElement): PageContext {
   const formElement = element.closest('form') || element.closest('[data-form]') || document;
   const allFields: Record<string, string> = {};
   const inputs = formElement.querySelectorAll('input, textarea, select, button[role="switch"]');
+  const headings = Array.from(document.querySelectorAll('h1, h2, h3'))
+    .map((node) => normalizeText(node.textContent))
+    .filter(Boolean)
+    .slice(0, 8);
+  const sections = Array.from(document.querySelectorAll('[data-ai-section], section, [role="region"], article'))
+    .map((node) => normalizeText(
+      node.getAttribute('data-ai-section')
+      || node.getAttribute('aria-label')
+      || node.getAttribute('data-section-title')
+      || node.querySelector('h1, h2, h3, legend')?.textContent
+      || '',
+    ))
+    .filter(Boolean)
+    .slice(0, 8);
+  const actions = Array.from(document.querySelectorAll('button, a[role="button"], [data-ai-action]'))
+    .map((node) => normalizeText(
+      node.getAttribute('data-ai-action')
+      || node.getAttribute('aria-label')
+      || node.textContent
+      || '',
+    ))
+    .filter(Boolean)
+    .slice(0, 12);
 
   inputs.forEach((input) => {
     if (!isFillableFieldElement(input)) {
@@ -266,6 +292,9 @@ function collectPageContext(element: SupportedFieldElement): PageContext {
     pageTitle: document.title,
     path: window.location.pathname,
     url: window.location.href,
+    headings,
+    sections,
+    actions,
   };
 }
 

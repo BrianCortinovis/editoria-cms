@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import { isFillableFieldElement, useFieldContextStore } from '@/lib/stores/field-context-store';
-import type { SelectedField } from '@/lib/stores/field-context-store';
+import type { PageContext, SelectedField } from '@/lib/stores/field-context-store';
 import { usePageStore } from '@/lib/stores/page-store';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { X, Sparkles, Send, ChevronDown, ChevronUp } from 'lucide-react';
@@ -17,6 +17,8 @@ import type { AdvancedGradient, AnimationEffect, Block, BlockAnimation, BlockEff
 import { createBlock } from '@/lib/types';
 import { getBlockDefinition } from '@/lib/blocks/registry';
 import { generateId } from '@/lib/utils/id';
+import { buildChatSystemPrompt } from '@/lib/ai/prompts';
+import { sanitizeFieldResponse } from '@/lib/ai/field-response';
 import { extractPageBackgroundSettings, upsertPageBackgroundMeta } from '@/lib/page-settings';
 import toast from 'react-hot-toast';
 import '@/lib/blocks/init';
@@ -667,20 +669,6 @@ function parseAiResponse(content: string): AiAction[] | null {
   return tryParse(candidate);
 }
 
-function sanitizeFieldResponse(content: string) {
-  let cleaned = content.trim();
-  cleaned = cleaned.replace(/^```[\w-]*\s*/i, '').replace(/\s*```$/i, '').trim();
-
-  if (
-    (cleaned.startsWith('"') && cleaned.endsWith('"'))
-    || (cleaned.startsWith("'") && cleaned.endsWith("'"))
-  ) {
-    cleaned = cleaned.slice(1, -1).trim();
-  }
-
-  return cleaned;
-}
-
 function formatFieldOptions(
   options: Array<{ value: string; label: string }> | undefined
 ) {
@@ -752,6 +740,84 @@ function resolveDirectFieldValue(field: SelectedField, prompt: string) {
   }
 
   return null;
+}
+
+function formatPageContextSummary(pageContext: PageContext) {
+  const chunks: string[] = [];
+
+  if (pageContext.path) {
+    chunks.push(`Percorso CMS: ${pageContext.path}`);
+  }
+
+  if (pageContext.pageTitle || pageContext.pageName) {
+    chunks.push(`Pagina attuale: ${pageContext.pageTitle || pageContext.pageName}`);
+  }
+
+  if (pageContext.headings?.length) {
+    chunks.push(`Titoli visibili:\n${pageContext.headings.map((item) => `- ${item}`).join('\n')}`);
+  }
+
+  if (pageContext.sections?.length) {
+    chunks.push(`Sezioni visibili:\n${pageContext.sections.map((item) => `- ${item}`).join('\n')}`);
+  }
+
+  if (pageContext.actions?.length) {
+    chunks.push(`Azioni visibili:\n${pageContext.actions.map((item) => `- ${item}`).join('\n')}`);
+  }
+
+  if (pageContext.allFields && Object.keys(pageContext.allFields).length > 0) {
+    chunks.push(
+      `Campi gia compilati:\n${Object.entries(pageContext.allFields)
+        .slice(0, 12)
+        .map(([key, value]) => `- ${key}: "${value}"`)
+        .join('\n')}`,
+    );
+  }
+
+  return chunks.join('\n\n') || 'Nessun contesto pagina disponibile.';
+}
+
+function shouldUseSelectedFieldAssistant(field: SelectedField, prompt: string) {
+  const normalizedPrompt = normalizeLooseMatch(prompt);
+  const explicitAction = /\b(compila|riempi|genera|scrivi|proponi|ottimizza|migliora|riscrivi|traduci|sintetizza|imposta|setta|inserisci|crea|dammi|fammi|correggi|adatta)\b/i.test(prompt);
+  const genericQuestion = /\b(come|perche|perché|cosa|quale|quali|quando|dove|chi|posso|devo|errore|problema|spiegami|aiutami|analizza|controlla|verifica)\b/i.test(prompt) || prompt.trim().endsWith('?');
+  const fieldReferenceTokens = normalizeLooseMatch(`${field.label || ''} ${field.name || ''}`)
+    .split(' ')
+    .filter((token) => token.length > 2);
+  const explicitFieldReference = /\b(campo|input|valore|placeholder|etichetta|qui|questo|questa)\b/i.test(prompt)
+    || fieldReferenceTokens.some((token) => normalizedPrompt.includes(token));
+
+  if (resolveDirectFieldValue(field, prompt) !== null) {
+    return true;
+  }
+
+  if (explicitFieldReference && (explicitAction || !genericQuestion)) {
+    return true;
+  }
+
+  if (explicitAction && !genericQuestion) {
+    return true;
+  }
+
+  if (explicitAction && prompt.trim().split(/\s+/).length <= 14) {
+    return true;
+  }
+
+  return false;
+}
+
+function buildCmsPagePrompt(inputValue: string, pageContext: PageContext) {
+  return `Richiesta utente: ${inputValue}
+
+Contesto pagina CMS:
+${formatPageContextSummary(pageContext)}
+
+ISTRUZIONI:
+- Rispondi come assistente del CMS online, non come builder visuale.
+- Puoi aiutare su redazione, SEO, analytics, tecnico, workflow, publish, domini, storage, cron, utenti, media, banner, newsletter, form e impostazioni.
+- Se la domanda riguarda un'altra area del CMS rispetto alla pagina aperta, rispondi comunque in modo utile e preciso.
+- Se noti miglioramenti concreti di SEO, analytics o configurazione, proponili in modo pratico.
+- Se la richiesta e' generica, rispondi in massimo 6 punti brevi o 120 parole.`;
 }
 
 function buildPageState(blocks: Block[], selectedBlockId?: string | null): string {
@@ -859,6 +925,7 @@ function buildPageBackgroundState(pageMeta: Record<string, unknown>) {
   return summary.length > 0 ? summary.join(' | ') : 'type=none';
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildSmartEditorPrompt(
   blocks: Block[],
   pageMeta: Record<string, unknown>,
@@ -1162,7 +1229,6 @@ export function GlobalAiChat() {
     selectedBlockId,
     selectBlock,
     replacePage,
-    pageMeta,
     updatePageMeta,
     removeBlock,
     updateBlock,
@@ -1187,14 +1253,14 @@ export function GlobalAiChat() {
   const selectedBlock = selectedBlockId ? getBlock(selectedBlockId) : null;
   const pathname = usePathname();
 
-  // Check if we're in an editor context (has page store)
-  const isEditorContext = !!pageStore && blocks !== undefined;
+  // The online global assistant is CMS-only.
+  const isEditorContext = pathname.startsWith('/desktop-editor') && !!pageStore && blocks !== undefined;
 
   const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState<AIMessage[]>([
     {
       role: 'assistant',
-      content: `Ciao! Sono il tuo assistente IA. Puoi chiedermi di generare contenuti, fare domande, o ricevere aiuto con il CMS.`,
+      content: `Ciao! Sono il tuo assistente IA del CMS. Posso aiutarti su redazione, SEO, analytics, tecnico, media, banner, newsletter, publish e configurazioni del sito.`,
     },
   ]);
   const [inputValue, setInputValue] = useState('');
@@ -1267,9 +1333,14 @@ ${
     : ''
 }
 
-Sono pronto ad aiutarti a generare contenuto per questo campo!`;
+Posso compilare questo campo oppure rispondere a domande sulla pagina e sul CMS.`;
 
       setMessages((prev) => {
+        const hasConversation = prev.slice(1).some((message) => message.role === 'user');
+        if (hasConversation) {
+          return prev;
+        }
+
         if (prev.length > 1 && prev[prev.length - 1].role === 'user') {
           return prev;
         }
@@ -1701,17 +1772,21 @@ Sono pronto ad aiutarti a generare contenuto per questo campo!`;
       const effectiveSelectedField = selectedField && hasSelectedFieldTarget()
         ? selectedField
         : null;
+      const shouldAssistSelectedField = effectiveSelectedField
+        ? shouldUseSelectedFieldAssistant(effectiveSelectedField, inputValue)
+        : false;
+      const targetField = shouldAssistSelectedField ? effectiveSelectedField : null;
 
       let contextualPrompt: string;
 
-      if (effectiveSelectedField) {
-        const directFieldValue = resolveDirectFieldValue(effectiveSelectedField, inputValue);
+      if (targetField) {
+        const directFieldValue = resolveDirectFieldValue(targetField, inputValue);
         if (directFieldValue !== null) {
           const applied = applyValueToSelectedField(directFieldValue);
           if (applied) {
             setMessages((prev) => [
               ...prev,
-              { role: 'assistant', content: `✓ Campo "${effectiveSelectedField.label || effectiveSelectedField.name}" riempito!` },
+              { role: 'assistant', content: `✓ Campo "${targetField.label || targetField.name}" riempito!` },
             ]);
             toast.success('✓ Campo riempito!');
             setLoading(false);
@@ -1720,30 +1795,24 @@ Sono pronto ad aiutarti a generare contenuto per questo campo!`;
         }
 
         const currentPath = pageContext.path || (typeof window !== 'undefined' ? window.location.pathname : '');
-        const isBooleanField = BOOLEAN_FIELD_TYPES.has(effectiveSelectedField.type);
-        const isRadioField = effectiveSelectedField.type === 'radio';
+        const isBooleanField = BOOLEAN_FIELD_TYPES.has(targetField.type);
+        const isRadioField = targetField.type === 'radio';
         contextualPrompt = `
-Campo da compilare: ${effectiveSelectedField.label || effectiveSelectedField.name}
-Nome interno: ${effectiveSelectedField.name}
-Tipo: ${effectiveSelectedField.type}
-Elemento HTML: ${effectiveSelectedField.htmlTag || 'input'}
-Valore attuale: "${effectiveSelectedField.value}"
-Placeholder: "${effectiveSelectedField.placeholder || ''}"
-Stato booleano attuale: ${effectiveSelectedField.checked === undefined ? 'n/a' : effectiveSelectedField.checked ? 'true' : 'false'}
+Campo da compilare: ${targetField.label || targetField.name}
+Nome interno: ${targetField.name}
+Tipo: ${targetField.type}
+Elemento HTML: ${targetField.htmlTag || 'input'}
+Valore attuale: "${targetField.value}"
+Placeholder: "${targetField.placeholder || ''}"
+Stato booleano attuale: ${targetField.checked === undefined ? 'n/a' : targetField.checked ? 'true' : 'false'}
 Pagina: "${pageContext.pageTitle || pageContext.pageName || document.title}"
 Percorso: "${currentPath}"
 
 Contesto della pagina:
-${
-  pageContext.allFields
-    ? Object.entries(pageContext.allFields)
-      .map(([k, v]) => `${k}: "${v}"`)
-      .join('\n')
-    : 'Nessun contesto disponibile'
-}
+${formatPageContextSummary(pageContext)}
 
 Opzioni disponibili:
-${formatFieldOptions(effectiveSelectedField.options)}
+${formatFieldOptions(targetField.options)}
 
 Richiesta utente: ${inputValue}
 
@@ -1764,7 +1833,7 @@ ISTRUZIONI OBBLIGATORIE:
           contextualPrompt += '\n- Questo campo accetta una sola scelta tra le opzioni disponibili.';
         }
       } else {
-        contextualPrompt = buildSmartEditorPrompt(blocks, pageMeta, selectedBlock, inputValue);
+        contextualPrompt = buildCmsPagePrompt(inputValue, pageContext);
       }
 
       const response = await fetch('/api/ai/dispatch', {
@@ -1772,66 +1841,54 @@ ISTRUZIONI OBBLIGATORIE:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tenant_id: currentTenant.id,
-          taskType: effectiveSelectedField ? 'field-assist' : isEditorContext ? 'layout' : 'chatbot',
+          taskType: targetField ? 'field-assist' : 'chatbot',
           prompt: contextualPrompt,
-          systemPrompt: effectiveSelectedField
-            ? `Sei un assistente AI per un CMS editoriale. Aiuti l'utente a generare contenuti coerenti con il contesto della pagina. Rispondi sempre in italiano.`
-            : `Sei un assistente AI specializzato in layout giornalistici e tool visuali per un CMS.
-COMPITI:
-1. Quando l'utente richiede layout/blocchi/design → rispondi SOLO con JSON array di add-block actions
-1b. Quando l'utente chiede di cambiare lo sfondo pagina o il background del documento → usa update-page-background
-2. Quando l'utente modifica un blocco selezionato con gradienti, divisori, effetti, animazioni o shape → rispondi SOLO con un JSON object della action specializzata corretta
-2. Per domande generiche → rispondi in testo italiano
-3. Usa i blockType reali del builder. Se l'utente dice header/menu bar/topbar usa "navigation". Se dice notizia principale usa "article-hero". Se dice colonna notizie usa "article-grid" o "sidebar". Se serve un layout complesso usa "columns" con "children".
-
-FORMATO JSON OBBLIGATORIO:
-[{"action":"add-block","blockType":"hero","label":"Hero principale","props":{},"style":{}}]
-
-Non aggiungere spiegazioni, commenti o testo. SOLO JSON quando richiesto layout o tool builder.
-Rispondi SEMPRE in italiano.`,
+          systemPrompt: targetField
+            ? `Sei un assistente del CMS online. Compili campi del CMS in modo coerente con la pagina aperta. Rispondi sempre in italiano e restituisci solo il valore finale del campo.`
+            : buildChatSystemPrompt({ tenantName: currentTenant.name, pageTitle: pageContext.pageTitle || pageContext.pageName }),
         }),
       });
 
       const data = await response.json();
       if (data.content) {
         const actions = parseAiResponse(data.content);
-        const builderCommand = !effectiveSelectedField && isEditorContext
+        const builderCommand = !targetField && isEditorContext
           ? resolveStructuredBuilderCommand(data.content, inputValue)
           : null;
 
-        const directActions = !effectiveSelectedField && isEditorContext
+        const directActions = !targetField && isEditorContext
           ? detectDirectEditorActions(inputValue, selectedBlockId)
           : null;
-        const selectedBlockFallbackActions = !effectiveSelectedField && isEditorContext
+        const selectedBlockFallbackActions = !targetField && isEditorContext
           ? inferSelectedBlockActionsFromPrompt(inputValue, selectedBlock)
           : null;
 
-        if (actions && actions.length > 0 && !effectiveSelectedField && isEditorContext) {
+        if (actions && actions.length > 0 && !targetField && isEditorContext) {
           const normalizedActions = normalizeEditorActions(actions, selectedBlockId);
           const results = executeActions(normalizedActions);
           const resultMsg = `Fatto!\n${results.join('\n')}`;
           setMessages((prev) => [...prev, { role: 'assistant', content: resultMsg }]);
           toast.success('✓ Blocchi creati!');
-        } else if (directActions && directActions.length > 0 && !effectiveSelectedField && isEditorContext) {
+        } else if (directActions && directActions.length > 0 && !targetField && isEditorContext) {
           const results = executeActions(directActions);
           const resultMsg = `Fatto!\n${results.join('\n')}`;
           setMessages((prev) => [...prev, { role: 'assistant', content: resultMsg }]);
           toast.success('✓ Builder applicato dal comando diretto!');
-        } else if (selectedBlockFallbackActions && selectedBlockFallbackActions.length > 0 && !effectiveSelectedField && isEditorContext) {
+        } else if (selectedBlockFallbackActions && selectedBlockFallbackActions.length > 0 && !targetField && isEditorContext) {
           const results = executeActions(selectedBlockFallbackActions);
           const resultMsg = `Fatto!\n${results.join('\n')}`;
           setMessages((prev) => [...prev, { role: 'assistant', content: resultMsg }]);
           toast.success('✓ Modifica applicata al blocco selezionato!');
-        } else if (builderCommand && !effectiveSelectedField && isEditorContext) {
+        } else if (builderCommand && !targetField && isEditorContext) {
           const result = executeBuilderCommand(builderCommand);
           setMessages((prev) => [...prev, { role: 'assistant', content: `Fatto!\n${result}` }]);
           toast.success('✓ Tool builder applicato!');
-        } else if (effectiveSelectedField) {
+        } else if (targetField) {
           const fieldValue = sanitizeFieldResponse(data.content);
           const applied = applyValueToSelectedField(fieldValue);
 
           if (applied) {
-            const aiMessage: AIMessage = { role: 'assistant', content: `✓ Campo "${effectiveSelectedField.label || effectiveSelectedField.name}" riempito!` };
+            const aiMessage: AIMessage = { role: 'assistant', content: `✓ Campo "${targetField.label || targetField.name}" riempito!` };
             setMessages((prev) => [...prev, aiMessage]);
             toast.success('✓ Campo riempito!');
           } else {

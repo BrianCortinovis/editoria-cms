@@ -327,7 +327,7 @@ export default function MediaPage() {
                   onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                   <Copy className="w-4 h-4" /> Copia URL
                 </button>
-                {(currentRole === "super_admin" || currentRole === "chief_editor") && (
+                {(currentRole === "admin" || currentRole === "chief_editor") && (
                   <button onClick={() => handleDelete(selected)}
                     className="w-full flex items-center justify-center gap-2 px-3 py-2 text-red-600 rounded-lg text-sm font-medium transition"
                     style={{ border: "1px solid var(--c-danger)" }}

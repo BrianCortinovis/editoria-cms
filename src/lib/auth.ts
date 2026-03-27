@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { UserRole } from "@/types/database";
+import { normalizeCmsRole } from "@/lib/cms/roles";
 
 export async function getSession() {
   const supabase = await createServerSupabaseClient();
@@ -28,7 +29,7 @@ export async function getUserTenants(userId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return data.map((item: any) => ({
     ...item.tenants,
-    role: item.role as UserRole,
+    role: normalizeCmsRole(item.role) ?? "contributor",
   }));
 }
 
@@ -43,25 +44,25 @@ export async function getUserProfile(userId: string) {
 }
 
 export function canManageArticles(role: UserRole): boolean {
-  return ["super_admin", "chief_editor", "editor"].includes(role);
+  return ["admin", "chief_editor", "editor"].includes(normalizeCmsRole(role) ?? role);
 }
 
 export function canApproveArticles(role: UserRole): boolean {
-  return ["super_admin", "chief_editor"].includes(role);
+  return ["admin", "chief_editor"].includes(normalizeCmsRole(role) ?? role);
 }
 
 export function canPublishArticles(role: UserRole): boolean {
-  return ["super_admin", "chief_editor"].includes(role);
+  return ["admin", "chief_editor"].includes(normalizeCmsRole(role) ?? role);
 }
 
 export function canManageUsers(role: UserRole): boolean {
-  return role === "super_admin";
+  return (normalizeCmsRole(role) ?? role) === "admin";
 }
 
 export function canManageBanners(role: UserRole): boolean {
-  return ["super_admin", "chief_editor", "advertiser"].includes(role);
+  return ["admin", "chief_editor", "advertiser"].includes(normalizeCmsRole(role) ?? role);
 }
 
 export function canDeleteContent(role: UserRole): boolean {
-  return role === "super_admin";
+  return (normalizeCmsRole(role) ?? role) === "admin";
 }

@@ -16,7 +16,7 @@ interface EditorPageOption {
   updated_at: string | null;
 }
 
-const EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
+const EDITOR_ROLES = new Set(["admin", "chief_editor", "editor"]);
 
 export function DesktopEditorWorkspace() {
   const router = useRouter();

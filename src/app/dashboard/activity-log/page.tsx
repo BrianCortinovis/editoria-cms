@@ -55,7 +55,7 @@ export default function ActivityLogPage() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
-  const isAdmin = currentRole === "super_admin" || currentRole === "chief_editor";
+  const isAdmin = currentRole === "admin" || currentRole === "chief_editor";
 
   const load = useCallback(async () => {
     if (!currentTenant) return;

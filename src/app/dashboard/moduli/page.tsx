@@ -30,7 +30,7 @@ export default function ModuliPage() {
   const [saving, setSaving] = useState(false);
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
 
-  const isAdmin = currentRole === "super_admin";
+  const isAdmin = currentRole === "admin";
 
   useEffect(() => {
     if (!currentTenant) return;
@@ -109,7 +109,7 @@ export default function ModuliPage() {
     return (
       <div className="max-w-2xl text-center py-20">
         <Package className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
-        <p className="text-sm" style={{ color: "var(--c-text-2)" }}>Solo i Super Admin possono gestire i moduli</p>
+        <p className="text-sm" style={{ color: "var(--c-text-2)" }}>Solo gli Admin possono gestire i moduli</p>
       </div>
     );
   }

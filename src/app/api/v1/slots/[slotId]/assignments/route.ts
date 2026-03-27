@@ -7,7 +7,7 @@ import {
 import { triggerPublish } from "@/lib/publish/runner";
 import { NextRequest, NextResponse } from "next/server";
 
-const SLOT_ASSIGNMENT_EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
+const SLOT_ASSIGNMENT_EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
 
 async function getSlotTenantAccess(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>, slotId: string, userId: string) {
   const { data: slot, error: slotError } = await supabase

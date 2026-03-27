@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { callAI } from '@/lib/ai/providers';
-import { resolveProvider } from '@/lib/ai/resolver';
+import { callAIWithFallback } from '@/lib/ai/fallback';
 import { HUMAN_WORKFLOW_GUIDANCE } from '@/lib/ai/prompts';
 import type { AIMessage, AIProvider } from '@/lib/ai/providers';
 import type { AITask } from '@/lib/ai/resolver';
@@ -13,13 +12,6 @@ interface DispatchPayload {
   preferredProvider?: string;
   tenant_id?: string;
 }
-
-const FALLBACK_ORDER: Record<string, string[]> = {
-  claude: ['openai', 'gemini'],
-  openai: ['gemini', 'claude'],
-  gemini: ['openai', 'claude'],
-  ollama: ['gemini', 'openai'],
-};
 
 const SUPPORTED_TASKS: ReadonlySet<AITask> = new Set([
   'seo',
@@ -103,36 +95,12 @@ export async function POST(request: NextRequest) {
     }
 
     const aiConfig = tenant.settings?.module_config?.ai_assistant || {};
-    const sysPrompt = systemPrompt || `Sei un assistente AI integrato in un CMS editoriale. Aiuti l'utente a creare e ottimizzare contenuti. Rispondi in italiano in modo conciso e preciso. Task: ${taskType || 'general'}.
+    const sysPrompt = systemPrompt || `Sei un assistente AI del CMS online. Aiuti redazione, SEO, analytics, tecnico e gestione operativa.
+Non sei un builder visuale e non parli dell'editor desktop se non richiesto come integrazione CMS.
+Rispondi in italiano in modo conciso, pratico e orientato all'azione. Task: ${taskType || 'general'}.
 ${HUMAN_WORKFLOW_GUIDANCE}`;
 
     const task = normalizeTask(taskType);
-
-    // Resolve provider (with fallback chain)
-    let resolvedProvider;
-    try {
-      resolvedProvider = resolveProvider(aiConfig, task);
-    } catch {
-      return NextResponse.json(
-        { error: 'Nessun provider IA configurato. Vai a Impostazioni > IA' },
-        { status: 400 }
-      );
-    }
-
-    // Override if preferred provider specified and available
-    if (preferredProvider) {
-      try {
-        const overrideResolved = resolveProvider(
-          { ...aiConfig, [`${preferredProvider}_api_key`]: aiConfig[`${preferredProvider}_api_key`] },
-          task
-        );
-        if (overrideResolved.provider === preferredProvider) {
-          resolvedProvider = overrideResolved;
-        }
-      } catch {
-        // Fallback to default resolution
-      }
-    }
 
     // Build messages
     const messages: AIMessage[] = [
@@ -140,51 +108,34 @@ ${HUMAN_WORKFLOW_GUIDANCE}`;
       { role: 'user', content: prompt },
     ];
 
-    // Call AI with fallback chain
-    let lastError: Error | null = null;
-    const tryProviders: AIProvider[] = [
-      resolvedProvider.provider,
-      ...((FALLBACK_ORDER[resolvedProvider.provider] || []) as AIProvider[]),
-    ];
-
-    for (const provider of tryProviders) {
-      try {
-        const credentials = {
-          [`${provider}_api_key`]: aiConfig[`${provider}_api_key`],
-          [`${provider}_model`]: aiConfig[`${provider}_model`],
-          ollama_url: aiConfig.ollama_url,
-          ollama_model: aiConfig.ollama_model,
-        };
-
-        // Get the credential for this provider
-        const apiKey = provider === 'ollama'
-          ? credentials.ollama_url
-          : credentials[`${provider}_api_key`];
-
-        if (!apiKey) {
-          continue; // Try next provider
-        }
-
-        const result = await callAI(provider, messages, {
-          apiKey,
-          model: credentials[`${provider}_model`],
-          ollamaUrl: provider === 'ollama' ? apiKey : undefined,
-        });
-
-        return NextResponse.json({
-          content: result.text,
-          provider: result.provider,
-          model: result.model,
-          usage: result.usage,
-        });
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-        continue; // Try next provider
+    let result;
+    try {
+      result = await callAIWithFallback({
+        aiConfig,
+        task,
+        messages,
+        preferredProvider: preferredProvider as AIProvider | undefined,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/No AI provider configured|non configurato/i.test(message)) {
+        return NextResponse.json(
+          { error: 'Nessun provider IA configurato. Vai a Impostazioni > IA' },
+          { status: 400 }
+        );
       }
+
+      throw error;
     }
 
-    // All providers failed
-    throw lastError || new Error('Nessun provider IA disponibile');
+    return NextResponse.json({
+      content: result.text,
+      provider: result.provider,
+      model: result.model,
+      usage: result.usage,
+      fallbackUsed: result.fallbackUsed,
+      attempts: result.attempts,
+    });
   } catch (error: unknown) {
     const err = error as { message?: string };
     console.error('AI dispatch error:', err);

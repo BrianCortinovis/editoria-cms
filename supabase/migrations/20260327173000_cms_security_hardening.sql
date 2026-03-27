@@ -9,20 +9,20 @@ ALTER TABLE breaking_news ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Editors can update media metadata" ON media;
 CREATE POLICY "Editors can update media metadata" ON media
 FOR UPDATE
-USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'editor'))
-WITH CHECK (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'editor'));
+USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'editor'))
+WITH CHECK (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'editor'));
 
 DROP POLICY IF EXISTS "Admins and advertisers can manage banners safely" ON banners;
 CREATE POLICY "Admins and advertisers can manage banners safely" ON banners
 FOR ALL
-USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'advertiser'))
-WITH CHECK (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'advertiser'));
+USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'advertiser'))
+WITH CHECK (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'advertiser'));
 
 DROP POLICY IF EXISTS "Editors can manage events safely" ON events;
 CREATE POLICY "Editors can manage events safely" ON events
 FOR ALL
-USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'editor'))
-WITH CHECK (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'editor'));
+USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'editor'))
+WITH CHECK (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'editor'));
 
 DROP POLICY IF EXISTS "Members can read advertisers from their tenants" ON advertisers;
 CREATE POLICY "Members can read advertisers from their tenants" ON advertisers
@@ -32,14 +32,14 @@ USING (tenant_id IN (SELECT get_user_tenant_ids()));
 DROP POLICY IF EXISTS "Banner managers can manage advertisers safely" ON advertisers;
 CREATE POLICY "Banner managers can manage advertisers safely" ON advertisers
 FOR ALL
-USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'advertiser'))
-WITH CHECK (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'advertiser'));
+USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'advertiser'))
+WITH CHECK (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'advertiser'));
 
 DROP POLICY IF EXISTS "Editors can manage breaking news safely" ON breaking_news;
 CREATE POLICY "Editors can manage breaking news safely" ON breaking_news
 FOR ALL
-USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'editor'))
-WITH CHECK (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'editor'));
+USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'editor'))
+WITH CHECK (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'editor'));
 
 DROP POLICY IF EXISTS "Tenant media objects read access" ON storage.objects;
 CREATE POLICY "Tenant media objects read access" ON storage.objects
@@ -74,7 +74,7 @@ USING (
     FROM tenants
     WHERE slug = split_part(name, '/', 1)
     LIMIT 1
-  ) IN ('super_admin', 'chief_editor')
+  ) IN ('admin', 'chief_editor')
 );
 
 DROP POLICY IF EXISTS "Published bucket read only" ON storage.objects;

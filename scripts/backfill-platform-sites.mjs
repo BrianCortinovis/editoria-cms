@@ -18,7 +18,7 @@ if (!url || !serviceRoleKey) {
 const supabase = createClient(url, serviceRoleKey);
 
 const rolePriority = new Map([
-  ["super_admin", 0],
+  ["admin", 0],
   ["chief_editor", 1],
   ["editor", 2],
   ["advertiser", 3],
@@ -27,7 +27,7 @@ const rolePriority = new Map([
 
 function mapLegacyRoleToPlatformRole(role) {
   switch (role) {
-    case "super_admin":
+    case "admin":
       return "owner";
     case "chief_editor":
       return "admin";

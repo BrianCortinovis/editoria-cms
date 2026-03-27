@@ -263,7 +263,7 @@ export default function RedazionePage() {
   };
 
   const roleLabels: Record<string, string> = {
-    super_admin: "Super Admin",
+    admin: "Admin",
     chief_editor: "Caporedattore",
     editor: "Editor",
     advertiser: "Inserzionista",

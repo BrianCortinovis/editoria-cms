@@ -61,7 +61,7 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const roleLabels: Record<string, string> = { super_admin: "Admin", chief_editor: "Capo", editor: "Redattore", contributor: "Collab.", advertiser: "Comm." };
+  const roleLabels: Record<string, string> = { admin: "Admin", chief_editor: "Capo", editor: "Redattore", contributor: "Collab.", advertiser: "Comm." };
   const isEditorRoute = pathname === "/dashboard/editor";
   const selectedEditorPageId = searchParams.get("page") ?? "";
   const undoEditor = usePageStore((state) => state.undo);

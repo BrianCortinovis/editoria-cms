@@ -5,7 +5,7 @@ import { buildDefaultPageMeta, slugifyPageTitle } from '@/lib/pages/page-seo';
 import { readPublishedJson } from '@/lib/publish/storage';
 import type { PublishedManifest, PublishedPageDocument } from '@/lib/publish/types';
 
-const PAGE_EDITOR_ROLES = new Set(['super_admin', 'chief_editor', 'editor']);
+const PAGE_EDITOR_ROLES = new Set(['admin', 'chief_editor', 'editor']);
 
 export async function GET(request: NextRequest) {
   try {

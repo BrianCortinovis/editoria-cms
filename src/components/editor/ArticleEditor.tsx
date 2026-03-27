@@ -384,7 +384,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
     ]
   );
 
-  const canApprove = currentRole === "super_admin" || currentRole === "chief_editor";
+  const canApprove = currentRole === "admin" || currentRole === "chief_editor";
   const canPublish = canApprove;
   const saveCurrentLabel =
     status === "draft"

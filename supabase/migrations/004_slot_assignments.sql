@@ -44,7 +44,7 @@ CREATE POLICY IF NOT EXISTS "Slot assignments visible to tenant members"
 
 CREATE POLICY IF NOT EXISTS "Editors+ can manage slot assignments"
   ON slot_assignments
-  FOR ALL USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'editor'));
+  FOR ALL USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'editor'));
 
 -- ============================================
 -- Trigger for updated_at

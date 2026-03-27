@@ -81,7 +81,7 @@ export default function TagPage() {
     }
   };
 
-  const canEdit = ["super_admin", "chief_editor", "editor"].includes(currentRole ?? "");
+  const canEdit = ["admin", "chief_editor", "editor"].includes(currentRole ?? "");
 
   return (
     <div className="max-w-2xl">

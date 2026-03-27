@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { callAI } from "@/lib/ai/providers";
 import { isModuleActive, getModuleConfig } from "@/lib/modules";
-import { resolveProvider, type AITask } from "@/lib/ai/resolver";
+import { callAIWithFallback } from "@/lib/ai/fallback";
+import type { AITask } from "@/lib/ai/resolver";
 
 export async function POST(request: Request) {
   try {
@@ -35,18 +35,22 @@ export async function POST(request: Request) {
     }
 
     const aiConfig = getModuleConfig(settings, "ai_assistant");
-    const resolved = resolveProvider(aiConfig, (task || "seo") as AITask);
-
-    const result = await callAI(resolved.provider, [
-      { role: "system", content: system || "Sei un assistente editoriale per un CMS giornalistico italiano. Rispondi in modo conciso e utile in italiano." },
-      { role: "user", content: prompt },
-    ], { apiKey: resolved.apiKey, model: resolved.model });
+    const result = await callAIWithFallback({
+      aiConfig,
+      task: (task || "seo") as AITask,
+      messages: [
+        { role: "system", content: system || "Sei un assistente operativo del CMS online. Aiuti su redazione, SEO, analytics, tecnico, workflow, publish e gestione. Rispondi in italiano in modo conciso e utile." },
+        { role: "user", content: prompt },
+      ],
+    });
 
     return NextResponse.json({
       text: result.text,
       provider: result.provider,
       model: result.model,
       usage: result.usage,
+      fallbackUsed: result.fallbackUsed,
+      attempts: result.attempts,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

@@ -8,7 +8,7 @@ import {
 import { triggerPublish } from "@/lib/publish/runner";
 import { NextRequest, NextResponse } from "next/server";
 
-const ARTICLE_ASSIGNMENT_EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
+const ARTICLE_ASSIGNMENT_EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
 
 async function getArticleTenantAccess(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,

@@ -3,7 +3,7 @@
 -- ============================================
 
 -- Enums
-CREATE TYPE user_role AS ENUM ('super_admin', 'chief_editor', 'editor', 'contributor', 'advertiser');
+CREATE TYPE user_role AS ENUM ('admin', 'chief_editor', 'editor', 'contributor', 'advertiser');
 CREATE TYPE article_status AS ENUM ('draft', 'in_review', 'approved', 'published', 'archived');
 CREATE TYPE banner_position AS ENUM ('header', 'sidebar', 'in_article', 'footer', 'interstitial');
 CREATE TYPE banner_type AS ENUM ('image', 'html', 'adsense');
@@ -337,7 +337,7 @@ CREATE POLICY "Users can view own tenants" ON tenants
   FOR SELECT USING (id IN (SELECT get_user_tenant_ids()));
 
 CREATE POLICY "Super admins can update tenants" ON tenants
-  FOR UPDATE USING (get_user_role(id) = 'super_admin');
+  FOR UPDATE USING (get_user_role(id) = 'admin');
 
 -- PROFILES: viewable by same tenant members
 CREATE POLICY "Profiles are viewable by authenticated users" ON profiles
@@ -351,21 +351,21 @@ CREATE POLICY "Users can view own tenant memberships" ON user_tenants
   FOR SELECT USING (tenant_id IN (SELECT get_user_tenant_ids()));
 
 CREATE POLICY "Super admins can manage tenant members" ON user_tenants
-  FOR ALL USING (get_user_role(tenant_id) = 'super_admin');
+  FOR ALL USING (get_user_role(tenant_id) = 'admin');
 
 -- CATEGORIES: visible to tenant members, editable by editors+
 CREATE POLICY "Categories visible to tenant members" ON categories
   FOR SELECT USING (tenant_id IN (SELECT get_user_tenant_ids()));
 
 CREATE POLICY "Editors+ can manage categories" ON categories
-  FOR ALL USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'editor'));
+  FOR ALL USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'editor'));
 
 -- TAGS: same as categories
 CREATE POLICY "Tags visible to tenant members" ON tags
   FOR SELECT USING (tenant_id IN (SELECT get_user_tenant_ids()));
 
 CREATE POLICY "Editors+ can manage tags" ON tags
-  FOR ALL USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'editor'));
+  FOR ALL USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'editor'));
 
 -- ARTICLES: complex policies based on role
 CREATE POLICY "Articles visible to tenant members" ON articles
@@ -384,11 +384,11 @@ CREATE POLICY "Authors can update own draft articles" ON articles
 
 CREATE POLICY "Chief editors+ can update any article" ON articles
   FOR UPDATE USING (
-    get_user_role(tenant_id) IN ('super_admin', 'chief_editor')
+    get_user_role(tenant_id) IN ('admin', 'chief_editor')
   );
 
 CREATE POLICY "Super admins can delete articles" ON articles
-  FOR DELETE USING (get_user_role(tenant_id) = 'super_admin');
+  FOR DELETE USING (get_user_role(tenant_id) = 'admin');
 
 -- ARTICLE_TAGS
 CREATE POLICY "Article tags follow article access" ON article_tags
@@ -418,39 +418,39 @@ CREATE POLICY "Authenticated users can upload media" ON media
   FOR INSERT WITH CHECK (tenant_id IN (SELECT get_user_tenant_ids()) AND uploaded_by = auth.uid());
 
 CREATE POLICY "Admins can delete media" ON media
-  FOR DELETE USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor'));
+  FOR DELETE USING (get_user_role(tenant_id) IN ('admin', 'chief_editor'));
 
 -- BANNERS
 CREATE POLICY "Banners visible to tenant members" ON banners
   FOR SELECT USING (tenant_id IN (SELECT get_user_tenant_ids()));
 
 CREATE POLICY "Admins and advertisers can manage banners" ON banners
-  FOR ALL USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'advertiser'));
+  FOR ALL USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'advertiser'));
 
 -- ADVERTISERS
 CREATE POLICY "Advertisers visible to tenant members" ON advertisers
   FOR SELECT USING (tenant_id IN (SELECT get_user_tenant_ids()));
 
 CREATE POLICY "Admins can manage advertisers" ON advertisers
-  FOR ALL USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'advertiser'));
+  FOR ALL USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'advertiser'));
 
 -- EVENTS
 CREATE POLICY "Events visible to tenant members" ON events
   FOR SELECT USING (tenant_id IN (SELECT get_user_tenant_ids()));
 
 CREATE POLICY "Editors+ can manage events" ON events
-  FOR ALL USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'editor'));
+  FOR ALL USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'editor'));
 
 -- BREAKING NEWS
 CREATE POLICY "Breaking news visible to tenant members" ON breaking_news
   FOR SELECT USING (tenant_id IN (SELECT get_user_tenant_ids()));
 
 CREATE POLICY "Editors+ can manage breaking news" ON breaking_news
-  FOR ALL USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'editor'));
+  FOR ALL USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'editor'));
 
 -- ACTIVITY LOG
 CREATE POLICY "Activity log visible to admins" ON activity_log
-  FOR SELECT USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor'));
+  FOR SELECT USING (get_user_role(tenant_id) IN ('admin', 'chief_editor'));
 
 CREATE POLICY "System can insert activity log" ON activity_log
   FOR INSERT WITH CHECK (tenant_id IN (SELECT get_user_tenant_ids()));

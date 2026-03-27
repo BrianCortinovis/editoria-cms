@@ -71,7 +71,7 @@ export default function IAPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [statuses, setStatuses] = useState<Record<string, 'active' | 'inactive' | 'error'>>({});
-  const canManageAi = currentRole === 'super_admin';
+  const canManageAi = currentRole === 'admin';
 
   useEffect(() => {
     if (!canManageAi || !currentTenant) return;
@@ -179,7 +179,7 @@ export default function IAPage() {
       <div className="max-w-2xl text-center py-20">
         <Sparkles className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
         <p className="text-sm" style={{ color: "var(--c-text-2)" }}>
-          Solo i Super Admin possono gestire provider e credenziali IA del tenant.
+          Solo gli Admin possono gestire provider e credenziali IA del tenant.
         </p>
       </div>
     );
@@ -204,7 +204,7 @@ export default function IAPage() {
           </h1>
         </div>
         <p style={{ color: 'var(--c-text-2)' }}>
-          Configura i provider IA per la generazione di contenuti
+          Configura i provider IA per assistenza CMS, redazione, SEO, analytics e supporto tecnico
         </p>
       </div>
 
@@ -409,7 +409,7 @@ export default function IAPage() {
       {/* Info Box */}
       <div className="p-4 rounded-lg border" style={{ background: 'var(--c-bg-2)', borderColor: 'var(--c-border)' }}>
         <p className="text-sm" style={{ color: 'var(--c-text-0)' }}>
-          <strong>💡 Nota:</strong> Configura almeno un provider IA per usare la funzione di generazione contenuti. Le API key sono salvate in modo sicuro nel database.
+          <strong>💡 Nota:</strong> Configura almeno un provider IA per usare assistenza CMS, compilazione campi, SEO e supporto operativo. Le API key sono salvate in modo sicuro nel database.
         </p>
       </div>
     </div>

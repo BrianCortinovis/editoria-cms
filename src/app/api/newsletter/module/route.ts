@@ -10,7 +10,7 @@ import {
 } from "@/lib/newsletter/module";
 import { normalizeNewsletterConfig, type SiteNewsletterConfig } from "@/lib/site/newsletter";
 
-const NEWSLETTER_EDIT_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
+const NEWSLETTER_EDIT_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
 
 function asObject(input: unknown) {
   return input && typeof input === "object" ? (input as Record<string, unknown>) : {};

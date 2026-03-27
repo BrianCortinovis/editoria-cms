@@ -24,7 +24,7 @@ export default function SocialPage() {
     'Scopri il nuovo progetto sul territorio e leggi l’articolo completo sul sito della testata.'
   );
   const [composerUrl, setComposerUrl] = useState('https://esempio.it/articolo/progetto-green-val-brembana');
-  const canManageSocial = currentRole === 'super_admin';
+  const canManageSocial = currentRole === 'admin';
 
   useEffect(() => {
     if (!canManageSocial) return;
@@ -163,7 +163,7 @@ export default function SocialPage() {
       <div className="max-w-2xl text-center py-20">
         <Share2 className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--c-text-3)' }} />
         <p className="text-sm" style={{ color: 'var(--c-text-2)' }}>
-          Solo i Super Admin possono gestire token, webhook e configurazioni social del tenant.
+          Solo gli Admin possono gestire token, webhook e configurazioni social del tenant.
         </p>
       </div>
     );

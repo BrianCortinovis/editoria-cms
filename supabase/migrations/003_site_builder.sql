@@ -168,14 +168,14 @@ CREATE POLICY "Site config visible to tenant members" ON site_config
   FOR SELECT USING (tenant_id IN (SELECT get_user_tenant_ids()));
 
 CREATE POLICY "Admins can manage site config" ON site_config
-  FOR ALL USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor'));
+  FOR ALL USING (get_user_role(tenant_id) IN ('admin', 'chief_editor'));
 
 -- SITE_PAGES: visible to tenant members, editable by editors+
 CREATE POLICY "Site pages visible to tenant members" ON site_pages
   FOR SELECT USING (tenant_id IN (SELECT get_user_tenant_ids()));
 
 CREATE POLICY "Editors+ can manage site pages" ON site_pages
-  FOR ALL USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'editor'));
+  FOR ALL USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'editor'));
 
 -- SITE_PAGE_REVISIONS: visible to tenant members, insertable by editors
 CREATE POLICY "Page revisions visible to tenant members" ON site_page_revisions
@@ -186,19 +186,19 @@ CREATE POLICY "Page revisions visible to tenant members" ON site_page_revisions
 CREATE POLICY "Editors can create page revisions" ON site_page_revisions
   FOR INSERT WITH CHECK (changed_by = auth.uid());
 
--- API_KEYS: visible and manageable by super_admins only
+-- API_KEYS: visible and manageable by admins only
 CREATE POLICY "API keys visible to super admins" ON api_keys
-  FOR SELECT USING (get_user_role(tenant_id) = 'super_admin');
+  FOR SELECT USING (get_user_role(tenant_id) = 'admin');
 
 CREATE POLICY "Super admins can manage API keys" ON api_keys
-  FOR ALL USING (get_user_role(tenant_id) = 'super_admin');
+  FOR ALL USING (get_user_role(tenant_id) = 'admin');
 
 -- LAYOUT_TEMPLATES
 CREATE POLICY "Layout templates visible to tenant members" ON layout_templates
   FOR SELECT USING (tenant_id IN (SELECT get_user_tenant_ids()));
 
 CREATE POLICY "Editors+ can manage layout templates" ON layout_templates
-  FOR ALL USING (get_user_role(tenant_id) IN ('super_admin', 'chief_editor', 'editor'));
+  FOR ALL USING (get_user_role(tenant_id) IN ('admin', 'chief_editor', 'editor'));
 
 -- LAYOUT_SLOTS
 CREATE POLICY "Layout slots visible to tenant members" ON layout_slots

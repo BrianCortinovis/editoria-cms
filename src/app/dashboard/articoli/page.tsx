@@ -268,7 +268,7 @@ export default function ArticoliPage() {
                           >
                             <Pencil className="w-3.5 h-3.5" /> Modifica
                           </Link>
-                          {currentRole === "super_admin" && (
+                          {currentRole === "admin" && (
                             <button
                               onClick={() => handleDelete(article.id)}
                               className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 w-full text-left transition hover:bg-[var(--c-bg-2)]"

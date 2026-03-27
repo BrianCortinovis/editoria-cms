@@ -6,6 +6,7 @@ import { useAuthStore } from "@/lib/store";
 import { Loader2 } from "lucide-react";
 import type { UserRole } from "@/types/database";
 import type { InitialAuthPayload } from "@/lib/auth-bootstrap";
+import { normalizeCmsRole } from "@/lib/cms/roles";
 
 function sanitizeTenantForClient(tenant: Record<string, unknown>) {
   const rawSettings =
@@ -121,7 +122,7 @@ export default function AuthProvider({ children, initialAuth }: AuthProviderProp
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mapped = userTenants.map((ut: any) => ({
           ...sanitizeTenantForClient(ut.tenants || {}),
-          role: ut.role as UserRole,
+          role: (normalizeCmsRole(ut.role) ?? "contributor") as UserRole,
         }));
 
         setTenants(mapped as unknown as ReturnType<typeof useAuthStore.getState>["tenants"]);

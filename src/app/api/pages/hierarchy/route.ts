@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
-const PAGE_ORDER_EDITOR_ROLES = new Set(['super_admin', 'chief_editor', 'editor']);
+const PAGE_ORDER_EDITOR_ROLES = new Set(['admin', 'chief_editor', 'editor']);
 
 /**
  * GET /api/pages/hierarchy?tenant_id=xxx&parent_id=xxx&sort=order|updated

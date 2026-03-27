@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { buildSiteBridgePack } from "@/lib/editorial/site-bridge-pack";
 
-const EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
+const EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",

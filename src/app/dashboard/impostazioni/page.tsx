@@ -39,7 +39,7 @@ export default function ImpostazioniPage() {
   const [googleAnalytics, setGoogleAnalytics] = useState("");
   const [googleAdsense, setGoogleAdsense] = useState("");
 
-  const isAdmin = currentRole === "super_admin";
+  const isAdmin = currentRole === "admin";
 
   useEffect(() => {
     if (!currentTenant) return;
@@ -151,7 +151,7 @@ export default function ImpostazioniPage() {
       <div className="max-w-2xl py-20 text-center">
         <Shield className="mx-auto mb-3 h-10 w-10" style={{ color: "var(--c-text-3)" }} />
         <p className="text-sm" style={{ color: "var(--c-text-2)" }}>
-          Solo i Super Admin possono modificare le impostazioni del sito.
+          Solo gli Admin possono modificare le impostazioni del sito.
         </p>
       </div>
     );

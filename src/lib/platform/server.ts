@@ -34,9 +34,10 @@ function isMissingPlatformRelation(error: { message?: string } | null | undefine
     message.includes("schema cache");
 }
 
-function mapLegacyRoleToPlatformRole(role: UserRole): PlatformMembershipRole {
+function mapLegacyRoleToPlatformRole(role: UserRole | "super_admin"): PlatformMembershipRole {
   switch (role) {
     case "super_admin":
+    case "admin":
       return "owner";
     case "chief_editor":
       return "admin";

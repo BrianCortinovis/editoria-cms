@@ -50,7 +50,7 @@ export default function TestataPage() {
   const { currentTenant, currentRole } = useAuthStore();
   const [saving, setSaving] = useState(false);
   const [loadedSettings, setLoadedSettings] = useState<Record<string, unknown>>({});
-  const isAdmin = currentRole === "super_admin" || currentRole === "chief_editor";
+  const isAdmin = currentRole === "admin" || currentRole === "chief_editor";
 
   // Dati testata
   const [ragioneSociale, setRagioneSociale] = useState("");

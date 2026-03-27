@@ -19,6 +19,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import type { UserRole } from "@/types/database";
+import { normalizeCmsRole } from "@/lib/cms/roles";
 
 interface TeamMember {
   id: string;
@@ -34,7 +35,7 @@ interface TeamMember {
 }
 
 const roleConfig: Record<UserRole, { label: string; bg: string; fg: string; icon: typeof Crown; description: string }> = {
-  super_admin: { label: "Super Admin", bg: "rgba(239,68,68,0.12)", fg: "#ef4444", icon: Crown, description: "Accesso totale, gestione utenti e configurazione" },
+  admin: { label: "Admin", bg: "rgba(239,68,68,0.12)", fg: "#ef4444", icon: Crown, description: "Accesso totale, gestione utenti e configurazione" },
   chief_editor: { label: "Caporedattore", bg: "rgba(168,85,247,0.12)", fg: "#a855f7", icon: Shield, description: "Approva/rifiuta articoli, gestisce le sezioni" },
   editor: { label: "Redattore", bg: "rgba(56,189,248,0.12)", fg: "#38bdf8", icon: Pencil, description: "Crea e modifica articoli, invia per approvazione" },
   contributor: { label: "Collaboratore", bg: "var(--c-bg-3)", fg: "var(--c-text-2)", icon: UserCircle, description: "Solo bozze, nessuna pubblicazione diretta" },
@@ -54,7 +55,7 @@ export default function UtentiPage() {
   const [inviteRole, setInviteRole] = useState<UserRole>("editor");
   const [inviting, setInviting] = useState(false);
 
-  const isAdmin = currentRole === "super_admin";
+  const isAdmin = currentRole === "admin";
 
   const load = useCallback(async () => {
     if (!currentTenant) return;
@@ -71,7 +72,7 @@ export default function UtentiPage() {
         data.map((d: any) => ({
           id: d.id,
           user_id: d.user_id,
-          role: d.role,
+          role: normalizeCmsRole(d.role) ?? "contributor",
           created_at: d.created_at,
           profile: d.profiles,
         }))
@@ -80,7 +81,13 @@ export default function UtentiPage() {
     setLoading(false);
   }, [currentTenant]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const handleInvite = async () => {
     if (!currentTenant || !inviteEmail.trim()) {

@@ -105,7 +105,7 @@ BEGIN
   VALUES (
     v_user_id,
     v_tenant_id,
-    'super_admin'
+    'admin'
   )
   ON CONFLICT (user_id, tenant_id) DO NOTHING;
 

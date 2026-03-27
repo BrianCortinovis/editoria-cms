@@ -293,9 +293,9 @@ async function main() {
   if (formRows.error) throw formRows.error;
 
   const memberships = membershipRows.data || [];
-  const superAdmin = memberships.find((item) => item.role === "super_admin")?.user_id || memberships[0]?.user_id;
-  const chiefEditor = memberships.find((item) => item.role === "chief_editor")?.user_id || superAdmin;
-  const contributor = memberships.find((item) => item.role === "contributor")?.user_id || superAdmin;
+  const adminUser = memberships.find((item) => item.role === "admin")?.user_id || memberships[0]?.user_id;
+  const chiefEditor = memberships.find((item) => item.role === "chief_editor")?.user_id || adminUser;
+  const contributor = memberships.find((item) => item.role === "contributor")?.user_id || adminUser;
   const editors = memberships.filter((item) => item.role === "editor").map((item) => item.user_id);
   const editorPrimary = editors[0] || chiefEditor;
   const editorSecondary = editors[1] || editorPrimary;

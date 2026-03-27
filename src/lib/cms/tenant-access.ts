@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { getClientIp, checkRateLimit } from "@/lib/security/rate-limit";
+import { hasCmsRole } from "@/lib/cms/roles";
 
-export const CMS_VIEW_ROLES = new Set(["super_admin", "chief_editor", "editor", "contributor", "advertiser"]);
-export const CMS_EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
-export const CMS_BANNER_ROLES = new Set(["super_admin", "chief_editor", "advertiser"]);
-export const CMS_MEDIA_DELETE_ROLES = new Set(["super_admin", "chief_editor"]);
+export const CMS_VIEW_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor", "contributor", "advertiser"]);
+export const CMS_EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
+export const CMS_BANNER_ROLES = new Set(["admin", "super_admin", "chief_editor", "advertiser"]);
+export const CMS_MEDIA_DELETE_ROLES = new Set(["admin", "super_admin", "chief_editor"]);
 
 export async function requireTenantAccess(
   tenantId: string,
@@ -27,7 +28,7 @@ export async function requireTenantAccess(
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (error || !membership?.role || !allowedRoles.has(membership.role)) {
+  if (error || !membership?.role || !hasCmsRole(membership.role, allowedRoles)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 

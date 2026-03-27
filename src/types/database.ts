@@ -1,4 +1,4 @@
-export type UserRole = "super_admin" | "chief_editor" | "editor" | "contributor" | "advertiser";
+export type UserRole = "admin" | "chief_editor" | "editor" | "contributor" | "advertiser";
 
 export type ArticleStatus = "draft" | "in_review" | "approved" | "published" | "archived";
 
@@ -100,6 +100,7 @@ export interface Database {
           id: string;
           email: string;
           full_name: string;
+          is_platform_superadmin: boolean;
           first_name: string | null;
           last_name: string | null;
           avatar_url: string | null;
@@ -119,6 +120,7 @@ export interface Database {
           id: string;
           email: string;
           full_name?: string;
+          is_platform_superadmin?: boolean;
           first_name?: string | null;
           last_name?: string | null;
           avatar_url?: string | null;
@@ -137,6 +139,7 @@ export interface Database {
         Update: {
           email?: string;
           full_name?: string;
+          is_platform_superadmin?: boolean;
           first_name?: string | null;
           last_name?: string | null;
           avatar_url?: string | null;

@@ -183,8 +183,8 @@ export default function TecnicoPage() {
     void loadStats();
   }, [currentTenant]);
 
-  const canUseCommandConsole = ["super_admin", "chief_editor", "editor"].includes(currentRole ?? "");
-  const canManageCron = ["super_admin", "chief_editor"].includes(currentRole ?? "");
+  const canUseCommandConsole = ["admin", "chief_editor", "editor"].includes(currentRole ?? "");
+  const canManageCron = ["admin", "chief_editor"].includes(currentRole ?? "");
 
   const applyTemplate = (templateId: string) => {
     const template = COMMAND_TEMPLATES.find((item) => item.id === templateId);

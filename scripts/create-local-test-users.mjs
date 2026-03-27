@@ -94,7 +94,7 @@ async function main() {
       email: 'admin.test@local.cms',
       password: 'admin1234',
       name: 'Admin Test Locale',
-      role: 'super_admin',
+      role: 'admin',
     },
     {
       email: 'desk.test@local.cms',
@@ -117,6 +117,7 @@ async function main() {
       id: userId,
       email: entry.email,
       full_name: entry.name,
+      is_platform_superadmin: entry.role === 'admin',
     });
 
     const { data: membership } = await supabase
@@ -141,7 +142,7 @@ async function main() {
   }
 
   console.log(`Utenti di test creati/aggiornati per tenant ${tenant.slug}:`);
-  console.log('- admin.test@local.cms / admin1234 (super_admin)');
+  console.log('- admin.test@local.cms / admin1234 (admin)');
   console.log('- desk.test@local.cms / desk1234 (chief_editor)');
   console.log('- reporter.test@local.cms / reporter1234 (contributor)');
   console.log('');

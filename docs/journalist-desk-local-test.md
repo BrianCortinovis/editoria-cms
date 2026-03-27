@@ -6,7 +6,7 @@ Questa guida serve per provare la mini-app giornalisti e i ruoli team **solo in 
 
 Lo script crea o aggiorna tre utenti di prova sul tenant scelto:
 
-- `admin.test@local.cms` / `admin1234` → `super_admin`
+- `admin.test@local.cms` / `admin1234` → `admin`
 - `desk.test@local.cms` / `desk1234` → `chief_editor`
 - `reporter.test@local.cms` / `reporter1234` → `contributor`
 

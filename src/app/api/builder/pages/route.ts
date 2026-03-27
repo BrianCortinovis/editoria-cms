@@ -5,7 +5,7 @@ import { writeActivityLog, writePageAuditLog } from "@/lib/security/audit";
 import { buildDefaultPageMeta, slugifyPageTitle } from "@/lib/pages/page-seo";
 import { triggerPublish } from "@/lib/publish/runner";
 
-const PAGE_EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
+const PAGE_EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
 
 // GET: List all site pages for current tenant
 export async function GET(request: Request) {

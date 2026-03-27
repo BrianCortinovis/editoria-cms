@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { resolveProvider } from '@/lib/ai/resolver';
-import { callProvider } from '@/lib/ai/providers';
+import { callAIWithFallback } from '@/lib/ai/fallback';
 import type { AIProvider } from '@/lib/ai/providers';
+import type { AITask } from '@/lib/ai/resolver';
 
 interface GeneratePayload {
   tenant_id: string;
@@ -18,6 +18,17 @@ interface GeneratePayload {
   summary?: string;
   // Optional
   provider?: AIProvider;
+}
+
+function inferFieldTask(fieldName?: string, fieldType?: string): AITask {
+  const combined = `${fieldName || ''} ${fieldType || ''}`.toLowerCase();
+
+  if (/(seo|meta|og|canonical|slug|tag)/.test(combined)) return 'seo';
+  if (/(titolo|title|headline)/.test(combined)) return 'titles';
+  if (/(social|facebook|instagram|telegram|twitter|x)/.test(combined)) return 'social';
+  if (/(summary|sommario|excerpt|abstract|hook)/.test(combined)) return 'summary';
+
+  return 'field-assist';
 }
 
 export async function POST(request: NextRequest) {
@@ -110,33 +121,19 @@ ${style === 'publication' ? 'Scrivi nello stile editoriale della rivista.' : ''}
 Restituisci direttamente il valore finale del campo, senza spiegazioni superflue.`.trim();
     }
 
-    // Resolve which provider to use
-    let resolvedProvider;
-    if (overrideProvider) {
-      // If override provider specified, try to use it
-      const credentials = {
-        ...aiConfig,
-        [overrideProvider === 'ollama' ? 'ollama_url' : `${overrideProvider}_api_key`]: overrideProvider === 'ollama' ? aiConfig.ollama_url : aiConfig[`${overrideProvider}_api_key`],
-      };
-      resolvedProvider = resolveProvider(credentials, 'summarize');
-      if (resolvedProvider.provider !== overrideProvider) {
-        return NextResponse.json({ error: `Provider ${overrideProvider} not configured` }, { status: 400 });
-      }
-    } else {
-      resolvedProvider = resolveProvider(aiConfig, 'summarize');
-    }
+    const task: AITask = body.type
+      ? body.type
+      : inferFieldTask(body.fieldName, body.fieldType);
 
-    // Handle Ollama URL vs API key
-    const apiKey = resolvedProvider.provider === 'ollama'
-      ? resolvedProvider.apiKey
-      : resolvedProvider.apiKey;
-
-    // Call the AI provider
-    const result = await callProvider(
-      resolvedProvider.provider,
-      apiKey,
-      { system: systemPrompt, prompt: userPrompt, model: resolvedProvider.model }
-    );
+    const result = await callAIWithFallback({
+      aiConfig,
+      task,
+      preferredProvider: overrideProvider,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+    });
 
     // Parse JSON response from AI (prompts instruct AI to return JSON)
     let parsedResult: unknown = result.text;
@@ -151,6 +148,8 @@ Restituisci direttamente il valore finale del campo, senza spiegazioni superflue
       result: parsedResult,
       provider: result.provider,
       model: result.model,
+      fallbackUsed: result.fallbackUsed,
+      attempts: result.attempts,
     });
   } catch (error) {
     console.error('AI generation error:', error);

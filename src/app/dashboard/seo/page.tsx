@@ -57,7 +57,7 @@ export default function SeoPage() {
   const [analysisResult, setAnalysisResult] = useState<SeoAnalysisResult | null>(null);
   const [siteSettings, setSiteSettings] = useState<Record<string, string>>({});
   const canUseSeoTools =
-    currentRole === "super_admin" ||
+    currentRole === "admin" ||
     currentRole === "chief_editor" ||
     currentRole === "editor";
 

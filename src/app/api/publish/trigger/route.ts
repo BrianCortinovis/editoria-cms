@@ -3,7 +3,7 @@ import { assertTrustedMutationRequest } from '@/lib/security/request';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { triggerPublish, type PublishTask } from '@/lib/publish/runner';
 
-const PUBLISH_ROLES = new Set(['super_admin', 'chief_editor', 'editor']);
+const PUBLISH_ROLES = new Set(['admin', 'chief_editor', 'editor']);
 
 function normalizeTasks(input: unknown): PublishTask[] {
   if (!Array.isArray(input)) {

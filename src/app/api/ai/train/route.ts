@@ -3,7 +3,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supab
 import { assertTrustedMutationRequest } from '@/lib/security/request';
 import { writeActivityLog } from '@/lib/security/audit';
 
-const TRAINER_ROLES = new Set(['super_admin', 'chief_editor', 'editor']);
+const TRAINER_ROLES = new Set(['admin', 'chief_editor', 'editor']);
 
 /**
  * POST /api/ai/train

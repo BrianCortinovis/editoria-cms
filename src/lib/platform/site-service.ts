@@ -19,7 +19,7 @@ export function normalizeSiteSlug(value: string): string {
 export function mapPlatformRoleToCmsRole(role: PlatformMembershipRole): UserRole {
   switch (role) {
     case "owner":
-      return "super_admin";
+      return "admin";
     case "admin":
       return "chief_editor";
     case "editor":

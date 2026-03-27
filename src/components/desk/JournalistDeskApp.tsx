@@ -200,12 +200,12 @@ export default function JournalistDeskApp({
   const photoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
-  const canConfigureDesk = currentRole === 'super_admin' || currentRole === 'chief_editor';
+  const canConfigureDesk = currentRole === 'admin' || currentRole === 'chief_editor';
 
   const canPublish =
-    currentRole === 'super_admin' || currentRole === 'chief_editor' || currentRole === 'editor';
+    currentRole === 'admin' || currentRole === 'chief_editor' || currentRole === 'editor';
   const canUseDesk =
-    currentRole === 'super_admin' ||
+    currentRole === 'admin' ||
     (currentRole === 'chief_editor' && deskSettings.allowChiefEditorAccess) ||
     (currentRole === 'editor' && deskSettings.allowEditorAccess) ||
     (currentRole === 'contributor' && deskSettings.allowContributorAccess);

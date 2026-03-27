@@ -3,7 +3,7 @@ import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { getCronSettingsForTenant, getCronSettingsMap } from "@/lib/cron/settings";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 
-const MANAGE_ROLES = new Set(["super_admin", "chief_editor"]);
+const MANAGE_ROLES = new Set(["admin", "super_admin", "chief_editor"]);
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

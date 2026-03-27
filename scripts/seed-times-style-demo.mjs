@@ -508,7 +508,7 @@ async function main() {
 
   const categoryBySlug = Object.fromEntries((categories || []).map((category) => [category.slug, category]));
 
-  const membershipPriority = ['chief_editor', 'editor', 'super_admin', 'contributor'];
+  const membershipPriority = ['admin', 'chief_editor', 'editor', 'contributor'];
   const { data: memberships } = await supabase
     .from('user_tenants')
     .select('user_id, role')
