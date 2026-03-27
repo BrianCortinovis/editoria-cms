@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { callAI } from "@/lib/ai/providers";
+import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { callAIWithFallback } from "@/lib/ai/fallback";
 import { isModuleActive, getModuleConfig } from "@/lib/modules";
 import { resolveProvider, type ResolvedProvider } from "@/lib/ai/resolver";
 
@@ -33,6 +33,13 @@ interface SeoToolResult {
   [key: string]: unknown;
 }
 
+type AIConfig = Record<string, string | undefined>;
+
+interface SeoAiContext {
+  aiConfig: AIConfig;
+  resolved: ResolvedProvider;
+}
+
 interface SchemaArticle {
   id?: string | null;
   title?: string | null;
@@ -62,9 +69,6 @@ interface SchemaArticle {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
     const body = await request.json();
     const { tenant_id, action, articles = [], articleId, page } = body as {
       tenant_id?: string;
@@ -83,6 +87,14 @@ export async function POST(request: NextRequest) {
       process.env.CRON_SECRET &&
       internalSecret === `Bearer ${process.env.CRON_SECRET}`
     );
+
+    const supabase = isTrustedInternalCall
+      ? await createServiceRoleClient()
+      : await createServerSupabaseClient();
+
+    const { data: { user } } = isTrustedInternalCall
+      ? { data: { user: null } }
+      : await supabase.auth.getUser();
 
     if (!user && !isTrustedInternalCall) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -122,35 +134,35 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case "analyze_seo":
-        result = await analyzeSEO(articles, resolved);
+        result = await analyzeSEO(articles, { aiConfig, resolved });
         break;
 
       case "generate_meta":
         if (!articles || articles.length === 0) {
           return NextResponse.json({ error: "articles required for meta generation" }, { status: 400 });
         }
-        result = await generateMetaTags(articles, resolved);
+        result = await generateMetaTags(articles, { aiConfig, resolved });
         break;
 
       case "keyword_analysis":
         if (!articles || articles.length === 0) {
           return NextResponse.json({ error: "articles required for keyword analysis" }, { status: 400 });
         }
-        result = await analyzeKeywords(articles, resolved);
+        result = await analyzeKeywords(articles, { aiConfig, resolved });
         break;
 
       case "readability":
         if (!articles || articles.length === 0) {
           return NextResponse.json({ error: "articles required for readability analysis" }, { status: 400 });
         }
-        result = await analyzeReadability(articles, resolved);
+        result = await analyzeReadability(articles, { aiConfig, resolved });
         break;
 
       case "internal_linking":
         if (!articles || articles.length === 0) {
           return NextResponse.json({ error: "articles required for linking suggestions" }, { status: 400 });
         }
-        result = await suggestInternalLinks(articles, resolved);
+        result = await suggestInternalLinks(articles, { aiConfig, resolved });
         break;
 
       case "schema_markup":
@@ -174,7 +186,7 @@ export async function POST(request: NextRequest) {
         if (!page) {
           return NextResponse.json({ error: "page required for page optimization" }, { status: 400 });
         }
-        result = await optimizePageSeo(page, resolved);
+        result = await optimizePageSeo(page, { aiConfig, resolved });
         break;
 
       default:
@@ -256,7 +268,22 @@ function safeJsonParse<T>(value: string): T | null {
   }
 }
 
-async function optimizePageSeo(page: PageSeoPayload, resolved: ResolvedProvider) {
+async function callSeoAi(
+  context: SeoAiContext,
+  messages: Array<{ role: "system" | "user"; content: string }>
+) {
+  const result = await callAIWithFallback({
+    aiConfig: context.aiConfig,
+    task: "seo",
+    messages,
+    preferredProvider: context.resolved.provider,
+    preferredModel: context.resolved.model,
+  });
+
+  return result;
+}
+
+async function optimizePageSeo(page: PageSeoPayload, context: SeoAiContext) {
   const textParts = extractBlockText(page.blocks || []);
   const pageText = textParts.join("\n").trim().slice(0, 6000);
   const currentMeta = page.meta || {};
@@ -299,17 +326,13 @@ Regole:
 - schemaType deve essere uno tra WebPage, CollectionPage, AboutPage, ContactPage, NewsMediaOrganization
 - notes max 3`;
 
-  const result = await callAI(
-    resolved.provider,
-    [
-      {
-        role: "system",
-        content: "Sei un SEO strategist senior per CMS editoriali. Produci solo JSON valido, conciso e applicabile direttamente.",
-      },
-      { role: "user", content: prompt },
-    ],
-    { apiKey: resolved.apiKey, model: resolved.model }
-  );
+  const result = await callSeoAi(context, [
+    {
+      role: "system",
+      content: "Sei un SEO strategist senior per CMS editoriali. Produci solo JSON valido, conciso e applicabile direttamente.",
+    },
+    { role: "user", content: prompt },
+  ]);
 
   const parsed = safeJsonParse<Record<string, unknown>>(result.text);
   if (!parsed) {
@@ -342,7 +365,7 @@ Regole:
 /**
  * Analyze overall SEO performance
  */
-async function analyzeSEO(articles: ArticleWithMetrics[], resolved: ResolvedProvider) {
+async function analyzeSEO(articles: ArticleWithMetrics[], context: SeoAiContext) {
   const stats = {
     total: articles.length,
     with_meta_title: articles.filter(a => a.meta_title).length,
@@ -368,13 +391,13 @@ Fornisci:
 3. Opportunità di miglioramento (max 3)
 4. Azioni consigliate nei prossimi 30 giorni`;
 
-  const result = await callAI(resolved.provider, [
+  const result = await callSeoAi(context, [
     {
       role: "system",
       content: "Sei un esperto SEO per siti giornalistici italiani. Fornisci analisi concrete e attuabili.",
     },
     { role: "user", content: prompt },
-  ], { apiKey: resolved.apiKey, model: resolved.model });
+  ]);
 
   return {
     action: "analyze_seo",
@@ -387,7 +410,7 @@ Fornisci:
 /**
  * Generate optimized meta tags
  */
-async function generateMetaTags(articles: ArticleWithMetrics[], resolved: ResolvedProvider) {
+async function generateMetaTags(articles: ArticleWithMetrics[], context: SeoAiContext) {
   const articlesNeedingMeta = articles
     .filter(a => !a.meta_title || !a.meta_description)
     .slice(0, 5);
@@ -412,13 +435,13 @@ Formato risposta:
 META_TITLE: [titolo]
 META_DESCRIPTION: [descrizione]`;
 
-      const result = await callAI(resolved.provider, [
+      const result = await callSeoAi(context, [
         {
           role: "system",
           content: "Sei un esperto SEO. Genera meta tag concisi e ottimizzati per i motori di ricerca.",
         },
         { role: "user", content: prompt },
-      ], { apiKey: resolved.apiKey, model: resolved.model });
+      ]);
 
       const text = result.text;
       const titleMatch = text.match(/META_TITLE:\s*(.+?)(?:\n|$)/);
@@ -439,14 +462,14 @@ META_DESCRIPTION: [descrizione]`;
     action: "generate_meta",
     count: suggestions.length,
     suggestions,
-    provider: resolved.provider,
+    provider: context.resolved.provider,
   };
 }
 
 /**
  * Analyze keywords and suggest improvements
  */
-async function analyzeKeywords(articles: ArticleWithMetrics[], resolved: ResolvedProvider) {
+async function analyzeKeywords(articles: ArticleWithMetrics[], context: SeoAiContext) {
   const content = articles
     .slice(0, 10)
     .map(a => `${a.title}: ${(a.body || "").slice(0, 300)}`)
@@ -464,13 +487,13 @@ Per ogni articolo, identifica:
 
 Formato: Un paragrafo per articolo con raccomandazioni concrete.`;
 
-  const result = await callAI(resolved.provider, [
+  const result = await callSeoAi(context, [
     {
       role: "system",
       content: "Sei un esperto SEO specializzato in ottimizzazione keywords per siti giornalistici italiani.",
     },
     { role: "user", content: prompt },
-  ], { apiKey: resolved.apiKey, model: resolved.model });
+  ]);
 
   return {
     action: "keyword_analysis",
@@ -483,7 +506,7 @@ Formato: Un paragrafo per articolo con raccomandazioni concrete.`;
 /**
  * Analyze and improve readability
  */
-async function analyzeReadability(articles: ArticleWithMetrics[], resolved: ResolvedProvider) {
+async function analyzeReadability(articles: ArticleWithMetrics[], context: SeoAiContext) {
   const sampleContent = articles
     .slice(0, 3)
     .map(a => `Titolo: "${a.title}"\n${(a.body || "").slice(0, 400)}`)
@@ -502,13 +525,13 @@ Valuta:
 
 Per ogni aspetto, suggerisci 2-3 miglioramenti specifici applicabili.`;
 
-  const result = await callAI(resolved.provider, [
+  const result = await callSeoAi(context, [
     {
       role: "system",
       content: "Sei un esperto di SEO e readability per siti giornalistici italiani.",
     },
     { role: "user", content: prompt },
-  ], { apiKey: resolved.apiKey, model: resolved.model });
+  ]);
 
   return {
     action: "readability",
@@ -521,7 +544,7 @@ Per ogni aspetto, suggerisci 2-3 miglioramenti specifici applicabili.`;
 /**
  * Suggest internal linking opportunities
  */
-async function suggestInternalLinks(articles: ArticleWithMetrics[], resolved: ResolvedProvider) {
+async function suggestInternalLinks(articles: ArticleWithMetrics[], context: SeoAiContext) {
   const titles = articles.map(a => ({ slug: a.slug, title: a.title, summary: a.summary?.slice(0, 100) }));
 
   const prompt = `Basandoti su questi articoli giornalistici italiani, suggerisci collegamenti interni (internal links):
@@ -540,13 +563,13 @@ Formato:
 - Posizione: (dove inserire)
 - Motivo: (perché utile)`;
 
-  const result = await callAI(resolved.provider, [
+  const result = await callSeoAi(context, [
     {
       role: "system",
       content: "Sei un esperto SEO specializzato in strategie di internal linking per siti di notizie italiani.",
     },
     { role: "user", content: prompt },
-  ], { apiKey: resolved.apiKey, model: resolved.model });
+  ]);
 
   return {
     action: "internal_linking",
