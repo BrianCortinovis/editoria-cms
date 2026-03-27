@@ -43,6 +43,16 @@ interface Banner {
   created_at: string;
 }
 
+interface BannerOverlayConfig {
+  enabled: boolean;
+  delay_seconds: number;
+  target_article_slugs: string[];
+  title: string;
+  description: string;
+  cta_label: string;
+  cta_url: string;
+}
+
 interface Advertiser {
   id: string;
   name: string;
@@ -68,6 +78,59 @@ const bannerTypes = [
   { value: "adsense", label: "AdSense", icon: BarChart3 },
 ];
 
+const DEFAULT_OVERLAY_CONFIG: BannerOverlayConfig = {
+  enabled: false,
+  delay_seconds: 0.8,
+  target_article_slugs: [],
+  title: "",
+  description: "",
+  cta_label: "Apri sponsor",
+  cta_url: "",
+};
+
+function parseOverlayConfig(htmlContent: string | null): BannerOverlayConfig {
+  if (!htmlContent) return { ...DEFAULT_OVERLAY_CONFIG };
+
+  try {
+    const parsed = JSON.parse(htmlContent);
+    if (!parsed || typeof parsed !== "object") {
+      return { ...DEFAULT_OVERLAY_CONFIG };
+    }
+
+    return {
+      enabled: parsed.enabled === true,
+      delay_seconds: Number(parsed.delay_seconds) > 0 ? Number(parsed.delay_seconds) : DEFAULT_OVERLAY_CONFIG.delay_seconds,
+      target_article_slugs: Array.isArray(parsed.target_article_slugs) ? parsed.target_article_slugs.map(String).filter(Boolean) : [],
+      title: typeof parsed.title === "string" ? parsed.title : "",
+      description: typeof parsed.description === "string" ? parsed.description : "",
+      cta_label: typeof parsed.cta_label === "string" && parsed.cta_label ? parsed.cta_label : DEFAULT_OVERLAY_CONFIG.cta_label,
+      cta_url: typeof parsed.cta_url === "string" ? parsed.cta_url : "",
+    };
+  } catch {
+    return { ...DEFAULT_OVERLAY_CONFIG };
+  }
+}
+
+function buildBannerHtmlContent(type: string, htmlContent: string, overlayConfig: BannerOverlayConfig) {
+  if (type === "html") {
+    return htmlContent || null;
+  }
+
+  if (!overlayConfig.enabled) {
+    return null;
+  }
+
+  return JSON.stringify({
+    enabled: true,
+    delay_seconds: overlayConfig.delay_seconds,
+    target_article_slugs: overlayConfig.target_article_slugs,
+    title: overlayConfig.title,
+    description: overlayConfig.description,
+    cta_label: overlayConfig.cta_label,
+    cta_url: overlayConfig.cta_url,
+  });
+}
+
 export default function BannerPage() {
   const { currentTenant } = useAuthStore();
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -92,6 +155,13 @@ export default function BannerPage() {
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [overlayEnabled, setOverlayEnabled] = useState(false);
+  const [overlayDelaySeconds, setOverlayDelaySeconds] = useState("0.8");
+  const [overlayTargetSlugs, setOverlayTargetSlugs] = useState("");
+  const [overlayTitle, setOverlayTitle] = useState("");
+  const [overlayDescription, setOverlayDescription] = useState("");
+  const [overlayCtaLabel, setOverlayCtaLabel] = useState("Apri sponsor");
+  const [overlayCtaUrl, setOverlayCtaUrl] = useState("");
 
   const readErrorMessage = useCallback(async (response: Response, fallback: string) => {
     const payload = await response.json().catch(() => null);
@@ -136,10 +206,13 @@ export default function BannerPage() {
     setName(""); setPosition("sidebar"); setType("image"); setImageUrl("");
     setHtmlContent(""); setLinkUrl(""); setTargetCategories([]); setTargetDevice("all"); setWeight(1);
     setAdvertiserId(""); setStartsAt(""); setEndsAt(""); setIsActive(true);
+    setOverlayEnabled(false); setOverlayDelaySeconds("0.8"); setOverlayTargetSlugs("");
+    setOverlayTitle(""); setOverlayDescription(""); setOverlayCtaLabel("Apri sponsor"); setOverlayCtaUrl("");
     setEditingId(null); setShowForm(false);
   };
 
   const startEdit = (b: Banner) => {
+    const overlay = parseOverlayConfig(b.html_content);
     setEditingId(b.id); setName(b.name); setPosition(b.position); setType(b.type);
     setImageUrl(b.image_url ?? ""); setHtmlContent(b.html_content ?? ""); setLinkUrl(b.link_url ?? "");
     setTargetCategories(Array.isArray(b.target_categories) ? b.target_categories : []);
@@ -147,11 +220,31 @@ export default function BannerPage() {
     setStartsAt(b.starts_at ? new Date(b.starts_at).toISOString().slice(0, 16) : "");
     setEndsAt(b.ends_at ? new Date(b.ends_at).toISOString().slice(0, 16) : "");
     setIsActive(b.is_active); setShowForm(true);
+    setOverlayEnabled(overlay.enabled);
+    setOverlayDelaySeconds(String(overlay.delay_seconds));
+    setOverlayTargetSlugs(overlay.target_article_slugs.join(", "));
+    setOverlayTitle(overlay.title);
+    setOverlayDescription(overlay.description);
+    setOverlayCtaLabel(overlay.cta_label);
+    setOverlayCtaUrl(overlay.cta_url || (b.link_url ?? ""));
   };
 
   const handleSave = async () => {
     if (!currentTenant || !name.trim()) { toast.error("Nome obbligatorio"); return; }
     setSaving(true);
+
+    const overlayConfig: BannerOverlayConfig = {
+      enabled: overlayEnabled,
+      delay_seconds: Math.max(0, Number(overlayDelaySeconds) || 0),
+      target_article_slugs: overlayTargetSlugs
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+      title: overlayTitle.trim(),
+      description: overlayDescription.trim(),
+      cta_label: overlayCtaLabel.trim() || "Apri sponsor",
+      cta_url: overlayCtaUrl.trim(),
+    };
 
     const payload = {
       tenant_id: currentTenant.id,
@@ -159,7 +252,7 @@ export default function BannerPage() {
       position,
       type,
       image_url: imageUrl || null,
-      html_content: htmlContent || null,
+      html_content: buildBannerHtmlContent(type, htmlContent, overlayConfig),
       link_url: linkUrl || null,
       target_categories: targetCategories,
       target_device: targetDevice,
@@ -417,6 +510,86 @@ export default function BannerPage() {
                 className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
                 style={{ border: "1px solid var(--c-border)" }} />
             </div>
+            {type === "image" && position === "interstitial" && (
+              <div className="sm:col-span-2 lg:col-span-3 rounded-lg p-4" style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-2)" }}>
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Overlay su notizia</p>
+                    <p className="text-xs" style={{ color: "var(--c-text-2)" }}>Mostra il banner sopra card specifiche del sito e richiede la chiusura per aprire l&apos;articolo.</p>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm" style={{ color: "var(--c-text-1)" }}>
+                    <input type="checkbox" checked={overlayEnabled} onChange={e => setOverlayEnabled(e.target.checked)} className="w-4 h-4 rounded" />
+                    Attivo
+                  </label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Secondi prima della comparsa</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.1"
+                      value={overlayDelaySeconds}
+                      onChange={e => setOverlayDelaySeconds(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                      style={{ border: "1px solid var(--c-border)" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>CTA banner</label>
+                    <input
+                      type="text"
+                      value={overlayCtaLabel}
+                      onChange={e => setOverlayCtaLabel(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                      style={{ border: "1px solid var(--c-border)" }}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Slug articoli target</label>
+                    <input
+                      type="text"
+                      value={overlayTargetSlugs}
+                      onChange={e => setOverlayTargetSlugs(e.target.value)}
+                      placeholder="slug-uno, slug-due, slug-tre"
+                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                      style={{ border: "1px solid var(--c-border)" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Titolo overlay</label>
+                    <input
+                      type="text"
+                      value={overlayTitle}
+                      onChange={e => setOverlayTitle(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                      style={{ border: "1px solid var(--c-border)" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>URL CTA overlay</label>
+                    <input
+                      type="url"
+                      value={overlayCtaUrl}
+                      onChange={e => setOverlayCtaUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                      style={{ border: "1px solid var(--c-border)" }}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Testo breve overlay</label>
+                    <textarea
+                      value={overlayDescription}
+                      onChange={e => setOverlayDescription(e.target.value)}
+                      rows={3}
+                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 resize-none"
+                      style={{ border: "1px solid var(--c-border)" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex items-center">
               <label className="flex items-center gap-2 cursor-pointer mt-5">
                 <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)}
@@ -493,6 +666,7 @@ export default function BannerPage() {
                           <p className="text-xs" style={{ color: "var(--c-text-3)" }}>
                             {b.type}
                             {b.target_categories.length > 0 ? ` · ${b.target_categories.join(", ")}` : ""}
+                            {parseOverlayConfig(b.html_content).enabled ? ` · overlay ${parseOverlayConfig(b.html_content).delay_seconds}s` : ""}
                           </p>
                         </div>
                       </div>
