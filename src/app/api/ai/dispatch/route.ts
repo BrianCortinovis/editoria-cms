@@ -10,6 +10,7 @@ interface DispatchPayload {
   prompt: string;
   systemPrompt?: string;
   preferredProvider?: string;
+  preferredModel?: string;
   tenant_id?: string;
 }
 
@@ -39,7 +40,7 @@ function normalizeTask(taskType?: string): AITask {
 export async function POST(request: NextRequest) {
   try {
     const body: DispatchPayload = await request.json();
-    const { taskType, prompt, systemPrompt, preferredProvider, tenant_id } = body;
+    const { taskType, prompt, systemPrompt, preferredProvider, preferredModel, tenant_id } = body;
 
     if (!prompt?.trim()) {
       return NextResponse.json({ error: 'Prompt richiesto' }, { status: 400 });
@@ -115,6 +116,7 @@ ${HUMAN_WORKFLOW_GUIDANCE}`;
         task,
         messages,
         preferredProvider: preferredProvider as AIProvider | undefined,
+        preferredModel,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

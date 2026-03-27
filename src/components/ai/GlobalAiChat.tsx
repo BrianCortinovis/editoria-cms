@@ -20,6 +20,7 @@ import { generateId } from '@/lib/utils/id';
 import { buildChatSystemPrompt } from '@/lib/ai/prompts';
 import { sanitizeFieldResponse } from '@/lib/ai/field-response';
 import { extractPageBackgroundSettings, upsertPageBackgroundMeta } from '@/lib/page-settings';
+import { useAIConfigStore } from '@/lib/stores/ai-config-store';
 import toast from 'react-hot-toast';
 import '@/lib/blocks/init';
 
@@ -1213,6 +1214,7 @@ function buildBlockTreeFromAction(action: AiAction): { block: Block | null; erro
 
 export function GlobalAiChat() {
   const { currentTenant } = useAuthStore();
+  const { provider: selectedProvider, model: selectedModel } = useAIConfigStore();
   const {
     selectedField,
     pageContext,
@@ -1843,6 +1845,8 @@ ISTRUZIONI OBBLIGATORIE:
           tenant_id: currentTenant.id,
           taskType: targetField ? 'field-assist' : 'chatbot',
           prompt: contextualPrompt,
+          preferredProvider: selectedProvider,
+          preferredModel: selectedModel,
           systemPrompt: targetField
             ? `Sei un assistente del CMS online. Compili campi del CMS in modo coerente con la pagina aperta. Rispondi sempre in italiano e restituisci solo il valore finale del campo.`
             : buildChatSystemPrompt({ tenantName: currentTenant.name, pageTitle: pageContext.pageTitle || pageContext.pageName }),

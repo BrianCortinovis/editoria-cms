@@ -98,5 +98,10 @@ export async function callAIWithFallback(params: {
     }
   }
 
-  throw lastError || new Error("Nessun provider IA disponibile");
+  const attemptedProviders = attempts
+    .map(({ provider, error }) => `${provider}: ${error || "unknown-error"}`)
+    .join(" | ");
+
+  const baseMessage = lastError?.message || "Nessun provider IA disponibile";
+  throw new Error(`Tutti i provider IA hanno fallito. Primario: ${primary.provider}. Tentativi: ${attemptedProviders}. Ultimo errore: ${baseMessage}`);
 }

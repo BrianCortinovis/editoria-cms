@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuthStore } from "@/lib/store";
 import { usePageStore } from "@/lib/stores/page-store";
+import { useAIConfigStore } from "@/lib/stores/ai-config-store";
 import { isModuleActive } from "@/lib/modules";
 import { useAIStatus } from "@/lib/ai-status";
 import { parseAICommand, type AICommand } from "@/lib/ai/command-parser";
@@ -236,6 +237,7 @@ interface AIButtonProps {
 export default function AIButton({ actions, fieldValue, contextData: contextDataProp, systemPrompt, onResult, onCommand, onApply, compact, blockId, fieldName, taskType, autoApply = true }: AIButtonProps) {
   const { currentTenant } = useAuthStore();
   const { getBlock, getBlockLocation, blocks, pageMeta } = usePageStore();
+  const { provider: selectedProvider, model: selectedModel } = useAIConfigStore();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, string>>({});
@@ -269,6 +271,8 @@ export default function AIButton({ actions, fieldValue, contextData: contextData
         body: JSON.stringify({
           tenant_id: currentTenant.id,
           taskType: effectiveTaskType,
+          preferredProvider: selectedProvider,
+          preferredModel: selectedModel,
           systemPrompt: systemPrompt || "Sei un assistente editoriale operativo per un CMS giornalistico italiano. Quando l'utente ti chiede un risultato per un campo o un modulo, genera direttamente l'output finale, senza spiegazioni inutili.",
           prompt: buildDispatchPrompt({
             actionPrompt: action.prompt,
