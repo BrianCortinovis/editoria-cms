@@ -9,9 +9,14 @@ const articleGridBlock: BlockDefinition = {
   category: 'editorial',
   defaultProps: {
     templateId: 'article-grid-newsroom-3',
+    sourceMode: 'automatic',
+    autoSource: 'latest',
     columns: 3,
     limit: 9,
     categorySlug: '',
+    tagSlug: '',
+    placementSlotId: '',
+    manualArticleIds: [],
     showImage: true,
     showExcerpt: true,
     showCategory: true,
@@ -34,7 +39,11 @@ const articleGridBlock: BlockDefinition = {
   supportsChildren: false,
   defaultDataSource: {
     endpoint: 'articles',
-    params: { limit: '9', status: 'published' },
+    params: {
+      limit: '9',
+      sourceMode: 'automatic',
+      autoSource: 'latest',
+    },
   },
 };
 

@@ -43,6 +43,7 @@ interface BlockRendererProps {
   blocks: Block[];
   tenantId: string;
   tenantSlug: string;
+  resolvedDataMap?: Record<string, unknown[]>;
 }
 
 function blockStyleToCSS(style: BlockStyle): React.CSSProperties {
@@ -129,13 +130,23 @@ function blockStyleToCSS(style: BlockStyle): React.CSSProperties {
   return css;
 }
 
-async function RenderBlock({ block, tenantId, tenantSlug }: { block: Block; tenantId: string; tenantSlug: string }) {
+async function RenderBlock({
+  block,
+  tenantId,
+  tenantSlug,
+  resolvedDataMap,
+}: {
+  block: Block;
+  tenantId: string;
+  tenantSlug: string;
+  resolvedDataMap?: Record<string, unknown[]>;
+}) {
   if (block.hidden) return null;
 
   // Resolve data for data-bound blocks
   let data: unknown[] = [];
   if (block.dataSource) {
-    data = await resolveBlockData(tenantId, block.dataSource);
+    data = resolvedDataMap?.[block.id] || await resolveBlockData(tenantId, block.dataSource);
   }
 
   const style = blockStyleToCSS(block.style);
@@ -255,7 +266,13 @@ async function RenderBlock({ block, tenantId, tenantSlug }: { block: Block; tena
       content = (
         <RenderGeneric block={block} style={style}>
           {block.children.map((child) => (
-            <RenderBlock key={child.id} block={child} tenantId={tenantId} tenantSlug={tenantSlug} />
+            <RenderBlock
+              key={child.id}
+              block={child}
+              tenantId={tenantId}
+              tenantSlug={tenantSlug}
+              resolvedDataMap={resolvedDataMap}
+            />
           ))}
         </RenderGeneric>
       );
@@ -317,7 +334,7 @@ function partialStyleToCSS(style: Partial<BlockStyle>): string {
   return parts.join(';');
 }
 
-export async function BlockRenderer({ blocks, tenantId, tenantSlug }: BlockRendererProps) {
+export async function BlockRenderer({ blocks, tenantId, tenantSlug, resolvedDataMap }: BlockRendererProps) {
   const responsiveCSS = collectResponsiveCSS(blocks);
 
   return (
@@ -326,9 +343,15 @@ export async function BlockRenderer({ blocks, tenantId, tenantSlug }: BlockRende
         <style dangerouslySetInnerHTML={{ __html: responsiveCSS }} />
       )}
       <main>
-        {blocks.map((block) => (
-          <RenderBlock key={block.id} block={block} tenantId={tenantId} tenantSlug={tenantSlug} />
-        ))}
+      {blocks.map((block) => (
+        <RenderBlock
+          key={block.id}
+          block={block}
+          tenantId={tenantId}
+          tenantSlug={tenantSlug}
+          resolvedDataMap={resolvedDataMap}
+        />
+      ))}
       </main>
     </>
   );

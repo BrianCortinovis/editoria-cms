@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { requestPublishTrigger } from "@/lib/publish/client";
 import { useAuthStore } from "@/lib/store";
 import slugify from "slugify";
 import toast from "react-hot-toast";
-import { Plus, X, Tag as TagIcon, Trash2 } from "lucide-react";
+import { Plus, X, Tag as TagIcon } from "lucide-react";
 
 interface TagItem {
   id: string;
@@ -32,7 +33,11 @@ export default function TagPage() {
   }, [currentTenant]);
 
   useEffect(() => {
-    loadTags();
+    const timer = window.setTimeout(() => {
+      void loadTags();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [loadTags]);
 
   const handleAdd = async () => {
@@ -47,6 +52,12 @@ export default function TagPage() {
     if (error) {
       toast.error(error.message.includes("duplicate") ? "Tag già esistente" : error.message);
     } else {
+      try {
+        await requestPublishTrigger(currentTenant.id, [{ type: "full_rebuild" }]);
+      } catch (publishError) {
+        const publishMessage = publishError instanceof Error ? publishError.message : "Publish non aggiornato";
+        toast.error(`Tag creato, ma il publish non e' stato aggiornato: ${publishMessage}`);
+      }
       toast.success("Tag creato");
       setNewTag("");
       loadTags();
@@ -54,11 +65,18 @@ export default function TagPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!currentTenant) return;
     const supabase = createClient();
     const { error } = await supabase.from("tags").delete().eq("id", id);
     if (error) {
       toast.error("Errore");
     } else {
+      try {
+        await requestPublishTrigger(currentTenant.id, [{ type: "full_rebuild" }]);
+      } catch (publishError) {
+        const publishMessage = publishError instanceof Error ? publishError.message : "Publish non aggiornato";
+        toast.error(`Tag eliminato, ma il publish non e' stato aggiornato: ${publishMessage}`);
+      }
       setTags((prev) => prev.filter((t) => t.id !== id));
     }
   };

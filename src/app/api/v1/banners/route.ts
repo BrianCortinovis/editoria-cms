@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { readPublishedJson } from "@/lib/publish/storage";
+import type { PublishedBannersDocument } from "@/lib/publish/types";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -9,6 +11,29 @@ export async function GET(request: Request) {
 
   if (!tenantSlug) {
     return NextResponse.json({ error: "tenant parameter required" }, { status: 400 });
+  }
+
+  const publishedBanners = await readPublishedJson<PublishedBannersDocument>(`sites/${encodeURIComponent(tenantSlug)}/banners.json`);
+  if (publishedBanners?.banners) {
+    const now = Date.now();
+    const filtered = publishedBanners.banners.filter((banner) => {
+      if (position && banner.position !== position) return false;
+      const targetDevice = String(banner.target_device || "all");
+      if (device !== "all" && targetDevice !== "all" && targetDevice !== device) return false;
+      const startsAt = typeof banner.starts_at === "string" ? new Date(banner.starts_at).getTime() : null;
+      const endsAt = typeof banner.ends_at === "string" ? new Date(banner.ends_at).getTime() : null;
+      if (startsAt && !Number.isNaN(startsAt) && startsAt > now) return false;
+      if (endsAt && !Number.isNaN(endsAt) && endsAt < now) return false;
+      return true;
+    });
+
+    const selected = weightedSelect(filtered as Array<{ weight: number } & Record<string, unknown>>);
+    return NextResponse.json({ banners: selected }, {
+      headers: {
+        "Cache-Control": "no-cache",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
   }
 
   const supabase = await createServiceRoleClient();

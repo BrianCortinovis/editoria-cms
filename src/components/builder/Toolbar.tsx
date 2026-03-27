@@ -4,7 +4,7 @@ import {
   Save, Undo2, Redo2, Monitor, Tablet, Smartphone,
   Eye, Download, Sparkles, Grid3X3, SquareDashed,
   PanelLeft, PanelRight, Trash, Copy,
-  Maximize2, ScanLine, Search, Magnet, LayoutTemplate
+  Maximize2, ScanLine, Magnet, LayoutTemplate
 } from 'lucide-react';
 import { LayoutPresets } from './LayoutPresets';
 import { AdminMenu } from './AdminMenu';
@@ -21,9 +21,7 @@ interface ToolbarProps {
   onOpenAiBuild?: () => void;
   onPreview: () => void;
   onExport: () => void;
-  onSeoOptimize?: () => void;
   saving?: boolean;
-  seoOptimizing?: boolean;
   saveState?: 'idle' | 'saved' | 'error';
   saveMessage?: string | null;
 }
@@ -35,9 +33,7 @@ export function Toolbar({
   onSave,
   onPreview,
   onExport,
-  onSeoOptimize,
   saving,
-  seoOptimizing,
   saveState = 'idle',
   saveMessage,
 }: ToolbarProps) {
@@ -324,16 +320,6 @@ export function Toolbar({
         <Button variant="ghost" size="xs" onClick={onExport} title="Esporta HTML">
           <Download size={15} />
           <span className="hidden lg:inline text-xs">Export</span>
-        </Button>
-        <Button
-          variant="ghost"
-          size="xs"
-          onClick={onSeoOptimize}
-          disabled={!onSeoOptimize || seoOptimizing}
-          title="Analizza e ottimizza SEO pagina"
-        >
-          <Search size={15} />
-          <span className="hidden lg:inline text-xs">{seoOptimizing ? 'SEO…' : 'SEO AI'}</span>
         </Button>
         {/* Clear Page */}
         <Button

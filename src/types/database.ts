@@ -6,6 +6,24 @@ export type BannerPosition = "header" | "sidebar" | "in_article" | "footer" | "i
 
 export type PageType = "homepage" | "article" | "category" | "tag" | "author" | "search" | "contact" | "about" | "events" | "custom";
 
+export type PlatformMembershipRole = "owner" | "admin" | "editor" | "viewer";
+
+export type SiteStatus = "provisioning" | "active" | "suspended" | "archived" | "deleted";
+
+export type DomainStatus = "pending" | "verifying" | "active" | "failed" | "removed";
+
+export type DomainKind = "platform_subdomain" | "custom" | "redirect";
+
+export type DomainVerificationMethod = "txt" | "cname" | "http" | "manual";
+
+export type SubscriptionStatus = "trialing" | "active" | "past_due" | "canceled" | "paused";
+
+export type NotificationSeverity = "info" | "warning" | "critical";
+export type InfrastructureStackKind = "shared" | "dedicated";
+export type DeploymentTargetKind = "vercel_managed" | "customer_vps" | "static_bundle";
+export type PublishReleaseStatus = "draft" | "building" | "ready" | "active" | "failed" | "rolled_back";
+export type PublishJobStatus = "queued" | "running" | "succeeded" | "failed" | "canceled";
+
 export interface SiteTheme {
   colors: {
     primary: string;
@@ -82,9 +100,18 @@ export interface Database {
           id: string;
           email: string;
           full_name: string;
+          first_name: string | null;
+          last_name: string | null;
           avatar_url: string | null;
           bio: string | null;
           social_links: Record<string, string>;
+          locale: string;
+          timezone: string;
+          notification_preferences: Record<string, unknown>;
+          security_preferences: Record<string, unknown>;
+          onboarding_completed_at: string | null;
+          last_seen_at: string | null;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -92,18 +119,36 @@ export interface Database {
           id: string;
           email: string;
           full_name?: string;
+          first_name?: string | null;
+          last_name?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           social_links?: Record<string, string>;
+          locale?: string;
+          timezone?: string;
+          notification_preferences?: Record<string, unknown>;
+          security_preferences?: Record<string, unknown>;
+          onboarding_completed_at?: string | null;
+          last_seen_at?: string | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           email?: string;
           full_name?: string;
+          first_name?: string | null;
+          last_name?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           social_links?: Record<string, string>;
+          locale?: string;
+          timezone?: string;
+          notification_preferences?: Record<string, unknown>;
+          security_preferences?: Record<string, unknown>;
+          onboarding_completed_at?: string | null;
+          last_seen_at?: string | null;
+          deleted_at?: string | null;
         };
       };
       user_tenants: {
@@ -875,6 +920,7 @@ export interface Database {
           layout_grid_cols: number;
           layout_display: string;
           assignment_mode: "auto" | "manual" | "mixed";
+          placement_duration_hours: number | null;
           created_at: string;
         };
         Insert: {
@@ -894,6 +940,7 @@ export interface Database {
           layout_grid_cols?: number;
           layout_display?: string;
           assignment_mode?: "auto" | "manual" | "mixed";
+          placement_duration_hours?: number | null;
         };
         Update: {
           slot_key?: string;
@@ -910,6 +957,7 @@ export interface Database {
           layout_grid_cols?: number;
           layout_display?: string;
           assignment_mode?: "auto" | "manual" | "mixed";
+          placement_duration_hours?: number | null;
         };
       };
       slot_assignments: {
@@ -921,6 +969,8 @@ export interface Database {
           pin_order: number;
           assigned_by: string | null;
           assigned_at: string;
+          display_mode: "duplicate" | "exclusive";
+          expires_at: string | null;
         };
         Insert: {
           id?: string;
@@ -930,10 +980,579 @@ export interface Database {
           pin_order?: number;
           assigned_by?: string | null;
           assigned_at?: string;
+          display_mode?: "duplicate" | "exclusive";
+          expires_at?: string | null;
         };
         Update: {
           pin_order?: number;
           assigned_by?: string | null;
+          display_mode?: "duplicate" | "exclusive";
+          expires_at?: string | null;
+        };
+      };
+      sites: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          owner_user_id: string;
+          name: string;
+          slug: string;
+          default_subdomain: string;
+          cms_base_path: string;
+          status: SiteStatus;
+          template_key: string | null;
+          language_code: string;
+          category: string | null;
+          onboarding_state: Record<string, unknown>;
+          metadata: Record<string, unknown>;
+          archived_at: string | null;
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          owner_user_id: string;
+          name: string;
+          slug: string;
+          default_subdomain: string;
+          cms_base_path?: string;
+          status?: SiteStatus;
+          template_key?: string | null;
+          language_code?: string;
+          category?: string | null;
+          onboarding_state?: Record<string, unknown>;
+          metadata?: Record<string, unknown>;
+          archived_at?: string | null;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          slug?: string;
+          default_subdomain?: string;
+          cms_base_path?: string;
+          status?: SiteStatus;
+          template_key?: string | null;
+          language_code?: string;
+          category?: string | null;
+          onboarding_state?: Record<string, unknown>;
+          metadata?: Record<string, unknown>;
+          archived_at?: string | null;
+          deleted_at?: string | null;
+          updated_at?: string;
+        };
+      };
+      tenant_memberships: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          site_id: string;
+          user_id: string;
+          role: PlatformMembershipRole;
+          invited_email: string | null;
+          invited_by: string | null;
+          joined_at: string | null;
+          last_accessed_at: string | null;
+          created_at: string;
+          updated_at: string;
+          revoked_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          site_id: string;
+          user_id: string;
+          role: PlatformMembershipRole;
+          invited_email?: string | null;
+          invited_by?: string | null;
+          joined_at?: string | null;
+          last_accessed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          revoked_at?: string | null;
+        };
+        Update: {
+          role?: PlatformMembershipRole;
+          invited_email?: string | null;
+          invited_by?: string | null;
+          joined_at?: string | null;
+          last_accessed_at?: string | null;
+          updated_at?: string;
+          revoked_at?: string | null;
+        };
+      };
+      site_settings_platform: {
+        Row: {
+          site_id: string;
+          tenant_id: string;
+          default_locale: string;
+          timezone: string;
+          onboarding_checklist: Record<string, unknown>;
+          feature_flags: Record<string, unknown>;
+          notification_settings: Record<string, unknown>;
+          billing_state: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          site_id: string;
+          tenant_id: string;
+          default_locale?: string;
+          timezone?: string;
+          onboarding_checklist?: Record<string, unknown>;
+          feature_flags?: Record<string, unknown>;
+          notification_settings?: Record<string, unknown>;
+          billing_state?: Record<string, unknown>;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          default_locale?: string;
+          timezone?: string;
+          onboarding_checklist?: Record<string, unknown>;
+          feature_flags?: Record<string, unknown>;
+          notification_settings?: Record<string, unknown>;
+          billing_state?: Record<string, unknown>;
+          updated_at?: string;
+        };
+      };
+      site_domains: {
+        Row: {
+          id: string;
+          site_id: string;
+          tenant_id: string;
+          hostname: string;
+          kind: DomainKind;
+          is_primary: boolean;
+          status: DomainStatus;
+          verification_method: DomainVerificationMethod;
+          verification_token: string | null;
+          verification_instructions: unknown[];
+          dns_records: unknown[];
+          ssl_status: string;
+          redirect_www: boolean;
+          attached_at: string | null;
+          last_verified_at: string | null;
+          removed_at: string | null;
+          metadata: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          site_id: string;
+          tenant_id: string;
+          hostname: string;
+          kind: DomainKind;
+          is_primary?: boolean;
+          status?: DomainStatus;
+          verification_method?: DomainVerificationMethod;
+          verification_token?: string | null;
+          verification_instructions?: unknown[];
+          dns_records?: unknown[];
+          ssl_status?: string;
+          redirect_www?: boolean;
+          attached_at?: string | null;
+          last_verified_at?: string | null;
+          removed_at?: string | null;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          hostname?: string;
+          kind?: DomainKind;
+          is_primary?: boolean;
+          status?: DomainStatus;
+          verification_method?: DomainVerificationMethod;
+          verification_token?: string | null;
+          verification_instructions?: unknown[];
+          dns_records?: unknown[];
+          ssl_status?: string;
+          redirect_www?: boolean;
+          attached_at?: string | null;
+          last_verified_at?: string | null;
+          removed_at?: string | null;
+          metadata?: Record<string, unknown>;
+          updated_at?: string;
+        };
+      };
+      domain_verification_events: {
+        Row: {
+          id: string;
+          site_domain_id: string;
+          site_id: string;
+          tenant_id: string;
+          event_type: string;
+          provider: string;
+          status: DomainStatus;
+          payload: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          site_domain_id: string;
+          site_id: string;
+          tenant_id: string;
+          event_type: string;
+          provider: string;
+          status: DomainStatus;
+          payload?: Record<string, unknown>;
+          created_at?: string;
+        };
+        Update: {
+          event_type?: string;
+          provider?: string;
+          status?: DomainStatus;
+          payload?: Record<string, unknown>;
+        };
+      };
+      subscriptions: {
+        Row: {
+          id: string;
+          site_id: string;
+          tenant_id: string;
+          provider: string;
+          plan_code: string;
+          status: SubscriptionStatus;
+          external_customer_id: string | null;
+          external_subscription_id: string | null;
+          trial_ends_at: string | null;
+          current_period_ends_at: string | null;
+          limits: Record<string, unknown>;
+          metadata: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          site_id: string;
+          tenant_id: string;
+          provider?: string;
+          plan_code?: string;
+          status?: SubscriptionStatus;
+          external_customer_id?: string | null;
+          external_subscription_id?: string | null;
+          trial_ends_at?: string | null;
+          current_period_ends_at?: string | null;
+          limits?: Record<string, unknown>;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          provider?: string;
+          plan_code?: string;
+          status?: SubscriptionStatus;
+          external_customer_id?: string | null;
+          external_subscription_id?: string | null;
+          trial_ends_at?: string | null;
+          current_period_ends_at?: string | null;
+          limits?: Record<string, unknown>;
+          metadata?: Record<string, unknown>;
+          updated_at?: string;
+        };
+      };
+      usage_metrics: {
+        Row: {
+          id: string;
+          site_id: string;
+          tenant_id: string;
+          metric_key: string;
+          window_start: string;
+          window_end: string;
+          metric_value: number;
+          metadata: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          site_id: string;
+          tenant_id: string;
+          metric_key: string;
+          window_start: string;
+          window_end: string;
+          metric_value?: number;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+        };
+        Update: {
+          metric_key?: string;
+          window_start?: string;
+          window_end?: string;
+          metric_value?: number;
+          metadata?: Record<string, unknown>;
+        };
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          tenant_id: string | null;
+          site_id: string | null;
+          type: string;
+          severity: NotificationSeverity;
+          title: string;
+          body: string;
+          data: Record<string, unknown>;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          tenant_id?: string | null;
+          site_id?: string | null;
+          type: string;
+          severity?: NotificationSeverity;
+          title: string;
+          body: string;
+          data?: Record<string, unknown>;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          type?: string;
+          severity?: NotificationSeverity;
+          title?: string;
+          body?: string;
+          data?: Record<string, unknown>;
+          read_at?: string | null;
+        };
+      };
+      audit_logs: {
+        Row: {
+          id: string;
+          actor_user_id: string | null;
+          tenant_id: string | null;
+          site_id: string | null;
+          action: string;
+          resource_type: string;
+          resource_id: string | null;
+          ip_address: string | null;
+          user_agent: string | null;
+          request_id: string | null;
+          metadata: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          actor_user_id?: string | null;
+          tenant_id?: string | null;
+          site_id?: string | null;
+          action: string;
+          resource_type: string;
+          resource_id?: string | null;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          request_id?: string | null;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+        };
+        Update: {
+          action?: string;
+          resource_type?: string;
+          resource_id?: string | null;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          request_id?: string | null;
+          metadata?: Record<string, unknown>;
+        };
+      };
+      active_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          session_token_hash: string;
+          ip_address: string | null;
+          user_agent: string | null;
+          last_activity_at: string;
+          expires_at: string;
+          revoked_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          session_token_hash: string;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          last_activity_at?: string;
+          expires_at: string;
+          revoked_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          session_token_hash?: string;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          last_activity_at?: string;
+          expires_at?: string;
+          revoked_at?: string | null;
+        };
+      };
+      site_infrastructure: {
+        Row: {
+          site_id: string;
+          tenant_id: string;
+          stack_kind: InfrastructureStackKind;
+          supabase_project_ref: string | null;
+          supabase_url: string | null;
+          deploy_target_kind: DeploymentTargetKind;
+          deploy_target_label: string | null;
+          public_base_url: string | null;
+          media_storage_label: string | null;
+          publish_strategy: string;
+          config: Record<string, unknown>;
+          last_publish_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          site_id: string;
+          tenant_id: string;
+          stack_kind?: InfrastructureStackKind;
+          supabase_project_ref?: string | null;
+          supabase_url?: string | null;
+          deploy_target_kind?: DeploymentTargetKind;
+          deploy_target_label?: string | null;
+          public_base_url?: string | null;
+          media_storage_label?: string | null;
+          publish_strategy?: string;
+          config?: Record<string, unknown>;
+          last_publish_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          stack_kind?: InfrastructureStackKind;
+          supabase_project_ref?: string | null;
+          supabase_url?: string | null;
+          deploy_target_kind?: DeploymentTargetKind;
+          deploy_target_label?: string | null;
+          public_base_url?: string | null;
+          media_storage_label?: string | null;
+          publish_strategy?: string;
+          config?: Record<string, unknown>;
+          last_publish_at?: string | null;
+          updated_at?: string;
+        };
+      };
+      deploy_targets: {
+        Row: {
+          id: string;
+          site_id: string;
+          tenant_id: string;
+          kind: DeploymentTargetKind;
+          label: string;
+          hostname: string | null;
+          is_active: boolean;
+          config: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          site_id: string;
+          tenant_id: string;
+          kind: DeploymentTargetKind;
+          label: string;
+          hostname?: string | null;
+          is_active?: boolean;
+          config?: Record<string, unknown>;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          kind?: DeploymentTargetKind;
+          label?: string;
+          hostname?: string | null;
+          is_active?: boolean;
+          config?: Record<string, unknown>;
+          updated_at?: string;
+        };
+      };
+      publish_releases: {
+        Row: {
+          id: string;
+          site_id: string;
+          tenant_id: string;
+          version_label: string;
+          status: PublishReleaseStatus;
+          manifest_path: string | null;
+          payload_checksum: string | null;
+          created_by: string | null;
+          activated_at: string | null;
+          rolled_back_from_release_id: string | null;
+          metadata: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          site_id: string;
+          tenant_id: string;
+          version_label: string;
+          status?: PublishReleaseStatus;
+          manifest_path?: string | null;
+          payload_checksum?: string | null;
+          created_by?: string | null;
+          activated_at?: string | null;
+          rolled_back_from_release_id?: string | null;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          version_label?: string;
+          status?: PublishReleaseStatus;
+          manifest_path?: string | null;
+          payload_checksum?: string | null;
+          created_by?: string | null;
+          activated_at?: string | null;
+          rolled_back_from_release_id?: string | null;
+          metadata?: Record<string, unknown>;
+          updated_at?: string;
+        };
+      };
+      publish_jobs: {
+        Row: {
+          id: string;
+          site_id: string;
+          tenant_id: string;
+          release_id: string | null;
+          job_type: string;
+          status: PublishJobStatus;
+          started_at: string | null;
+          finished_at: string | null;
+          error_message: string | null;
+          metadata: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          site_id: string;
+          tenant_id: string;
+          release_id?: string | null;
+          job_type: string;
+          status?: PublishJobStatus;
+          started_at?: string | null;
+          finished_at?: string | null;
+          error_message?: string | null;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+        };
+        Update: {
+          release_id?: string | null;
+          job_type?: string;
+          status?: PublishJobStatus;
+          started_at?: string | null;
+          finished_at?: string | null;
+          error_message?: string | null;
+          metadata?: Record<string, unknown>;
         };
       };
     };
@@ -944,6 +1563,17 @@ export interface Database {
       article_status: ArticleStatus;
       banner_position: BannerPosition;
       page_type: PageType;
+      platform_membership_role: PlatformMembershipRole;
+      site_status: SiteStatus;
+      domain_status: DomainStatus;
+      domain_kind: DomainKind;
+      domain_verification_method: DomainVerificationMethod;
+      subscription_status: SubscriptionStatus;
+      notification_severity: NotificationSeverity;
+      infrastructure_stack_kind: InfrastructureStackKind;
+      deployment_target_kind: DeploymentTargetKind;
+      publish_release_status: PublishReleaseStatus;
+      publish_job_status: PublishJobStatus;
     };
   };
 }

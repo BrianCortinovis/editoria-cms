@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
 import {
@@ -61,17 +60,29 @@ export default function EventiPage() {
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState("");
 
+  const readErrorMessage = useCallback(async (response: Response, fallback: string) => {
+    const payload = await response.json().catch(() => null);
+    return typeof payload?.error === "string" ? payload.error : fallback;
+  }, []);
+
   const load = useCallback(async () => {
     if (!currentTenant) return;
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("events")
-      .select("*")
-      .eq("tenant_id", currentTenant.id)
-      .order("starts_at", { ascending: true });
-    if (data) setEvents(data as EventItem[]);
+    setLoading(true);
+    const response = await fetch(`/api/cms/events?tenant_id=${encodeURIComponent(currentTenant.id)}`, {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Impossibile caricare gli eventi"));
+      setLoading(false);
+      return;
+    }
+
+    const payload = (await response.json()) as { events?: EventItem[] };
+    setEvents(Array.isArray(payload.events) ? payload.events : []);
     setLoading(false);
-  }, [currentTenant]);
+  }, [currentTenant, readErrorMessage]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -110,7 +121,6 @@ export default function EventiPage() {
       return;
     }
     setSaving(true);
-    const supabase = createClient();
 
     const payload = {
       tenant_id: currentTenant.id,
@@ -128,14 +138,22 @@ export default function EventiPage() {
     };
 
     if (editingId) {
-      const { tenant_id: tenantIdToDrop, ...updatePayload } = payload;
-      void tenantIdToDrop;
-      const { error } = await supabase.from("events").update(updatePayload).eq("id", editingId);
-      if (error) { toast.error(error.message); setSaving(false); return; }
+      const response = await fetch(`/api/cms/events/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) { toast.error(await readErrorMessage(response, "Impossibile aggiornare l'evento")); setSaving(false); return; }
       toast.success("Evento aggiornato");
     } else {
-      const { error } = await supabase.from("events").insert(payload);
-      if (error) { toast.error(error.message); setSaving(false); return; }
+      const response = await fetch("/api/cms/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) { toast.error(await readErrorMessage(response, "Impossibile creare l'evento")); setSaving(false); return; }
       toast.success("Evento creato");
     }
     setSaving(false);
@@ -145,8 +163,15 @@ export default function EventiPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Eliminare questo evento?")) return;
-    const supabase = createClient();
-    await supabase.from("events").delete().eq("id", id);
+    if (!currentTenant) return;
+    const response = await fetch(`/api/cms/events/${id}?tenant_id=${encodeURIComponent(currentTenant.id)}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Impossibile eliminare l'evento"));
+      return;
+    }
     setEvents(prev => prev.filter(e => e.id !== id));
     toast.success("Evento eliminato");
   };

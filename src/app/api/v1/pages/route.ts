@@ -2,6 +2,8 @@ import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supab
 import { assertTrustedMutationRequest } from '@/lib/security/request';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildDefaultPageMeta, slugifyPageTitle } from '@/lib/pages/page-seo';
+import { readPublishedJson } from '@/lib/publish/storage';
+import type { PublishedManifest, PublishedPageDocument } from '@/lib/publish/types';
 
 const PAGE_EDITOR_ROLES = new Set(['super_admin', 'chief_editor', 'editor']);
 
@@ -12,6 +14,34 @@ export async function GET(request: NextRequest) {
 
     if (!tenant) {
       return NextResponse.json({ error: 'tenant parameter required' }, { status: 400 });
+    }
+
+    const manifest = await readPublishedJson<PublishedManifest>(`sites/${encodeURIComponent(tenant)}/manifest.json`);
+    if (manifest) {
+      const pagePaths = [
+        ...(manifest.documents.homepage ? [manifest.documents.homepage] : []),
+        ...Object.values(manifest.pages || {}),
+      ];
+      const pageDocuments = await Promise.all(
+        pagePaths.map((path) => readPublishedJson<PublishedPageDocument>(path))
+      );
+
+      return NextResponse.json({
+        pages: pageDocuments
+          .filter((entry): entry is PublishedPageDocument => Boolean(entry?.page))
+          .map((entry) => ({
+            id: entry.page.id,
+            title: entry.page.title,
+            slug: entry.page.slug,
+            is_published: true,
+            created_at: entry.generatedAt,
+            updated_at: entry.page.updatedAt,
+            blocks: entry.page.blocks,
+            meta: entry.page.meta,
+          })),
+      }, {
+        headers: { 'Cache-Control': 'public, max-age=300' }
+      });
     }
 
     const { data: tenantData } = await supabase

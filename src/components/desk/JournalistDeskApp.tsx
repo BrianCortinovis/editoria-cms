@@ -5,6 +5,7 @@ import Link from 'next/link';
 import slugify from 'slugify';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import { requestPublishTrigger } from '@/lib/publish/client';
 import { useAuthStore } from '@/lib/store';
 import { parseAIResponse } from '@/lib/utils/parse';
 import {
@@ -466,6 +467,18 @@ export default function JournalistDeskApp({
     const updated = data as JournalistArticle;
     setArticles((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
     hydrateArticle(updated);
+
+    try {
+      await requestPublishTrigger(currentTenant.id, [
+        { type: 'article', articleId: updated.id },
+        { type: 'homepage' },
+        ...(categoryId ? [{ type: 'category' as const, categoryId }] : []),
+      ]);
+    } catch (publishError) {
+      const publishMessage = publishError instanceof Error ? publishError.message : 'Publish non aggiornato';
+      toast.error(`Contenuto salvato, ma il publish non e' stato aggiornato: ${publishMessage}`);
+    }
+
     toast.success(
       finalStatus === 'in_review'
         ? 'Articolo inviato in revisione'

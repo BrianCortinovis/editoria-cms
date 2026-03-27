@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { readPublishedJson } from '@/lib/publish/storage';
+import type { PublishedSettingsDocument } from '@/lib/publish/types';
 import { getThemeContract } from '@/lib/theme-contract';
 
 const CORS_HEADERS = {
@@ -17,6 +19,19 @@ export async function GET(request: NextRequest) {
 
   if (!tenantSlug) {
     return NextResponse.json({ error: 'tenant parameter required' }, { status: 400, headers: CORS_HEADERS });
+  }
+
+  const publishedSettings = await readPublishedJson<PublishedSettingsDocument>(`sites/${encodeURIComponent(tenantSlug)}/settings.json`);
+  if (publishedSettings?.tenant) {
+    return NextResponse.json(
+      getThemeContract({ tenantSlug: publishedSettings.tenant.slug, tenantId: publishedSettings.tenant.id }),
+      {
+        headers: {
+          ...CORS_HEADERS,
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        },
+      }
+    );
   }
 
   const supabase = await createServiceRoleClient();

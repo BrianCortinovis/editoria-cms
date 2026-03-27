@@ -1,6 +1,8 @@
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { getTenantFromRequest } from '@/lib/cache/tenant-context';
 import { getCacheHeadersWithSecurity } from '@/lib/cache/cache-headers';
+import { readPublishedJson } from '@/lib/publish/storage';
+import type { PublishedBreakingNewsDocument } from '@/lib/publish/types';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -8,6 +10,14 @@ export async function GET(request: NextRequest) {
     const tenant = await getTenantFromRequest(request);
     if (!tenant) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+    }
+
+    const publishedBreakingNews = await readPublishedJson<PublishedBreakingNewsDocument>(`sites/${encodeURIComponent(tenant.tenantSlug)}/breaking-news.json`);
+    if (publishedBreakingNews?.items) {
+      return NextResponse.json(
+        { breaking_news: publishedBreakingNews.items },
+        { headers: getCacheHeadersWithSecurity('BREAKING_NEWS') }
+      );
     }
 
     const supabase = await createServiceRoleClient();

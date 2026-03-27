@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import { Loader2 } from "lucide-react";
 import type { UserRole } from "@/types/database";
+import type { InitialAuthPayload } from "@/lib/auth-bootstrap";
 
 function sanitizeTenantForClient(tenant: Record<string, unknown>) {
   const rawSettings =
@@ -33,9 +34,61 @@ function sanitizeTenantForClient(tenant: Record<string, unknown>) {
   };
 }
 
-export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [loading, setLoading] = useState(true);
-  const { setUser, setProfile, setTenants, setCurrentTenant } = useAuthStore();
+function resolvePreferredTenantId(tenantIds: string[]) {
+  if (typeof window === "undefined" || tenantIds.length === 0) {
+    return null;
+  }
+
+  const queryTenantId = new URLSearchParams(window.location.search).get("tenant");
+  if (queryTenantId && tenantIds.includes(queryTenantId)) {
+    return queryTenantId;
+  }
+
+  const savedTenantId = localStorage.getItem("editoria_current_tenant");
+  if (savedTenantId && tenantIds.includes(savedTenantId)) {
+    return savedTenantId;
+  }
+
+  return null;
+}
+
+type AuthProviderProps = {
+  children: React.ReactNode;
+  initialAuth?: InitialAuthPayload;
+};
+
+export default function AuthProvider({ children, initialAuth }: AuthProviderProps) {
+  const {
+    user,
+    setUser,
+    setProfile,
+    setTenants,
+    setCurrentTenant,
+  } = useAuthStore();
+  const hasInitialBootstrap = Boolean(initialAuth?.user);
+  const [loading, setLoading] = useState(() => !hasInitialBootstrap && !user);
+
+  useLayoutEffect(() => {
+    if (!initialAuth) {
+      return;
+    }
+
+    const preferredTenantId = resolvePreferredTenantId(initialAuth.tenants.map((tenant) => tenant.id));
+    const selectedTenant =
+      initialAuth.tenants.find((tenant) => tenant.id === preferredTenantId) ?? initialAuth.tenants[0] ?? null;
+
+    setUser(initialAuth.user);
+    setProfile(initialAuth.profile);
+    setTenants(initialAuth.tenants);
+
+    if (selectedTenant) {
+      localStorage.setItem("editoria_current_tenant", selectedTenant.id);
+      setCurrentTenant(selectedTenant, selectedTenant.role);
+    } else {
+      setCurrentTenant(null, null);
+    }
+
+  }, [initialAuth, setCurrentTenant, setProfile, setTenants, setUser]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -73,20 +126,24 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
         setTenants(mapped as unknown as ReturnType<typeof useAuthStore.getState>["tenants"]);
 
-        // Restore last tenant or use first
-        const savedTenantId = localStorage.getItem("editoria_current_tenant");
-        const saved = mapped.find((t: { id: string }) => t.id === savedTenantId);
+        // Restore tenant from query string first, then local storage, then first available.
+        const preferredTenantId = resolvePreferredTenantId(mapped.map((tenant: { id: string }) => tenant.id));
+        const saved = mapped.find((t: { id: string }) => t.id === preferredTenantId);
         const selected = saved || mapped[0];
+        localStorage.setItem("editoria_current_tenant", selected.id);
         setCurrentTenant(
           selected as unknown as ReturnType<typeof useAuthStore.getState>["currentTenant"],
           selected.role
         );
+      } else {
+        setTenants([]);
+        setCurrentTenant(null, null);
       }
 
       setLoading(false);
     }
 
-    init();
+    void init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
@@ -97,7 +154,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     );
 
     return () => subscription.unsubscribe();
-  }, [setUser, setProfile, setTenants, setCurrentTenant]);
+  }, [setCurrentTenant, setProfile, setTenants, setUser]);
 
   if (loading) {
     return (

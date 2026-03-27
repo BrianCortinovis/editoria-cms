@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
-import { resolveTenant } from '@/lib/site/tenant-resolver';
+import { getPublishedArticleBySlug, resolveTenant } from '@/lib/site/tenant-resolver';
 import { buildTenantRedirectUrl, resolveRedirect } from '@/lib/site/redirects';
 import { SiteLayout } from '@/components/render/SiteLayout';
 import { ArticleComments } from '@/components/site/ArticleComments';
@@ -39,15 +39,21 @@ export default async function ArticlePage({ params }: Props) {
   if (!resolved) notFound();
 
   const { tenant, config } = resolved;
-  const supabase = await createServiceRoleClient();
+  const publishedArticle = await getPublishedArticleBySlug(tenant.slug, articleSlug);
 
-  const { data: article } = await supabase
-    .from('articles')
-    .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, category_id, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color)')
-    .eq('tenant_id', tenant.id)
-    .eq('slug', articleSlug)
-    .eq('status', 'published')
-    .single();
+  let article = publishedArticle as SiteArticleRecord | null;
+
+  if (!article) {
+    const supabase = await createServiceRoleClient();
+    const { data } = await supabase
+      .from('articles')
+      .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, category_id, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color)')
+      .eq('tenant_id', tenant.id)
+      .eq('slug', articleSlug)
+      .eq('status', 'published')
+      .single();
+    article = data as SiteArticleRecord | null;
+  }
 
   if (!article) {
     const matchedRedirect = await resolveRedirect(tenant.id, `/articolo/${articleSlug}`);
@@ -57,14 +63,17 @@ export default async function ArticlePage({ params }: Props) {
     notFound();
   }
 
-  const [enrichedArticle] = await enrichArticlesWithCategories(
-    supabase as never,
-    tenant.id,
-    [article as unknown as SiteArticleRecord]
-  );
-
-  // Increment view count
-  await supabase.rpc('increment_view_count', { article_id: article.id });
+  const enrichedArticle = 'all_categories' in article
+    ? (article as SiteArticleRecord & { all_categories?: Array<{ name: string; slug: string; color: string | null }> })
+    : await (async () => {
+        const supabase = await createServiceRoleClient();
+        const [enriched] = await enrichArticlesWithCategories(
+          supabase as never,
+          tenant.id,
+          [article as unknown as SiteArticleRecord]
+        );
+        return enriched;
+      })();
 
   const author = enrichedArticle.profiles as unknown as { full_name: string; avatar_url: string | null; bio: string | null } | null;
   const categories = (enrichedArticle.all_categories as Array<{ name: string; slug: string; color: string | null }> | undefined) || [];
@@ -192,14 +201,28 @@ export async function generateMetadata({ params }: Props) {
   const resolved = await resolveTenant(tenantSlug);
   if (!resolved) return {};
 
-  const supabase = await createServiceRoleClient();
-  const { data: article } = await supabase
-    .from('articles')
-    .select('title, meta_title, meta_description, og_image_url, cover_image_url')
-    .eq('tenant_id', resolved.tenant.id)
-    .eq('slug', articleSlug)
-    .eq('status', 'published')
-    .single();
+  const publishedArticle = await getPublishedArticleBySlug(resolved.tenant.slug, articleSlug);
+  let article = publishedArticle
+    ? {
+        title: publishedArticle.title,
+        meta_title: publishedArticle.meta_title,
+        meta_description: publishedArticle.meta_description,
+        og_image_url: publishedArticle.og_image_url,
+        cover_image_url: publishedArticle.cover_image_url,
+      }
+    : null;
+
+  if (!article) {
+    const supabase = await createServiceRoleClient();
+    const { data } = await supabase
+      .from('articles')
+      .select('title, meta_title, meta_description, og_image_url, cover_image_url')
+      .eq('tenant_id', resolved.tenant.id)
+      .eq('slug', articleSlug)
+      .eq('status', 'published')
+      .single();
+    article = data;
+  }
 
   if (!article) return {};
   const canonical = buildTenantPublicUrl(resolved.tenant, `/articolo/${articleSlug}`);

@@ -2,6 +2,8 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { callProvider } from '@/lib/ai/providers';
 import { resolveProvider } from '@/lib/ai/resolver';
 import { getModuleConfig, isModuleActive } from '@/lib/modules';
+import { readPublishedJson } from '@/lib/publish/storage';
+import type { PublishedSearchDocument, PublishedSettingsDocument } from '@/lib/publish/types';
 import { buildTenantPublicUrl } from '@/lib/site/public-url';
 
 type SearchMode = 'simple' | 'semantic';
@@ -53,6 +55,15 @@ export interface SearchSiteContentResponse {
   results: SiteSearchResult[];
   mode: SearchMode | 'fallback';
   provider?: string;
+}
+
+function toPublicTenant(tenant: SearchTenant): Pick<SearchTenant, 'id' | 'slug' | 'name' | 'domain'> {
+  return {
+    id: tenant.id,
+    slug: tenant.slug,
+    name: tenant.name,
+    domain: tenant.domain,
+  };
 }
 
 function stripHtml(value?: string | null) {
@@ -108,6 +119,20 @@ function mapPageResult(tenant: SearchTenant, page: SearchPageRow): SiteSearchRes
 }
 
 async function fetchTenant(tenantSlug: string) {
+  const publishedSettings = await readPublishedJson<PublishedSettingsDocument>(`sites/${encodeURIComponent(tenantSlug)}/settings.json`);
+  if (publishedSettings?.tenant) {
+    return {
+      supabase: null,
+      tenant: {
+        id: publishedSettings.tenant.id,
+        slug: publishedSettings.tenant.slug,
+        name: publishedSettings.tenant.name,
+        domain: publishedSettings.tenant.domain,
+        settings: publishedSettings.tenantSettings,
+      } satisfies SearchTenant,
+    };
+  }
+
   const supabase = await createServiceRoleClient();
   const { data: tenant } = await supabase
     .from('tenants')
@@ -118,6 +143,138 @@ async function fetchTenant(tenantSlug: string) {
   return {
     supabase,
     tenant: (tenant || null) as SearchTenant | null,
+  };
+}
+
+async function fetchPublishedSearchDocument(tenantSlug: string) {
+  return readPublishedJson<PublishedSearchDocument>(`sites/${encodeURIComponent(tenantSlug)}/search.json`);
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+async function runPublishedSearch(tenant: SearchTenant, tenantSlug: string, query: string, limit: number, mode: SearchMode): Promise<SearchSiteContentResponse | null> {
+  const searchDocument = await fetchPublishedSearchDocument(tenantSlug);
+  if (!searchDocument) {
+    return null;
+  }
+
+  const normalizedQuery = normalizeSearchText(query);
+  const searchableEntries = searchDocument.entries.map((entry) => ({
+    ...entry,
+    haystack: normalizeSearchText(`${entry.title} ${entry.excerpt} ${entry.slug}`),
+  }));
+
+  if (mode === 'semantic') {
+    const settings = (tenant.settings ?? {}) as Record<string, unknown>;
+    if (!isModuleActive(settings, 'ai_assistant')) {
+      return {
+        tenant: toPublicTenant(tenant),
+        results: searchableEntries
+          .filter((entry) => entry.haystack.includes(normalizedQuery))
+          .slice(0, limit)
+          .map((entry) => ({
+            id: entry.id,
+            type: entry.type,
+            title: entry.title,
+            slug: entry.slug,
+            excerpt: entry.excerpt,
+            url: buildTenantPublicUrl(tenant, entry.urlPath),
+            imageUrl: entry.imageUrl,
+            publishedAt: entry.publishedAt,
+            updatedAt: entry.updatedAt,
+            readingTimeMinutes: entry.readingTimeMinutes,
+          })),
+        mode: 'fallback',
+      };
+    }
+
+    const config = getModuleConfig(settings, 'ai_assistant');
+    const { provider, apiKey, model } = resolveProvider(config, 'search');
+    const catalogue = searchableEntries
+      .slice(0, 120)
+      .map((entry, index) => `${index}: [${entry.type}] ${entry.title} — ${entry.excerpt}`)
+      .join('\n');
+
+    try {
+      const response = await callProvider(provider, apiKey, {
+        system: 'Sei il motore di ricerca di un CMS editoriale. Dato un catalogo di contenuti pubblicati e una query utente, restituisci SOLO un array JSON di indici ordinati per rilevanza, ad esempio [4,1,0].',
+        prompt: `Query: "${query}"\n\nCatalogo:\n${catalogue}`,
+        model,
+      });
+
+      const cleaned = response.text.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+      const indices = JSON.parse(cleaned) as number[];
+      const rankedResults = indices
+        .filter((index) => index >= 0 && index < searchableEntries.length)
+        .slice(0, limit)
+        .map((index) => searchableEntries[index])
+        .map((entry) => ({
+          id: entry.id,
+          type: entry.type,
+          title: entry.title,
+          slug: entry.slug,
+          excerpt: entry.excerpt,
+          url: buildTenantPublicUrl(tenant, entry.urlPath),
+          imageUrl: entry.imageUrl,
+          publishedAt: entry.publishedAt,
+          updatedAt: entry.updatedAt,
+          readingTimeMinutes: entry.readingTimeMinutes,
+        }));
+
+      return {
+        tenant: toPublicTenant(tenant),
+        results: rankedResults,
+        mode: 'semantic',
+        provider,
+      };
+    } catch {
+      return {
+        tenant: toPublicTenant(tenant),
+        results: searchableEntries
+          .filter((entry) => entry.haystack.includes(normalizedQuery))
+          .slice(0, limit)
+          .map((entry) => ({
+            id: entry.id,
+            type: entry.type,
+            title: entry.title,
+            slug: entry.slug,
+            excerpt: entry.excerpt,
+            url: buildTenantPublicUrl(tenant, entry.urlPath),
+            imageUrl: entry.imageUrl,
+            publishedAt: entry.publishedAt,
+            updatedAt: entry.updatedAt,
+            readingTimeMinutes: entry.readingTimeMinutes,
+          })),
+        mode: 'fallback',
+      };
+    }
+  }
+
+  const simpleResults = searchableEntries
+    .filter((entry) => entry.haystack.includes(normalizedQuery))
+    .slice(0, limit)
+    .map((entry) => ({
+      id: entry.id,
+      type: entry.type,
+      title: entry.title,
+      slug: entry.slug,
+      excerpt: entry.excerpt,
+      url: buildTenantPublicUrl(tenant, entry.urlPath),
+      imageUrl: entry.imageUrl,
+      publishedAt: entry.publishedAt,
+      updatedAt: entry.updatedAt,
+      readingTimeMinutes: entry.readingTimeMinutes,
+    }));
+
+  return {
+    tenant: toPublicTenant(tenant),
+    results: simpleResults,
+    mode: 'simple',
   };
 }
 
@@ -154,7 +311,7 @@ async function runSemanticSearch(tenant: SearchTenant, query: string, limit: num
   const settings = (tenant.settings ?? {}) as Record<string, unknown>;
   if (!isModuleActive(settings, 'ai_assistant')) {
     return {
-      tenant,
+      tenant: toPublicTenant(tenant),
       results: await runSimpleSearch(tenant, query, limit),
       mode: 'fallback',
     };
@@ -185,7 +342,7 @@ async function runSemanticSearch(tenant: SearchTenant, query: string, limit: num
 
   if (combined.length === 0) {
     return {
-      tenant,
+      tenant: toPublicTenant(tenant),
       results: [],
       mode: 'semantic',
     };
@@ -249,12 +406,17 @@ export async function searchSiteContent(opts: {
     return null;
   }
 
+  const publishedResponse = await runPublishedSearch(tenant, opts.tenantSlug, query, limit, mode);
+  if (publishedResponse) {
+    return publishedResponse;
+  }
+
   if (mode === 'semantic') {
     return runSemanticSearch(tenant, query, limit);
   }
 
   return {
-    tenant,
+    tenant: toPublicTenant(tenant),
     results: await runSimpleSearch(tenant, query, limit),
     mode: 'simple',
   };

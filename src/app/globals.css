@@ -5,24 +5,24 @@
 }
 
 /* ======================== */
-/* DARK THEME (warm gray)   */
+/* DARK THEME               */
 /* ======================== */
 :root,
 [data-theme="dark"] {
-  --c-bg-0: #141416;       /* page background - warm dark gray */
-  --c-bg-1: #1c1c1f;       /* card / panel */
-  --c-bg-2: #242427;       /* elevated / hover */
-  --c-bg-3: #2c2c30;       /* input / active */
-  --c-border: #2e2e33;     /* border default */
-  --c-border-light: #3a3a40; /* border hover */
-  --c-text-0: #ececef;     /* primary text */
-  --c-text-1: #a0a0a8;     /* secondary text */
-  --c-text-2: #6e6e78;     /* muted text */
-  --c-text-3: #4a4a52;     /* faint text */
-  --c-accent: #7c8aaa;     /* muted slate-blue accent */
-  --c-accent-hover: #8e9bba;
-  --c-accent-soft: rgba(124,138,170,0.10);
-  --c-sidebar: #111113;    /* sidebar bg */
+  --c-bg-0: #101217;
+  --c-bg-1: #171a21;
+  --c-bg-2: #1f2430;
+  --c-bg-3: #2a3140;
+  --c-border: #2c3444;
+  --c-border-light: #394358;
+  --c-text-0: #f2f5f9;
+  --c-text-1: #c3ccda;
+  --c-text-2: #909caf;
+  --c-text-3: #647086;
+  --c-accent: #5b7cfa;
+  --c-accent-hover: #7f99ff;
+  --c-accent-soft: rgba(91, 124, 250, 0.14);
+  --c-sidebar: #12161e;
   --c-danger: #e05252;
   --c-success: #4eca6a;
   --c-warning: #d4a829;
@@ -32,20 +32,20 @@
 /* LIGHT THEME              */
 /* ======================== */
 [data-theme="light"] {
-  --c-bg-0: #f5f5f7;
+  --c-bg-0: #f4f7fb;
   --c-bg-1: #ffffff;
-  --c-bg-2: #f0f0f2;
-  --c-bg-3: #e4e4e8;
-  --c-border: #dcdce0;
-  --c-border-light: #c8c8ce;
-  --c-text-0: #1a1a1e;
-  --c-text-1: #52525a;
-  --c-text-2: #8e8e96;
-  --c-text-3: #c0c0c6;
-  --c-accent: #555568;
-  --c-accent-hover: #44445a;
-  --c-accent-soft: rgba(85,85,104,0.08);
-  --c-sidebar: #1a1a1e;
+  --c-bg-2: #eef3fa;
+  --c-bg-3: #e2eaf6;
+  --c-border: #d7dfeb;
+  --c-border-light: #c2ccdb;
+  --c-text-0: #152033;
+  --c-text-1: #41506a;
+  --c-text-2: #6f7d95;
+  --c-text-3: #96a2b5;
+  --c-accent: #3457d5;
+  --c-accent-hover: #2748bb;
+  --c-accent-soft: rgba(52, 87, 213, 0.08);
+  --c-sidebar: #fbfcfe;
   --c-danger: #dc2626;
   --c-success: #16a34a;
   --c-warning: #ca8a04;
@@ -56,6 +56,7 @@ body {
   background: var(--c-bg-0);
   color: var(--c-text-0);
   transition: background 0.2s, color 0.2s;
+  text-rendering: optimizeLegibility;
 }
 
 html,
@@ -121,8 +122,9 @@ body {
 .card {
   background: var(--c-bg-1);
   border: 1px solid var(--c-border);
-  border-radius: 0.75rem;
+  border-radius: 1rem;
   overflow: hidden;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
 }
 .card-header {
   padding: 0.75rem 1rem;
@@ -142,6 +144,33 @@ body {
   font-size: 0.625rem;
   font-weight: 600;
   border-radius: 9999px;
+}
+
+.platform-shell {
+  background: var(--c-bg-0);
+}
+
+.platform-sidebar {
+  background: var(--c-sidebar);
+  border-right: 1px solid var(--c-border);
+}
+
+.platform-topbar {
+  background: color-mix(in srgb, var(--c-bg-1) 94%, transparent);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.platform-surface {
+  background: var(--c-bg-1);
+  border: 1px solid var(--c-border);
+  border-radius: 1.5rem;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05);
+}
+
+.platform-soft {
+  background: var(--c-bg-2);
+  border: 1px solid var(--c-border);
+  border-radius: 1rem;
 }
 
 /* TipTap editor */

@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ColorPicker } from '@/components/ui/color-picker';
 import AIButton from '@/components/ai/AIButton';
 import type { AICommand } from '@/components/ai/AIButton';
-import type { Block } from '@/lib/types';
+import type { Block, DataSource } from '@/lib/types';
 import type { SiteMenuItem } from '@/lib/site/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/lib/store';
@@ -25,6 +25,333 @@ import { NAVIGATION_TEMPLATES, cloneNavigationItems, getNavigationTemplate } fro
 import { CMS_FORM_TEMPLATES, SOCIAL_BLOCK_TEMPLATES, getCmsFormTemplate, getSocialTemplate } from '@/lib/interactive/block-templates';
 import { SOCIAL_PLATFORMS } from '@/lib/social/platforms';
 import { ARTICLE_GRID_TEMPLATES, ARTICLE_HERO_TEMPLATES, BANNER_ZONE_TEMPLATES, CAROUSEL_TEMPLATES, HERO_TEMPLATES, IMAGE_GALLERY_TEMPLATES, SLIDESHOW_TEMPLATES, getContentBlockTemplate, type ContentBlockTemplate, type TemplateBlockStyle } from '@/lib/editor/content-block-templates';
+import { useEditorBlockPreviewData } from '@/lib/editor/cms-integration';
+
+type ArticleSourceMode = 'automatic' | 'placement' | 'manual' | 'mixed';
+type ArticleAutoSource = 'latest' | 'featured' | 'category' | 'tag';
+type BannerSourceMode = 'rotation' | 'specific' | 'custom';
+
+interface EditorialArticleOption {
+  id: string;
+  title: string;
+  slug: string;
+  published_at: string | null;
+}
+
+interface EditorialBannerOption {
+  id: string;
+  name: string;
+  position: string;
+  type: string;
+  image_url: string | null;
+  html_content: string | null;
+  advertiser_id: string | null;
+  target_categories: string[];
+}
+
+function normalizeStringArray(value: unknown) {
+  return Array.isArray(value) ? value.map((entry) => String(entry)).filter(Boolean) : [];
+}
+
+function normalizeArticleSourceMode(value: unknown): ArticleSourceMode {
+  return value === 'placement' || value === 'manual' || value === 'mixed' ? value : 'automatic';
+}
+
+function normalizeArticleAutoSource(value: unknown, fallback: ArticleAutoSource): ArticleAutoSource {
+  return value === 'featured' || value === 'category' || value === 'tag' || value === 'latest' ? value : fallback;
+}
+
+function normalizeBannerSourceMode(value: unknown): BannerSourceMode {
+  return value === 'specific' || value === 'custom' ? value : 'rotation';
+}
+
+function getArticleEditorialConfig(block: Block) {
+  const props = block.props as Record<string, unknown>;
+  const fallbackAutoSource: ArticleAutoSource = block.type === 'article-hero' ? 'featured' : 'latest';
+  const manualArticleIds = normalizeStringArray(props.manualArticleIds);
+  const articleSlug = String(props.articleSlug || '');
+  const placementSlotId = String(props.placementSlotId || '');
+  const categorySlug = String(props.categorySlug || '');
+  const tagSlug = String(props.tagSlug || '');
+
+  let sourceMode = normalizeArticleSourceMode(props.sourceMode);
+  if (!('sourceMode' in props)) {
+    if (placementSlotId) {
+      sourceMode = 'placement';
+    } else if (manualArticleIds.length > 0 || articleSlug) {
+      sourceMode = 'manual';
+    } else {
+      sourceMode = 'automatic';
+    }
+  }
+
+  let autoSource = normalizeArticleAutoSource(props.autoSource, fallbackAutoSource);
+  if (!('autoSource' in props)) {
+    if (tagSlug) {
+      autoSource = 'tag';
+    } else if (categorySlug) {
+      autoSource = 'category';
+    } else if (block.type === 'article-hero' && props.useFeatured !== false) {
+      autoSource = 'featured';
+    } else {
+      autoSource = fallbackAutoSource;
+    }
+  }
+
+  return {
+    sourceMode,
+    autoSource,
+    categorySlug,
+    tagSlug,
+    articleSlug,
+    placementSlotId,
+    manualArticleIds,
+  };
+}
+
+function buildArticleDataSourceFromConfig(config: {
+  sourceMode: ArticleSourceMode;
+  autoSource: ArticleAutoSource;
+  limit: number;
+  categorySlug?: string;
+  tagSlug?: string;
+  articleSlug?: string;
+  placementSlotId?: string;
+  manualArticleIds?: string[];
+}): DataSource {
+  const limit = String(Math.max(1, config.limit || 1));
+  const manualIds = (config.manualArticleIds || []).filter(Boolean);
+  const sourceMode = config.sourceMode;
+  const autoSource = config.autoSource;
+
+  if (sourceMode === 'placement' && config.placementSlotId) {
+    return {
+      endpoint: 'articles',
+      params: {
+        slotId: config.placementSlotId,
+        limit,
+        sourceMode,
+      },
+    };
+  }
+
+  if (sourceMode === 'manual') {
+    if (manualIds.length > 0) {
+      return {
+        endpoint: 'articles',
+        params: {
+          ids: manualIds.join(','),
+          limit,
+          sourceMode,
+        },
+      };
+    }
+
+    if (config.articleSlug) {
+      return {
+        endpoint: 'articles',
+        params: {
+          slug: config.articleSlug,
+          limit,
+          sourceMode,
+        },
+      };
+    }
+  }
+
+  const params: Record<string, string> = {
+    limit,
+    sourceMode,
+    autoSource,
+  };
+
+  if (sourceMode === 'mixed' && manualIds.length > 0) {
+    params.ids = manualIds.join(',');
+  }
+
+  if (autoSource === 'featured') {
+    params.featured = 'true';
+  }
+
+  if (autoSource === 'category' && config.categorySlug) {
+    params.category = config.categorySlug;
+    params.categorySlug = config.categorySlug;
+  }
+
+  if (autoSource === 'tag' && config.tagSlug) {
+    params.tag = config.tagSlug;
+  }
+
+  return {
+    endpoint: 'articles',
+    params,
+  };
+}
+
+function updateArticleEditorialBlock(
+  block: Block,
+  updateBlock: (blockId: string, updates: Partial<Block>) => void,
+  updates: Record<string, unknown>,
+  limitOverride?: number
+) {
+  const nextProps = {
+    ...block.props,
+    ...updates,
+  };
+
+  const config = getArticleEditorialConfig({
+    ...block,
+    props: nextProps,
+  });
+  const limit =
+    limitOverride ||
+    Number(nextProps.limit || (block.type === 'article-hero' ? 1 : 9)) ||
+    (block.type === 'article-hero' ? 1 : 9);
+
+  updateBlock(block.id, {
+    props: nextProps,
+    dataSource: buildArticleDataSourceFromConfig({
+      ...config,
+      limit,
+    }),
+  });
+}
+
+function buildBannerDataSourceFromProps(props: Record<string, unknown>): DataSource | undefined {
+  const sourceMode = normalizeBannerSourceMode(props.sourceMode);
+
+  if (sourceMode === 'custom') {
+    return undefined;
+  }
+
+  const params: Record<string, string> = {
+    sourceMode,
+  };
+
+  if (sourceMode === 'specific') {
+    const bannerId = String(props.bannerId || '');
+    if (!bannerId) {
+      return undefined;
+    }
+    params.bannerId = bannerId;
+    params.limit = '1';
+    return {
+      endpoint: 'banners',
+      params,
+    };
+  }
+
+  params.position = String(props.position || 'sidebar');
+  if (props.advertiserId) {
+    params.advertiserId = String(props.advertiserId);
+  }
+  if (props.targetCategorySlug) {
+    params.targetCategory = String(props.targetCategorySlug);
+  }
+
+  return {
+    endpoint: 'banners',
+    params,
+  };
+}
+
+function updateBannerBlock(
+  block: Block,
+  updateBlock: (blockId: string, updates: Partial<Block>) => void,
+  updates: Record<string, unknown>
+) {
+  const nextProps = {
+    ...block.props,
+    ...updates,
+  };
+
+  updateBlock(block.id, {
+    props: nextProps,
+    dataSource: buildBannerDataSourceFromProps(nextProps),
+  });
+}
+
+function goToCmsSection(path: string) {
+  if (typeof window !== 'undefined') {
+    window.location.href = path;
+  }
+}
+
+function describeArticleEditorialConfig(config: ReturnType<typeof getArticleEditorialConfig>) {
+  if (config.sourceMode === 'placement') {
+    return 'Questo blocco usa un placement editoriale gestito dal CMS.';
+  }
+
+  if (config.sourceMode === 'manual') {
+    return 'Questo blocco usa una selezione manuale di articoli definita nel CMS.';
+  }
+
+  if (config.sourceMode === 'mixed') {
+    return 'Questo blocco combina articoli curati e regole automatiche gestite dal CMS.';
+  }
+
+  if (config.autoSource === 'category') {
+    return `Questo blocco segue la categoria ${config.categorySlug || 'del CMS'}.`;
+  }
+
+  if (config.autoSource === 'tag') {
+    return `Questo blocco segue il tag ${config.tagSlug || 'del CMS'}.`;
+  }
+
+  if (config.autoSource === 'featured') {
+    return 'Questo blocco usa il featured corrente del CMS.';
+  }
+
+  return 'Questo blocco usa la regola automatica del CMS.';
+}
+
+function describeBannerEditorialConfig(sourceMode: BannerSourceMode) {
+  if (sourceMode === 'specific') {
+    return 'Questa zona usa un banner specifico gestito dal CMS advertising.';
+  }
+
+  if (sourceMode === 'custom') {
+    return 'Questa zona usa una creativita legacy nel blocco. Per nuove creativita usa il CMS advertising.';
+  }
+
+  return 'Questa zona usa la rotazione ADV e i filtri decisi nel CMS.';
+}
+
+function CmsManagedNotice({
+  title,
+  description,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  description: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <div className="rounded-xl border p-3 space-y-3" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+      <div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: 'var(--c-text-2)' }}>
+          Gestito dal CMS
+        </div>
+        <div className="mt-1 text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
+          {title}
+        </div>
+        <p className="mt-1 text-xs leading-5" style={{ color: 'var(--c-text-2)' }}>
+          {description}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onAction}
+        className="rounded-lg px-3 py-2 text-xs font-medium"
+        style={{ background: 'var(--c-accent-soft)', color: 'var(--c-accent)' }}
+      >
+        {actionLabel}
+      </button>
+    </div>
+  );
+}
 
 export function RightPanel() {
   const { rightPanelTab, setRightPanelTab, hiddenRightPanelTabs, toggleHiddenRightPanelTab, selectedInnerTarget, setSelectedInnerTarget } = useUiStore();
@@ -1746,7 +2073,15 @@ function HeroCtaProperties({ block, onBack }: { block: Block; onBack: () => void
 
 function ArticleHeroProperties({ block }: { block: Block }) {
   const { updateBlockProps, updateBlock } = usePageStore();
+  const { currentTenant } = useAuthStore();
   const activeTemplateId = String(block.props.templateId || 'article-hero-cover-story');
+  const config = getArticleEditorialConfig(block);
+  const heroPreviewSource = buildArticleDataSourceFromConfig({
+    ...config,
+    limit: 1,
+  });
+  const { data: previewData, loading: previewLoading } = useEditorBlockPreviewData(currentTenant?.id, heroPreviewSource);
+  const previewArticles = previewData as EditorialArticleOption[];
 
   return (
     <div className="space-y-3">
@@ -1754,12 +2089,47 @@ function ArticleHeroProperties({ block }: { block: Block }) {
         title="Template hero articolo"
         templates={ARTICLE_HERO_TEMPLATES}
         activeTemplateId={activeTemplateId}
-        onApply={(templateId) => applyContentTemplate(block, updateBlock, templateId, 'article-hero')}
+        onApply={(templateId) =>
+          applyContentTemplate(block, updateBlock, templateId, 'article-hero', (template) => {
+            updateArticleEditorialBlock(block, updateBlock, {
+              ...template.props,
+              templateId,
+            }, 1);
+          })
+        }
       />
-      <div className="grid grid-cols-2 gap-2">
-        <Input label="Slug articolo" value={String(block.props.articleSlug || '')} onChange={(event) => updateBlockProps(block.id, { articleSlug: event.target.value, useFeatured: false })} />
+
+      <div className="rounded-xl border p-3 space-y-3" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+        <CmsManagedNotice
+          title="Sorgente hero editoriale"
+          description={`${describeArticleEditorialConfig(config)} Per cambiare categoria, placement o articolo sorgente usa il CMS online.`}
+          actionLabel="Apri CMS contenuti"
+          onAction={() => goToCmsSection('/dashboard/layout/content')}
+        />
+
         <Input label="Altezza" value={String(block.props.height || '500px')} onChange={(event) => updateBlockProps(block.id, { height: event.target.value })} />
+
+        <div className="rounded-lg border p-3" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)' }}>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: 'var(--c-text-2)' }}>
+            Anteprima Contenuto
+          </div>
+          {previewLoading ? (
+            <p className="mt-2 text-xs" style={{ color: 'var(--c-text-2)' }}>Caricamento anteprima CMS...</p>
+          ) : previewArticles[0] ? (
+            <div className="mt-2 space-y-1">
+              <div className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>{previewArticles[0].title}</div>
+              <div className="text-xs" style={{ color: 'var(--c-text-2)' }}>
+                {describeArticleEditorialConfig(config)}
+              </div>
+            </div>
+          ) : (
+            <p className="mt-2 text-xs" style={{ color: 'var(--c-text-2)' }}>
+              Nessun articolo trovato con la regola attuale.
+            </p>
+          )}
+        </div>
       </div>
+
       <div className="grid grid-cols-2 gap-2">
         <Select
           label="Allineamento contenuto"
@@ -1795,21 +2165,16 @@ function ArticleHeroProperties({ block }: { block: Block }) {
 
 function ArticleGridProperties({ block }: { block: Block }) {
   const { updateBlockProps, updateBlock } = usePageStore();
+  const { currentTenant } = useAuthStore();
   const activeTemplateId = String(block.props.templateId || 'article-grid-newsroom-3');
-  const syncDataSource = (updates: Record<string, unknown>) => {
-    const nextLimit = String(updates.limit ?? block.props.limit ?? 9);
-    const nextCategory = String(updates.categorySlug ?? block.props.categorySlug ?? '');
-    updateBlock(block.id, {
-      dataSource: {
-        endpoint: 'articles',
-        params: {
-          limit: nextLimit,
-          status: 'published',
-          ...(nextCategory ? { category: nextCategory } : {}),
-        },
-      },
-    });
-  };
+  const config = getArticleEditorialConfig(block);
+  const limit = Math.max(1, Number(block.props.limit || 9));
+  const gridPreviewSource = buildArticleDataSourceFromConfig({
+    ...config,
+    limit,
+  });
+  const { data: previewData, loading: previewLoading } = useEditorBlockPreviewData(currentTenant?.id, gridPreviewSource);
+  const previewArticles = previewData as EditorialArticleOption[];
 
   return (
     <div className="space-y-3">
@@ -1818,32 +2183,60 @@ function ArticleGridProperties({ block }: { block: Block }) {
         templates={ARTICLE_GRID_TEMPLATES}
         activeTemplateId={activeTemplateId}
         onApply={(templateId) =>
-          applyContentTemplate(block, updateBlock, templateId, 'article-grid', (template) => syncDataSource(template.props))
+          applyContentTemplate(block, updateBlock, templateId, 'article-grid', (template) => {
+            updateArticleEditorialBlock(block, updateBlock, {
+              ...template.props,
+              templateId,
+            });
+          })
         }
       />
-      <div className="grid grid-cols-2 gap-2">
-        <Input label="Colonne" type="number" value={Number(block.props.columns || 3)} onChange={(event) => updateBlockProps(block.id, { columns: Number(event.target.value) })} />
+
+      <div className="rounded-xl border p-3 space-y-3" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+        <CmsManagedNotice
+          title="Sorgente griglia editoriale"
+          description={`${describeArticleEditorialConfig(config)} Categoria, tag, placement e selezione manuale ora si gestiscono solo dal CMS online.`}
+          actionLabel="Apri CMS contenuti"
+          onAction={() => goToCmsSection('/dashboard/layout/content')}
+        />
+
         <Input
-          label="Limite articoli"
+          label="Numero articoli"
           type="number"
-          value={Number(block.props.limit || 9)}
+          value={limit}
           onChange={(event) => {
-            const limit = Number(event.target.value);
-            updateBlockProps(block.id, { limit });
-            syncDataSource({ limit });
+            const nextLimit = Number(event.target.value) || 1;
+            updateArticleEditorialBlock(block, updateBlock, { limit: nextLimit }, nextLimit);
           }}
         />
+
+        <div className="rounded-lg border p-3" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)' }}>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: 'var(--c-text-2)' }}>
+            Anteprima Contenuti
+          </div>
+          {previewLoading ? (
+            <p className="mt-2 text-xs" style={{ color: 'var(--c-text-2)' }}>Caricamento anteprima CMS...</p>
+          ) : previewArticles.length > 0 ? (
+            <div className="mt-2 space-y-2">
+              {previewArticles.slice(0, 4).map((article, index) => (
+                <div key={article.id || `${article.title}-${index}`} className="text-xs">
+                  <div className="font-semibold" style={{ color: 'var(--c-text-0)' }}>{article.title}</div>
+                  <div style={{ color: 'var(--c-text-2)' }}>
+                    {config.sourceMode === 'mixed' && index < config.manualArticleIds.length ? 'Curato manualmente dal CMS' : describeArticleEditorialConfig(config)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs" style={{ color: 'var(--c-text-2)' }}>
+              Nessun articolo disponibile con i filtri correnti.
+            </p>
+          )}
+        </div>
       </div>
-      <Input
-        label="Slug categoria"
-        value={String(block.props.categorySlug || '')}
-        onChange={(event) => {
-          const categorySlug = event.target.value;
-          updateBlockProps(block.id, { categorySlug });
-          syncDataSource({ categorySlug });
-        }}
-      />
+
       <div className="grid grid-cols-2 gap-2">
+        <Input label="Colonne" type="number" value={Number(block.props.columns || 3)} onChange={(event) => updateBlockProps(block.id, { columns: Number(event.target.value) })} />
         <Select
           label="Card style"
           value={String(block.props.cardStyle || 'default')}
@@ -1856,9 +2249,11 @@ function ArticleGridProperties({ block }: { block: Block }) {
             { value: 'overlay', label: 'Overlay' },
           ]}
         />
-        <Input label="Aspect ratio" value={String(block.props.imageAspectRatio || '16/9')} onChange={(event) => updateBlockProps(block.id, { imageAspectRatio: event.target.value })} />
       </div>
-      <Input label="Padding card" value={String(block.props.cardPadding || '16px')} onChange={(event) => updateBlockProps(block.id, { cardPadding: event.target.value })} />
+      <div className="grid grid-cols-2 gap-2">
+        <Input label="Aspect ratio" value={String(block.props.imageAspectRatio || '16/9')} onChange={(event) => updateBlockProps(block.id, { imageAspectRatio: event.target.value })} />
+        <Input label="Padding card" value={String(block.props.cardPadding || '16px')} onChange={(event) => updateBlockProps(block.id, { cardPadding: event.target.value })} />
+      </div>
       <Toggle label="Immagine" checked={(block.props.showImage as boolean) ?? true} onChange={(value) => updateBlockProps(block.id, { showImage: value })} />
       <Toggle label="Excerpt" checked={(block.props.showExcerpt as boolean) ?? true} onChange={(value) => updateBlockProps(block.id, { showExcerpt: value })} />
       <Toggle label="Categoria" checked={(block.props.showCategory as boolean) ?? true} onChange={(value) => updateBlockProps(block.id, { showCategory: value })} />
@@ -2408,15 +2803,15 @@ function CarouselProperties({ block }: { block: Block }) {
 
 function BannerZoneProperties({ block }: { block: Block }) {
   const { updateBlockProps, updateBlock } = usePageStore();
+  const { currentTenant } = useAuthStore();
   const activeTemplateId = String(block.props.templateId || 'banner-sidebar-single');
-  const syncDataSource = (position: string) => {
-    updateBlock(block.id, {
-      dataSource: {
-        endpoint: 'banners',
-        params: { position },
-      },
-    });
-  };
+  const props = block.props as Record<string, unknown>;
+  const sourceMode = normalizeBannerSourceMode(props.sourceMode);
+  const previewSource = buildBannerDataSourceFromProps(props);
+  const { data: previewData, loading: previewLoading } = useEditorBlockPreviewData(currentTenant?.id, previewSource);
+  const previewBanners = previewData as EditorialBannerOption[];
+  const customImageUrl = String(props.customImageUrl || '');
+  const customHtml = String(props.customHtml || '');
 
   return (
     <div className="space-y-3">
@@ -2425,24 +2820,55 @@ function BannerZoneProperties({ block }: { block: Block }) {
         templates={BANNER_ZONE_TEMPLATES}
         activeTemplateId={activeTemplateId}
         onApply={(templateId) =>
-          applyContentTemplate(block, updateBlock, templateId, 'banner-zone', (template) => syncDataSource(String(template.props.position || 'sidebar')))
+          applyContentTemplate(block, updateBlock, templateId, 'banner-zone', (template) => {
+            updateBannerBlock(block, updateBlock, {
+              ...template.props,
+              templateId,
+            });
+          })
         }
       />
-      <Select
-        label="Posizione banner"
-        value={String(block.props.position || 'sidebar')}
-        onChange={(event) => {
-          const position = event.target.value;
-          updateBlockProps(block.id, { position });
-          syncDataSource(position);
-        }}
-        options={[
-          { value: 'sidebar', label: 'Sidebar' },
-          { value: 'topbar', label: 'Topbar' },
-          { value: 'footer', label: 'Footer' },
-          { value: 'header', label: 'Header' },
-        ]}
-      />
+
+      <div className="rounded-xl border p-3 space-y-3" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+        <CmsManagedNotice
+          title="Sorgente advertising"
+          description={`${describeBannerEditorialConfig(sourceMode)} Posizioni, clienti, categorie banner e creativita ora si governano dal CMS online.`}
+          actionLabel="Apri CMS ADV"
+          onAction={() => goToCmsSection('/dashboard/banner')}
+        />
+
+        <div className="rounded-lg border p-3" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)' }}>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: 'var(--c-text-2)' }}>
+            Anteprima ADV
+          </div>
+          {sourceMode === 'custom' ? (
+            customImageUrl || customHtml ? (
+              <div className="mt-2 text-xs" style={{ color: 'var(--c-text-0)' }}>
+                Creativita fissa pronta nel blocco{customImageUrl ? ' con immagine caricata' : ' con HTML personalizzato'}.
+              </div>
+            ) : (
+              <div className="mt-2 text-xs" style={{ color: 'var(--c-text-2)' }}>
+                Nessuna creativita fissa caricata ancora.
+              </div>
+            )
+          ) : previewLoading ? (
+            <div className="mt-2 text-xs" style={{ color: 'var(--c-text-2)' }}>Caricamento banner...</div>
+          ) : previewBanners.length > 0 ? (
+            <div className="mt-2 space-y-1">
+              {previewBanners.slice(0, 3).map((banner) => (
+                <div key={banner.id} className="text-xs" style={{ color: 'var(--c-text-0)' }}>
+                  {banner.name} <span style={{ color: 'var(--c-text-2)' }}>· {banner.position}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-2 text-xs" style={{ color: 'var(--c-text-2)' }}>
+              Nessun banner attivo trovato con i filtri attuali.
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
         <Input label="Max visibili" type="number" value={Number(block.props.maxVisible || 1)} onChange={(event) => updateBlockProps(block.id, { maxVisible: Number(event.target.value) })} />
         <Input label="Gap px" type="number" value={Number(block.props.gap || 12)} onChange={(event) => updateBlockProps(block.id, { gap: Number(event.target.value) })} />
@@ -3740,13 +4166,35 @@ function JsonTextareaField({
   rows?: number;
   helpText?: string;
 }) {
-  const [draft, setDraft] = useState(() => JSON.stringify(value, null, 2));
-  const [error, setError] = useState('');
+  const initialDraft = JSON.stringify(value, null, 2);
 
-  useEffect(() => {
-    setDraft(JSON.stringify(value, null, 2));
-    setError('');
-  }, [value]);
+  return (
+    <JsonTextareaFieldEditor
+      key={initialDraft}
+      label={label}
+      initialDraft={initialDraft}
+      onValidChange={onValidChange}
+      rows={rows}
+      helpText={helpText}
+    />
+  );
+}
+
+function JsonTextareaFieldEditor({
+  label,
+  initialDraft,
+  onValidChange,
+  rows,
+  helpText,
+}: {
+  label: string;
+  initialDraft: string;
+  onValidChange: (nextValue: unknown) => void;
+  rows: number;
+  helpText?: string;
+}) {
+  const [draft, setDraft] = useState(initialDraft);
+  const [error, setError] = useState('');
 
   return (
     <div className="space-y-1.5">
@@ -3956,6 +4404,10 @@ function CustomHtmlProperties({ block }: { block: Block }) {
 
   return (
     <div className="space-y-3">
+      <div className="rounded-lg border p-3 text-xs leading-5" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)', color: 'var(--c-text-2)' }}>
+        Questo blocco accetta HTML e CSS avanzato, anche con animazioni CSS, ma resta sempre in iframe sicuro.
+        JavaScript libero e disattivazione del sandbox non sono consentiti.
+      </div>
       <Textarea
         label="HTML"
         value={String(block.props.html || '')}
@@ -3967,17 +4419,6 @@ function CustomHtmlProperties({ block }: { block: Block }) {
         value={String(block.props.css || '')}
         rows={8}
         onChange={(event) => updateBlockProps(block.id, { css: event.target.value })}
-      />
-      <Textarea
-        label="JavaScript"
-        value={String(block.props.js || '')}
-        rows={8}
-        onChange={(event) => updateBlockProps(block.id, { js: event.target.value })}
-      />
-      <Toggle
-        label="Sandbox iframe"
-        checked={block.props.sandboxed !== false}
-        onChange={(value) => updateBlockProps(block.id, { sandboxed: value })}
       />
     </div>
   );

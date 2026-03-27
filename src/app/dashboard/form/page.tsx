@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import slugify from "slugify";
 import toast from "react-hot-toast";
-import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import { Check, Plus } from "lucide-react";
 
@@ -48,6 +47,11 @@ export default function FormPage() {
   const [successMessage, setSuccessMessage] = useState("Grazie, abbiamo ricevuto il tuo messaggio.");
   const [isActive, setIsActive] = useState(true);
 
+  const readErrorMessage = useCallback(async (response: Response, fallback: string) => {
+    const payload = await response.json().catch(() => null);
+    return typeof payload?.error === "string" ? payload.error : fallback;
+  }, []);
+
   const resetEditor = () => {
     setEditingId(null);
     setName("");
@@ -62,50 +66,51 @@ export default function FormPage() {
 
   const loadForms = useCallback(async () => {
     if (!currentTenant) return;
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("site_forms")
-      .select("id, name, slug, description, fields, recipient_emails, success_message, is_active")
-      .eq("tenant_id", currentTenant.id)
-      .order("created_at", { ascending: false });
+    const response = await fetch(`/api/cms/forms?tenant_id=${encodeURIComponent(currentTenant.id)}`, {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
 
-    if (error) {
-      if (error.message.toLowerCase().includes("site_forms")) {
+    if (!response.ok) {
+      const errorMessage = await readErrorMessage(response, "Impossibile caricare i form");
+      if (errorMessage.toLowerCase().includes("site_forms")) {
         setModuleReady(false);
       } else {
-        toast.error(error.message);
+        toast.error(errorMessage);
       }
       setForms([]);
       return;
     }
 
+    const payload = (await response.json()) as { forms?: SiteForm[] };
     setModuleReady(true);
-    const nextForms = (data || []) as unknown as SiteForm[];
+    const nextForms = Array.isArray(payload.forms) ? payload.forms : [];
     setForms(nextForms);
     if (!selectedFormId && nextForms[0]?.id) {
       setSelectedFormId(nextForms[0].id);
     }
-  }, [currentTenant, selectedFormId]);
+  }, [currentTenant, selectedFormId, readErrorMessage]);
 
   const loadSubmissions = useCallback(async () => {
     if (!selectedFormId) {
       setSubmissions([]);
       return;
     }
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("form_submissions")
-      .select("id, submitter_name, submitter_email, status, created_at")
-      .eq("form_id", selectedFormId)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    const response = await fetch(
+      `/api/cms/forms?tenant_id=${encodeURIComponent(currentTenant?.id || "")}&form_id=${encodeURIComponent(selectedFormId)}`,
+      {
+        credentials: "same-origin",
+        cache: "no-store",
+      }
+    );
 
-    if (error) {
+    if (!response.ok) {
       setSubmissions([]);
       return;
     }
-    setSubmissions((data || []) as SubmissionRow[]);
-  }, [selectedFormId]);
+    const payload = (await response.json()) as { submissions?: SubmissionRow[] };
+    setSubmissions(Array.isArray(payload.submissions) ? payload.submissions : []);
+  }, [currentTenant?.id, selectedFormId]);
 
   useEffect(() => {
     loadForms();
@@ -142,7 +147,6 @@ export default function FormPage() {
       return;
     }
 
-    const supabase = createClient();
     const payload = {
       tenant_id: currentTenant.id,
       name: name.trim(),
@@ -154,19 +158,21 @@ export default function FormPage() {
       is_active: isActive,
     };
 
-    const query = editingId
-      ? supabase.from("site_forms").update(payload).eq("id", editingId)
-      : supabase.from("site_forms").insert(payload);
+    const response = await fetch(editingId ? `/api/cms/forms/${editingId}` : "/api/cms/forms", {
+      method: editingId ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(payload),
+    });
 
-    const { error } = await query;
-    if (error) {
-      toast.error(error.message);
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Impossibile salvare il form"));
       return;
     }
 
     toast.success(editingId ? "Form aggiornato" : "Form creato");
     resetEditor();
-    loadForms();
+    void loadForms();
   };
 
   return (

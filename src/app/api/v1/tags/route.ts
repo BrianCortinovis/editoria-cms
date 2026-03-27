@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { readPublishedJson } from "@/lib/publish/storage";
+import type { PublishedTagsDocument } from "@/lib/publish/types";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -7,6 +9,16 @@ export async function GET(request: Request) {
 
   if (!tenantSlug) {
     return NextResponse.json({ error: "tenant parameter required" }, { status: 400 });
+  }
+
+  const publishedTags = await readPublishedJson<PublishedTagsDocument>(`sites/${encodeURIComponent(tenantSlug)}/tags.json`);
+  if (publishedTags?.tags) {
+    return NextResponse.json({ tags: publishedTags.tags }, {
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
   }
 
   const supabase = await createServiceRoleClient();

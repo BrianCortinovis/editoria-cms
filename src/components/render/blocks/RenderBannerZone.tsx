@@ -58,9 +58,23 @@ function renderBannerContent(banner: Banner) {
 }
 
 export function RenderBannerZone({ block, data, style }: Props) {
-  const banners = (data as Banner[]).filter((banner) => banner.html_content || banner.image_url);
+  const props = block.props as Record<string, unknown>;
+  const sourceMode = String(props.sourceMode || 'rotation');
+  const customBanner: Banner | null = sourceMode === 'custom' && (props.customImageUrl || props.customHtml)
+    ? {
+        id: `${block.id}-custom`,
+        name: String(props.customAssetName || block.label || 'Banner custom'),
+        image_url: props.customImageUrl ? String(props.customImageUrl) : null,
+        html_content: props.customHtml ? String(props.customHtml) : null,
+        link_url: props.customLinkUrl ? String(props.customLinkUrl) : null,
+        type: props.customHtml ? 'html' : 'image',
+      }
+    : null;
+  const banners = customBanner
+    ? [customBanner]
+    : (data as Banner[]).filter((banner) => banner.html_content || banner.image_url);
   if (banners.length === 0) {
-    const { fallbackHtml } = block.props as Record<string, unknown>;
+    const { fallbackHtml } = props;
     if (fallbackHtml) {
       const safeFallbackHtml = sanitizeHtml(fallbackHtml as string);
       return (
@@ -75,7 +89,6 @@ export function RenderBannerZone({ block, data, style }: Props) {
     return null;
   }
 
-  const props = block.props as Record<string, unknown>;
   const position = String(props.position || '');
   const gap = typeof props.gap === 'number' ? `${props.gap}px` : '12px';
   const minItemWidth = typeof props.minItemWidth === 'number' ? `${props.minItemWidth}px` : '180px';

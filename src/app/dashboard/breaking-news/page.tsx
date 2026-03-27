@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
 import {
@@ -30,7 +29,7 @@ interface BreakingItem {
 }
 
 export default function BreakingNewsPage() {
-  const { currentTenant, user } = useAuthStore();
+  const { currentTenant } = useAuthStore();
   const [items, setItems] = useState<BreakingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -41,18 +40,27 @@ export default function BreakingNewsPage() {
   const [priority, setPriority] = useState(0);
   const [expiresAt, setExpiresAt] = useState("");
 
+  const readErrorMessage = useCallback(async (response: Response, fallback: string) => {
+    const payload = await response.json().catch(() => null);
+    return typeof payload?.error === "string" ? payload.error : fallback;
+  }, []);
+
   const load = useCallback(async () => {
     if (!currentTenant) return;
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("breaking_news")
-      .select("*")
-      .eq("tenant_id", currentTenant.id)
-      .order("priority", { ascending: false })
-      .order("created_at", { ascending: false });
-    if (data) setItems(data as BreakingItem[]);
+    setLoading(true);
+    const response = await fetch(`/api/cms/breaking-news?tenant_id=${encodeURIComponent(currentTenant.id)}`, {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Impossibile caricare le breaking news"));
+      setLoading(false);
+      return;
+    }
+    const payload = (await response.json()) as { items?: BreakingItem[] };
+    setItems(Array.isArray(payload.items) ? payload.items : []);
     setLoading(false);
-  }, [currentTenant]);
+  }, [currentTenant, readErrorMessage]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -77,32 +85,37 @@ export default function BreakingNewsPage() {
   };
 
   const handleSave = async () => {
-    if (!currentTenant || !user || !text.trim()) {
+    if (!currentTenant || !text.trim()) {
       toast.error("Il testo è obbligatorio");
       return;
     }
-    const supabase = createClient();
 
     const payload = {
       tenant_id: currentTenant.id,
       text: text.trim(),
       link_url: linkUrl || null,
       priority,
-      created_by: user.id,
       expires_at: expiresAt || null,
       is_active: true,
     };
 
     if (editingId) {
-      const { error } = await supabase
-        .from("breaking_news")
-        .update({ text: payload.text, link_url: payload.link_url, priority: payload.priority, expires_at: payload.expires_at })
-        .eq("id", editingId);
-      if (error) { toast.error(error.message); return; }
+      const response = await fetch(`/api/cms/breaking-news/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) { toast.error(await readErrorMessage(response, "Impossibile aggiornare la breaking news")); return; }
       toast.success("Aggiornato");
     } else {
-      const { error } = await supabase.from("breaking_news").insert(payload);
-      if (error) { toast.error(error.message); return; }
+      const response = await fetch("/api/cms/breaking-news", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) { toast.error(await readErrorMessage(response, "Impossibile creare la breaking news")); return; }
       toast.success("Breaking news creata");
     }
     resetForm();
@@ -110,15 +123,34 @@ export default function BreakingNewsPage() {
   };
 
   const toggleActive = async (item: BreakingItem) => {
-    const supabase = createClient();
-    await supabase.from("breaking_news").update({ is_active: !item.is_active }).eq("id", item.id);
+    if (!currentTenant) return;
+    const response = await fetch(`/api/cms/breaking-news/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        tenant_id: currentTenant.id,
+        is_active: !item.is_active,
+      }),
+    });
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Impossibile aggiornare lo stato"));
+      return;
+    }
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, is_active: !i.is_active } : i));
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Eliminare questa breaking news?")) return;
-    const supabase = createClient();
-    await supabase.from("breaking_news").delete().eq("id", id);
+    if (!currentTenant) return;
+    const response = await fetch(`/api/cms/breaking-news/${id}?tenant_id=${encodeURIComponent(currentTenant.id)}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Impossibile eliminare la breaking news"));
+      return;
+    }
     setItems(prev => prev.filter(i => i.id !== id));
     toast.success("Eliminata");
   };

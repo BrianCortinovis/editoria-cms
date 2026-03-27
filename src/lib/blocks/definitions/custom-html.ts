@@ -4,14 +4,12 @@ import type { BlockDefinition } from '@/lib/types';
 const customHtmlBlock: BlockDefinition = {
   type: 'custom-html',
   label: 'HTML Custom',
-  description: 'Blocco HTML/CSS/JS libero per embed e codice personalizzato',
+  description: 'Blocco HTML/CSS avanzato in iframe sicuro, ideale per layout personalizzati e animazioni CSS',
   icon: 'FileCode',
   category: 'content',
   defaultProps: {
     html: '<div style="padding: 24px; text-align: center;">\n  <p>Il tuo HTML personalizzato qui</p>\n</div>',
     css: '',
-    js: '',
-    sandboxed: true,
   },
   defaultStyle: {
     layout: {

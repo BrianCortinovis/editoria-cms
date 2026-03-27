@@ -1,0 +1,64 @@
+import { NextResponse } from "next/server";
+import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { getClientIp, checkRateLimit } from "@/lib/security/rate-limit";
+
+export const CMS_VIEW_ROLES = new Set(["super_admin", "chief_editor", "editor", "contributor", "advertiser"]);
+export const CMS_EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
+export const CMS_BANNER_ROLES = new Set(["super_admin", "chief_editor", "advertiser"]);
+export const CMS_MEDIA_DELETE_ROLES = new Set(["super_admin", "chief_editor"]);
+
+export async function requireTenantAccess(
+  tenantId: string,
+  allowedRoles: Set<string>,
+) {
+  const sessionClient = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await sessionClient.auth.getUser();
+
+  if (!user) {
+    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+
+  const { data: membership, error } = await sessionClient
+    .from("user_tenants")
+    .select("role")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error || !membership?.role || !allowedRoles.has(membership.role)) {
+    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+
+  return {
+    sessionClient,
+    serviceClient: await createServiceRoleClient(),
+    user,
+    role: membership.role,
+  };
+}
+
+export async function assertCmsRateLimit(
+  request: Request,
+  key: string,
+  maxRequests: number,
+  windowMs: number,
+) {
+  const ip = getClientIp(request);
+  const result = await checkRateLimit(`${key}:${ip}`, maxRequests, windowMs);
+
+  if (result.allowed) {
+    return null;
+  }
+
+  return NextResponse.json(
+    { error: "Rate limit exceeded" },
+    {
+      status: 429,
+      headers: {
+        "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)),
+      },
+    },
+  );
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { requestPublishTrigger } from "@/lib/publish/client";
 import { useAuthStore } from "@/lib/store";
 import { AVAILABLE_MODULES, type ModuleId } from "@/lib/modules";
 import toast from "react-hot-toast";
@@ -88,6 +89,12 @@ export default function ModuliPage() {
 
     if (error) toast.error(error.message);
     else {
+      try {
+        await requestPublishTrigger(currentTenant.id, [{ type: "settings" }]);
+      } catch (publishError) {
+        const publishMessage = publishError instanceof Error ? publishError.message : "Publish non aggiornato";
+        toast.error(`Moduli salvati, ma il publish non e' stato aggiornato: ${publishMessage}`);
+      }
       setLoadedSettings((prev) => ({
         ...prev,
         active_modules: activeModules,

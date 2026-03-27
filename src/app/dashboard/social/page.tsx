@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import { requestPublishTrigger } from '@/lib/publish/client';
 import { useAuthStore } from '@/lib/store';
 import {
   SOCIAL_PLATFORMS,
@@ -145,6 +146,13 @@ export default function SocialPage() {
       console.error(error);
       toast.error('Salvataggio social non riuscito');
       return;
+    }
+
+    try {
+      await requestPublishTrigger(currentTenant.id, [{ type: 'settings' }]);
+    } catch (publishError) {
+      const publishMessage = publishError instanceof Error ? publishError.message : 'Publish non aggiornato';
+      toast.error(`Configurazione salvata, ma il publish non e' stato aggiornato: ${publishMessage}`);
     }
 
     toast.success('Compatibilità social salvata');

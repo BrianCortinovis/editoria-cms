@@ -5,16 +5,17 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import Link from "next/link";
 import {
+  Cpu,
+  Database,
   FileText,
-  Image,
-  Eye,
+  Image as ImageIcon,
   Calendar,
   Megaphone,
   Zap,
   Plus,
   ArrowRight,
   TrendingUp,
-  LayoutTemplate,
+  ScanLine,
 } from "lucide-react";
 
 interface DashStats {
@@ -36,7 +37,7 @@ interface RecentArticle {
 }
 
 export default function DashboardPage() {
-  const { currentTenant, currentRole, profile } = useAuthStore();
+  const { currentTenant, profile } = useAuthStore();
   const [stats, setStats] = useState<DashStats>({
     articles: 0, published: 0, drafts: 0, media: 0, events: 0, banners: 0,
   });
@@ -112,7 +113,7 @@ export default function DashboardPage() {
     { label: "Articoli", value: stats.articles, icon: FileText, accent: "accent" },
     { label: "Pubblicati", value: stats.published, icon: TrendingUp, accent: "text-emerald-400" },
     { label: "Bozze", value: stats.drafts, icon: FileText, accent: "text-yellow-400" },
-    { label: "Media", value: stats.media, icon: Image, accent: "text-purple-400" },
+    { label: "Media", value: stats.media, icon: ImageIcon, accent: "text-purple-400" },
     { label: "Eventi", value: stats.events, icon: Calendar, accent: "text-pink-400" },
     { label: "Banner", value: stats.banners, icon: Megaphone, accent: "text-orange-400" },
   ];
@@ -127,6 +128,59 @@ export default function DashboardPage() {
         <p className="text-sm mt-0.5" style={{ color: "var(--c-text-2)" }}>
           {currentTenant?.name}
         </p>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
+        <Link
+          href="/dashboard/cms"
+          className="rounded-2xl border p-5 transition block"
+          style={{ background: "var(--c-bg-1)", borderColor: "var(--c-border)" }}
+        >
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
+            style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}
+          >
+            <Database className="w-5 h-5" />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+                Cloud CMS
+              </div>
+              <h3 className="text-lg font-semibold mt-1" style={{ color: "var(--c-text-0)" }}>
+                Contenuti, SEO e pubblicazione
+              </h3>
+              <p className="text-sm mt-2 leading-6" style={{ color: "var(--c-text-2)" }}>
+                Accesso diretto al CMS puro, senza entrare nell&apos;editor. Da qui gestisci articoli, media, categorie, regole slot e publishing.
+              </p>
+            </div>
+            <ArrowRight className="w-5 h-5 shrink-0" style={{ color: "var(--c-text-3)" }} />
+          </div>
+        </Link>
+
+        <Link
+          href="/desktop-editor"
+          className="rounded-2xl border p-5 transition block"
+          style={{ background: "var(--c-bg-1)", borderColor: "var(--c-border)" }}
+        >
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
+            style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}
+          >
+            <Cpu className="w-5 h-5" />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+                Desktop Editor
+              </div>
+              <h3 className="text-lg font-semibold mt-1" style={{ color: "var(--c-text-0)" }}>
+                Builder separato
+              </h3>
+            </div>
+            <ArrowRight className="w-5 h-5 shrink-0" style={{ color: "var(--c-text-3)" }} />
+          </div>
+        </Link>
       </div>
 
       {/* Stats */}
@@ -174,13 +228,22 @@ export default function DashboardPage() {
               <Plus className="w-4 h-4" /> Nuovo Articolo
             </Link>
             <Link
-              href="/dashboard/layout"
+              href="/dashboard/layout/content"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm font-medium"
               style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}
               onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-3)"}
               onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
             >
-              <LayoutTemplate className="w-4 h-4" style={{ color: "var(--c-text-2)" }} /> Layout Sito
+              <ScanLine className="w-4 h-4" style={{ color: "var(--c-text-2)" }} /> Regole Slot
+            </Link>
+            <Link
+              href="/desktop-editor"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm font-medium"
+              style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-3)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+            >
+              <Cpu className="w-4 h-4" style={{ color: "var(--c-text-2)" }} /> Desktop Editor
             </Link>
             <Link
               href="/dashboard/media"
@@ -189,7 +252,7 @@ export default function DashboardPage() {
               onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-3)"}
               onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
             >
-              <Image className="w-4 h-4" style={{ color: "var(--c-text-2)" }} /> Carica Media
+              <ImageIcon className="w-4 h-4" style={{ color: "var(--c-text-2)" }} /> Carica Media
             </Link>
             <Link
               href="/dashboard/breaking-news"

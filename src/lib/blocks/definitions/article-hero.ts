@@ -9,7 +9,11 @@ const articleHeroBlock: BlockDefinition = {
   category: 'editorial',
   defaultProps: {
     templateId: 'article-hero-cover-story',
+    sourceMode: 'automatic',
+    autoSource: 'featured',
     articleSlug: '',
+    placementSlotId: '',
+    manualArticleIds: [],
     useFeatured: true,
     overlayColor: '#000000',
     overlayOpacity: 0.5,
@@ -42,7 +46,12 @@ const articleHeroBlock: BlockDefinition = {
   supportsChildren: false,
   defaultDataSource: {
     endpoint: 'articles',
-    params: { featured: 'true', limit: '1' },
+    params: {
+      sourceMode: 'automatic',
+      autoSource: 'featured',
+      featured: 'true',
+      limit: '1',
+    },
   },
 };
 

@@ -195,6 +195,36 @@ export default function RedazionePage() {
     { href: "/dashboard/eventi", label: "Agenda eventi", icon: CalendarClock },
     { href: "/dashboard/ia", label: "Tool IA redazione", icon: Sparkles },
   ];
+  const productionLinks = [
+    { href: "/dashboard/desk", label: "Desk Giornalisti", note: "Bozze veloci, media dal campo, invio in revisione." },
+    { href: "/dashboard/articoli", label: "Articoli", note: "Revisione completa, stati, opzioni editoriali, publish." },
+    { href: "/dashboard/media", label: "Media", note: "Immagini, video e allegati del lavoro quotidiano." },
+  ];
+  const controlLinks = [
+    { href: "/dashboard/commenti", label: "Commenti", note: "Moderazione, spam, cestino e controlli rapidi." },
+    { href: "/dashboard/breaking-news", label: "Breaking News", note: "Ticker, urgenze e contenuti caldi della giornata." },
+    { href: "/dashboard/eventi", label: "Eventi", note: "Agenda redazionale e appuntamenti da presidiare." },
+    { href: "/dashboard/form", label: "Form", note: "Segnalazioni, contatti e invii che arrivano in redazione." },
+  ];
+  const distributionLinks = [
+    { href: "/dashboard/social", label: "Social", note: "Rilanci e adattamenti dei contenuti per i canali." },
+    { href: "/dashboard/newsletter", label: "Newsletter", note: "Composizione, anteprima e uscite editoriali." },
+    { href: "/dashboard/seo", label: "SEO", note: "Metadata, visibilita` e continuita` dei pezzi pubblicati." },
+  ];
+  const rolePlaybook = [
+    {
+      role: "Collaboratore",
+      focus: "Apri dal Desk, raccogli materiali, salva in bozza e passa in revisione.",
+    },
+    {
+      role: "Editor",
+      focus: "Rifinisci gli articoli, governa evidenze, commenti e programmazione.",
+    },
+    {
+      role: "Caporedattore",
+      focus: "Approva, governa priorita`, breaking e regole automatiche della home.",
+    },
+  ];
 
   const saveEditorialAutomation = async () => {
     if (!currentTenant) {
@@ -265,7 +295,7 @@ export default function RedazionePage() {
               Stato operativo redazione
             </div>
             <p className="text-sm mt-1" style={{ color: "var(--c-text-2)" }}>
-              La pagina usa il tenant attivo per caricare solo articoli, eventi e configurazioni della testata corrente. Non sostituisce i permessi dei moduli: li organizza in un hub più rapido.
+              Punto di accesso unico al lavoro editoriale del tenant attivo: produzione, revisione, controllo e distribuzione restano negli stessi moduli, ma qui sono organizzati come una vera regia di redazione.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -371,6 +401,78 @@ export default function RedazionePage() {
           </div>
         </section>
       </div>
+
+      <section className="rounded-xl overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+        <div className="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ borderBottom: "1px solid var(--c-border)", color: "var(--c-text-2)" }}>
+          Accessi redazionali
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3">
+          <div style={{ borderRight: "1px solid var(--c-border)", borderBottom: "1px solid var(--c-border)" }} className="xl:border-b-0">
+            <div className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--c-text-3)" }}>
+              Produzione
+            </div>
+            <div className="divide-y" style={{ borderColor: "var(--c-border)" }}>
+              {productionLinks.map((item) => (
+                <Link key={item.href} href={item.href} className="flex items-start justify-between gap-3 px-4 py-3 transition">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium" style={{ color: "var(--c-text-0)" }}>{item.label}</div>
+                    <div className="text-[11px] mt-1" style={{ color: "var(--c-text-3)" }}>{item.note}</div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "var(--c-text-3)" }} />
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ borderRight: "1px solid var(--c-border)", borderBottom: "1px solid var(--c-border)" }} className="xl:border-b-0">
+            <div className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--c-text-3)" }}>
+              Controllo
+            </div>
+            <div className="divide-y" style={{ borderColor: "var(--c-border)" }}>
+              {controlLinks.map((item) => (
+                <Link key={item.href} href={item.href} className="flex items-start justify-between gap-3 px-4 py-3 transition">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium" style={{ color: "var(--c-text-0)" }}>{item.label}</div>
+                    <div className="text-[11px] mt-1" style={{ color: "var(--c-text-3)" }}>{item.note}</div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "var(--c-text-3)" }} />
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--c-text-3)" }}>
+              Distribuzione
+            </div>
+            <div className="divide-y" style={{ borderColor: "var(--c-border)" }}>
+              {distributionLinks.map((item) => (
+                <Link key={item.href} href={item.href} className="flex items-start justify-between gap-3 px-4 py-3 transition">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium" style={{ color: "var(--c-text-0)" }}>{item.label}</div>
+                    <div className="text-[11px] mt-1" style={{ color: "var(--c-text-3)" }}>{item.note}</div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "var(--c-text-3)" }} />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+        <div className="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ borderBottom: "1px solid var(--c-border)", color: "var(--c-text-2)" }}>
+          Ruoli e uso corretto
+        </div>
+        <div className="divide-y" style={{ borderColor: "var(--c-border)" }}>
+          {rolePlaybook.map((item) => (
+            <div key={item.role} className="px-4 py-3">
+              <div className="text-sm font-medium" style={{ color: "var(--c-text-0)" }}>{item.role}</div>
+              <div className="text-[12px] mt-1" style={{ color: "var(--c-text-2)" }}>{item.focus}</div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="rounded-xl overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
         <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--c-border)" }}>

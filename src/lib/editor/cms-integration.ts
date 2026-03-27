@@ -156,52 +156,173 @@ async function queryArticles(tenantId: string, limit = 12, dataSource?: DataSour
     category_id?: string | null;
     categories?: { id?: string; name: string; slug: string; color: string | null } | null;
   };
+  const articleSelect =
+    'id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, is_featured, category_id, profiles!articles_author_id_fkey(full_name, avatar_url), categories:categories!articles_category_id_fkey(id, name, slug, color)';
+  const manualIds = (params.ids || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const sourceMode = params.sourceMode || (params.slotId ? 'placement' : manualIds.length > 0 ? 'manual' : 'automatic');
+  const autoSource = params.autoSource || (params.tag ? 'tag' : (params.category || params.categorySlug) ? 'category' : params.featured === 'true' ? 'featured' : 'latest');
 
-  let query = supabase
-    .from('articles')
-    .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, is_featured, category_id, profiles!articles_author_id_fkey(full_name, avatar_url), categories:categories!articles_category_id_fkey(id, name, slug, color)')
-    .eq('tenant_id', tenantId)
-    .eq('status', 'published')
-    .order('published_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  const enrichAndOrder = async (rows: ArticleRow[], orderedIds?: string[]) => {
+    const enriched = await enrichArticlesWithCategories(
+      supabase as never,
+      tenantId,
+      rows
+    );
 
-  if (params.slug) {
-    query = query.eq('slug', params.slug);
-  }
-  if (params.featured === 'true') {
-    query = query.eq('is_featured', true);
-  }
+    const mapped = enriched.map((article) => ({
+      ...article,
+      categories: article.all_categories || (article.categories ? [article.categories] : []),
+    })) as unknown as EditorCmsArticlePreview[];
 
-  const categorySlug = params.category || params.categorySlug;
-  if (categorySlug) {
-    const { data: category } = await supabase
-      .from('categories')
+    if (!orderedIds || orderedIds.length === 0) {
+      return mapped;
+    }
+
+    const position = new Map(orderedIds.map((id, index) => [id, index]));
+    return [...mapped].sort((left, right) => (position.get(left.id) ?? 9999) - (position.get(right.id) ?? 9999));
+  };
+
+  const loadArticlesByIds = async (ids: string[]) => {
+    if (ids.length === 0) {
+      return [] as EditorCmsArticlePreview[];
+    }
+
+    const { data } = await supabase
+      .from('articles')
+      .select(articleSelect)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'published')
+      .in('id', ids);
+
+    return enrichAndOrder((data || []) as unknown as ArticleRow[], ids);
+  };
+
+  const resolveTagArticleIds = async (tagSlug?: string) => {
+    if (!tagSlug) return null;
+
+    const { data: tag } = await supabase
+      .from('tags')
       .select('id')
       .eq('tenant_id', tenantId)
-      .eq('slug', categorySlug)
-      .single();
+      .eq('slug', tagSlug)
+      .maybeSingle();
 
-    if (category?.id) {
+    if (!tag?.id) {
+      return [];
+    }
+
+    const { data: tagAssignments } = await supabase
+      .from('article_tags')
+      .select('article_id')
+      .eq('tag_id', tag.id);
+
+    return [...new Set((tagAssignments || []).map((assignment) => String(assignment.article_id)))];
+  };
+
+  const createBaseArticleQuery = () =>
+    supabase
+      .from('articles')
+      .select(articleSelect)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'published');
+
+  const applyAutomaticFilters = async (requestedLimit: number) => {
+    let nextQuery = createBaseArticleQuery().order('published_at', { ascending: false }).range(0, Math.max(requestedLimit - 1, 0));
+
+    if (params.slug) {
+      nextQuery = nextQuery.eq('slug', params.slug);
+    }
+
+    if (autoSource === 'featured' || params.featured === 'true') {
+      nextQuery = nextQuery.eq('is_featured', true);
+    }
+
+    const categorySlug = params.category || params.categorySlug;
+    if (autoSource === 'category' && categorySlug) {
+      const { data: category } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('slug', categorySlug)
+        .maybeSingle();
+
+      if (!category?.id) {
+        return [] as EditorCmsArticlePreview[];
+      }
+
       const articleIds = await fetchArticleIdsForCategory(supabase as never, category.id);
       if (articleIds && articleIds.length > 0) {
-        query = query.in('id', articleIds);
+        nextQuery = nextQuery.in('id', articleIds);
       } else {
-        query = query.eq('category_id', category.id);
+        nextQuery = nextQuery.eq('category_id', category.id);
       }
     }
+
+    if (autoSource === 'tag') {
+      const tagIds = await resolveTagArticleIds(params.tag);
+      if (!tagIds || tagIds.length === 0) {
+        return [] as EditorCmsArticlePreview[];
+      }
+      nextQuery = nextQuery.in('id', tagIds);
+    }
+
+    const { data } = await nextQuery;
+    return enrichAndOrder((data || []) as unknown as ArticleRow[]);
+  };
+
+  if (params.slotId) {
+    const { data: assignments } = await supabase
+      .from('slot_assignments')
+      .select('article_id, pin_order, expires_at, assigned_at')
+      .eq('tenant_id', tenantId)
+      .eq('slot_id', params.slotId)
+      .order('pin_order', { ascending: true })
+      .order('assigned_at', { ascending: false });
+
+    const activeAssignmentIds = (assignments || [])
+      .filter((assignment) => {
+        if (!assignment.expires_at) return true;
+        const expiresAt = new Date(assignment.expires_at).getTime();
+        return !Number.isNaN(expiresAt) && expiresAt > Date.now();
+      })
+      .map((assignment) => String(assignment.article_id))
+      .slice(offset, offset + limit);
+
+    return loadArticlesByIds(activeAssignmentIds);
   }
 
-  const { data } = await query;
-  const enriched = await enrichArticlesWithCategories(
-    supabase as never,
-    tenantId,
-    (data || []) as unknown as ArticleRow[]
-  );
+  if (sourceMode === 'manual' && manualIds.length > 0) {
+    return loadArticlesByIds(manualIds.slice(offset, offset + limit));
+  }
 
-  return enriched.map((article) => ({
-    ...article,
-    categories: article.all_categories || (article.categories ? [article.categories] : []),
-  })) as unknown as EditorCmsArticlePreview[];
+  if (sourceMode === 'manual' && params.slug) {
+    const { data } = await supabase
+      .from('articles')
+      .select(articleSelect)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'published')
+      .eq('slug', params.slug)
+      .limit(1);
+
+    return enrichAndOrder((data || []) as unknown as ArticleRow[]);
+  }
+
+  if (sourceMode === 'mixed') {
+    const manualArticles = await loadArticlesByIds(manualIds);
+    const remaining = Math.max(limit - manualArticles.length, 0);
+    if (remaining === 0) {
+      return manualArticles.slice(0, limit);
+    }
+
+    const automaticArticles = await applyAutomaticFilters(remaining + manualIds.length + 6);
+    const filteredAutomatic = automaticArticles.filter((article) => !manualIds.includes(article.id)).slice(0, remaining);
+    return [...manualArticles, ...filteredAutomatic].slice(0, limit);
+  }
+
+  return applyAutomaticFilters(limit);
 }
 
 export async function resolveEditorCmsDataSource(tenantId: string, dataSource?: DataSource) {
@@ -253,16 +374,42 @@ export async function resolveEditorCmsDataSource(tenantId: string, dataSource?: 
     case 'banners': {
       let query = supabase
         .from('banners')
-        .select('id, name, position, type, image_url, html_content, link_url')
+        .select('id, name, position, type, image_url, html_content, link_url, advertiser_id, target_categories')
         .eq('tenant_id', tenantId)
         .eq('is_active', true);
 
+      if (params.bannerId) {
+        query = query.eq('id', params.bannerId);
+      }
       if (params.position) {
         query = query.eq('position', params.position);
       }
+      if (params.advertiserId) {
+        query = query.eq('advertiser_id', params.advertiserId);
+      }
 
       const { data } = await query;
-      return data || [];
+      let banners = (data || []) as Array<EditorCmsBannerPreview & { advertiser_id?: string | null; target_categories?: string[] }>;
+
+      if (params.targetCategory) {
+        const acceptedValues = new Set<string>([params.targetCategory]);
+        const { data: category } = await supabase
+          .from('categories')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('slug', params.targetCategory)
+          .maybeSingle();
+        if (category?.id) {
+          acceptedValues.add(category.id);
+        }
+
+        banners = banners.filter((banner) =>
+          Array.isArray(banner.target_categories) &&
+          banner.target_categories.some((entry) => acceptedValues.has(String(entry)))
+        );
+      }
+
+      return banners;
     }
 
     case 'tags': {

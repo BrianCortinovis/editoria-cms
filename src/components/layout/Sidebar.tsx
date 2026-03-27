@@ -21,7 +21,6 @@ import {
   Layers,
   Building2,
   Activity,
-  LayoutTemplate,
   Sun,
   Moon,
   Shield,
@@ -38,6 +37,7 @@ import {
   Mail,
   Download,
   Share2,
+  ScanLine,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { useThemeStore } from "@/lib/theme";
@@ -50,9 +50,7 @@ export const mainNav = [
   { href: "/dashboard/pagine", label: "Pagine", icon: FileText },
   { href: "/dashboard/menu", label: "Menu", icon: Menu },
   { href: "/dashboard/footer", label: "Footer", icon: PanelBottom },
-  { href: "/dashboard/editor", label: "Editor", icon: Globe },
-  { href: "/dashboard/layout", label: "Layout", icon: LayoutTemplate },
-  { href: "/dashboard/templates", label: "Template", icon: Layers },
+  { href: "/dashboard/layout/content", label: "Regole Slot", icon: ScanLine },
   { href: "/dashboard/articoli", label: "Articoli", icon: FileText },
   { href: "/dashboard/media", label: "Media", icon: Image },
   { href: "/dashboard/categorie", label: "Categorie", icon: FolderOpen },
@@ -79,6 +77,7 @@ export const advNav = [
 
 export const systemNav = [
   { href: "/dashboard/testata", label: "Testata", icon: Building2 },
+  { href: "/desktop-editor", label: "Desktop", icon: Cpu },
   { href: "/dashboard/tecnico", label: "Tecnico", icon: Cpu },
   { href: "/dashboard/migrazioni", label: "Migraz.", icon: Download },
   { href: "/dashboard/seo", label: "SEO", icon: BarChart3 },
@@ -152,7 +151,6 @@ function filterNavByRole(
 
   return items;
 }
-
 function NavItem({ href, label, icon: Icon, isActive, onClick }: {
   href: string; label: string; icon: typeof LayoutDashboard; isActive: boolean; onClick: () => void;
 }) {
@@ -218,7 +216,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
-
   const visibleMainNav = filterNavByRole(mainNav, currentRole, "main");
   const visibleEditorialNav = filterNavByRole(editorialNav, currentRole, "editorial");
   const visibleAdvNav = filterNavByRole(advNav, currentRole, "adv");

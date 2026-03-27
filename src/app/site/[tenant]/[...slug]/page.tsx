@@ -37,6 +37,7 @@ export default async function TenantCatchAllPage({ params }: Props) {
           blocks={page.blocks as Block[]}
           tenantId={tenant.id}
           tenantSlug={tenant.slug}
+          resolvedDataMap={(page as { resolved_data_map?: Record<string, unknown[]> }).resolved_data_map}
         />
       </PageBackgroundFrame>
     </SiteLayout>

@@ -4,6 +4,8 @@ import { enrichArticlesWithCategories, fetchArticleIdsForCategory, loadArticleCa
 import { resolveProvider } from "@/lib/ai/resolver";
 import { callProvider } from "@/lib/ai/providers";
 import { isModuleActive, getModuleConfig } from "@/lib/modules";
+import { readPublishedJson } from "@/lib/publish/storage";
+import type { PublishedPostsDocument, PublishedSettingsDocument } from "@/lib/publish/types";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -38,6 +40,71 @@ export async function GET(
 
   if (!tenantSlug) {
     return NextResponse.json({ error: "tenant parameter required" }, { status: 400, headers: CORS_HEADERS });
+  }
+
+  const [publishedSettings, publishedPosts] = await Promise.all([
+    readPublishedJson<PublishedSettingsDocument>(`sites/${encodeURIComponent(tenantSlug)}/settings.json`),
+    readPublishedJson<PublishedPostsDocument>(`sites/${encodeURIComponent(tenantSlug)}/posts.json`),
+  ]);
+
+  if (publishedSettings?.tenant && publishedPosts?.articles) {
+    const settings = (publishedSettings.tenantSettings ?? {}) as Record<string, unknown>;
+    const sourceArticle = publishedPosts.articles.find((article) => article.slug === slug);
+
+    if (!sourceArticle) {
+      return NextResponse.json({ error: "Article not found" }, { status: 404, headers: CORS_HEADERS });
+    }
+
+    const sourceCategorySlugs = new Set(
+      (sourceArticle.all_categories || [])
+        .map((category) => String(category.slug || "").trim())
+        .filter(Boolean)
+    );
+    if (sourceArticle.categories?.slug) {
+      sourceCategorySlugs.add(sourceArticle.categories.slug);
+    }
+
+    let candidates = publishedPosts.articles.filter((article) => article.id !== sourceArticle.id);
+    const sameCategoryArticles = candidates.filter((article) =>
+      (article.all_categories || []).some((category) => sourceCategorySlugs.has(String(category.slug || "").trim())) ||
+      (article.categories?.slug ? sourceCategorySlugs.has(article.categories.slug) : false)
+    );
+    if (sameCategoryArticles.length > 0) {
+      candidates = sameCategoryArticles;
+    }
+
+    if (!isModuleActive(settings, "ai_assistant")) {
+      return NextResponse.json({ articles: candidates.slice(0, limit) }, {
+        headers: { ...CORS_HEADERS, "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+      });
+    }
+
+    const config = getModuleConfig(settings, "ai_assistant");
+    const { provider, apiKey, model } = resolveProvider(config, "related");
+    const articleList = candidates.map((a, i) => `${i}: ${a.title} — ${a.summary || ""}`).join("\n");
+
+    try {
+      const result = await callProvider(provider, apiKey, {
+        system: "Sei un sistema di raccomandazione per una testata giornalistica. Dato un articolo di riferimento e una lista di altri articoli, identifica quelli più correlati per argomento. Rispondi SOLO con un array JSON di numeri interi ordinati per rilevanza, es: [3, 7, 1]",
+        prompt: `Articolo di riferimento: "${sourceArticle.title}" — ${sourceArticle.summary || ""}\n\nAltri articoli:\n${articleList}`,
+        model,
+      });
+
+      const text = result.text.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+      const indices = JSON.parse(text) as number[];
+      const related = indices
+        .filter((i) => i >= 0 && i < candidates.length)
+        .slice(0, limit)
+        .map((i) => candidates[i]);
+
+      return NextResponse.json({ articles: related, provider }, {
+        headers: { ...CORS_HEADERS, "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+      });
+    } catch {
+      return NextResponse.json({ articles: candidates.slice(0, limit) }, {
+        headers: { ...CORS_HEADERS, "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+      });
+    }
   }
 
   const supabase = await createServiceRoleClient();

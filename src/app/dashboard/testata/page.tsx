@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { requestPublishTrigger } from "@/lib/publish/client";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
 import { Save, Building2, Loader2, Users, Plus, X, Edit2 } from "lucide-react";
@@ -142,7 +143,15 @@ export default function TestataPage() {
     }).eq("id", currentTenant.id);
 
     if (error) toast.error(error.message);
-    else toast.success("Scheda testata salvata");
+    else {
+      try {
+        await requestPublishTrigger(currentTenant.id, [{ type: "settings" }]);
+      } catch (publishError) {
+        const publishMessage = publishError instanceof Error ? publishError.message : "Publish non aggiornato";
+        toast.error(`Scheda salvata, ma il publish non e' stato aggiornato: ${publishMessage}`);
+      }
+      toast.success("Scheda testata salvata");
+    }
     setSaving(false);
   };
 

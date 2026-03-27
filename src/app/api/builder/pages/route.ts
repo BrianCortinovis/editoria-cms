@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { writeActivityLog, writePageAuditLog } from "@/lib/security/audit";
 import { buildDefaultPageMeta, slugifyPageTitle } from "@/lib/pages/page-seo";
+import { triggerPublish } from "@/lib/publish/runner";
 
 const PAGE_EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
 
@@ -122,6 +123,10 @@ export async function POST(request: Request) {
       changes: { title: data.title, slug: data.slug, page_type: data.page_type },
     }),
   ]);
+
+  if (data.is_published) {
+    await triggerPublish(tenant_id, [{ type: "page", pageId: data.id }], user.id);
+  }
 
   return NextResponse.json({ page: data }, { status: 201 });
 }

@@ -1,11 +1,24 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import crypto from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 
-function readSecret(name) {
-  const text = fs.readFileSync(new URL('../setup-secrets.sh', import.meta.url), 'utf8');
-  const match = text.match(new RegExp(`${name} --body "([^"]+)"`));
-  return match ? match[1] : '';
+function loadEnvFile(path) {
+  if (!fs.existsSync(path)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    fs
+      .readFileSync(path, 'utf8')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#') && line.includes('='))
+      .map((line) => {
+        const index = line.indexOf('=');
+        return [line.slice(0, index), line.slice(index + 1)];
+      })
+  );
 }
 
 function uid() {
@@ -27,6 +40,90 @@ function isoHoursFromNow(hoursFromNow) {
 
 function isoHoursAgo(hoursAgo) {
   return new Date(Date.now() - hoursAgo * 60 * 60 * 1000).toISOString();
+}
+
+function detectMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.png':
+      return 'image/png';
+    case '.webp':
+      return 'image/webp';
+    case '.gif':
+      return 'image/gif';
+    case '.mp4':
+      return 'video/mp4';
+    case '.webm':
+      return 'video/webm';
+    case '.pdf':
+      return 'application/pdf';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+async function uploadTenantMediaAsset(supabase, {
+  tenantId,
+  tenantSlug,
+  uploadedBy,
+  sourcePath,
+  targetKey,
+  altText = null,
+  folder = 'demo',
+}) {
+  const buffer = fs.readFileSync(sourcePath);
+  const mimeType = detectMimeType(sourcePath);
+  const bucketPath = `${tenantSlug}/${targetKey}`;
+
+  const uploadResult = await supabase.storage
+    .from('media')
+    .upload(bucketPath, buffer, {
+      contentType: mimeType,
+      cacheControl: '3600',
+      upsert: true,
+    });
+
+  if (uploadResult.error) {
+    throw uploadResult.error;
+  }
+
+  const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(bucketPath);
+  const publicUrl = publicUrlData.publicUrl;
+
+  const { data: existing } = await supabase
+    .from('media')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('filename', bucketPath)
+    .maybeSingle();
+
+  const payload = {
+    tenant_id: tenantId,
+    filename: bucketPath,
+    original_filename: path.basename(sourcePath),
+    mime_type: mimeType,
+    size_bytes: buffer.byteLength,
+    width: null,
+    height: null,
+    url: publicUrl,
+    thumbnail_url: mimeType.startsWith('image/') ? publicUrl : null,
+    alt_text: altText,
+    folder,
+    uploaded_by: uploadedBy,
+  };
+
+  if (existing?.id) {
+    const { error } = await supabase.from('media').update(payload).eq('id', existing.id);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase.from('media').insert(payload);
+    if (error) throw error;
+  }
+
+  return publicUrl;
 }
 
 function layoutStyle(overrides = {}) {
@@ -305,39 +402,265 @@ function quoteBlock(label, text, author, source, style = {}) {
   );
 }
 
+const DEFAULT_CATEGORY_SEED = [
+  {
+    slug: 'cronaca',
+    name: 'Cronaca',
+    color: '#991b1b',
+    description: 'Notizie locali, politica, viabilita e servizi.',
+    sort_order: 10,
+  },
+  {
+    slug: 'sport',
+    name: 'Sport',
+    color: '#1d4ed8',
+    description: 'Sport di valle, tornei e appuntamenti.',
+    sort_order: 20,
+  },
+  {
+    slug: 'cultura',
+    name: 'Cultura',
+    color: '#7c2d12',
+    description: 'Eventi culturali, scuole, memoria e spettacoli.',
+    sort_order: 30,
+  },
+  {
+    slug: 'territorio',
+    name: 'Territorio',
+    color: '#166534',
+    description: 'Montagna, turismo, sentieri e borghi.',
+    sort_order: 40,
+  },
+  {
+    slug: 'editoriali',
+    name: 'Editoriali',
+    color: '#4b5563',
+    description: 'Analisi, commenti e opinioni di redazione.',
+    sort_order: 50,
+  },
+];
+
 async function main() {
-  const serviceRoleKey = readSecret('SUPABASE_SERVICE_ROLE_KEY');
-  const supabase = createClient('https://xtyoeajjxgeeemwlcotk.supabase.co', serviceRoleKey);
+  const env = {
+    ...loadEnvFile('.env.local'),
+    ...process.env,
+  };
+
+  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  const tenantSlug = process.argv[2] || 'valbrembana';
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
   console.log('1/9 tenant');
 
   const { data: tenant, error: tenantError } = await supabase
     .from('tenants')
     .select('id, slug, name')
-    .eq('slug', 'valbrembana')
+    .eq('slug', tenantSlug)
     .single();
 
   if (tenantError || !tenant) {
-    throw new Error(tenantError?.message || 'Tenant valbrembana non trovato');
+    throw new Error(tenantError?.message || `Tenant ${tenantSlug} non trovato`);
+  }
+
+  for (const category of DEFAULT_CATEGORY_SEED) {
+    const { data: existing } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('tenant_id', tenant.id)
+      .eq('slug', category.slug)
+      .maybeSingle();
+
+    if (existing?.id) {
+      await supabase
+        .from('categories')
+        .update({
+          name: category.name,
+          color: category.color,
+          description: category.description,
+          sort_order: category.sort_order,
+        })
+        .eq('id', existing.id);
+      continue;
+    }
+
+    const { error } = await supabase.from('categories').insert({
+      tenant_id: tenant.id,
+      name: category.name,
+      slug: category.slug,
+      description: category.description,
+      color: category.color,
+      sort_order: category.sort_order,
+    });
+
+    if (error) throw error;
   }
 
   const { data: categories } = await supabase
     .from('categories')
-    .select('id, slug, name, color')
+    .select('id, slug, name, color, description')
     .eq('tenant_id', tenant.id);
   console.log('2/9 categories');
 
   const categoryBySlug = Object.fromEntries((categories || []).map((category) => [category.slug, category]));
-  const { data: firstArticle } = await supabase
-    .from('articles')
-    .select('author_id')
-    .eq('tenant_id', tenant.id)
-    .limit(1)
-    .single();
 
-  const authorId = firstArticle?.author_id;
+  const membershipPriority = ['chief_editor', 'editor', 'super_admin', 'contributor'];
+  const { data: memberships } = await supabase
+    .from('user_tenants')
+    .select('user_id, role')
+    .eq('tenant_id', tenant.id);
+
+  const sortedMemberships = (memberships || []).sort(
+    (left, right) => membershipPriority.indexOf(left.role) - membershipPriority.indexOf(right.role)
+  );
+  const authorId = sortedMemberships[0]?.user_id || null;
   if (!authorId) {
     throw new Error('Nessun autore disponibile nel tenant');
   }
+
+  const demoOutputRoot = '/Users/briancortinovis/Desktop/Valbrembana Giornale /output';
+  const demoImagesRoot = path.join(demoOutputRoot, 'images');
+  const localMediaUrls = {
+    logo: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'logo-vbw.png'),
+      targetKey: 'demo/logo-vbw.png',
+      altText: `${tenant.name} logo`,
+      folder: 'branding',
+    }),
+    tgVideo: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoOutputRoot, 'tg_video.mp4'),
+      targetKey: 'demo/tg-video-daily.mp4',
+      altText: 'TG quotidiano di valle',
+      folder: 'video',
+    }),
+    bannerHeader: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'banner-header.png'),
+      targetKey: 'demo/banner-header.png',
+      altText: 'Banner header demo',
+      folder: 'banners',
+    }),
+    bannerCentral: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'banner-centrale.png'),
+      targetKey: 'demo/banner-centrale.png',
+      altText: 'Banner centrale demo',
+      folder: 'banners',
+    }),
+    bannerVintage: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'banner-vintage.jpg'),
+      targetKey: 'demo/banner-vintage.jpg',
+      altText: 'Banner footer demo',
+      folder: 'banners',
+    }),
+    article1: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'news-foppolo.jpg'),
+      targetKey: 'demo/articles/news-foppolo.jpg',
+      altText: 'Foto articolo demo 1',
+      folder: 'articles',
+    }),
+    article2: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'news-canali.jpg'),
+      targetKey: 'demo/articles/news-canali.jpg',
+      altText: 'Foto articolo demo 2',
+      folder: 'articles',
+    }),
+    article3: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'featured-10206.jpg'),
+      targetKey: 'demo/articles/featured-10206.jpg',
+      altText: 'Foto articolo demo 3',
+      folder: 'articles',
+    }),
+    article4: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'news-tram.jpg'),
+      targetKey: 'demo/articles/news-tram.jpg',
+      altText: 'Foto articolo demo 4',
+      folder: 'articles',
+    }),
+    article5: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'featured-89635.jpg'),
+      targetKey: 'demo/articles/featured-89635.jpg',
+      altText: 'Foto articolo demo 5',
+      folder: 'articles',
+    }),
+    article6: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'news-luiselli.jpg'),
+      targetKey: 'demo/articles/news-luiselli.jpg',
+      altText: 'Foto articolo demo 6',
+      folder: 'articles',
+    }),
+    article7: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'news-fuochi.jpg'),
+      targetKey: 'demo/articles/news-fuochi.jpg',
+      altText: 'Foto articolo demo 7',
+      folder: 'articles',
+    }),
+    article8: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'news-lago-braies.png'),
+      targetKey: 'demo/articles/news-lago-braies.png',
+      altText: 'Foto articolo demo 8',
+      folder: 'articles',
+    }),
+    article9: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'featured-89672.jpg'),
+      targetKey: 'demo/articles/featured-89672.jpg',
+      altText: 'Foto articolo demo 9',
+      folder: 'articles',
+    }),
+    article10: await uploadTenantMediaAsset(supabase, {
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+      uploadedBy: authorId,
+      sourcePath: path.join(demoImagesRoot, 'featured-89683.jpg'),
+      targetKey: 'demo/articles/featured-89683.jpg',
+      altText: 'Foto articolo demo 10',
+      folder: 'articles',
+    }),
+  };
 
   const tagsSeed = [
     'Montagna',
@@ -378,12 +701,23 @@ async function main() {
 
   const articlesSeed = [
     {
+      title: 'TEST articolo demo CMS',
+      slug: 'test-articolo-demo-cms',
+      category: 'cronaca',
+      summary: 'Tes test ets. Articolo di verifica pubblicazione e collegamento template.',
+      body: '<p>Tes test ets.</p><p>Questo articolo serve per verificare che il CMS pubblichi correttamente la pagina singola, la sezione di categoria e i listing collegati.</p>',
+      image: localMediaUrls.article1,
+      tags: ['inchieste'],
+      featured: true,
+      publishedAgoHours: 1,
+    },
+    {
       title: 'San Giovanni Bianco apre il polo civico serale: studio, coworking e sportello giovani nello stesso spazio',
       slug: 'san-giovanni-bianco-polo-civico-serale',
       category: 'cronaca',
       summary: 'Un hub civico riaperto fino a tardi cambia la vita del centro: servizi, studio assistito e una nuova piazza sociale indoor.',
       body: '<p>Il nuovo polo civico di San Giovanni Bianco apre in fascia serale con una formula che unisce studio, lavoro agile e servizi di prossimita. Il progetto nasce come risposta concreta alla domanda di spazi accessibili, centrali e vissuti anche oltre l orario d ufficio.</p><p>Nella struttura trovano posto sale condivise, supporto per studenti e una programmazione di micro-eventi civici che trasforma il presidio in un punto di riferimento stabile per il paese.</p>',
-      image: 'https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1600&q=80',
+      image: localMediaUrls.article2,
       tags: ['comuni', 'inchieste'],
       featured: true,
       publishedAgoHours: 2,
@@ -394,7 +728,7 @@ async function main() {
       category: 'cronaca',
       summary: 'Mobilita locale e qualita dell esperienza urbana tornano al centro con un intervento pragmatico e visibile.',
       body: '<p>Il nuovo assetto del nodo bus-stazione di Zogno punta a ridurre tempi morti e incertezze per pendolari e studenti. La novita principale e la leggibilita del percorso, con una sequenza piu lineare tra arrivi, attese e connessioni.</p><p>Per il centro valle il tema della mobilita quotidiana torna cosi a essere un tema di qualita della vita, oltre che di trasporto pubblico.</p>',
-      image: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=1600&q=80',
+      image: localMediaUrls.article3,
       tags: ['comuni', 'weekend'],
       publishedAgoHours: 4,
     },
@@ -404,7 +738,7 @@ async function main() {
       category: 'sport',
       summary: 'La corsa in quota diventa racconto di territorio: non solo agonismo, ma economia diffusa, accoglienza e promozione.',
       body: '<p>Il trail delle vette minori cresce e trascina con se un idea di sport che funziona anche come racconto territoriale. Rifugi, borghi e associazioni costruiscono un calendario che si allunga oltre la sola giornata di gara.</p><p>La manifestazione conferma il valore degli eventi sportivi quando si integrano con l identita dei luoghi e non restano episodi isolati.</p>',
-      image: 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=1600&q=80',
+      image: localMediaUrls.article4,
       tags: ['montagna', 'turismo'],
       publishedAgoHours: 6,
     },
@@ -414,7 +748,7 @@ async function main() {
       category: 'sport',
       summary: 'Il basket giovanile diventa laboratorio sociale e sportivo, con impianti piccoli ma pienamente vissuti.',
       body: '<p>La stagione del basket locale racconta una rete di palestre che torna a essere frequentata e riconoscibile. La crescita del pubblico e la collaborazione tra societa trasformano il fine settimana in un presidio comunitario.</p><p>Il valore sportivo si intreccia con quello educativo, e il palazzetto torna a essere un luogo di appartenenza condivisa.</p>',
-      image: 'https://images.unsplash.com/photo-1519861531473-9200262188bf?auto=format&fit=crop&w=1600&q=80',
+      image: localMediaUrls.article5,
       tags: ['basket', 'comuni'],
       publishedAgoHours: 8,
     },
@@ -424,7 +758,7 @@ async function main() {
       category: 'cultura',
       summary: 'Un progetto che unisce scuole, associazioni e archivi per trasformare il patrimonio in strumento di lettura del presente.',
       body: '<p>Le scuole della valle iniziano a lavorare su fotografie, registrazioni e mappe di comunita per costruire un archivio vivo, aperto e continuamente riletto. Non si tratta di una conservazione passiva, ma di un uso pubblico della memoria.</p><p>Il progetto produce materiali didattici, incontri e nuove occasioni di racconto condiviso tra generazioni.</p>',
-      image: 'https://images.unsplash.com/photo-1519452575417-564c1401ecc0?auto=format&fit=crop&w=1600&q=80',
+      image: localMediaUrls.article6,
       tags: ['cultura', 'inchieste'],
       publishedAgoHours: 10,
     },
@@ -434,7 +768,7 @@ async function main() {
       category: 'cultura',
       summary: 'Programmazioni leggere, luoghi riconoscibili e una comunicazione piu chiara stanno cambiando il modo di vivere gli eventi.',
       body: '<p>Le rassegne di borgo funzionano quando costruiscono un calendario riconoscibile, luoghi facili da raggiungere e un linguaggio semplice per il pubblico. La cultura locale guadagna forza quando smette di sembrare eccezionale e torna a essere frequente.</p><p>La diffusione territoriale diventa cosi un vantaggio editoriale e non un limite logistico.</p>',
-      image: 'https://images.unsplash.com/photo-1503095396549-807759245b35?auto=format&fit=crop&w=1600&q=80',
+      image: localMediaUrls.article7,
       tags: ['cultura', 'weekend'],
       publishedAgoHours: 12,
     },
@@ -444,7 +778,7 @@ async function main() {
       category: 'territorio',
       summary: 'Segnaletica, piccoli lavori e una regia annuale fanno la differenza molto piu dei progetti spot.',
       body: '<p>Il tema non e soltanto aprire nuovi tracciati, ma mantenere bene quelli esistenti. Nei sentieri di mezza quota il valore pubblico sta nella continuita della manutenzione, nella chiarezza della segnaletica e nella leggibilita dell esperienza per chi arriva da fuori.</p><p>Quando la cura e visibile, anche il racconto turistico diventa piu credibile.</p>',
-      image: 'https://images.unsplash.com/photo-1501554728187-ce583db33af7?auto=format&fit=crop&w=1600&q=80',
+      image: localMediaUrls.article8,
       tags: ['montagna', 'turismo'],
       publishedAgoHours: 14,
     },
@@ -454,7 +788,7 @@ async function main() {
       category: 'editoriali',
       summary: 'Gerarchie, ritmo, fotografie e titolazione devono far percepire una regia. La fiducia inizia dall impaginazione.',
       body: '<p>Nel digitale locale la forma e gia sostanza. Una testata che vuole essere riconosciuta come autorevole deve mostrare subito ordine, priorita e tono. La differenza tra una pagina casuale e una prima pagina vera si sente prima ancora di leggere il primo titolo.</p><p>Per questo il design editoriale non e un lusso, ma una parte dell affidabilita percepita.</p>',
-      image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1600&q=80',
+      image: localMediaUrls.article9,
       tags: ['opinioni', 'inchieste'],
       publishedAgoHours: 16,
     },
@@ -464,7 +798,7 @@ async function main() {
       category: 'editoriali',
       summary: 'Video, live desk, approfondimenti e agenda devono convivere in una struttura chiara e leggibile.',
       body: '<p>Una homepage editoriale forte rende visibile la macchina della redazione. Il lettore deve percepire i livelli del racconto: urgenza, gerarchia, approfondimento, servizio. Non basta elencare contenuti, serve metterli in scena.</p><p>Il risultato e una pagina che invita a restare, non solo a cliccare.</p>',
-      image: 'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1600&q=80',
+      image: localMediaUrls.article10,
       tags: ['opinioni', 'cultura'],
       publishedAgoHours: 18,
     },
@@ -634,7 +968,7 @@ async function main() {
       name: 'Header partner montagna',
       position: 'header',
       type: 'image',
-      image_url: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1800&q=80',
+      image_url: localMediaUrls.bannerHeader,
       link_url: '#',
       target_categories: [],
       target_device: 'all',
@@ -658,7 +992,7 @@ async function main() {
       name: 'Footer tourisme valley',
       position: 'footer',
       type: 'image',
-      image_url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1800&q=80',
+      image_url: localMediaUrls.bannerVintage,
       link_url: '#',
       target_categories: [],
       target_device: 'all',
@@ -911,6 +1245,21 @@ header nav a:hover, footer a:hover { color: var(--e-color-primary); }
       },
     },
   };
+
+  await supabase
+    .from('tenants')
+    .update({ logo_url: localMediaUrls.logo })
+    .eq('id', tenant.id);
+
+  const mergedTenantSettings = {
+    tg_video_url: localMediaUrls.tgVideo,
+    tg_video_label: 'TG quotidiano di valle',
+  };
+
+  await supabase
+    .from('tenants')
+    .update({ settings: mergedTenantSettings })
+    .eq('id', tenant.id);
 
   const { error: configError } = await supabase
     .from('site_config')

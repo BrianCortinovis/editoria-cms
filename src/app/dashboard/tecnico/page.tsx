@@ -3,24 +3,9 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
+import { GuideSheet } from "@/components/help/GuideSheet";
 import { SystemPanel } from "@/components/panels/SystemPanel";
-import {
-  Cpu,
-  Globe,
-  Database,
-  HardDrive,
-  Users,
-  FileText,
-  Image,
-  Activity,
-  Server,
-  Zap,
-  TrendingUp,
-  AlertTriangle,
-  Play,
-  FlaskConical,
-  TerminalSquare,
-} from "lucide-react";
+import { Cpu, FlaskConical, Play } from "lucide-react";
 
 interface TechStats {
   totalArticles: number;
@@ -28,7 +13,65 @@ interface TechStats {
   totalUsers: number;
   totalEvents: number;
   totalBanners: number;
-  dbSize: string;
+}
+
+interface TechOverview {
+  projectRef: string | null;
+  supabaseHost: string | null;
+  appUrl: string;
+  tenant: {
+    id: string;
+    name: string;
+    slug: string;
+    domain: string | null;
+  } | null;
+  site: {
+    id: string;
+    status: string;
+    default_subdomain: string;
+  } | null;
+  membershipRole: string;
+  platformBaseDomain: string;
+  domainProvider: string;
+  stats: {
+    members: number;
+    domains: number;
+    pages: number;
+    articles: number;
+    media: number;
+    events: number;
+    banners: number;
+  };
+  storage: {
+    bucketCount: number;
+    mediaObjectCount: number;
+  };
+  subscription: {
+    plan_code: string;
+    status: string;
+  } | null;
+  cron: {
+    publishMaintenance: {
+      createdAt: string;
+      metadata: Record<string, unknown>;
+    } | null;
+    tenantMaintenance: {
+      createdAt: string;
+      metadata: Record<string, unknown>;
+    } | null;
+    seoAnalysis: {
+      createdAt: string;
+      metadata: Record<string, unknown>;
+    } | null;
+    settings: {
+      publishMaintenanceEnabled: boolean;
+      seoAnalysisEnabled: boolean;
+    };
+  };
+  billing: {
+    available: boolean;
+    note: string;
+  };
 }
 
 interface CommandTemplate {
@@ -42,79 +85,57 @@ interface CommandTemplate {
 const COMMAND_TEMPLATES: CommandTemplate[] = [
   {
     id: "theme-contract",
-    label: "Leggi Theme Contract",
-    description: "Legge il contract standard per frontend custom compatibile col CMS.",
+    label: "Theme Contract",
+    description: "Controlla il contract frontend compatibile col CMS.",
     command: "cms.theme.contract.get",
     payload: {},
   },
   {
     id: "page-list",
     label: "Lista pagine",
-    description: "Controlla le pagine reali del tenant.",
+    description: "Legge le pagine del tenant corrente.",
     command: "cms.page.list",
     payload: {},
   },
   {
+    id: "bridge-pack",
+    label: "Bridge Pack",
+    description: "Richiama il contract tecnico per desktop e AI builder.",
+    command: "cms.page.list",
+    payload: {
+      note: "Usa GET /api/v1/bridge/site-pack?tenant={tenantSlug}",
+    },
+  },
+  {
     id: "category-create",
     label: "Crea categoria",
-    description: "Esempio rapido di creazione categoria editoriale.",
+    description: "Esempio rapido di creazione tassonomia.",
     command: "cms.category.create",
     payload: {
       name: "Approfondimenti",
       color: "#8B0000",
     },
   },
-  {
-    id: "event-create",
-    label: "Crea evento",
-    description: "Crea un evento test con data futura.",
-    command: "cms.event.create",
-    payload: {
-      title: "Evento demo redazione",
-      starts_at: "2026-04-15T18:00:00.000Z",
-      location: "Piazza Brembana",
-      category: "Cultura",
-    },
-  },
-  {
-    id: "breaking-create",
-    label: "Crea breaking",
-    description: "Esempio breaking news da desk.",
-    command: "cms.breaking.create",
-    payload: {
-      text: "Breaking demo: aggiornamento urgente dalla redazione",
-      priority: 50,
-      is_active: true,
-    },
-  },
-  {
-    id: "banner-list",
-    label: "Lista banner",
-    description: "Controlla le creativita ADV presenti.",
-    command: "cms.banner.list",
-    payload: {},
-  },
-  {
-    id: "media-list",
-    label: "Lista media",
-    description: "Legge la libreria media del tenant.",
-    command: "cms.media.list",
-    payload: {
-      limit: 20,
-    },
-  },
-  {
-    id: "newsletter-get",
-    label: "Leggi newsletter",
-    description: "Recupera la configurazione centrale del modulo newsletter.",
-    command: "cms.newsletter.get",
-    payload: {},
-  },
 ];
+
+function InfoLine({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex flex-col gap-1 border-b py-3 sm:flex-row sm:items-start sm:justify-between" style={{ borderColor: "var(--c-border)" }}>
+      <span className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>{label}</span>
+      <span className={`text-sm ${mono ? "font-mono" : ""}`} style={{ color: "var(--c-text-0)" }}>{value}</span>
+    </div>
+  );
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "Mai";
+  return new Date(value).toLocaleString("it-IT");
+}
 
 export default function TecnicoPage() {
   const { currentTenant, currentRole } = useAuthStore();
   const [stats, setStats] = useState<TechStats | null>(null);
+  const [overview, setOverview] = useState<TechOverview | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(COMMAND_TEMPLATES[0].id);
   const [commandJson, setCommandJson] = useState(
     JSON.stringify(
@@ -128,19 +149,21 @@ export default function TecnicoPage() {
   );
   const [commandRunning, setCommandRunning] = useState<"dry" | "live" | null>(null);
   const [commandResponse, setCommandResponse] = useState<string>("");
+  const [cronSaving, setCronSaving] = useState(false);
 
   useEffect(() => {
     if (!currentTenant) return;
-    const supabase = createClient();
+    const tenantId = currentTenant.id;
 
     async function loadStats() {
-      const tenantId = currentTenant!.id;
-      const [articles, media, users, events, banners] = await Promise.all([
+      const supabase = createClient();
+      const [articles, media, users, events, banners, overviewResponse] = await Promise.all([
         supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
         supabase.from("media").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
         supabase.from("user_tenants").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
         supabase.from("events").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
         supabase.from("banners").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+        fetch(`/api/platform/technical/overview?tenant_id=${tenantId}`, { cache: "no-store" }),
       ]);
 
       setStats({
@@ -149,34 +172,19 @@ export default function TecnicoPage() {
         totalUsers: users.count ?? 0,
         totalEvents: events.count ?? 0,
         totalBanners: banners.count ?? 0,
-        dbSize: "~",
       });
+
+      const overviewPayload = await overviewResponse.json();
+      if (overviewResponse.ok) {
+        setOverview(overviewPayload);
+      }
     }
 
-    loadStats();
+    void loadStats();
   }, [currentTenant]);
+
   const canUseCommandConsole = ["super_admin", "chief_editor", "editor"].includes(currentRole ?? "");
-
-  const StatCard = ({ icon: Icon, label, value, color }: { icon: typeof Cpu; label: string; value: string | number; color: string }) => (
-    <div className="card p-4">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "var(--c-accent-soft)" }}>
-          <Icon className="w-4 h-4" style={{ color }} />
-        </div>
-        <div>
-          <p className="text-lg font-bold tabular-nums" style={{ color: "var(--c-text-0)" }}>{value}</p>
-          <p className="text-[11px] font-medium" style={{ color: "var(--c-text-2)" }}>{label}</p>
-        </div>
-      </div>
-    </div>
-  );
-
-  const InfoRow = ({ label, value, mono }: { label: string; value: string; mono?: boolean }) => (
-    <div className="flex items-center justify-between py-2.5 border-b" style={{ borderColor: "var(--c-border)" }}>
-      <span className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>{label}</span>
-      <span className={`text-xs ${mono ? "font-mono" : ""}`} style={{ color: "var(--c-text-0)" }}>{value}</span>
-    </div>
-  );
+  const canManageCron = ["super_admin", "chief_editor"].includes(currentRole ?? "");
 
   const applyTemplate = (templateId: string) => {
     const template = COMMAND_TEMPLATES.find((item) => item.id === templateId);
@@ -238,215 +246,436 @@ export default function TecnicoPage() {
     }
   };
 
+  const updateCronSettings = async (next: { publishMaintenanceEnabled: boolean; seoAnalysisEnabled: boolean }) => {
+    if (!currentTenant?.id || !canManageCron) return;
+
+    setCronSaving(true);
+    try {
+      const response = await fetch("/api/platform/technical/cron-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: currentTenant.id,
+          ...next,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "Impossibile aggiornare i cron");
+      }
+
+      setOverview((current) =>
+        current
+          ? {
+              ...current,
+              cron: {
+                ...current.cron,
+                settings: payload.settings,
+              },
+            }
+          : current
+      );
+    } catch (error) {
+      setCommandResponse(error instanceof Error ? error.message : "Errore cron settings");
+    } finally {
+      setCronSaving(false);
+    }
+  };
+
   return (
-    <div className="max-w-5xl space-y-6">
-      {/* System Panel */}
-      <div className="card" style={{ height: "500px", display: "flex", flexDirection: "column" }}>
-        <SystemPanel />
-      </div>
+    <div className="space-y-4">
+      <GuideSheet
+        eyebrow="Tecnico"
+        title="Manuale tecnico del tenant corrente"
+        intro="Questa pagina raccoglie in forma leggibile quello che serve a un tecnico: contesto tenant, bridge, publish model, dati Supabase osservabili e una console dev per testare i comandi protetti del CMS."
+        icon={Cpu}
+        links={[
+          { href: "/dashboard/cms", label: "Torna al CMS" },
+          { href: "/dashboard/desktop-bridge", label: "Apri Desktop Bridge" },
+        ]}
+        summary={[
+          `Tenant: ${overview?.tenant?.slug || currentTenant?.slug || "—"}`,
+          `Supabase project: ${overview?.projectRef || "—"}`,
+          `Role: ${overview?.membershipRole || currentRole || "—"}`,
+          `Bridge pack: /api/v1/bridge/site-pack?tenant=${overview?.tenant?.slug || currentTenant?.slug || "{tenantSlug}"}`,
+        ]}
+        sections={[
+          {
+            id: "modello",
+            label: "Modello",
+            title: "Come leggere l’architettura del CMS",
+            body: [
+              "Il CMS online e` uno solo e resta il punto di scrittura sul database. Il frontend pubblico non deve leggere il DB live, ma il layer pubblicato. Il desktop editor e` separato e si collega tramite bridge e contract del tenant.",
+            ],
+            bullets: [
+              "Platform App a monte per profilo, siti, domini e permessi.",
+              "Cloud CMS per contenuti, tassonomie, publish e controllo.",
+              "Desktop editor separato, non piu` nel webapp online.",
+              "Sito pubblico o custom runtime che legge il published layer.",
+            ],
+          },
+          {
+            id: "bridge",
+            label: "Bridge",
+            title: "Che cosa consegnare a tecnico o AI builder",
+            body: [
+              "Il punto di ingresso tecnico e` il bridge pack autenticato del tenant. Da li` si leggono route native, linking, menu, footer, slot, pagine e convenzioni del sito senza inventare integrazioni custom direttamente sul database.",
+            ],
+            bullets: [
+              `/api/v1/bridge/site-pack?tenant=${overview?.tenant?.slug || currentTenant?.slug || "{tenantSlug}"}`,
+              "Documentazione tecnica: docs/desktop-editor-cms-bridge.md",
+              "Prompt IA bridge: docs/ai-desktop-builder-bridge.md",
+            ],
+          },
+          {
+            id: "osservabilita",
+            label: "Osservabilita`",
+            title: "Che cosa puoi leggere qui in modo affidabile",
+            body: [
+              "Questa pagina mostra dati osservabili del tenant corrente: contenuti, storage, dominio, stato sito e membership. Non e` una dashboard generica: serve a controllare il CMS reale e a dare un riferimento coerente a chi integra o verifica.",
+            ],
+            bullets: [
+              `Articoli: ${stats?.totalArticles ?? "—"}`,
+              `Media: ${stats?.totalMedia ?? "—"}`,
+              `Utenti: ${stats?.totalUsers ?? "—"}`,
+              `Eventi: ${stats?.totalEvents ?? "—"}`,
+              `Banner: ${stats?.totalBanners ?? "—"}`,
+            ],
+          },
+          {
+            id: "cron",
+            label: "Cron",
+            title: "Automazioni di publish e manutenzione",
+            body: [
+              "I cron servono a mantenere coerente il published layer senza dipendere da click manuali. Per il CMS editoriale il job piu` importante e` publish-maintenance: pubblica articoli programmati, spegne contenuti scaduti e rilancia il publish dei tenant toccati.",
+            ],
+            bullets: [
+              `Ultimo run publish-maintenance: ${formatDateTime(overview?.cron.publishMaintenance?.createdAt)}`,
+              `Ultimo run SEO: ${formatDateTime(overview?.cron.seoAnalysis?.createdAt)}`,
+              "Gli articoli programmati con scheduled_at sono inclusi nel cron.",
+            ],
+          },
+        ]}
+      />
 
-      {/* Resource Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <StatCard icon={FileText} label="Articoli" value={stats?.totalArticles ?? "—"} color="var(--c-accent)" />
-        <StatCard icon={Image} label="Media files" value={stats?.totalMedia ?? "—"} color="#a855f7" />
-        <StatCard icon={Users} label="Utenti" value={stats?.totalUsers ?? "—"} color="#22c55e" />
-        <StatCard icon={Activity} label="Eventi" value={stats?.totalEvents ?? "—"} color="#f59e0b" />
-        <StatCard icon={Zap} label="Banner" value={stats?.totalBanners ?? "—"} color="#ef4444" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Hosting Info */}
-        <div className="card">
-          <div className="card-header flex items-center gap-2"><Server className="w-4 h-4" /> Hosting & Infrastruttura</div>
-          <div className="p-4">
-            <InfoRow label="Platform" value="Vercel Pro" />
-            <InfoRow label="Runtime" value="Next.js 16 (Edge + Serverless)" />
-            <InfoRow label="Region" value="Washington D.C. (iad1)" />
-            <InfoRow label="CDN" value="Vercel Edge Network (Global)" />
-            <InfoRow label="SSL" value="Auto (Let's Encrypt)" />
-            <InfoRow label="HTTP/3" value="Attivo" />
-          </div>
-        </div>
-
-        {/* Database Info */}
-        <div className="card">
-          <div className="card-header flex items-center gap-2"><Database className="w-4 h-4" /> Database</div>
-          <div className="p-4">
-            <InfoRow label="Provider" value="Supabase Pro" />
-            <InfoRow label="Engine" value="PostgreSQL 15" />
-            <InfoRow label="Region" value="EU West (Frankfurt)" />
-            <InfoRow label="Connection Pooler" value="Supavisor (attivo)" />
-            <InfoRow label="RLS" value="Attiva su tutte le tabelle" />
-            <InfoRow label="Tabelle" value="17" />
-            <InfoRow label="Indici" value="12" />
-          </div>
-        </div>
-
-        {/* Domain Info */}
-        <div className="card">
-          <div className="card-header flex items-center gap-2"><Globe className="w-4 h-4" /> Dominio & DNS</div>
-          <div className="p-4">
-            <InfoRow label="CMS URL" value="editoria-cms.vercel.app" mono />
-            <InfoRow label="Dominio sito" value={currentTenant?.domain || "Non configurato"} mono />
-            <InfoRow label="Tenant slug" value={currentTenant?.slug || "—"} mono />
-            <InfoRow label="Supabase URL" value="xtyoeajjxgeeemwlcotk.supabase.co" mono />
-          </div>
-        </div>
-
-        {/* Storage */}
-        <div className="card">
-          <div className="card-header flex items-center gap-2"><HardDrive className="w-4 h-4" /> Storage & Limiti</div>
-          <div className="p-4">
-            <InfoRow label="Storage provider" value="Supabase Storage" />
-            <InfoRow label="Bucket" value="media (pubblico)" />
-            <InfoRow label="Max file size" value="50 MB" />
-            <InfoRow label="Formati accettati" value="JPG, PNG, WebP, PDF, MP4" />
-            <InfoRow label="Piano Supabase" value="Pro (8GB DB, 250GB storage)" />
-            <InfoRow label="Piano Vercel" value="Pro (1TB bandwidth/mese)" />
-          </div>
-        </div>
-      </div>
-
-      {/* API Endpoints */}
-      <div className="card">
-        <div className="card-header flex items-center gap-2"><Cpu className="w-4 h-4" /> API Endpoints (per frontend)</div>
-        <div className="p-4 overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b" style={{ borderColor: "var(--c-border)" }}>
-                <th className="text-left py-2 font-semibold" style={{ color: "var(--c-text-2)" }}>Endpoint</th>
-                <th className="text-left py-2 font-semibold" style={{ color: "var(--c-text-2)" }}>Metodo</th>
-                <th className="text-left py-2 font-semibold" style={{ color: "var(--c-text-2)" }}>Cache</th>
-                <th className="text-left py-2 font-semibold" style={{ color: "var(--c-text-2)" }}>Descrizione</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { ep: "/api/v1/layout", m: "GET", c: "60s", d: "Layout con contenuti pre-fetchati" },
-                { ep: "/api/v1/articles", m: "GET", c: "60s", d: "Lista articoli pubblicati" },
-                { ep: "/api/v1/articles/[slug]", m: "GET", c: "60s", d: "Singolo articolo" },
-                { ep: "/api/v1/categories", m: "GET", c: "300s", d: "Categorie" },
-                { ep: "/api/v1/tags", m: "GET", c: "300s", d: "Tags" },
-                { ep: "/api/v1/events", m: "GET", c: "120s", d: "Eventi" },
-                { ep: "/api/v1/banners", m: "GET", c: "no-cache", d: "Banner con rotazione pesata" },
-                { ep: "/api/v1/breaking-news", m: "GET", c: "no-cache", d: "Breaking news attive" },
-                { ep: "/api/v1/tenant", m: "GET", c: "300s", d: "Info testata + tema" },
-                { ep: "/api/revalidate", m: "POST", c: "—", d: "On-demand ISR revalidation" },
-              ].map(r => (
-                <tr key={r.ep} className="border-b" style={{ borderColor: "var(--c-border)" }}>
-                  <td className="py-2 font-mono" style={{ color: "var(--c-accent)" }}>{r.ep}</td>
-                  <td className="py-2"><span className="badge" style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}>{r.m}</span></td>
-                  <td className="py-2" style={{ color: "var(--c-text-1)" }}>{r.c}</td>
-                  <td className="py-2" style={{ color: "var(--c-text-1)" }}>{r.d}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="card-header flex items-center gap-2"><TerminalSquare className="w-4 h-4" /> Console Comandi Dev</div>
-        <div className="p-4 space-y-4">
-          <p className="text-xs" style={{ color: "var(--c-text-2)" }}>
-            Console interna per testare i comandi di <span className="font-mono">/api/v1/commands</span> senza uscire dal CMS. Non apre nuove API:
-            usa la stessa route protetta, il tenant corrente e i permessi del tuo utente.
-          </p>
-
-          {!canUseCommandConsole ? (
-            <div className="rounded-lg p-4 text-sm" style={{ background: "var(--c-bg-2)", color: "var(--c-text-2)" }}>
-              Disponibile solo per ruoli editoriali autorizzati.
+      <article className="rounded-[1.9rem] border px-5 py-6 md:px-8" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)" }}>
+        <div className="mx-auto max-w-5xl space-y-10">
+          <section id="stato-sistema" className="scroll-mt-24">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+              Stato sistema
             </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-                {COMMAND_TEMPLATES.map((template) => (
-                  <button
-                    key={template.id}
-                    type="button"
-                    onClick={() => applyTemplate(template.id)}
-                    className="text-left rounded-lg p-3 transition"
-                    style={{
-                      border: `1px solid ${selectedTemplateId === template.id ? "var(--c-accent)" : "var(--c-border)"}`,
-                      background: selectedTemplateId === template.id ? "var(--c-accent-soft)" : "var(--c-bg-1)",
-                    }}
-                  >
-                    <div className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>{template.label}</div>
-                    <div className="text-xs mt-1" style={{ color: "var(--c-text-2)" }}>{template.description}</div>
-                  </button>
-                ))}
-              </div>
+            <h2 className="mt-2 text-xl font-semibold" style={{ color: "var(--c-text-0)" }}>
+              Vista live del tenant e del runtime
+            </h2>
+            <div className="mt-5 overflow-hidden rounded-[1.5rem] border" style={{ borderColor: "var(--c-border)" }}>
+              <SystemPanel />
+            </div>
+          </section>
 
-              <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4">
-                <div className="space-y-3">
-                  <div className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Payload comando</div>
-                  <textarea
-                    value={commandJson}
-                    onChange={(event) => setCommandJson(event.target.value)}
-                    spellCheck={false}
-                    rows={18}
-                    className="w-full rounded-lg px-3 py-3 text-xs font-mono focus:outline-none focus:ring-2"
-                    style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-1)", color: "var(--c-text-0)" }}
+          <section className="border-t pt-8 scroll-mt-24" style={{ borderColor: "var(--c-border)" }} id="infra">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+              Infrastruttura
+            </div>
+            <h2 className="mt-2 text-xl font-semibold" style={{ color: "var(--c-text-0)" }}>
+              Hosting, database, dominio e storage
+            </h2>
+            <div className="mt-5 grid gap-6 xl:grid-cols-2">
+              <section>
+                <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Runtime e hosting</h3>
+                <div className="mt-3">
+                  <InfoLine label="App URL" value={overview?.appUrl || "http://localhost:3000"} mono />
+                  <InfoLine label="CMS entry" value="/dashboard/cms" mono />
+                  <InfoLine label="Desktop bridge" value="/dashboard/desktop-bridge" mono />
+                  <InfoLine label="Domain provider" value={overview?.domainProvider || "—"} />
+                  <InfoLine label="Platform base domain" value={overview?.platformBaseDomain || "localhost"} mono />
+                </div>
+              </section>
+              <section>
+                <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Supabase e sito</h3>
+                <div className="mt-3">
+                  <InfoLine label="Project ref" value={overview?.projectRef || "—"} mono />
+                  <InfoLine label="Supabase host" value={overview?.supabaseHost || "—"} mono />
+                  <InfoLine label="Tenant ID" value={overview?.tenant?.id || currentTenant?.id || "—"} mono />
+                  <InfoLine label="Site ID" value={overview?.site?.id || "Non collegato"} mono />
+                  <InfoLine label="Dominio sito" value={overview?.tenant?.domain || currentTenant?.domain || "Non configurato"} mono />
+                  <InfoLine label="Default subdomain" value={overview?.site?.default_subdomain || "—"} mono />
+                </div>
+              </section>
+            </div>
+            <div className="mt-6 grid gap-6 xl:grid-cols-2">
+              <section>
+                <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Uso osservabile</h3>
+                <div className="mt-3">
+                  <InfoLine label="Platform members" value={String(overview?.stats.members ?? "—")} />
+                  <InfoLine label="Platform domains" value={String(overview?.stats.domains ?? "—")} />
+                  <InfoLine label="Site pages" value={String(overview?.stats.pages ?? "—")} />
+                  <InfoLine label="Published articles" value={String(overview?.stats.articles ?? "—")} />
+                  <InfoLine label="Media objects" value={String(overview?.storage.mediaObjectCount ?? "—")} />
+                </div>
+              </section>
+              <section>
+                <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Storage e subscription</h3>
+                <div className="mt-3">
+                  <InfoLine label="Buckets" value={String(overview?.storage.bucketCount ?? "—")} />
+                  <InfoLine label="Plan" value={overview?.subscription?.plan_code || "free"} />
+                  <InfoLine label="Subscription" value={overview?.subscription?.status || "active"} />
+                  <InfoLine label="Billing state" value={overview?.billing.available ? "Configurato" : "Non configurato"} />
+                  <InfoLine label="Billing note" value={overview?.billing.note || "—"} />
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section className="border-t pt-8 scroll-mt-24" style={{ borderColor: "var(--c-border)" }} id="cron">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+              Cron
+            </div>
+            <h2 className="mt-2 text-xl font-semibold" style={{ color: "var(--c-text-0)" }}>
+              Stato automazioni e publish programmato
+            </h2>
+            <div className="mt-5 grid gap-6 xl:grid-cols-2">
+              <section>
+                <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Publish maintenance</h3>
+                <div className="mt-3">
+                  <InfoLine label="Ultimo run globale" value={formatDateTime(overview?.cron.publishMaintenance?.createdAt)} />
+                  <InfoLine label="Ultimo run tenant" value={formatDateTime(overview?.cron.tenantMaintenance?.createdAt)} />
+                  <InfoLine
+                    label="Articoli programmati pubblicati"
+                    value={String(
+                      (overview?.cron.publishMaintenance?.metadata?.scheduledArticlesPublished as number | undefined) ?? 0
+                    )}
                   />
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => executeCommand("dry")}
-                      disabled={commandRunning !== null}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition"
-                      style={{ background: "var(--c-bg-2)", color: "var(--c-text-0)", border: "1px solid var(--c-border)" }}
-                    >
-                      <FlaskConical className="w-4 h-4" />
-                      {commandRunning === "dry" ? "Dry run..." : "Dry Run"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => executeCommand("live")}
-                      disabled={commandRunning !== null}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition"
-                      style={{ background: "var(--c-accent)" }}
-                    >
-                      <Play className="w-4 h-4" />
-                      {commandRunning === "live" ? "Esecuzione..." : "Esegui"}
-                    </button>
+                  <InfoLine
+                    label="Breaking news scadute"
+                    value={String(
+                      (overview?.cron.publishMaintenance?.metadata?.breakingNewsExpired as number | undefined) ?? 0
+                    )}
+                  />
+                  <InfoLine
+                    label="Banner scaduti"
+                    value={String(
+                      (overview?.cron.publishMaintenance?.metadata?.bannersExpired as number | undefined) ?? 0
+                    )}
+                  />
+                  <InfoLine
+                    label="Placement scaduti"
+                    value={String(
+                      (overview?.cron.publishMaintenance?.metadata?.slotAssignmentsExpired as number | undefined) ?? 0
+                    )}
+                  />
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Pianificazione consigliata</h3>
+                <div className="mt-3">
+                  <InfoLine label="Cron publish" value="*/5 * * * *" mono />
+                  <InfoLine label="Cron SEO" value="0 2 * * *" mono />
+                  <InfoLine label="Auth" value="Authorization: Bearer CRON_SECRET" mono />
+                  <InfoLine label="Effetto" value="Publish layer sempre allineato senza query live dal sito" />
+                </div>
+              </section>
+            </div>
+
+            <div className="mt-6 grid gap-6 xl:grid-cols-2">
+              <section>
+                <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Controlli tenant</h3>
+                <div className="mt-3 space-y-3">
+                  <div className="rounded-[1.2rem] border px-4 py-4" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-0)" }}>
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Publish maintenance</div>
+                        <p className="mt-1 text-sm" style={{ color: "var(--c-text-2)" }}>
+                          Pubblica articoli programmati e pulisce contenuti scaduti per questo tenant.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!canManageCron || cronSaving}
+                        onClick={() =>
+                          void updateCronSettings({
+                            publishMaintenanceEnabled: !(overview?.cron.settings.publishMaintenanceEnabled ?? true),
+                            seoAnalysisEnabled: overview?.cron.settings.seoAnalysisEnabled ?? true,
+                          })
+                        }
+                        className="rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50"
+                        style={{
+                          background: overview?.cron.settings.publishMaintenanceEnabled ? "var(--c-accent-soft)" : "var(--c-bg-1)",
+                          color: overview?.cron.settings.publishMaintenanceEnabled ? "var(--c-accent)" : "var(--c-text-2)",
+                          border: "1px solid var(--c-border)",
+                        }}
+                      >
+                        {overview?.cron.settings.publishMaintenanceEnabled ? "Attivo" : "Disattivato"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.2rem] border px-4 py-4" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-0)" }}>
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>SEO analysis</div>
+                        <p className="mt-1 text-sm" style={{ color: "var(--c-text-2)" }}>
+                          Consente l’analisi schedulata AI/SEO per questo tenant se il modulo AI e` attivo.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!canManageCron || cronSaving}
+                        onClick={() =>
+                          void updateCronSettings({
+                            publishMaintenanceEnabled: overview?.cron.settings.publishMaintenanceEnabled ?? true,
+                            seoAnalysisEnabled: !(overview?.cron.settings.seoAnalysisEnabled ?? true),
+                          })
+                        }
+                        className="rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50"
+                        style={{
+                          background: overview?.cron.settings.seoAnalysisEnabled ? "var(--c-accent-soft)" : "var(--c-bg-1)",
+                          color: overview?.cron.settings.seoAnalysisEnabled ? "var(--c-accent)" : "var(--c-text-2)",
+                          border: "1px solid var(--c-border)",
+                        }}
+                      >
+                        {overview?.cron.settings.seoAnalysisEnabled ? "Attivo" : "Disattivato"}
+                      </button>
+                    </div>
                   </div>
                 </div>
+                {!canManageCron ? (
+                  <p className="mt-3 text-xs" style={{ color: "var(--c-text-3)" }}>
+                    Solo super admin e chief editor possono cambiare lo stato dei cron.
+                  </p>
+                ) : null}
+              </section>
+            </div>
+          </section>
 
-                <div className="space-y-3">
-                  <div className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Risposta API</div>
-                  <pre
-                    className="rounded-lg p-3 text-xs overflow-auto min-h-[360px]"
-                    style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-1)", color: "var(--c-text-0)" }}
-                  >
-                    {commandResponse || "Nessuna risposta ancora."}
-                  </pre>
+          <section className="border-t pt-8 scroll-mt-24" style={{ borderColor: "var(--c-border)" }} id="api">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+              API pubbliche
+            </div>
+            <h2 className="mt-2 text-xl font-semibold" style={{ color: "var(--c-text-0)" }}>
+              Endpoint che il frontend puo` consumare
+            </h2>
+            <div className="mt-5 overflow-x-auto rounded-[1.4rem] border" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-0)" }}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--c-border)" }}>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--c-text-2)" }}>Endpoint</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--c-text-2)" }}>Metodo</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--c-text-2)" }}>Cache</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--c-text-2)" }}>Descrizione</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { ep: "/api/v1/layout", m: "GET", c: "60s", d: "Layout pubblicato o fallback controllato" },
+                    { ep: "/api/v1/bridge/site-pack", m: "GET", c: "no-store", d: "Contract tecnico per desktop e AI builder" },
+                    { ep: "/api/v1/articles", m: "GET", c: "60s", d: "Lista articoli pubblicati" },
+                    { ep: "/api/v1/categories", m: "GET", c: "300s", d: "Categorie pubbliche" },
+                    { ep: "/api/v1/tags", m: "GET", c: "300s", d: "Tag pubblici" },
+                    { ep: "/api/v1/tenant", m: "GET", c: "300s", d: "Testata e tema" },
+                  ].map((row) => (
+                    <tr key={row.ep} style={{ borderBottom: "1px solid var(--c-border)" }}>
+                      <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--c-accent)" }}>{row.ep}</td>
+                      <td className="px-4 py-3" style={{ color: "var(--c-text-1)" }}>{row.m}</td>
+                      <td className="px-4 py-3" style={{ color: "var(--c-text-1)" }}>{row.c}</td>
+                      <td className="px-4 py-3" style={{ color: "var(--c-text-1)" }}>{row.d}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="border-t pt-8 scroll-mt-24" style={{ borderColor: "var(--c-border)" }} id="console">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+              Console dev
+            </div>
+            <h2 className="mt-2 text-xl font-semibold" style={{ color: "var(--c-text-0)" }}>
+              Test comandi senza uscire dal CMS
+            </h2>
+            <p className="mt-3 text-sm leading-7" style={{ color: "var(--c-text-2)" }}>
+              La console usa la route protetta del CMS e lavora sul tenant corrente. Serve per verifiche tecniche e piccoli test operativi, non per aggirare i flussi normali.
+            </p>
+
+            {!canUseCommandConsole ? (
+              <div className="mt-5 rounded-[1.2rem] border px-4 py-4 text-sm" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-0)", color: "var(--c-text-2)" }}>
+                Disponibile solo per ruoli editoriali autorizzati.
+              </div>
+            ) : (
+              <div className="mt-5 space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {COMMAND_TEMPLATES.map((template) => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => applyTemplate(template.id)}
+                      className="rounded-full px-3 py-1.5 text-xs font-medium transition"
+                      style={{
+                        border: `1px solid ${selectedTemplateId === template.id ? "var(--c-accent)" : "var(--c-border)"}`,
+                        background: selectedTemplateId === template.id ? "var(--c-accent-soft)" : "var(--c-bg-0)",
+                        color: "var(--c-text-1)",
+                      }}
+                    >
+                      {template.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--c-text-3)" }}>
+                      Payload comando
+                    </div>
+                    <textarea
+                      value={commandJson}
+                      onChange={(event) => setCommandJson(event.target.value)}
+                      spellCheck={false}
+                      rows={18}
+                      className="mt-3 w-full rounded-[1.2rem] px-4 py-4 text-xs font-mono focus:outline-none focus:ring-2"
+                      style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-0)", color: "var(--c-text-0)" }}
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                      onClick={() => void executeCommand("dry")}
+                        disabled={commandRunning !== null}
+                        className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-60"
+                        style={{ background: "var(--c-bg-0)", color: "var(--c-text-1)", border: "1px solid var(--c-border)" }}
+                      >
+                        <FlaskConical className="w-4 h-4" />
+                        {commandRunning === "dry" ? "Dry run..." : "Dry Run"}
+                      </button>
+                      <button
+                        type="button"
+                      onClick={() => void executeCommand("live")}
+                        disabled={commandRunning !== null}
+                        className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-60"
+                        style={{ background: "var(--c-accent)" }}
+                      >
+                        <Play className="w-4 h-4" />
+                        {commandRunning === "live" ? "Esecuzione..." : "Esegui"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--c-text-3)" }}>
+                      Risposta
+                    </div>
+                    <pre
+                      className="mt-3 min-h-[360px] overflow-auto rounded-[1.2rem] px-4 py-4 text-xs"
+                      style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-0)", color: "var(--c-text-0)" }}
+                    >
+                      {commandResponse || "Nessuna risposta ancora."}
+                    </pre>
+                  </div>
                 </div>
               </div>
-            </>
-          )}
+            )}
+          </section>
         </div>
-      </div>
-
-      {/* Performance Tips */}
-      <div className="card">
-        <div className="card-header flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Performance & Monitoraggio</div>
-        <div className="p-4 space-y-3">
-          <div className="flex gap-3 p-3 rounded-lg" style={{ background: "var(--c-bg-2)" }}>
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "var(--c-warning)" }} />
-            <div>
-              <p className="text-xs font-medium" style={{ color: "var(--c-text-0)" }}>Vercel Analytics</p>
-              <p className="text-[11px]" style={{ color: "var(--c-text-2)" }}>Vai su vercel.com/analytics per Web Vitals, visitor count e performance real-time</p>
-            </div>
-          </div>
-          <div className="flex gap-3 p-3 rounded-lg" style={{ background: "var(--c-bg-2)" }}>
-            <Database className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "var(--c-accent)" }} />
-            <div>
-              <p className="text-xs font-medium" style={{ color: "var(--c-text-0)" }}>Supabase Dashboard</p>
-              <p className="text-[11px]" style={{ color: "var(--c-text-2)" }}>Database stats, query performance, storage usage su supabase.com/dashboard</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      </article>
     </div>
   );
 }

@@ -1,12 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Routes that are part of the CMS app (not public site)
-const CMS_ROUTES = ["/dashboard", "/auth", "/api"];
-
-function isCmsRoute(pathname: string): boolean {
-  return CMS_ROUTES.some((route) => pathname.startsWith(route)) || pathname === "/";
-}
+const PROTECTED_ROUTES = ["/dashboard", "/app", "/admin", "/giornalista"];
+const GUEST_ROUTES = ["/auth", "/login", "/register", "/forgot-password"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -23,7 +19,6 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // CMS routes — handle auth
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -49,20 +44,18 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users to login
-  if (
-    !user &&
-    pathname.startsWith("/dashboard")
-  ) {
+  const isProtected = PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
+  const isGuest = GUEST_ROUTES.some((route) => pathname.startsWith(route));
+
+  if (!user && isProtected) {
     const url = request.nextUrl.clone();
-    url.pathname = "/auth/login";
+    url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from login
-  if (user && pathname.startsWith("/auth/login")) {
+  if (user && isGuest) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/app";
     return NextResponse.redirect(url);
   }
 

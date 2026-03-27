@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
-import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
 import {
@@ -49,6 +48,12 @@ interface Advertiser {
   name: string;
 }
 
+interface CategoryOption {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 const positions = [
   { value: "header", label: "Header" },
   { value: "sidebar", label: "Sidebar" },
@@ -67,6 +72,7 @@ export default function BannerPage() {
   const { currentTenant } = useAuthStore();
   const [banners, setBanners] = useState<Banner[]>([]);
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -79,6 +85,7 @@ export default function BannerPage() {
   const [imageUrl, setImageUrl] = useState("");
   const [htmlContent, setHtmlContent] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
+  const [targetCategories, setTargetCategories] = useState<string[]>([]);
   const [targetDevice, setTargetDevice] = useState("all");
   const [weight, setWeight] = useState(1);
   const [advertiserId, setAdvertiserId] = useState("");
@@ -86,17 +93,36 @@ export default function BannerPage() {
   const [endsAt, setEndsAt] = useState("");
   const [isActive, setIsActive] = useState(true);
 
+  const readErrorMessage = useCallback(async (response: Response, fallback: string) => {
+    const payload = await response.json().catch(() => null);
+    return typeof payload?.error === "string" ? payload.error : fallback;
+  }, []);
+
   const load = useCallback(async () => {
     if (!currentTenant) return;
-    const supabase = createClient();
-    const [bannersRes, advRes] = await Promise.all([
-      supabase.from("banners").select("*").eq("tenant_id", currentTenant.id).order("created_at", { ascending: false }),
-      supabase.from("advertisers").select("id, name").eq("tenant_id", currentTenant.id).order("name"),
-    ]);
-    if (bannersRes.data) setBanners(bannersRes.data as Banner[]);
-    if (advRes.data) setAdvertisers(advRes.data as Advertiser[]);
+    setLoading(true);
+    const response = await fetch(`/api/cms/banners?tenant_id=${encodeURIComponent(currentTenant.id)}`, {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Impossibile caricare i banner"));
+      setLoading(false);
+      return;
+    }
+
+    const payload = (await response.json()) as {
+      banners?: Banner[];
+      advertisers?: Advertiser[];
+      categories?: CategoryOption[];
+    };
+
+    setBanners(Array.isArray(payload.banners) ? payload.banners : []);
+    setAdvertisers(Array.isArray(payload.advertisers) ? payload.advertisers : []);
+    setCategories(Array.isArray(payload.categories) ? payload.categories : []);
     setLoading(false);
-  }, [currentTenant]);
+  }, [currentTenant, readErrorMessage]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -108,7 +134,7 @@ export default function BannerPage() {
 
   const resetForm = () => {
     setName(""); setPosition("sidebar"); setType("image"); setImageUrl("");
-    setHtmlContent(""); setLinkUrl(""); setTargetDevice("all"); setWeight(1);
+    setHtmlContent(""); setLinkUrl(""); setTargetCategories([]); setTargetDevice("all"); setWeight(1);
     setAdvertiserId(""); setStartsAt(""); setEndsAt(""); setIsActive(true);
     setEditingId(null); setShowForm(false);
   };
@@ -116,6 +142,7 @@ export default function BannerPage() {
   const startEdit = (b: Banner) => {
     setEditingId(b.id); setName(b.name); setPosition(b.position); setType(b.type);
     setImageUrl(b.image_url ?? ""); setHtmlContent(b.html_content ?? ""); setLinkUrl(b.link_url ?? "");
+    setTargetCategories(Array.isArray(b.target_categories) ? b.target_categories : []);
     setTargetDevice(b.target_device); setWeight(b.weight); setAdvertiserId(b.advertiser_id ?? "");
     setStartsAt(b.starts_at ? new Date(b.starts_at).toISOString().slice(0, 16) : "");
     setEndsAt(b.ends_at ? new Date(b.ends_at).toISOString().slice(0, 16) : "");
@@ -125,7 +152,6 @@ export default function BannerPage() {
   const handleSave = async () => {
     if (!currentTenant || !name.trim()) { toast.error("Nome obbligatorio"); return; }
     setSaving(true);
-    const supabase = createClient();
 
     const payload = {
       tenant_id: currentTenant.id,
@@ -135,7 +161,7 @@ export default function BannerPage() {
       image_url: imageUrl || null,
       html_content: htmlContent || null,
       link_url: linkUrl || null,
-      target_categories: [] as string[],
+      target_categories: targetCategories,
       target_device: targetDevice,
       weight,
       advertiser_id: advertiserId || null,
@@ -145,14 +171,22 @@ export default function BannerPage() {
     };
 
     if (editingId) {
-      const { tenant_id: tenantIdToDrop, ...updatePayload } = payload;
-      void tenantIdToDrop;
-      const { error } = await supabase.from("banners").update(updatePayload).eq("id", editingId);
-      if (error) { toast.error(error.message); setSaving(false); return; }
+      const response = await fetch(`/api/cms/banners/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) { toast.error(await readErrorMessage(response, "Impossibile aggiornare il banner")); setSaving(false); return; }
       toast.success("Banner aggiornato");
     } else {
-      const { error } = await supabase.from("banners").insert(payload);
-      if (error) { toast.error(error.message); setSaving(false); return; }
+      const response = await fetch("/api/cms/banners", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) { toast.error(await readErrorMessage(response, "Impossibile creare il banner")); setSaving(false); return; }
       toast.success("Banner creato");
     }
     setSaving(false); resetForm(); load();
@@ -160,21 +194,48 @@ export default function BannerPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Eliminare questo banner?")) return;
-    const supabase = createClient();
-    await supabase.from("banners").delete().eq("id", id);
+    if (!currentTenant) return;
+    const response = await fetch(`/api/cms/banners/${id}?tenant_id=${encodeURIComponent(currentTenant.id)}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Impossibile eliminare il banner"));
+      return;
+    }
     setBanners(prev => prev.filter(b => b.id !== id));
     toast.success("Banner eliminato");
   };
 
   const toggleActive = async (b: Banner) => {
-    const supabase = createClient();
-    await supabase.from("banners").update({ is_active: !b.is_active }).eq("id", b.id);
+    if (!currentTenant) return;
+    const response = await fetch(`/api/cms/banners/${b.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        tenant_id: currentTenant.id,
+        is_active: !b.is_active,
+      }),
+    });
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Impossibile aggiornare lo stato del banner"));
+      return;
+    }
     setBanners(prev => prev.map(i => i.id === b.id ? { ...i, is_active: !b.is_active } : i));
   };
 
   const getCTR = (b: Banner) => {
     if (b.impressions === 0) return "0%";
     return ((b.clicks / b.impressions) * 100).toFixed(2) + "%";
+  };
+
+  const toggleTargetCategory = (categorySlug: string) => {
+    setTargetCategories((prev) =>
+      prev.includes(categorySlug)
+        ? prev.filter((entry) => entry !== categorySlug)
+        : [...prev, categorySlug]
+    );
   };
 
   return (
@@ -281,6 +342,31 @@ export default function BannerPage() {
                 <option value="desktop">Solo Desktop</option>
                 <option value="mobile">Solo Mobile</option>
               </select>
+            </div>
+            <div className="sm:col-span-2 lg:col-span-3">
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Categorie / gruppi banner</label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {categories.length === 0 ? (
+                  <span className="text-xs" style={{ color: "var(--c-text-3)" }}>Nessuna categoria disponibile.</span>
+                ) : (
+                  categories.map((category) => {
+                    const active = targetCategories.includes(category.slug);
+                    return (
+                      <button
+                        key={category.id}
+                        type="button"
+                        onClick={() => toggleTargetCategory(category.slug)}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium transition"
+                        style={active
+                          ? { background: "var(--c-accent-soft)", color: "var(--c-accent)" }
+                          : { background: "var(--c-bg-2)", color: "var(--c-text-2)" }}
+                      >
+                        {category.name}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
             </div>
             {type === "image" && (
               <div className="sm:col-span-2 lg:col-span-3">
@@ -404,7 +490,10 @@ export default function BannerPage() {
                         )}
                         <div>
                           <p className="text-sm font-medium" style={{ color: "var(--c-text-0)" }}>{b.name}</p>
-                          <p className="text-xs" style={{ color: "var(--c-text-3)" }}>{b.type}</p>
+                          <p className="text-xs" style={{ color: "var(--c-text-3)" }}>
+                            {b.type}
+                            {b.target_categories.length > 0 ? ` · ${b.target_categories.join(", ")}` : ""}
+                          </p>
                         </div>
                       </div>
                     </td>

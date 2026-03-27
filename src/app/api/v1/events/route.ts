@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { readPublishedJson } from "@/lib/publish/storage";
+import type { PublishedEventsDocument } from "@/lib/publish/types";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -9,6 +11,23 @@ export async function GET(request: Request) {
 
   if (!tenantSlug) {
     return NextResponse.json({ error: "tenant parameter required" }, { status: 400 });
+  }
+
+  const publishedEvents = await readPublishedJson<PublishedEventsDocument>(`sites/${encodeURIComponent(tenantSlug)}/events.json`);
+  if (publishedEvents?.events) {
+    const events = upcoming
+      ? publishedEvents.events.filter((event) => {
+          const startsAt = typeof event.starts_at === "string" ? new Date(event.starts_at).getTime() : NaN;
+          return !Number.isNaN(startsAt) && startsAt >= Date.now();
+        })
+      : publishedEvents.events;
+
+    return NextResponse.json({ events: events.slice(0, limit) }, {
+      headers: {
+        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
   }
 
   const supabase = await createServiceRoleClient();

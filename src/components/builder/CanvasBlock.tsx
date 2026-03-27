@@ -1492,10 +1492,25 @@ function EventListPreview({ data, loading }: { data: unknown[]; loading: boolean
 }
 
 function BannerZonePreview({ block, data, loading }: { block: Block; data: unknown[]; loading: boolean }) {
-  const banners = (data as PreviewBanner[]).filter((banner) => banner.image_url || banner.html_content);
+  const props = block.props as Record<string, unknown>;
+  const sourceMode = String(props.sourceMode || 'rotation');
+  const customPreviewBanner = sourceMode === 'custom' && (props.customImageUrl || props.customHtml)
+    ? {
+        id: `${block.id}-custom-preview`,
+        name: String(props.customAssetName || 'Creativita fissa'),
+        position: String(props.position || 'custom'),
+        type: props.customHtml ? 'html' : 'image',
+        image_url: props.customImageUrl ? String(props.customImageUrl) : null,
+        html_content: props.customHtml ? String(props.customHtml) : null,
+        link_url: props.customLinkUrl ? String(props.customLinkUrl) : null,
+      }
+    : null;
+  const banners = customPreviewBanner
+    ? [customPreviewBanner]
+    : (data as PreviewBanner[]).filter((banner) => banner.image_url || banner.html_content);
   const banner = banners[0];
-  const position = String(block.props.position || 'sidebar');
-  const isScrollingRow = Boolean((block.props as Record<string, unknown>).scrollingRow) || ['header', 'footer', 'topbar'].includes(position);
+  const position = String(props.position || 'sidebar');
+  const isScrollingRow = Boolean(props.scrollingRow) || ['header', 'footer', 'topbar'].includes(position);
   if (loading) return <PreviewLoading label="banner zone" />;
 
   return (
@@ -1504,10 +1519,18 @@ function BannerZonePreview({ block, data, loading }: { block: Block; data: unkno
         banner-zone
       </div>
       <div className="mt-2 text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
-        {isScrollingRow ? `Riga banner · ${banners.length || 0} elementi` : (banner?.name || `Posizione: ${position}`)}
+        {sourceMode === 'custom'
+          ? (banner?.name || 'Creativita fissa')
+          : isScrollingRow
+            ? `Riga banner · ${banners.length || 0} elementi`
+            : (banner?.name || `Posizione: ${position}`)}
       </div>
       <div className="mt-1 text-xs" style={{ color: 'var(--c-text-2)' }}>
-        {banner ? `${position} · ${isScrollingRow ? 'scrolling row' : banner.type}` : 'Mostrerà i banner attivi del CMS per questa posizione.'}
+        {sourceMode === 'custom'
+          ? 'Il blocco usa una creativita fissa caricata direttamente in editor.'
+          : banner
+            ? `${position} · ${isScrollingRow ? 'scrolling row' : banner.type}`
+            : 'Mostrera i banner attivi del CMS per questa posizione.'}
       </div>
     </div>
   );
@@ -3084,9 +3107,6 @@ function CodeContent({ block, isEditing }: { block: Block; isEditing: boolean })
 function CustomHtmlContent({ block }: { block: Block }) {
   const html = sanitizeHtml(String(block.props.html || ''));
   const css = sanitizeCss(String(block.props.css || ''));
-  const allowScripts = block.props.allowScripts === true;
-  const js = allowScripts ? String(block.props.js || '').replace(/<\/script/gi, '<\\/script') : '';
-  const sandboxed = block.props.sandboxed !== false;
   const srcDoc = `<!DOCTYPE html>
 <html lang="it">
   <head>
@@ -3096,14 +3116,8 @@ function CustomHtmlContent({ block }: { block: Block }) {
   </head>
   <body>
     ${html}
-    ${js ? `<script>${js}<\/script>` : ''}
   </body>
 </html>`;
-  const sandbox = sandboxed
-    ? ['allow-forms', 'allow-popups', 'allow-popups-to-escape-sandbox', allowScripts ? 'allow-scripts' : '']
-        .filter(Boolean)
-        .join(' ')
-    : undefined;
 
   return (
     <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
@@ -3113,7 +3127,7 @@ function CustomHtmlContent({ block }: { block: Block }) {
       <iframe
         title={String(block.label || 'HTML custom')}
         srcDoc={srcDoc}
-        sandbox={sandbox}
+        sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox"
         style={{ width: '100%', minHeight: '220px', border: 'none', background: 'white' }}
       />
     </div>

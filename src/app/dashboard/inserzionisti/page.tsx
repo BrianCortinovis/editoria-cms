@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
 import {
@@ -38,19 +37,35 @@ export default function InserzionistiPage() {
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
 
+  const readErrorMessage = useCallback(async (response: Response, fallback: string) => {
+    const payload = await response.json().catch(() => null);
+    return typeof payload?.error === "string" ? payload.error : fallback;
+  }, []);
+
   const load = useCallback(async () => {
     if (!currentTenant) return;
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("advertisers")
-      .select("*")
-      .eq("tenant_id", currentTenant.id)
-      .order("name");
-    if (data) setAdvertisers(data as Advertiser[]);
+    setLoading(true);
+    const response = await fetch(`/api/cms/advertisers?tenant_id=${encodeURIComponent(currentTenant.id)}`, {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Impossibile caricare gli inserzionisti"));
+      setLoading(false);
+      return;
+    }
+    const payload = (await response.json()) as { advertisers?: Advertiser[] };
+    setAdvertisers(Array.isArray(payload.advertisers) ? payload.advertisers : []);
     setLoading(false);
-  }, [currentTenant]);
+  }, [currentTenant, readErrorMessage]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const resetForm = () => {
     setName(""); setEmail(""); setPhone(""); setNotes("");
@@ -65,7 +80,6 @@ export default function InserzionistiPage() {
   const handleSave = async () => {
     if (!currentTenant || !name.trim()) { toast.error("Nome obbligatorio"); return; }
     setSaving(true);
-    const supabase = createClient();
 
     const payload = {
       tenant_id: currentTenant.id,
@@ -76,13 +90,22 @@ export default function InserzionistiPage() {
     };
 
     if (editingId) {
-      const { tenant_id, ...updatePayload } = payload;
-      const { error } = await supabase.from("advertisers").update(updatePayload).eq("id", editingId);
-      if (error) { toast.error(error.message); setSaving(false); return; }
+      const response = await fetch(`/api/cms/advertisers/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) { toast.error(await readErrorMessage(response, "Impossibile aggiornare l'inserzionista")); setSaving(false); return; }
       toast.success("Inserzionista aggiornato");
     } else {
-      const { error } = await supabase.from("advertisers").insert(payload);
-      if (error) { toast.error(error.message); setSaving(false); return; }
+      const response = await fetch("/api/cms/advertisers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) { toast.error(await readErrorMessage(response, "Impossibile creare l'inserzionista")); setSaving(false); return; }
       toast.success("Inserzionista creato");
     }
     setSaving(false); resetForm(); load();
@@ -90,8 +113,15 @@ export default function InserzionistiPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Eliminare questo inserzionista?")) return;
-    const supabase = createClient();
-    await supabase.from("advertisers").delete().eq("id", id);
+    if (!currentTenant) return;
+    const response = await fetch(`/api/cms/advertisers/${id}?tenant_id=${encodeURIComponent(currentTenant.id)}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Impossibile eliminare l'inserzionista"));
+      return;
+    }
     setAdvertisers(prev => prev.filter(a => a.id !== id));
     toast.success("Eliminato");
   };

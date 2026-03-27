@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
 import {
@@ -16,7 +15,6 @@ import {
   Grid3X3,
   List,
   X,
-  FolderOpen,
 } from "lucide-react";
 
 interface MediaItem {
@@ -61,7 +59,7 @@ function getMediaIcon(mimeType: string) {
 }
 
 export default function MediaPage() {
-  const { currentTenant, currentRole, user } = useAuthStore();
+  const { currentTenant, currentRole } = useAuthStore();
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -70,33 +68,47 @@ export default function MediaPage() {
   const [selected, setSelected] = useState<MediaItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const readErrorMessage = useCallback(async (response: Response, fallback: string) => {
+    const payload = await response.json().catch(() => null);
+    return typeof payload?.error === "string" ? payload.error : fallback;
+  }, []);
+
   const loadMedia = useCallback(async () => {
     if (!currentTenant) return;
-    const supabase = createClient();
-
-    let query = supabase
-      .from("media")
-      .select("*")
-      .eq("tenant_id", currentTenant.id)
-      .order("created_at", { ascending: false });
-
-    if (search) {
-      query = query.ilike("original_filename", `%${search}%`);
+    setLoading(true);
+    const params = new URLSearchParams({ tenant_id: currentTenant.id });
+    if (search.trim()) {
+      params.set("search", search.trim());
     }
 
-    const { data } = await query.limit(100);
-    if (data) setMedia(data);
+    const response = await fetch(`/api/cms/media?${params.toString()}`, {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Impossibile caricare i media"));
+      setLoading(false);
+      return;
+    }
+
+    const payload = (await response.json()) as { media?: MediaItem[] };
+    setMedia(Array.isArray(payload.media) ? payload.media : []);
     setLoading(false);
-  }, [currentTenant, search]);
+  }, [currentTenant, search, readErrorMessage]);
 
   useEffect(() => {
-    loadMedia();
+    const timer = window.setTimeout(() => {
+      void loadMedia();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [loadMedia]);
 
   const handleUpload = async (files: FileList | null) => {
-    if (!files || !currentTenant || !user) return;
+    if (!files || !currentTenant) return;
     setUploading(true);
-    const supabase = createClient();
+    let uploadedCount = 0;
 
     for (const file of Array.from(files)) {
       const ext = file.name.split(".").pop()?.toLowerCase() || "";
@@ -114,85 +126,48 @@ export default function MediaPage() {
         toast.error(`Formato non consentito per sicurezza: ${file.name}`);
         continue;
       }
+      const formData = new FormData();
+      formData.set("tenant_id", currentTenant.id);
+      formData.set("tenant_slug", currentTenant.slug);
+      formData.set("file", file);
 
-      const filename = `${currentTenant.slug}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from("media")
-        .upload(filename, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) {
-        toast.error(`Errore upload ${file.name}: ${uploadError.message}`);
-        continue;
-      }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("media")
-        .getPublicUrl(filename);
-
-      // Get image dimensions if applicable
-      let width: number | null = null;
-      let height: number | null = null;
-
-      if (file.type.startsWith("image/")) {
-        const img = new window.Image();
-        await new Promise<void>((resolve) => {
-          img.onload = () => {
-            width = img.naturalWidth;
-            height = img.naturalHeight;
-            resolve();
-          };
-          img.onerror = () => resolve();
-          img.src = URL.createObjectURL(file);
-        });
-      }
-
-      // Save to database
-      const { error: dbError } = await supabase.from("media").insert({
-        tenant_id: currentTenant.id,
-        filename,
-        original_filename: file.name,
-        mime_type: file.type,
-        size_bytes: file.size,
-        width,
-        height,
-        url: urlData.publicUrl,
-        thumbnail_url: file.type.startsWith("image/") ? urlData.publicUrl : null,
-        uploaded_by: user.id,
+      const response = await fetch("/api/cms/media/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "same-origin",
       });
 
-      if (dbError) {
-        toast.error(`Errore DB ${file.name}: ${dbError.message}`);
+      if (!response.ok) {
+        toast.error(`Errore upload ${file.name}: ${await readErrorMessage(response, "Upload non riuscito")}`);
       } else {
+        uploadedCount += 1;
         toast.success(`${file.name} caricato`);
       }
     }
 
     setUploading(false);
-    loadMedia();
+    if (uploadedCount > 0) {
+      await loadMedia();
+    }
   };
 
   const handleDelete = async (item: MediaItem) => {
     if (!confirm(`Eliminare ${item.original_filename}?`)) return;
-    const supabase = createClient();
+    if (!currentTenant) return;
 
-    // Delete from storage
-    await supabase.storage.from("media").remove([item.filename]);
+    const response = await fetch(`/api/cms/media/${item.id}?tenant_id=${encodeURIComponent(currentTenant.id)}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
 
-    // Delete from DB
-    const { error } = await supabase.from("media").delete().eq("id", item.id);
-    if (error) {
-      toast.error("Errore nell'eliminazione");
-    } else {
-      toast.success("File eliminato");
-      setMedia((prev) => prev.filter((m) => m.id !== item.id));
-      if (selected?.id === item.id) setSelected(null);
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Errore nell'eliminazione"));
+      return;
     }
+
+    toast.success("File eliminato");
+    setMedia((prev) => prev.filter((m) => m.id !== item.id));
+    if (selected?.id === item.id) setSelected(null);
   };
 
   const copyUrl = (url: string) => {

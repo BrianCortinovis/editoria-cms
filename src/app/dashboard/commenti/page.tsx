@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
 import { Check, MessageSquare, ShieldAlert, Trash2 } from "lucide-react";
@@ -22,30 +21,34 @@ export default function CommentiPage() {
   const [loading, setLoading] = useState(true);
   const [moduleReady, setModuleReady] = useState(true);
 
+  const readErrorMessage = useCallback(async (response: Response, fallback: string) => {
+    const payload = await response.json().catch(() => null);
+    return typeof payload?.error === "string" ? payload.error : fallback;
+  }, []);
+
   const loadComments = useCallback(async () => {
     if (!currentTenant) return;
     setLoading(true);
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("article_comments")
-      .select("id, author_name, author_email, body, status, created_at, articles(title, slug)")
-      .eq("tenant_id", currentTenant.id)
-      .order("created_at", { ascending: false })
-      .limit(100);
+    const response = await fetch(`/api/cms/comments?tenant_id=${encodeURIComponent(currentTenant.id)}`, {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
 
-    if (error) {
-      if (error.message.toLowerCase().includes("article_comments")) {
+    if (!response.ok) {
+      const errorMessage = await readErrorMessage(response, "Impossibile caricare i commenti");
+      if (errorMessage.toLowerCase().includes("article_comments")) {
         setModuleReady(false);
       } else {
-        toast.error(error.message);
+        toast.error(errorMessage);
       }
       setComments([]);
     } else {
+      const payload = (await response.json()) as { comments?: CommentRow[] };
       setModuleReady(true);
-      setComments((data || []) as unknown as CommentRow[]);
+      setComments(Array.isArray(payload.comments) ? payload.comments : []);
     }
     setLoading(false);
-  }, [currentTenant]);
+  }, [currentTenant, readErrorMessage]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -58,17 +61,19 @@ export default function CommentiPage() {
   }, [loadComments]);
 
   const updateStatus = async (id: string, status: string) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("article_comments")
-      .update({
+    if (!currentTenant) return;
+    const response = await fetch(`/api/cms/comments/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        tenant_id: currentTenant.id,
         status,
-        published_at: status === "approved" ? new Date().toISOString() : null,
-      })
-      .eq("id", id);
+      }),
+    });
 
-    if (error) {
-      toast.error(error.message);
+    if (!response.ok) {
+      toast.error(await readErrorMessage(response, "Impossibile aggiornare il commento"));
       return;
     }
 

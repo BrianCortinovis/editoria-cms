@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
+const PAGE_EDITOR_ROLES = new Set(['super_admin', 'chief_editor', 'editor']);
+
 async function getAuthorizedPage(pageId: string, userId: string) {
   const supabase = await createServerSupabaseClient();
 
@@ -16,14 +18,15 @@ async function getAuthorizedPage(pageId: string, userId: string) {
 
   const { data: userTenants } = await supabase
     .from('user_tenants')
-    .select('tenant_id')
+    .select('tenant_id, role')
     .eq('user_id', userId);
 
-  if (!userTenants?.some((tenant) => tenant.tenant_id === page.tenant_id)) {
+  const membership = userTenants?.find((tenant) => tenant.tenant_id === page.tenant_id);
+  if (!membership) {
     return { supabase, page: null, error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
   }
 
-  return { supabase, page, error: null };
+  return { supabase, page, membership, error: null };
 }
 
 export async function GET(
@@ -78,6 +81,9 @@ export async function PUT(
   const authorized = await getAuthorizedPage(pageId, user.id);
   if (authorized.error || !authorized.page) {
     return authorized.error!;
+  }
+  if (!authorized.membership || !PAGE_EDITOR_ROLES.has(authorized.membership.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   if (blocks !== undefined) {

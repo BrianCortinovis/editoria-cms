@@ -9,7 +9,15 @@ const bannerZoneBlock: BlockDefinition = {
   category: 'monetization',
   defaultProps: {
     templateId: 'banner-sidebar-single',
+    sourceMode: 'rotation',
     position: 'sidebar',
+    bannerId: '',
+    advertiserId: '',
+    targetCategorySlug: '',
+    customImageUrl: '',
+    customLinkUrl: '',
+    customHtml: '',
+    customAssetName: '',
     scrollingRow: false,
     maxVisible: 1,
     gap: 12,
@@ -33,7 +41,10 @@ const bannerZoneBlock: BlockDefinition = {
   supportsChildren: false,
   defaultDataSource: {
     endpoint: 'banners',
-    params: { position: 'sidebar' },
+    params: {
+      sourceMode: 'rotation',
+      position: 'sidebar',
+    },
   },
 };
 

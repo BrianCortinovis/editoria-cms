@@ -31,6 +31,7 @@ export default async function TenantHomePage({ params }: Props) {
             blocks={page.blocks as import('@/lib/types/block').Block[]}
             tenantId={tenant.id}
             tenantSlug={tenant.slug}
+            resolvedDataMap={(page as { resolved_data_map?: Record<string, unknown[]> }).resolved_data_map}
           />
         </PageBackgroundFrame>
       ) : (

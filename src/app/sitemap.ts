@@ -1,12 +1,14 @@
-import { createServiceRoleClient } from '@/lib/supabase/server';
 import type { MetadataRoute } from 'next';
 import { buildTenantPublicUrl } from '@/lib/site/public-url';
+import { createServiceRoleClient } from '@/lib/supabase/server';
+import { readPublishedJson } from '@/lib/publish/storage';
+import type { PublishedManifest, PublishedSettingsDocument } from '@/lib/publish/types';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
-    const supabase = await createServiceRoleClient();
     const entries: MetadataRoute.Sitemap = [];
     const seen = new Set<string>();
+    const supabase = await createServiceRoleClient();
 
     const pushEntry = (entry: MetadataRoute.Sitemap[number]) => {
       if (!entry?.url || seen.has(entry.url)) {
@@ -16,75 +18,57 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       entries.push(entry);
     };
 
-    const { data: tenants } = await supabase
-      .from('tenants')
-      .select('id, slug, domain');
+    const { data: siteDirectories } = await supabase.storage
+      .from('published')
+      .list('sites', { limit: 500, sortBy: { column: 'name', order: 'asc' } });
 
-    const tenantMap = new Map((tenants || []).map((tenant) => [tenant.id, tenant]));
+    for (const directory of siteDirectories || []) {
+      const slug = String(directory.name || '').trim();
+      if (!slug) continue;
 
-    // Get all published articles
-    const { data: articles } = await supabase
-      .from('articles')
-      .select('tenant_id, slug, updated_at')
-      .eq('status', 'published')
-      .order('updated_at', { ascending: false });
+      const [manifest, settings] = await Promise.all([
+        readPublishedJson<PublishedManifest>(`sites/${encodeURIComponent(slug)}/manifest.json`),
+        readPublishedJson<PublishedSettingsDocument>(`sites/${encodeURIComponent(slug)}/settings.json`),
+      ]);
 
-    // Get all published pages
-    const { data: sitePages } = await supabase
-      .from('site_pages')
-      .select('tenant_id, slug, updated_at, page_type')
-      .eq('is_published', true)
-      .order('updated_at', { ascending: false });
+      if (!manifest || !settings?.tenant) {
+        continue;
+      }
 
-    // Get categories
-    const { data: categories } = await supabase
-      .from('categories')
-      .select('tenant_id, slug, updated_at');
-
-    for (const tenant of tenants || []) {
+      const tenant = settings.tenant;
       pushEntry({
         url: buildTenantPublicUrl(tenant, '/'),
         lastModified: new Date(),
         changeFrequency: 'daily',
         priority: 1,
       });
-    }
 
-    for (const article of articles || []) {
-      const tenant = tenantMap.get(article.tenant_id);
-      if (!tenant) continue;
-      pushEntry({
-        url: buildTenantPublicUrl(tenant, `/articolo/${article.slug}`),
-        lastModified: article.updated_at || new Date(),
-        changeFrequency: 'weekly' as const,
-        priority: 0.8,
-      });
-    }
+      for (const articleSlug of Object.keys(manifest.articles || {})) {
+        pushEntry({
+          url: buildTenantPublicUrl(tenant, `/articolo/${articleSlug}`),
+          lastModified: manifest.generatedAt || new Date(),
+          changeFrequency: 'weekly',
+          priority: 0.8,
+        });
+      }
 
-    for (const page of sitePages || []) {
-      const tenant = tenantMap.get(page.tenant_id);
-      if (!tenant) continue;
-      const pagePath = page.page_type === 'homepage' || page.slug === '/' || page.slug === 'homepage'
-        ? '/'
-        : `/${String(page.slug || '').replace(/^\/+/, '')}`;
+      for (const pageSlug of Object.keys(manifest.pages || {})) {
+        pushEntry({
+          url: buildTenantPublicUrl(tenant, `/${String(pageSlug || '').replace(/^\/+/, '')}`),
+          lastModified: manifest.generatedAt || new Date(),
+          changeFrequency: 'weekly',
+          priority: 0.7,
+        });
+      }
 
-      pushEntry({
-        url: buildTenantPublicUrl(tenant, pagePath),
-        lastModified: page.updated_at || new Date(),
-        changeFrequency: page.page_type === 'homepage' ? 'daily' : 'weekly',
-        priority: page.page_type === 'homepage' ? 0.95 : 0.7,
-      });
-    }
-
-    for (const category of categories || []) {
-      const tenant = tenantMap.get(category.tenant_id);
-      if (!tenant) continue;
-      pushEntry({
-        url: buildTenantPublicUrl(tenant, `/categoria/${category.slug}`),
-        lastModified: category.updated_at || new Date(),
-        changeFrequency: 'weekly' as const,
-        priority: 0.6,
-      });
+      for (const categorySlug of Object.keys(manifest.categories || {})) {
+        pushEntry({
+          url: buildTenantPublicUrl(tenant, `/categoria/${categorySlug}`),
+          lastModified: manifest.generatedAt || new Date(),
+          changeFrequency: 'weekly',
+          priority: 0.6,
+        });
+      }
     }
 
     return entries;

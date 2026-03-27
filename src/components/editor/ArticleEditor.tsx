@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import { loadArticleCategoryIds, syncArticleCategoryAssignments } from "@/lib/articles/taxonomy";
+import { normalizeEditorialAutomationConfig, resolveEditorialAutomationRule } from "@/lib/editorial/automation";
+import type { PlacementDisplayMode } from "@/lib/editorial/placements";
 import { useFieldContextStore } from "@/lib/stores/field-context-store";
+import { requestPublishTrigger } from "@/lib/publish/client";
 import TiptapEditor from "./TiptapEditor";
 import AIPanel from "./AIPanel";
 import AIFieldHelper from "@/components/ai/AIFieldHelper";
@@ -43,12 +46,11 @@ interface AvailableSlot {
   id: string;
   slot_key: string;
   label: string;
+  placement_duration_hours: number | null;
 }
 
-interface LayoutSlotRow extends AvailableSlot {
-  layout_templates?: {
-    tenant_id: string;
-  } | null;
+interface SiteConfigThemeRow {
+  theme: Record<string, unknown> | null;
 }
 
 interface ArticleEditorProps {
@@ -80,6 +82,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   // Register field setters for AI to use
@@ -107,7 +110,10 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [siteTheme, setSiteTheme] = useState<Record<string, unknown> | null>(null);
   const [slotId, setSlotId] = useState("");
+  const [slotDisplayMode, setSlotDisplayMode] = useState<PlacementDisplayMode>("duplicate");
+  const [slotAssignmentExpiresAt, setSlotAssignmentExpiresAt] = useState<string | null>(null);
   const [slugManual, setSlugManual] = useState(false);
 
   // Load categories, tags, and available slots
@@ -136,13 +142,22 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
     // Load assignable slots (manual or mixed mode) for articles
     supabase
       .from("layout_slots")
-      .select("id, slot_key, label, layout_templates!inner(tenant_id)")
+      .select("id, slot_key, label, placement_duration_hours, layout_templates!inner(tenant_id)")
       .eq("layout_templates.tenant_id", currentTenant.id)
       .eq("content_type", "articles")
       .in("assignment_mode", ["manual", "mixed"])
       .order("slot_key")
       .then(({ data }) => {
-        if (data) setAvailableSlots(data as unknown as LayoutSlotRow[]);
+        if (data) setAvailableSlots(data as unknown as AvailableSlot[]);
+      });
+
+    supabase
+      .from("site_config")
+      .select("theme")
+      .eq("tenant_id", currentTenant.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setSiteTheme((data as SiteConfigThemeRow | null)?.theme || null);
       });
   }, [currentTenant]);
 
@@ -175,20 +190,26 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
         setMetaTitle(data.meta_title ?? "");
         setMetaDescription(data.meta_description ?? "");
         setScheduledAt(data.scheduled_at ?? "");
+        setPublishedAt(data.published_at ?? null);
         setSelectedTags(
           (data.article_tags as { tag_id: string }[]).map((t) => t.tag_id)
         );
         setSlugManual(true);
 
         // Load existing slot assignment
-        const { data: assignment } = await supabase
-          .from("slot_assignments")
-          .select("slot_id")
-          .eq("article_id", articleId!)
-          .order("pin_order", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (assignment) setSlotId(assignment.slot_id);
+        const assignmentResponse = await fetch(`/api/v1/assignments/articles/${articleId}`);
+        if (assignmentResponse.ok) {
+          const assignment = await assignmentResponse.json();
+          if (assignment?.slot_id) {
+            setSlotId(assignment.slot_id);
+            setSlotDisplayMode(assignment.display_mode === "exclusive" ? "exclusive" : "duplicate");
+            setSlotAssignmentExpiresAt(typeof assignment.expires_at === "string" ? assignment.expires_at : null);
+          } else {
+            setSlotId("");
+            setSlotDisplayMode("duplicate");
+            setSlotAssignmentExpiresAt(null);
+          }
+        }
       }
       setLoading(false);
     }
@@ -206,137 +227,175 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
 
       setSaving(true);
       const supabase = createClient();
-      const finalStatus = newStatus ?? status;
-
-      const articleData = {
-        tenant_id: currentTenant.id,
-        title: title.trim(),
-        subtitle: subtitle.trim() || null,
-        slug: slug || slugify(title, { lower: true, strict: true, locale: "it" }),
-        summary: summary.trim() || null,
-        body,
-        cover_image_url: coverImageUrl || null,
-        category_id: categoryId || null,
-        author_id: user.id,
-        status: finalStatus,
-        is_featured: isFeatured,
-        is_breaking: isBreaking,
-        is_premium: isPremium,
-        meta_title: metaTitle || null,
-        meta_description: metaDescription || null,
-        og_image_url: coverImageUrl || null,
-        published_at:
-          finalStatus === "published" ? new Date().toISOString() : null,
-        scheduled_at: scheduledAt || null,
-      };
-
-      let savedId = articleId;
-
-      if (isNew) {
-        const { data, error } = await supabase
-          .from("articles")
-          .insert(articleData)
-          .select("id")
-          .single();
-
-        if (error) {
-          toast.error("Errore nel salvataggio: " + error.message);
-          setSaving(false);
-          return;
-        }
-        savedId = data.id;
-      } else {
-        const { error } = await supabase
-          .from("articles")
-          .update(articleData)
-          .eq("id", articleId);
-
-        if (error) {
-          toast.error("Errore nel salvataggio: " + error.message);
-          setSaving(false);
-          return;
-        }
-
-        // Save revision
-        await supabase.from("article_revisions").insert({
-          article_id: articleId,
-          title,
+      const currentStatus = status;
+      const finalStatus = newStatus ?? currentStatus;
+      const nextPublishedAt =
+        finalStatus === "published"
+          ? currentStatus === "published"
+            ? publishedAt || new Date().toISOString()
+            : new Date().toISOString()
+          : null;
+      const nextScheduledAt = finalStatus === "published" ? null : scheduledAt || null;
+      try {
+        const articleData = {
+          tenant_id: currentTenant.id,
+          title: title.trim(),
+          subtitle: subtitle.trim() || null,
+          slug: slug || slugify(title, { lower: true, strict: true, locale: "it" }),
+          summary: summary.trim() || null,
           body,
-          changed_by: user.id,
-        });
-      }
+          cover_image_url: coverImageUrl || null,
+          category_id: categoryId || null,
+          author_id: user.id,
+          status: finalStatus,
+          is_featured: isFeatured,
+          is_breaking: isBreaking,
+          is_premium: isPremium,
+          meta_title: metaTitle || null,
+          meta_description: metaDescription || null,
+          og_image_url: coverImageUrl || null,
+          published_at: nextPublishedAt,
+          scheduled_at: nextScheduledAt,
+        };
 
-      // Update tags
-      if (savedId) {
-        const normalizedCategoryIds = [...new Set([categoryId, ...selectedCategoryIds].filter(Boolean))];
+        let savedId = articleId;
 
-        try {
-          await syncArticleCategoryAssignments(supabase, savedId, normalizedCategoryIds);
-        } catch (categoryError) {
-          console.warn("Article categories sync failed:", categoryError);
-        }
+        if (isNew) {
+          const { data, error } = await supabase
+            .from("articles")
+            .insert(articleData)
+            .select("id")
+            .single();
 
-        await supabase
-          .from("article_tags")
-          .delete()
-          .eq("article_id", savedId);
+          if (error) {
+            toast.error("Errore nel salvataggio: " + error.message);
+            return;
+          }
+          savedId = data.id;
+        } else {
+          const { error } = await supabase
+            .from("articles")
+            .update(articleData)
+            .eq("id", articleId);
 
-        if (selectedTags.length > 0) {
-          await supabase.from("article_tags").insert(
-            selectedTags.map((tagId) => ({
-              article_id: savedId!,
-              tag_id: tagId,
-            }))
-          );
-        }
+          if (error) {
+            toast.error("Errore nel salvataggio: " + error.message);
+            return;
+          }
 
-        // Update slot assignment
-        await supabase
-          .from("slot_assignments")
-          .delete()
-          .eq("article_id", savedId);
-
-        if (slotId) {
-          // Get max pin_order for this slot
-          const { data: maxRow } = await supabase
-            .from("slot_assignments")
-            .select("pin_order", { count: "exact" })
-            .eq("slot_id", slotId)
-            .order("pin_order", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          const nextOrder = (maxRow?.pin_order ?? -1) + 1;
-
-          await supabase.from("slot_assignments").insert({
-            slot_id: slotId,
-            article_id: savedId,
-            tenant_id: currentTenant.id,
-            assigned_by: user.id,
-            pin_order: nextOrder,
+          // Save revision
+          await supabase.from("article_revisions").insert({
+            article_id: articleId,
+            title,
+            body,
+            changed_by: user.id,
           });
         }
-      }
 
-      setSaving(false);
-      toast.success(
-        isNew ? "Articolo creato!" : "Articolo aggiornato!"
-      );
+        // Update tags
+        if (savedId) {
+          const normalizedCategoryIds = [...new Set([categoryId, ...selectedCategoryIds].filter(Boolean))];
 
-      if (isNew && savedId) {
-        router.push(`/dashboard/articoli/${savedId}`);
+          try {
+            await syncArticleCategoryAssignments(supabase, savedId, normalizedCategoryIds);
+          } catch (categoryError) {
+            console.warn("Article categories sync failed:", categoryError);
+          }
+
+          await supabase
+            .from("article_tags")
+            .delete()
+            .eq("article_id", savedId);
+
+          if (selectedTags.length > 0) {
+            await supabase.from("article_tags").insert(
+              selectedTags.map((tagId) => ({
+                article_id: savedId!,
+                tag_id: tagId,
+              }))
+            );
+          }
+
+          // Update editorial placement via API so expiry rules stay centralized
+          const placementResponse = await fetch(`/api/v1/assignments/articles/${savedId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              slot_id: slotId || null,
+              display_mode: slotDisplayMode,
+              category_ids: normalizedCategoryIds,
+              tag_ids: selectedTags,
+            }),
+          });
+
+          if (!placementResponse.ok) {
+            const placementPayload = await placementResponse.json().catch(() => null);
+            throw new Error(placementPayload?.error || "Errore aggiornamento placement editoriale");
+          }
+
+          const placementPayload = await placementResponse.json().catch(() => null);
+          const resolvedSlotId =
+            typeof placementPayload?.resolved_slot_id === "string" ? placementPayload.resolved_slot_id : slotId || "";
+          const resolvedDisplayMode =
+            placementPayload?.resolved_display_mode === "exclusive" ? "exclusive" : slotDisplayMode;
+          setSlotId(resolvedSlotId);
+          setSlotDisplayMode(resolvedDisplayMode);
+          setSlotAssignmentExpiresAt(
+            typeof placementPayload?.expires_at === "string" ? placementPayload.expires_at : null
+          );
+          if (!resolvedSlotId) {
+            setSlotAssignmentExpiresAt(null);
+          }
+
+          try {
+            await requestPublishTrigger(currentTenant.id, [
+              { type: "article", articleId: savedId },
+              { type: "homepage" },
+              ...normalizedCategoryIds.map((id) => ({ type: "category" as const, categoryId: id })),
+            ]);
+          } catch (publishError) {
+            const publishMessage = publishError instanceof Error ? publishError.message : "Publish non aggiornato";
+            toast.error(`Articolo salvato, ma il publish non e' stato aggiornato: ${publishMessage}`);
+          }
+        }
+
+        setStatus(finalStatus);
+        setPublishedAt(nextPublishedAt);
+        setScheduledAt(nextScheduledAt || "");
+        toast.success(
+          isNew ? "Articolo creato!" : "Articolo aggiornato!"
+        );
+
+        if (isNew && savedId) {
+          router.push(`/dashboard/articoli/${savedId}`);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Errore imprevisto durante il salvataggio";
+        toast.error(message);
+      } finally {
+        setSaving(false);
       }
     },
     [
       currentTenant, user, title, subtitle, slug, summary, body,
       coverImageUrl, categoryId, status, isFeatured, isBreaking,
-      isPremium, metaTitle, metaDescription, scheduledAt,
-      selectedCategoryIds, selectedTags, slotId, articleId, isNew, router,
+      isPremium, metaTitle, metaDescription, scheduledAt, publishedAt,
+      selectedCategoryIds, selectedTags, slotId, slotDisplayMode, articleId, isNew, router,
     ]
   );
 
   const canApprove = currentRole === "super_admin" || currentRole === "chief_editor";
   const canPublish = canApprove;
+  const saveCurrentLabel =
+    status === "draft"
+      ? "Salva bozza"
+      : status === "in_review"
+        ? "Salva revisione"
+        : status === "approved"
+          ? "Salva approvazione"
+          : status === "published"
+            ? "Salva articolo"
+            : "Salva archivio";
 
   const handlePrimaryCategoryChange = (nextCategoryId: string) => {
     setCategoryId(nextCategoryId);
@@ -372,6 +431,30 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
     });
   };
 
+  const selectedPlacementSlot = availableSlots.find((slot) => slot.id === slotId) || null;
+  const editorialAutomation = normalizeEditorialAutomationConfig(
+    ((siteTheme as Record<string, unknown> | null)?.editorialAutomation || null)
+  );
+  const pendingAutomaticPlacementRule =
+    [...new Set([categoryId, ...selectedCategoryIds].filter(Boolean))].some((selectedCategoryId) => {
+      const rule = editorialAutomation.categoryRules?.[selectedCategoryId];
+      return Boolean(rule && rule.spotlightTagIds.some((tagId) => selectedTags.includes(tagId)) && !rule.homepageSlotId);
+    });
+  const automaticPlacementRule = resolveEditorialAutomationRule({
+    categoryIds: [...new Set([categoryId, ...selectedCategoryIds].filter(Boolean))],
+    tagIds: selectedTags,
+    config: editorialAutomation,
+  });
+  const automaticPlacementSlot =
+    automaticPlacementRule?.homepageSlotId
+      ? availableSlots.find((slot) => slot.id === automaticPlacementRule.homepageSlotId) || null
+      : null;
+  const placementPreviewExpiresAt =
+    slotAssignmentExpiresAt ||
+    (slotId && selectedPlacementSlot?.placement_duration_hours
+      ? new Date(Date.now() + selectedPlacementSlot.placement_duration_hours * 60 * 60 * 1000).toISOString()
+      : null);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -398,7 +481,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
         <div className="flex items-center gap-2">
           {/* Save Draft */}
           <button
-            onClick={() => handleSave("draft")}
+            onClick={() => handleSave()}
             disabled={saving}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50"
             style={{ border: "1px solid var(--c-border)" }}
@@ -410,7 +493,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             ) : (
               <Save className="w-4 h-4" />
             )}
-            Salva bozza
+            {saveCurrentLabel}
           </button>
 
           {/* Send for review */}
@@ -704,23 +787,70 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           {/* Slot Assignment */}
           {availableSlots.length > 0 && (
             <div className="rounded-lg p-4 group" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-              <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>Sezione (slot fisso)</h3>
-              <p className="text-xs mb-3" style={{ color: "var(--c-text-3)" }}>Assegna questo articolo a una sezione specifica della homepage.</p>
+              <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>Placement editoriale</h3>
+              <p className="text-xs mb-3" style={{ color: "var(--c-text-3)" }}>
+                Usa slot come “Primo piano” o “Evidenza” con regole centralizzate. La durata si prende dallo slot, non dal singolo articolo.
+              </p>
               <select
                 value={slotId}
-                onChange={(e) => setSlotId(e.target.value)}
+                onChange={(e) => {
+                  setSlotId(e.target.value);
+                  setSlotAssignmentExpiresAt(null);
+                  if (!e.target.value) {
+                    setSlotDisplayMode("duplicate");
+                  }
+                }}
                 className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
                 style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}
               >
-                <option value="">Nessuna sezione</option>
+                <option value="">Nessun placement</option>
                 {availableSlots.map((slot) => (
                   <option key={slot.id} value={slot.id}>{slot.label}</option>
                 ))}
               </select>
               {slotId && (
-                <p className="text-[11px] mt-2" style={{ color: "var(--c-accent)" }}>
-                  ✓ Questo articolo apparirà in cima allo slot.
-                </p>
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Comportamento durante il placement</label>
+                    <select
+                      value={slotDisplayMode}
+                      onChange={(e) => setSlotDisplayMode(e.target.value as PlacementDisplayMode)}
+                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                      style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}
+                    >
+                      <option value="duplicate">Duplica: resta anche nelle categorie</option>
+                      <option value="exclusive">Solo placement: finché attivo sparisce dalle categorie</option>
+                    </select>
+                  </div>
+
+                  <div className="rounded-lg px-3 py-2 text-[11px]" style={{ background: "var(--c-bg-2)", color: "var(--c-text-2)" }}>
+                    <p>
+                      {selectedPlacementSlot?.placement_duration_hours
+                        ? `Rotazione automatica: ${selectedPlacementSlot.placement_duration_hours} ore.`
+                        : "Questo placement non ha scadenza automatica."}
+                    </p>
+                    <p className="mt-1">
+                      {slotDisplayMode === "exclusive"
+                        ? "Modalita esclusiva: il pezzo resta solo nel placement finché è attivo, poi torna visibile nelle categorie già assegnate."
+                        : "Modalita duplicata: il pezzo appare sia nel placement sia nelle categorie già assegnate."}
+                    </p>
+                    {placementPreviewExpiresAt && (
+                      <p className="mt-1" style={{ color: "var(--c-accent)" }}>
+                        Scadenza prevista: {new Date(placementPreviewExpiresAt).toLocaleString("it-IT")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {!slotId && automaticPlacementSlot && (
+                <div className="mt-3 rounded-lg px-3 py-2 text-[11px]" style={{ background: "var(--c-bg-2)", color: "var(--c-text-2)" }}>
+                  <p>
+                    Regola automatica attiva: con i tag selezionati questo articolo andra` in <strong>{automaticPlacementSlot.label}</strong>.
+                  </p>
+                  <p className="mt-1">
+                    Modalita`: {automaticPlacementRule?.displayMode === "exclusive" ? "solo placement temporaneo" : "duplica tra homepage e categoria"}.
+                  </p>
+                </div>
               )}
             </div>
           )}
@@ -764,6 +894,16 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                 <option key={tag.id} value={tag.id}>{tag.name}</option>
               ))}
             </select>
+            {automaticPlacementSlot && (
+              <p className="text-[11px] mt-2" style={{ color: "var(--c-accent)" }}>
+                Il tag selezionato attivera` l’invio automatico in homepage nello slot “{automaticPlacementSlot.label}”.
+              </p>
+            )}
+            {!automaticPlacementSlot && pendingAutomaticPlacementRule && (
+              <p className="text-[11px] mt-2" style={{ color: "var(--c-text-3)" }}>
+                Esiste una regola editoriale per questi tag, ma non ha ancora uno slot homepage collegato. La logica e` pronta e diventera` operativa quando assegnerai lo slot dal CMS.
+              </p>
+            )}
           </div>
 
           {/* Flags */}

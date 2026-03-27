@@ -612,7 +612,7 @@ export default function PaginePage() {
                 <div className="flex items-center gap-2 ml-4">
                   {/* Edit Button */}
                   <Link
-                    href={`/dashboard/editor?page=${page.id}`}
+                    href={`/dashboard/desktop-bridge?page=${page.id}`}
                     className="p-2 rounded-lg transition"
                     style={{
                       color: 'var(--c-accent)',
@@ -620,7 +620,7 @@ export default function PaginePage() {
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    title="Modifica pagina"
+                    title="Apri bridge desktop"
                   >
                     <Edit className="w-4 h-4" />
                   </Link>
@@ -678,7 +678,7 @@ export default function PaginePage() {
 
                   {/* Layout Button */}
                   <Link
-                    href={`/dashboard/layout?page=${page.id}`}
+                    href={`/dashboard/desktop-bridge?page=${page.id}`}
                     className="p-2 rounded-lg transition"
                     style={{
                       color: 'var(--c-text-2)',
@@ -686,7 +686,7 @@ export default function PaginePage() {
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    title="Vai a Layout"
+                    title="Apri bridge desktop"
                   >
                     <LayoutTemplate className="w-4 h-4" />
                   </Link>

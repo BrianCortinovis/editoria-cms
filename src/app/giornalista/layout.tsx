@@ -1,12 +1,15 @@
-import AuthProvider from '@/components/layout/AuthProvider';
+import AuthProvider from "@/components/layout/AuthProvider";
+import { getInitialAuthPayload } from "@/lib/auth-bootstrap";
 
-export default function JournalistAppLayout({
+export default async function JournalistAppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const initialAuth = await getInitialAuthPayload();
+
   return (
-    <AuthProvider>
+    <AuthProvider initialAuth={initialAuth}>
       <div className="min-h-screen w-full" style={{ background: 'var(--c-bg-0)' }}>
         {children}
       </div>

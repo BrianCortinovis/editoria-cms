@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { writeActivityLog, writePageAuditLog } from "@/lib/security/audit";
+import { triggerPublish, type PublishTask } from "@/lib/publish/runner";
 
 const PAGE_EDITOR_ROLES = new Set(["super_admin", "chief_editor", "editor"]);
 
@@ -135,6 +136,11 @@ export async function PUT(
     }),
   ]);
 
+  const nextTasks: PublishTask[] = data.is_published
+    ? [{ type: "page", pageId }]
+    : [{ type: "full_rebuild" }];
+  await triggerPublish(page.tenant_id, nextTasks, user.id);
+
   return NextResponse.json({ page: data });
 }
 
@@ -205,6 +211,8 @@ export async function DELETE(
       changes: {},
     }),
   ]);
+
+  await triggerPublish(page.tenant_id, [{ type: "full_rebuild" }], user.id);
 
   return NextResponse.json({ success: true });
 }

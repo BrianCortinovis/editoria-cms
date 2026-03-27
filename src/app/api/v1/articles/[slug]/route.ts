@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { enrichArticlesWithCategories } from "@/lib/articles/taxonomy";
+import { readPublishedJson } from "@/lib/publish/storage";
+import type { PublishedManifest, PublishedArticleDocument } from "@/lib/publish/types";
 
 export async function GET(
   request: Request,
@@ -12,6 +14,20 @@ export async function GET(
 
   if (!tenantSlug) {
     return NextResponse.json({ error: "tenant parameter required" }, { status: 400 });
+  }
+
+  const manifest = await readPublishedJson<PublishedManifest>(`sites/${encodeURIComponent(tenantSlug)}/manifest.json`);
+  const articlePath = manifest?.articles?.[slug];
+  if (articlePath) {
+    const articleDocument = await readPublishedJson<PublishedArticleDocument>(articlePath);
+    if (articleDocument?.article) {
+      return NextResponse.json({ article: articleDocument.article }, {
+        headers: {
+          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
   }
 
   const supabase = await createServiceRoleClient();

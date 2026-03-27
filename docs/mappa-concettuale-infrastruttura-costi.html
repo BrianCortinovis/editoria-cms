@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mappa Concettuale Infrastruttura e Costi CMS Editoriale</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1d1b18;
+      --muted: #6a6258;
+      --line: #d8cfc2;
+      --accent: #8a1c1c;
+      --accent-soft: #f7e6e1;
+      --blue: #123b5d;
+      --blue-soft: #e7f0f7;
+      --green: #1f5d43;
+      --green-soft: #e7f5ee;
+      --gold: #876300;
+      --gold-soft: #f8f1da;
+      --shadow: 0 18px 50px rgba(29, 27, 24, 0.08);
+      --radius: 22px;
+      --gap: 22px;
+      --font-heading: "Georgia", "Times New Roman", serif;
+      --font-body: "Inter", "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--font-body);
+      background:
+        radial-gradient(circle at top left, rgba(138, 28, 28, 0.06), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(18, 59, 93, 0.06), transparent 24%),
+        var(--bg);
+      color: var(--ink);
+    }
+
+    .wrap {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 40px 26px 56px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(255, 253, 248, 0.98), rgba(250, 245, 238, 0.92));
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      box-shadow: var(--shadow);
+      padding: 34px 34px 28px;
+      margin-bottom: 26px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    h1 {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: clamp(2.1rem, 4vw, 3.6rem);
+      line-height: 0.96;
+      max-width: 980px;
+    }
+
+    .hero p {
+      max-width: 980px;
+      font-size: 1.04rem;
+      line-height: 1.7;
+      color: var(--muted);
+      margin: 18px 0 0;
+    }
+
+    .meta-grid,
+    .totals-grid,
+    .notes-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .meta-grid {
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      margin-top: 24px;
+    }
+
+    .meta-card,
+    .total-card,
+    .note-card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px 18px 16px;
+    }
+
+    .meta-card strong,
+    .total-card strong,
+    .node .title {
+      display: block;
+      font-size: 0.92rem;
+      margin-bottom: 6px;
+    }
+
+    .meta-card span,
+    .total-card span,
+    .note-card span {
+      display: block;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.95rem;
+    }
+
+    .section-title {
+      margin: 34px 0 14px;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .map-shell {
+      background: rgba(255, 253, 248, 0.9);
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      box-shadow: var(--shadow);
+      padding: 26px;
+      overflow: hidden;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 1.1fr 1.2fr 1.2fr 1.2fr;
+      gap: var(--gap);
+      align-items: start;
+      position: relative;
+    }
+
+    .column {
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+      position: relative;
+    }
+
+    .column-label {
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: -4px;
+      padding-left: 2px;
+    }
+
+    .node {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      position: relative;
+      min-height: 180px;
+      box-shadow: 0 10px 24px rgba(29, 27, 24, 0.05);
+    }
+
+    .node.core {
+      border-color: rgba(18, 59, 93, 0.18);
+      background: linear-gradient(180deg, #ffffff, #f9fcff);
+    }
+
+    .node.edge {
+      border-color: rgba(138, 28, 28, 0.18);
+      background: linear-gradient(180deg, #ffffff, #fffaf8);
+    }
+
+    .node.data {
+      border-color: rgba(31, 93, 67, 0.18);
+      background: linear-gradient(180deg, #ffffff, #f7fcf9);
+    }
+
+    .node.compare {
+      border-style: dashed;
+      background: linear-gradient(180deg, #fcfcfc, #f7f7f7);
+    }
+
+    .node .kicker {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .node h2 {
+      margin: 0 0 10px;
+      font-size: 1.35rem;
+      font-family: var(--font-heading);
+      line-height: 1.05;
+    }
+
+    .node p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 0.94rem;
+      line-height: 1.6;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .chip.red {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: rgba(138, 28, 28, 0.12);
+    }
+
+    .chip.blue {
+      background: var(--blue-soft);
+      color: var(--blue);
+      border-color: rgba(18, 59, 93, 0.12);
+    }
+
+    .chip.green {
+      background: var(--green-soft);
+      color: var(--green);
+      border-color: rgba(31, 93, 67, 0.12);
+    }
+
+    .chip.gold {
+      background: var(--gold-soft);
+      color: var(--gold);
+      border-color: rgba(135, 99, 0, 0.12);
+    }
+
+    .details {
+      display: grid;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    .detail {
+      display: grid;
+      grid-template-columns: 122px 1fr;
+      gap: 8px;
+      align-items: start;
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    .detail .label {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .detail .value {
+      color: var(--ink);
+    }
+
+    .node ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+
+    .node li + li {
+      margin-top: 4px;
+    }
+
+    .connector {
+      position: absolute;
+      top: 50%;
+      right: -14px;
+      width: 28px;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(216, 207, 194, 0.4), rgba(138, 28, 28, 0.45));
+    }
+
+    .connector::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: -4px;
+      width: 10px;
+      height: 10px;
+      border-top: 2px solid rgba(138, 28, 28, 0.55);
+      border-right: 2px solid rgba(138, 28, 28, 0.55);
+      transform: rotate(45deg);
+    }
+
+    .totals-grid {
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      margin-top: 18px;
+    }
+
+    .total-card {
+      border-radius: 20px;
+    }
+
+    .total-card h3 {
+      margin: 0 0 8px;
+      font-size: 1.15rem;
+      font-family: var(--font-heading);
+    }
+
+    .total-card .price {
+      font-size: 2rem;
+      font-family: var(--font-heading);
+      margin: 6px 0 8px;
+      color: var(--ink);
+    }
+
+    .total-card small {
+      color: var(--muted);
+      line-height: 1.5;
+      display: block;
+    }
+
+    .notes-grid {
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      margin-top: 18px;
+    }
+
+    .note-card h3 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      font-family: var(--font-heading);
+    }
+
+    .sources {
+      margin-top: 32px;
+      background: rgba(255, 253, 248, 0.88);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 22px 24px;
+    }
+
+    .sources h2 {
+      margin: 0 0 12px;
+      font-family: var(--font-heading);
+      font-size: 1.5rem;
+    }
+
+    .sources ul {
+      margin: 0;
+      padding-left: 20px;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .sources a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    .sources a:hover {
+      text-decoration: underline;
+    }
+
+    .cost-table-shell {
+      margin-top: 18px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 10px 24px rgba(29, 27, 24, 0.05);
+    }
+
+    .cost-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.93rem;
+    }
+
+    .cost-table th,
+    .cost-table td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    .cost-table th {
+      background: #f8f3eb;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+
+    .cost-table td strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .cost-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    @media (max-width: 1240px) {
+      .flow {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 780px) {
+      .wrap {
+        padding: 22px 14px 36px;
+      }
+
+      .hero,
+      .map-shell,
+      .sources {
+        padding: 18px;
+        border-radius: 22px;
+      }
+
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .connector {
+        display: none;
+      }
+
+      .detail {
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+
+      .cost-table-shell {
+        overflow-x: auto;
+      }
+
+      .cost-table {
+        min-width: 760px;
+      }
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+      }
+
+      .wrap {
+        max-width: none;
+        padding: 0;
+      }
+
+      .hero,
+      .map-shell,
+      .sources,
+      .cost-table-shell,
+      .meta-card,
+      .total-card,
+      .note-card {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <p class="eyebrow">Documento Per Discussione Tecnica</p>
+      <h1>Mappa concettuale infrastruttura + costi per CMS editoriale multi-tenant con traffico importante</h1>
+      <p>
+        Questa proposta e pensata per un giornale online con traffico rilevante e bisogno di costi prevedibili.
+        L'idea guida e: usare una <strong>VPS come motore dell'applicazione</strong>, mettere <strong>Cloudflare davanti</strong>
+        per cache e protezione, e tenere <strong>dati e media nel backend gestito</strong> per non legare i file al deploy.
+      </p>
+
+      <div class="meta-grid">
+        <div class="meta-card">
+          <strong>Stack consigliato</strong>
+          <span>Cloudflare + VPS self-hosted Next.js + Supabase Postgres + Supabase Storage</span>
+        </div>
+        <div class="meta-card">
+          <strong>Obiettivo</strong>
+          <span>Ridurre rischio di costi variabili stile Vercel e mantenere un'architettura semplice da spiegare e scalare.</span>
+        </div>
+        <div class="meta-card">
+          <strong>Scenario di riferimento</strong>
+          <span>Testata editoriale con CMS redazionale, homepage dinamica, banner ADV, immagini articoli, piu tenant.</span>
+        </div>
+        <div class="meta-card">
+          <strong>Valuta usata</strong>
+          <span>Prezzi ufficiali in EUR o USD secondo il provider. Totali indicativi anche in EUR per facilitare il preventivo.</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-title">Mappa Dei Nodi</div>
+    <section class="map-shell">
+      <div class="flow">
+        <div class="column">
+          <div class="column-label">Accesso e Utenti</div>
+
+          <article class="node edge">
+            <div class="kicker">Nodo 1</div>
+            <h2>Lettori e redazione</h2>
+            <p>
+              Entrano nel sistema da browser o mobile. I lettori colpiscono il sito pubblico; la redazione usa il CMS admin.
+            </p>
+            <div class="chips">
+              <span class="chip red">Traffico pubblico</span>
+              <span class="chip red">CMS redazione</span>
+            </div>
+            <div class="details">
+              <div class="detail">
+                <div class="label">Costo</div>
+                <div class="value">Nessun costo diretto come nodo infrastrutturale</div>
+              </div>
+              <div class="detail">
+                <div class="label">Rilevanza</div>
+                <div class="value">E il nodo che genera il carico: pagine, immagini, banner, richieste API.</div>
+              </div>
+            </div>
+            <div class="connector"></div>
+          </article>
+
+          <article class="node compare">
+            <div class="kicker">Nodo Comparativo</div>
+            <h2>Vercel come alternativa</h2>
+            <p>
+              Utile per rapidita e zero-ops, ma con traffico alto il costo puo crescere piu del previsto.
+              Da tenere come confronto economico, non come scelta prioritaria.
+            </p>
+            <div class="chips">
+              <span class="chip gold">Opzione da valutare</span>
+            </div>
+            <div class="details">
+              <div class="detail">
+                <div class="label">Costo base</div>
+                <div class="value">Pro con 1 TB Fast Data Transfer e 10M Edge Requests inclusi, poi extra a consumo.</div>
+              </div>
+              <div class="detail">
+                <div class="label">Extra ufficiali</div>
+                <div class="value">$0.15-$0.35 / GB oltre 1 TB e $2.00-$3.20 / 1M Edge Requests oltre 10M.</div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="column">
+          <div class="column-label">Edge e Distribuzione</div>
+
+          <article class="node edge">
+            <div class="kicker">Nodo 2</div>
+            <h2>Cloudflare</h2>
+            <p>
+              Gestisce DNS, SSL, cache delle pagine pubbliche, protezione base, WAF e alleggerimento del carico
+              sul server applicativo.
+            </p>
+            <div class="chips">
+              <span class="chip red">DNS</span>
+              <span class="chip red">CDN</span>
+              <span class="chip red">WAF</span>
+              <span class="chip red">Cache</span>
+            </div>
+            <div class="details">
+              <div class="detail">
+                <div class="label">Piano consigliato</div>
+                <div class="value">Pro se il sito e editoriale standard; Business solo se il sito e davvero business-critical.</div>
+              </div>
+              <div class="detail">
+                <div class="label">Costo base</div>
+                <div class="value">Pro: $25/mese se fatturato mensile, oppure $20/mese equivalenti se annuale. Business: $250/mese mensile o $200/mese equivalenti annuali.</div>
+              </div>
+              <div class="detail">
+                <div class="label">Perche serve</div>
+                <div class="value">Riduce traffico e richieste verso la VPS e rende molto piu sostenibile un sito con molte visite.</div>
+              </div>
+            </div>
+            <div class="connector"></div>
+          </article>
+
+          <article class="node edge">
+            <div class="kicker">Nodo 3</div>
+            <h2>Dominio</h2>
+            <p>
+              Il dominio puo stare su Cloudflare Registrar o altrove. Se si vuole centralizzare tutto, Cloudflare e una scelta lineare.
+            </p>
+            <div class="chips">
+              <span class="chip gold">Opzionale</span>
+            </div>
+            <div class="details">
+              <div class="detail">
+                <div class="label">Costo base</div>
+                <div class="value">Cloudflare Registrar parte da $7.85, ma dipende dal TLD e dal rinnovo.</div>
+              </div>
+              <div class="detail">
+                <div class="label">Nota</div>
+                <div class="value">Non e il costo principale del progetto; va considerato solo come voce opzionale del preventivo.</div>
+              </div>
+            </div>
+            <div class="connector"></div>
+          </article>
+        </div>
+
+        <div class="column">
+          <div class="column-label">Applicazione</div>
+
+          <article class="node core">
+            <div class="kicker">Nodo 4</div>
+            <h2>VPS con Next.js self-hosted</h2>
+            <p>
+              Qui gira il CMS admin, il sito pubblico, le API interne e la logica editoriale. E il cuore applicativo della piattaforma.
+            </p>
+            <div class="chips">
+              <span class="chip blue">Next.js</span>
+              <span class="chip blue">Nginx</span>
+              <span class="chip blue">Node</span>
+            </div>
+            <div class="details">
+              <div class="detail">
+                <div class="label">Provider esempio</div>
+                <div class="value">Hetzner Cloud, area EU. Next.js supporta ufficialmente il self-hosting e raccomanda un reverse proxy davanti al server.</div>
+              </div>
+              <div class="detail">
+                <div class="label">Piano minimo</div>
+                <div class="value">CPX32: €13.99/mese, adatto a staging o setup molto leggero.</div>
+              </div>
+              <div class="detail">
+                <div class="label">Piano consigliato</div>
+                <div class="value">CPX42: €25.49/mese, piu adatto come base di produzione per una testata con homepage dinamica e CMS.</div>
+              </div>
+              <div class="detail">
+                <div class="label">Upgrade futuro</div>
+                <div class="value">Aggiunta di Load Balancer Hetzner da €7.49/mese o seconda VPS se serve ridondanza o separazione ruoli.</div>
+              </div>
+            </div>
+            <div class="connector"></div>
+          </article>
+
+          <article class="node core">
+            <div class="kicker">Nodo 5</div>
+            <h2>Policy file e media</h2>
+            <p>
+              Tutti i file modificati dal CMS non devono stare nel deploy della VPS: loghi tenant, banner, immagini articoli e media redazionali vanno fuori dal codice.
+            </p>
+            <ul>
+              <li>Nel repository: solo codice, asset tecnici globali, favicon tecniche del progetto.</li>
+              <li>Nel backend media: loghi testata, banner clienti, immagini articoli, allegati.</li>
+              <li>Obiettivo: nessun redeploy per cambiare un logo o un banner.</li>
+            </ul>
+            <div class="connector"></div>
+          </article>
+        </div>
+
+        <div class="column">
+          <div class="column-label">Dati e Contenuti</div>
+
+          <article class="node data">
+            <div class="kicker">Nodo 6</div>
+            <h2>Supabase Postgres + Auth</h2>
+            <p>
+              Database principale del CMS: articoli, categorie, layout, utenti, banner, tenant, assegnazioni editoriali, stati e metadati.
+            </p>
+            <div class="chips">
+              <span class="chip green">Database</span>
+              <span class="chip green">Auth</span>
+              <span class="chip green">API</span>
+            </div>
+            <div class="details">
+              <div class="detail">
+                <div class="label">Costo base</div>
+                <div class="value">Pro Plan: $25/mese per organizzazione.</div>
+              </div>
+              <div class="detail">
+                <div class="label">Quota inclusa</div>
+                <div class="value">100.000 MAU, 8 GB disco per progetto, 250 GB egress, 100 GB storage a livello organizzazione, 2M edge functions.</div>
+              </div>
+              <div class="detail">
+                <div class="label">Variabili ufficiali</div>
+                <div class="value">$0.125/GB extra database, $0.00325 per MAU oltre soglia, egress extra a consumo.</div>
+              </div>
+              <div class="detail">
+                <div class="label">Nota pratica</div>
+                <div class="value">Con una sola organizzazione e un solo progetto si parte semplice; piu progetti aumentano i costi compute.</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="node data">
+            <div class="kicker">Nodo 7</div>
+            <h2>Supabase Storage</h2>
+            <p>
+              Repository media del CMS. Qui conviene caricare tutto cio che puo cambiare senza deploy: immagini, loghi, banner, gallerie.
+            </p>
+            <div class="chips">
+              <span class="chip green">Media</span>
+              <span class="chip green">Immagini</span>
+              <span class="chip green">Banner</span>
+            </div>
+            <div class="details">
+              <div class="detail">
+                <div class="label">Costo base</div>
+                <div class="value">Incluso nel piano Pro fino a 100 GB totali di storage.</div>
+              </div>
+              <div class="detail">
+                <div class="label">Storage extra</div>
+                <div class="value">$0.021 per GB/mese oltre la quota inclusa.</div>
+              </div>
+              <div class="detail">
+                <div class="label">Egress extra</div>
+                <div class="value">$0.09/GB uncached e $0.03/GB cached oltre le quote incluse.</div>
+              </div>
+              <div class="detail">
+                <div class="label">Regola consigliata</div>
+                <div class="value">Tutto cio che viene caricato o cambiato dalla redazione deve vivere qui, non sulla VPS e non nel repo.</div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-title">Preventivo Indicativo</div>
+    <section class="totals-grid">
+      <article class="total-card">
+        <strong>Scenario Base</strong>
+        <h3>Stack essenziale</h3>
+        <div class="price">circa €60/mese</div>
+        <span>Cloudflare Pro + Hetzner CPX32 + Supabase Pro</span>
+        <small>
+          Buono per partire, staging o produzione molto attenta ai costi. Meno margine operativo rispetto allo scenario consigliato.
+        </small>
+      </article>
+
+      <article class="total-card">
+        <strong>Scenario Consigliato</strong>
+        <h3>Produzione editoriale</h3>
+        <div class="price">circa €72/mese</div>
+        <span>Cloudflare Pro + Hetzner CPX42 + Supabase Pro</span>
+        <small>
+          E il compromesso migliore per un sito editoriale con CMS, homepage dinamica, banner e contenuti multimediali.
+        </small>
+      </article>
+
+      <article class="total-card">
+        <strong>Scenario Robusto</strong>
+        <h3>Più margine tecnico</h3>
+        <div class="price">circa €93/mese</div>
+        <span>Scenario consigliato + seconda VPS piccola o staging + componenti di appoggio</span>
+        <small>
+          Utile se il tecnico vuole separare staging, job, backup operativo o una minima ridondanza.
+        </small>
+      </article>
+
+      <article class="total-card">
+        <strong>Scenario Enterprise</strong>
+        <h3>Cloudflare Business</h3>
+        <div class="price">oltre €280/mese</div>
+        <span>Cloudflare Business + VPS + Supabase Pro</span>
+        <small>
+          Ha senso solo se il sito e davvero mission-critical, con esigenze forti di sicurezza e supporto. Non lo darei come default.
+        </small>
+      </article>
+    </section>
+
+    <div class="section-title">Dettaglio Costi Per Nodo</div>
+    <section class="cost-table-shell">
+      <table class="cost-table">
+        <thead>
+          <tr>
+            <th>Nodo</th>
+            <th>Servizio</th>
+            <th>Funzione</th>
+            <th>Costo indicativo</th>
+            <th>Variabili e note</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Nodo 1</strong>Lettori / Redazione</td>
+            <td>Nessun provider</td>
+            <td>Origine del traffico e del carico editoriale.</td>
+            <td>Nessun costo diretto</td>
+            <td>Da qui dipendono richieste, pagine viste, immagini servite e pressione sul CMS.</td>
+          </tr>
+          <tr>
+            <td><strong>Nodo 2</strong>Cloudflare</td>
+            <td>DNS, CDN, SSL, WAF, cache</td>
+            <td>Protegge il sito, distribuisce i contenuti e riduce il carico sulla VPS.</td>
+            <td>$25/mese Pro oppure $250/mese Business</td>
+            <td>Per una testata standard io metterei Pro come base. Business solo se il tecnico lo ritiene davvero necessario.</td>
+          </tr>
+          <tr>
+            <td><strong>Nodo 3</strong>Dominio</td>
+            <td>Cloudflare Registrar o altro registrar</td>
+            <td>Gestione del dominio principale del giornale e di eventuali domini tenant.</td>
+            <td>Costo variabile secondo TLD</td>
+            <td>Cloudflare lavora a prezzo di costo del registro. La voce va confermata in base a `.it`, `.com`, `.news`, `.media` e rinnovi.</td>
+          </tr>
+          <tr>
+            <td><strong>Nodo 4</strong>VPS applicativa</td>
+            <td>Hetzner Cloud CPX32 / CPX42</td>
+            <td>Ospita Next.js, CMS admin, API e rendering del sito pubblico.</td>
+            <td>CPX32: EUR 13.99/mese, CPX42: EUR 25.49/mese</td>
+            <td>CPX42 e la base che consiglierei per produzione. Se serve alta affidabilita si puo aggiungere una seconda VPS o load balancer.</td>
+          </tr>
+          <tr>
+            <td><strong>Nodo 5</strong>Policy media</td>
+            <td>Scelta architetturale</td>
+            <td>Separa i file redazionali dal deploy applicativo.</td>
+            <td>Nessun costo diretto come nodo a se</td>
+            <td>Riduce rischi operativi: niente redeploy per cambiare logo, banner o immagine articolo.</td>
+          </tr>
+          <tr>
+            <td><strong>Nodo 6</strong>Supabase Pro</td>
+            <td>Postgres, Auth, API, Edge Functions</td>
+            <td>Memorizza articoli, categorie, layout, banner, utenti, tenant e logica dati del CMS.</td>
+            <td>$25/mese</td>
+            <td>Include 100k MAU, 8 GB disco per progetto, 250 GB egress, 100 GB storage organizzazione, 2M edge functions. Extra a consumo.</td>
+          </tr>
+          <tr>
+            <td><strong>Nodo 7</strong>Supabase Storage</td>
+            <td>Media del CMS</td>
+            <td>Conserva immagini articoli, loghi, banner clienti e file caricati dalla redazione.</td>
+            <td>Incluso fino a 100 GB, poi $0.021/GB/mese</td>
+            <td>Oltre quota: egress uncached $0.09/GB e cached $0.03/GB. Cloudflare davanti aiuta a ridurre il costo reale.</td>
+          </tr>
+          <tr>
+            <td><strong>Confronto</strong>Vercel</td>
+            <td>Hosting gestito alternativo</td>
+            <td>Opzione semplice ma meno prevedibile con traffico alto.</td>
+            <td>Pro con 1 TB transfer e 10M edge requests inclusi</td>
+            <td>Oltre soglia: $0.15-$0.35/GB e $2.00-$3.20 per 1M Edge Requests. Per 100k visite/giorno puo diventare meno conveniente di VPS + Cloudflare.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div class="section-title">Note Da Discutere Col Tecnico</div>
+    <section class="notes-grid">
+      <article class="note-card">
+        <h3>1. Cosa deve stare sulla VPS</h3>
+        <span>
+          Solo applicazione Next.js, Nginx, process manager o container, logica di rendering e API del CMS. Niente media editoriali persistenti sul filesystem locale.
+        </span>
+      </article>
+
+      <article class="note-card">
+        <h3>2. Cosa deve stare in storage</h3>
+        <span>
+          Logo testata, banner clienti, immagini articoli, immagini pagine, file di upload redazionale. Tutto cio che puo cambiare senza deploy.
+        </span>
+      </article>
+
+      <article class="note-card">
+        <h3>3. Punto critico sui costi</h3>
+        <span>
+          Le voci piu variabili non sono la VPS ma egress e storage. Cloudflare davanti al sito aiuta a ridurre i costi variabili e a rendere il traffico piu prevedibile.
+        </span>
+      </article>
+
+      <article class="note-card">
+        <h3>4. Scelta operativa consigliata</h3>
+        <span>
+          Partire con scenario consigliato. Se il traffico cresce o il tecnico vuole piu margine, aggiungere una seconda VPS o un bilanciatore senza cambiare il modello generale.
+        </span>
+      </article>
+    </section>
+
+    <section class="sources">
+      <h2>Fonti Ufficiali Usate</h2>
+      <ul>
+        <li>Cloudflare plans / pricing: <a href="https://www.cloudflare.com/plans/">cloudflare.com/plans/</a></li>
+        <li>Cloudflare Registrar: <a href="https://www.cloudflare.com/products/registrar/">cloudflare.com/products/registrar/</a></li>
+        <li>Supabase billing overview: <a href="https://supabase.com/docs/guides/platform/billing-on-supabase">supabase.com/docs/guides/platform/billing-on-supabase</a></li>
+        <li>Supabase storage pricing: <a href="https://supabase.com/docs/guides/storage/pricing">supabase.com/docs/guides/storage/pricing</a></li>
+        <li>Supabase egress pricing: <a href="https://supabase.com/docs/guides/platform/manage-your-usage/egress">supabase.com/docs/guides/platform/manage-your-usage/egress</a></li>
+        <li>Hetzner price sheet / adjustment docs: <a href="https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/">docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/</a></li>
+        <li>Next.js self-hosting guide: <a href="https://nextjs.org/docs/app/guides/self-hosting">nextjs.org/docs/app/guides/self-hosting</a></li>
+        <li>Vercel regional pricing (comparison only): <a href="https://vercel.com/docs/pricing/regional-pricing">vercel.com/docs/pricing/regional-pricing</a></li>
+        <li>Vercel pricing overview (comparison only): <a href="https://vercel.com/pricing">vercel.com/pricing</a></li>
+      </ul>
+      <p style="margin: 16px 0 0; color: var(--muted); line-height: 1.6;">
+        Documento preparato il 26 marzo 2026. I costi sono indicativi e vanno confermati dal tecnico prima dell'acquisto,
+        soprattutto per overage, regioni, IVA, backup, domini e servizi accessori.
+      </p>
+    </section>
+  </main>
+</body>
+</html>

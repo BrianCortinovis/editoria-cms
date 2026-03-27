@@ -134,7 +134,7 @@ export default function AdvPage() {
     { href: "/dashboard/banner", label: "Gestisci banner", icon: Megaphone },
     { href: "/dashboard/inserzionisti", label: "Gestisci clienti", icon: Building2 },
     { href: "/dashboard/contabilita", label: "Performance e conti", icon: Receipt },
-    { href: "/dashboard/layout", label: "Slot e layout ADV", icon: CalendarClock },
+    { href: "/dashboard/layout/content", label: "Slot e regole ADV", icon: CalendarClock },
     { href: "/dashboard/ia", label: "Tool IA campagne", icon: Sparkles },
   ];
 

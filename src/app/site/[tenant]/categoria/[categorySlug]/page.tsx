@@ -1,8 +1,9 @@
 import { notFound, redirect } from 'next/navigation';
-import { resolveTenant } from '@/lib/site/tenant-resolver';
+import { getPublishedCategoryBySlug, resolveTenant } from '@/lib/site/tenant-resolver';
 import { buildTenantRedirectUrl, resolveRedirect } from '@/lib/site/redirects';
 import { SiteLayout } from '@/components/render/SiteLayout';
 import { enrichArticlesWithCategories, fetchArticleIdsForCategory } from '@/lib/articles/taxonomy';
+import { getActiveExclusivePlacementArticleIds } from '@/lib/editorial/placements';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { buildTenantPublicUrl } from '@/lib/site/public-url';
 
@@ -32,14 +33,76 @@ export default async function CategoryPage({ params }: Props) {
   if (!resolved) notFound();
 
   const { tenant, config } = resolved;
-  const supabase = await createServiceRoleClient();
+  const publishedCategory = await getPublishedCategoryBySlug(tenant.slug, categorySlug);
+  let category = publishedCategory?.category
+    ? {
+        id: publishedCategory.category.id,
+        name: publishedCategory.category.name,
+        slug: publishedCategory.category.slug,
+        description: publishedCategory.category.description,
+        color: publishedCategory.category.color,
+      }
+    : null;
+  let enrichedArticles:
+    | Array<CategoryPageArticleRecord & { all_categories?: Array<{ name: string; slug: string; color?: string | null }> }>
+    | null = publishedCategory?.articles
+      ? (publishedCategory.articles as Array<CategoryPageArticleRecord & { all_categories?: Array<{ name: string; slug: string; color?: string | null }> }>)
+      : null;
 
-  const { data: category } = await supabase
-    .from('categories')
-    .select('id, name, slug, description, color')
-    .eq('tenant_id', tenant.id)
-    .eq('slug', categorySlug)
-    .single();
+  if (!category) {
+    const supabase = await createServiceRoleClient();
+
+    const { data } = await supabase
+      .from('categories')
+      .select('id, name, slug, description, color')
+      .eq('tenant_id', tenant.id)
+      .eq('slug', categorySlug)
+      .single();
+
+    category = data;
+
+    if (category) {
+      const relatedArticleIds = await fetchArticleIdsForCategory(supabase as never, category.id);
+      const hiddenArticleIds = new Set(
+        await getActiveExclusivePlacementArticleIds(supabase as never, tenant.id)
+      );
+
+      const createArticleQuery = () =>
+        supabase
+          .from('articles')
+          .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, category_id, profiles!articles_author_id_fkey(full_name), categories:categories!articles_category_id_fkey(id, name, slug, color)')
+          .eq('tenant_id', tenant.id)
+          .eq('status', 'published')
+          .order('published_at', { ascending: false })
+          .limit(30);
+
+      let articles: CategoryPageArticleRecord[] | null = null;
+
+      if (relatedArticleIds && relatedArticleIds.length > 0) {
+        const visibleRelatedArticleIds = relatedArticleIds.filter((articleId) => !hiddenArticleIds.has(articleId));
+
+        if (visibleRelatedArticleIds.length > 0) {
+          const { data: rows } = await createArticleQuery().in('id', visibleRelatedArticleIds);
+          articles = (rows || []) as unknown as CategoryPageArticleRecord[];
+        } else {
+          articles = [];
+        }
+      } else {
+        const { data: rows } = await createArticleQuery().eq('category_id', category.id);
+        articles = ((rows || []) as unknown as CategoryPageArticleRecord[]).filter(
+          (article) => !hiddenArticleIds.has(article.id)
+        );
+      }
+
+      enrichedArticles = (await enrichArticlesWithCategories(
+        supabase as never,
+        tenant.id,
+        (articles || []) as unknown as CategoryPageArticleRecord[]
+      )) as Array<CategoryPageArticleRecord & {
+        all_categories?: Array<{ name: string; slug: string; color?: string | null }>;
+      }>;
+    }
+  }
 
   if (!category) {
     const matchedRedirect = await resolveRedirect(tenant.id, `/categoria/${categorySlug}`);
@@ -49,27 +112,9 @@ export default async function CategoryPage({ params }: Props) {
     notFound();
   }
 
-  const relatedArticleIds = await fetchArticleIdsForCategory(supabase as never, category.id);
-  let articleQuery = supabase
-    .from('articles')
-    .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, category_id, profiles!articles_author_id_fkey(full_name), categories:categories!articles_category_id_fkey(id, name, slug, color)')
-    .eq('tenant_id', tenant.id)
-    .eq('status', 'published')
-    .order('published_at', { ascending: false })
-    .limit(30);
-
-  if (relatedArticleIds && relatedArticleIds.length > 0) {
-    articleQuery = articleQuery.in('id', relatedArticleIds);
-  } else {
-    articleQuery = articleQuery.eq('category_id', category.id);
-  }
-
-  const { data: articles } = await articleQuery;
-  const enrichedArticles = await enrichArticlesWithCategories(
-    supabase as never,
-    tenant.id,
-    (articles || []) as unknown as CategoryPageArticleRecord[]
-  );
+  const articles = (enrichedArticles || []) as Array<CategoryPageArticleRecord & {
+    all_categories?: Array<{ name: string; slug: string; color?: string | null }>;
+  }>;
 
   return (
     <SiteLayout tenant={tenant} config={config}>
@@ -93,7 +138,7 @@ export default async function CategoryPage({ params }: Props) {
 
         {/* Articles grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
-          {enrichedArticles.map((article) => (
+          {articles.map((article) => (
             <a
               key={article.id}
               href={`/site/${tenantSlug}/articolo/${article.slug}`}
@@ -138,13 +183,24 @@ export async function generateMetadata({ params }: Props) {
   const resolved = await resolveTenant(tenantSlug);
   if (!resolved) return {};
 
-  const supabase = await createServiceRoleClient();
-  const { data: category } = await supabase
-    .from('categories')
-    .select('name, description')
-    .eq('tenant_id', resolved.tenant.id)
-    .eq('slug', categorySlug)
-    .single();
+  const publishedCategory = await getPublishedCategoryBySlug(resolved.tenant.slug, categorySlug);
+  let category = publishedCategory?.category
+    ? {
+        name: publishedCategory.category.name,
+        description: publishedCategory.category.description,
+      }
+    : null;
+
+  if (!category) {
+    const supabase = await createServiceRoleClient();
+    const { data } = await supabase
+      .from('categories')
+      .select('name, description')
+      .eq('tenant_id', resolved.tenant.id)
+      .eq('slug', categorySlug)
+      .single();
+    category = data;
+  }
 
   if (!category) return {};
   const canonical = buildTenantPublicUrl(resolved.tenant, `/categoria/${categorySlug}`);

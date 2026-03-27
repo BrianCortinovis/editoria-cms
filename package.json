@@ -7,7 +7,19 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed:local:test-users": "node scripts/create-local-test-users.mjs"
+    "cms:reset-content": "node scripts/reset-cms-content.mjs",
+    "seed:local:test-users": "node scripts/create-local-test-users.mjs",
+    "demo:seed-times-style": "node scripts/seed-times-style-demo.mjs valbrembana",
+    "demo:seed-valbrembana": "node scripts/seed-valbrembana-presentation.mjs valbrembana",
+    "demo:seed-newsroom": "node scripts/seed-valbrembana-newsroom.mjs valbrembana",
+    "demo:sync-output": "node scripts/sync-published-to-output.mjs valbrembana '/Users/briancortinovis/Desktop/Valbrembana Giornale /output/data/cms'",
+    "demo:publish": "npx --yes tsx scripts/trigger-publish.ts valbrembana",
+    "platform:backfill": "node scripts/backfill-platform-sites.mjs",
+    "superadmin:backfill": "node scripts/backfill-superadmin-infrastructure.mjs",
+    "superadmin:bootstrap-storage": "node scripts/bootstrap-site-storage-quotas.mjs",
+    "superadmin:bootstrap-publish": "node scripts/bootstrap-publish-control-plane.mjs",
+    "supabase:migrations:list": "supabase migration list",
+    "supabase:push": "supabase db push"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

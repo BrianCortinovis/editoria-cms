@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { fetchArticleIdsForCategory } from "@/lib/articles/taxonomy";
+import { getActiveExclusivePlacementArticleIds, isPlacementActive } from "@/lib/editorial/placements";
+import { readPublishedJson } from "@/lib/publish/storage";
+import type { PublishedLayoutDocument, PublishedManifest } from "@/lib/publish/types";
 
 interface LayoutSlotRow {
   id: string;
@@ -13,10 +16,12 @@ interface LayoutSlotRow {
   sort_order: "asc" | "desc";
   style_hint: string | null;
   assignment_mode: string | null;
+  placement_duration_hours: number | null;
   categories: { name: string; slug: string; color: string | null } | null;
 }
 
 interface PinnedArticleRow {
+  expires_at: string | null;
   articles: {
     id: string;
     title: string;
@@ -42,6 +47,29 @@ export async function GET(request: Request) {
 
   if (!tenantSlug) {
     return NextResponse.json({ error: "tenant parameter required" }, { status: 400 });
+  }
+
+  const manifest = await readPublishedJson<PublishedManifest>(`sites/${encodeURIComponent(tenantSlug)}/manifest.json`);
+  const publishedLayoutPath = manifest?.documents.layouts?.[pageType];
+  if (publishedLayoutPath) {
+    const publishedLayout = await readPublishedJson<PublishedLayoutDocument>(publishedLayoutPath);
+    if (publishedLayout?.template) {
+      return NextResponse.json(
+        {
+          template: {
+            name: publishedLayout.template.name,
+            page_type: publishedLayout.template.pageType,
+          },
+          slots: publishedLayout.slots,
+        },
+        {
+          headers: {
+            "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+    }
   }
 
   const supabase = await createServiceRoleClient();
@@ -84,15 +112,32 @@ export async function GET(request: Request) {
   }
 
   // Get slots with their content
-  const { data: slots } = await supabase
+  let slotsResponse: {
+    data: Array<Record<string, unknown>> | null;
+    error: { code?: string | null } | null;
+  } = await supabase
     .from("layout_slots")
-    .select("id, slot_key, label, content_type, category_id, max_items, sort_by, sort_order, style_hint, assignment_mode, categories(name, slug, color)")
+    .select("id, slot_key, label, content_type, category_id, max_items, sort_by, sort_order, style_hint, assignment_mode, placement_duration_hours, categories(name, slug, color)")
     .eq("template_id", template.id)
     .order("sort_index");
+
+  if (slotsResponse.error?.code === "42703") {
+    slotsResponse = await supabase
+      .from("layout_slots")
+      .select("id, slot_key, label, content_type, category_id, max_items, sort_by, sort_order, style_hint, assignment_mode, categories(name, slug, color)")
+      .eq("template_id", template.id)
+      .order("sort_index");
+  }
+
+  const { data: slots } = slotsResponse;
 
   if (!slots) {
     return NextResponse.json({ template, slots: [] });
   }
+
+  const exclusivePlacementArticleIds = new Set(
+    await getActiveExclusivePlacementArticleIds(supabase as never, tenant.id)
+  );
 
   // For each slot, fetch the actual content
   const slotsWithContent = await Promise.all(
@@ -105,14 +150,29 @@ export async function GET(request: Request) {
         // Step 1: Fetch pinned articles (for manual or mixed mode)
         let pinned: SlotArticle[] = [];
         if (mode === "manual" || mode === "mixed") {
-          const { data: pinnedData } = await supabase
+          let pinnedResponse: {
+            data: Array<Record<string, unknown>> | null;
+            error: { code?: string | null } | null;
+          } = await supabase
             .from("slot_assignments")
             .select(
-              "articles(id, title, subtitle, slug, summary, cover_image_url, is_featured, is_premium, reading_time_minutes, published_at, profiles!articles_author_id_fkey(full_name, avatar_url), categories:categories!articles_category_id_fkey(id, name, slug, color))"
+              "expires_at, articles(id, title, subtitle, slug, summary, cover_image_url, is_featured, is_premium, reading_time_minutes, published_at, profiles!articles_author_id_fkey(full_name, avatar_url), categories:categories!articles_category_id_fkey(id, name, slug, color))"
             )
             .eq("slot_id", slot.id)
             .order("pin_order");
-          pinned = (pinnedData as PinnedArticleRow[] | null)?.map((row) => row.articles).filter(Boolean) as SlotArticle[] ?? [];
+          if (pinnedResponse.error?.code === "42703") {
+            pinnedResponse = await supabase
+              .from("slot_assignments")
+              .select(
+                "articles(id, title, subtitle, slug, summary, cover_image_url, is_featured, is_premium, reading_time_minutes, published_at, profiles!articles_author_id_fkey(full_name, avatar_url), categories:categories!articles_category_id_fkey(id, name, slug, color))"
+              )
+              .eq("slot_id", slot.id)
+              .order("pin_order");
+          }
+          pinned = ((pinnedResponse.data as PinnedArticleRow[] | null) || [])
+            .filter((row) => isPlacementActive(row.expires_at))
+            .map((row) => row.articles)
+            .filter(Boolean) as SlotArticle[];
         }
 
         // Step 2: If mode is manual, stop here with pinned articles
@@ -153,7 +213,9 @@ export async function GET(request: Request) {
             }
 
             const { data } = await query;
-            auto = (data ?? []) as unknown as SlotArticle[];
+            auto = ((data ?? []) as unknown as SlotArticle[]).filter(
+              (article) => !exclusivePlacementArticleIds.has(article.id)
+            );
           }
 
           content = [...pinned, ...auto];

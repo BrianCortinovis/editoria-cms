@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
+const PAGE_ORDER_EDITOR_ROLES = new Set(['super_admin', 'chief_editor', 'editor']);
+
 /**
  * GET /api/pages/hierarchy?tenant_id=xxx&parent_id=xxx&sort=order|updated
  *
@@ -99,7 +101,47 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Batch update with transaction-like behavior
+    const pageIds = pages
+      .map((page) => (typeof page?.id === 'string' ? page.id : null))
+      .filter((pageId): pageId is string => Boolean(pageId));
+
+    if (pageIds.length !== pages.length) {
+      return NextResponse.json({ error: 'Invalid page ids' }, { status: 400 });
+    }
+
+    const { data: existingPages, error: existingPagesError } = await supabase
+      .from('site_pages')
+      .select('id, tenant_id')
+      .in('id', pageIds);
+
+    if (existingPagesError) {
+      throw existingPagesError;
+    }
+
+    if (!existingPages || existingPages.length !== pageIds.length) {
+      return NextResponse.json({ error: 'One or more pages were not found' }, { status: 404 });
+    }
+
+    const tenantIds = [...new Set(existingPages.map((page) => page.tenant_id))];
+    if (tenantIds.length !== 1) {
+      return NextResponse.json({ error: 'Pages must belong to the same tenant' }, { status: 400 });
+    }
+
+    const tenantId = tenantIds[0];
+
+    const { data: membership } = await supabase
+      .from('user_tenants')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (!membership || !PAGE_ORDER_EDITOR_ROLES.has(membership.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const pageIdSet = new Set(existingPages.map((page) => page.id));
+
     const updates = pages.map(p => ({
       id: p.id,
       sort_order: p.sort_order,
@@ -107,10 +149,15 @@ export async function PATCH(request: NextRequest) {
 
     // Update all pages
     for (const update of updates) {
+      if (!pageIdSet.has(update.id)) {
+        return NextResponse.json({ error: 'Invalid page update payload' }, { status: 400 });
+      }
+
       await supabase
         .from('site_pages')
         .update({ sort_order: update.sort_order })
-        .eq('id', update.id);
+        .eq('id', update.id)
+        .eq('tenant_id', tenantId);
     }
 
     return NextResponse.json({ success: true });

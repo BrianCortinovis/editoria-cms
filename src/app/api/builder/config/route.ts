@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { sanitizeCss, sanitizeHtml } from "@/lib/security/html";
 import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { writeActivityLog } from "@/lib/security/audit";
+import { triggerPublish } from "@/lib/publish/runner";
 
 const CONFIG_EDIT_ROLES = new Set(["super_admin", "chief_editor"]);
 
@@ -116,6 +117,8 @@ export async function PUT(request: Request) {
     entityType: "site_config",
     details: { updatedKeys: Object.keys(update) },
   });
+
+  await triggerPublish(tenant_id, [{ type: "full_rebuild" }], user.id);
 
   return NextResponse.json({ config: data });
 }
