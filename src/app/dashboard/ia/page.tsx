@@ -295,7 +295,15 @@ export default function IAPage() {
                     onChange={e => {
                       setSettings(prev => ({
                         ...prev,
-                        [`${provider.key}_api_key`]: e.target.value,
+                        [`${provider.key}_api_key`]: e.target.value.trim(),
+                      }));
+                    }}
+                    onPaste={e => {
+                      e.preventDefault();
+                      const pasted = e.clipboardData.getData('text').trim();
+                      setSettings(prev => ({
+                        ...prev,
+                        [`${provider.key}_api_key`]: pasted,
                       }));
                     }}
                     onBlur={e => {
@@ -364,7 +372,7 @@ export default function IAPage() {
                     onChange={e =>
                       setSettings(prev => ({
                         ...prev,
-                        ollama_url: e.target.value,
+                        ollama_url: e.target.value.trim(),
                       }))
                     }
                     onBlur={e =>

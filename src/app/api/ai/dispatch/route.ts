@@ -142,9 +142,9 @@ ${HUMAN_WORKFLOW_GUIDANCE}`;
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (/No AI provider configured|non configurato/i.test(message)) {
+      if (/provider|configurato|configured/i.test(message)) {
         return NextResponse.json(
-          { error: 'No AI provider configured. Go to Settings > AI' },
+          { error: 'No AI provider configured. Go to Settings > AI', content: '' },
           { status: 400 }
         );
       }
@@ -158,13 +158,11 @@ ${HUMAN_WORKFLOW_GUIDANCE}`;
       model: result.model,
       usage: result.usage,
       fallbackUsed: result.fallbackUsed,
-      attempts: result.attempts,
     });
   } catch (error: unknown) {
-    const err = error as { message?: string };
-    console.error('AI dispatch error:', err);
+    console.error('AI dispatch error:', error);
     return NextResponse.json(
-      { error: err.message || 'AI generation error', content: '' },
+      { error: 'AI generation failed. Check provider configuration in Settings > AI', content: '' },
       { status: 500 }
     );
   }

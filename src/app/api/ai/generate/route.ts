@@ -179,7 +179,6 @@ Restituisci direttamente il valore finale del campo, senza spiegazioni superflue
       provider: result.provider,
       model: result.model,
       fallbackUsed: result.fallbackUsed,
-      attempts: result.attempts,
     });
   } catch (error) {
     console.error('AI generation error:', error);

@@ -67,7 +67,6 @@ ${buildCmsFactPolicy({ tenantName: safeTenantName })}` },
       model: result.model,
       usage: result.usage,
       fallbackUsed: result.fallbackUsed,
-      attempts: result.attempts,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

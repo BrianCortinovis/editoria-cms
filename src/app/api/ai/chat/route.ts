@@ -98,7 +98,6 @@ export async function POST(request: NextRequest) {
       model: result.model,
       usage: result.usage,
       fallbackUsed: result.fallbackUsed,
-      attempts: result.attempts,
     });
   } catch (error) {
     console.error('AI chat error:', error);

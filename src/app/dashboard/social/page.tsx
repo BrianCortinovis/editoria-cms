@@ -459,7 +459,7 @@ export default function SocialPage() {
                     </span>
                     <input
                       value={channel.primaryValue}
-                      onChange={(event) => updateChannel(platform.key, { primaryValue: event.target.value })}
+                      onChange={(event) => updateChannel(platform.key, { primaryValue: event.target.value.trim() })}
                       placeholder={platform.primaryFieldPlaceholder}
                       className="input w-full text-sm"
                     />
@@ -481,7 +481,7 @@ export default function SocialPage() {
                     </span>
                     <input
                       value={channel.webhookUrl}
-                      onChange={(event) => updateChannel(platform.key, { webhookUrl: event.target.value })}
+                      onChange={(event) => updateChannel(platform.key, { webhookUrl: event.target.value.trim() })}
                       placeholder="https://example.com/social-hook"
                       className="input w-full text-sm"
                     />
@@ -493,7 +493,7 @@ export default function SocialPage() {
                     <input
                       type="password"
                       value={channel.accessToken}
-                      onChange={(event) => updateChannel(platform.key, { accessToken: event.target.value })}
+                      onChange={(event) => updateChannel(platform.key, { accessToken: event.target.value.trim() })}
                       placeholder="Access token, app password o credential secret"
                       className="input w-full text-sm"
                     />
