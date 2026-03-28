@@ -2,6 +2,8 @@ import { triggerPublish } from "@/lib/publish/runner";
 import { getPlatformCronSettings } from "@/lib/cron/platform-settings";
 import { getCronSettingsForTenant, getCronSettingsMap } from "@/lib/cron/settings";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { autoPostToSocial, buildArticleUrl } from "@/lib/social/post-service";
+import { normalizeSocialAutoConfig } from "@/lib/social/platforms";
 
 interface MaintenanceRunSummary {
   processedAt: string;
@@ -55,7 +57,7 @@ export async function runPublishMaintenance(): Promise<MaintenanceRunSummary> {
 
   const { data: dueArticles, error: dueArticlesError } = await supabase
     .from("articles")
-    .select("id, tenant_id, slug, scheduled_at")
+    .select("id, tenant_id, slug, title, summary, cover_image_url, scheduled_at")
     .eq("status", "approved")
     .not("scheduled_at", "is", null)
     .lte("scheduled_at", now)
@@ -93,6 +95,31 @@ export async function runPublishMaintenance(): Promise<MaintenanceRunSummary> {
     if (!error) {
       scheduledArticlesPublished += 1;
       tenantIdsNeedingPublish.push(article.tenant_id);
+
+      // Social auto-posting (non-blocking, fire-and-forget)
+      try {
+        const { data: tenantRow } = await supabase
+          .from("tenants")
+          .select("slug, settings")
+          .eq("id", article.tenant_id)
+          .single();
+
+        if (tenantRow) {
+          const tenantSettings = (tenantRow.settings ?? {}) as Record<string, unknown>;
+          const moduleConfig = (tenantSettings.module_config as Record<string, unknown>) ?? {};
+          const socialCfg = normalizeSocialAutoConfig(moduleConfig.social_auto);
+          const articleUrl = buildArticleUrl(socialCfg.siteUrl, tenantRow.slug, article.slug);
+
+          await autoPostToSocial(supabase, article.tenant_id, {
+            title: article.title || "",
+            summary: article.summary || "",
+            url: articleUrl,
+            imageUrl: article.cover_image_url || undefined,
+          });
+        }
+      } catch {
+        // Social posting must never block the cron
+      }
     }
   }
 

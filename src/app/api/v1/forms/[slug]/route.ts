@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 import { verifyTurnstileToken } from '@/lib/security/turnstile';
+import { sendEmailAsync } from '@/lib/email/service';
+import { formSubmission } from '@/lib/email/templates';
 
 import { getPublicApiCorsHeadersWithPost } from '@/lib/security/cors';
 
@@ -100,14 +102,14 @@ export async function POST(
   }
 
   const supabase = await createServiceRoleClient();
-  const { data: tenant } = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single();
+  const { data: tenant } = await supabase.from('tenants').select('id, name').eq('slug', tenantSlug).single();
   if (!tenant) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const { data: form } = await supabase
     .from('site_forms')
-    .select('id, fields, success_message')
+    .select('id, name, fields, recipient_emails, success_message')
     .eq('tenant_id', tenant.id)
     .eq('slug', slug)
     .eq('is_active', true)
@@ -144,6 +146,26 @@ export async function POST(
   if (error) {
     console.error("form_submission.insert failed:", error.message);
     return NextResponse.json({ error: 'Unable to save submission' }, { status: 500, headers: getPublicApiCorsHeadersWithPost(request) });
+  }
+
+  // Fire-and-forget: notify recipient emails
+  const recipients = Array.isArray(form.recipient_emails) ? form.recipient_emails.filter(Boolean) : [];
+  if (recipients.length > 0) {
+    const emailData = formSubmission({
+      formName: form.name || slug,
+      siteName: tenant.name || tenantSlug,
+      submitterName: typeof payload.name === 'string' ? payload.name : undefined,
+      submitterEmail: typeof payload.email === 'string' ? payload.email : undefined,
+      fields: payload,
+      sourcePage: sourcePage || undefined,
+    });
+    sendEmailAsync({
+      to: recipients,
+      subject: emailData.subject,
+      html: emailData.html,
+      text: emailData.text,
+      replyTo: typeof payload.email === 'string' ? payload.email : undefined,
+    });
   }
 
   return NextResponse.json(

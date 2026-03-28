@@ -357,6 +357,20 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             const publishMessage = publishError instanceof Error ? publishError.message : "Publish non aggiornato";
             toast.error(`Articolo salvato, ma il publish non e' stato aggiornato: ${publishMessage}`);
           }
+
+          // Social auto-posting on publish (non-blocking)
+          if (finalStatus === "published" && savedId) {
+            fetch("/api/cms/social/dispatch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                tenant_id: currentTenant.id,
+                article_id: savedId,
+              }),
+            }).catch(() => {
+              // Social posting failure is silent — never block the editor
+            });
+          }
         }
 
         setStatus(finalStatus);

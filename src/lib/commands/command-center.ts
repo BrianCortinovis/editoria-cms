@@ -5,6 +5,8 @@ import { BLOCK_CATEGORIES, getAllBlockDefinitions, getBlockDefinition } from '@/
 import { summarizeBlockTree } from '@/lib/editor/verification';
 import { getThemeContract } from '@/lib/theme-contract';
 import { mergeNewsletterIntoFooter, normalizeNewsletterConfig } from '@/lib/site/newsletter';
+import { autoPostToSocial, buildArticleUrl } from '@/lib/social/post-service';
+import { normalizeSocialAutoConfig } from '@/lib/social/platforms';
 
 export type CommandPhase = 'discover' | 'create' | 'compose' | 'configure' | 'review' | 'publish';
 export type CommandCategory = 'pages' | 'editor' | 'articles' | 'site' | 'adv' | 'forms' | 'taxonomy' | 'events' | 'moderation' | 'media' | 'newsletter' | 'workflow';
@@ -1453,9 +1455,35 @@ async function executeSingleCommand(
         .update(patch)
         .eq('tenant_id', context.tenantId)
         .eq('id', articleId)
-        .select('id, title, slug, status, published_at, scheduled_at')
+        .select('id, title, slug, status, summary, cover_image_url, published_at, scheduled_at')
         .single();
       if (error) throw error;
+
+      // Social auto-posting on publish (non-blocking)
+      if (status === 'published' && data) {
+        try {
+          const { data: tenantRow } = await supabase
+            .from('tenants')
+            .select('slug, settings')
+            .eq('id', context.tenantId)
+            .single();
+          if (tenantRow) {
+            const tenantSettings = (tenantRow.settings ?? {}) as Record<string, unknown>;
+            const moduleConfig = (tenantSettings.module_config as Record<string, unknown>) ?? {};
+            const socialCfg = normalizeSocialAutoConfig(moduleConfig.social_auto);
+            const articleUrl = buildArticleUrl(socialCfg.siteUrl, tenantRow.slug, data.slug);
+            await autoPostToSocial(supabase, context.tenantId, {
+              title: data.title || '',
+              summary: data.summary || '',
+              url: articleUrl,
+              imageUrl: data.cover_image_url || undefined,
+            });
+          }
+        } catch {
+          // Social posting failure must never block the command
+        }
+      }
+
       return { message: `Stato articolo aggiornato a ${status}`, data };
     }
 
