@@ -14,6 +14,7 @@ import {
   Download,
   Trash2,
 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 function ComplianceItem({
   status,
@@ -53,6 +54,32 @@ export default function GdprPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
+      <div className="flex justify-end">
+        <AIButton
+          compact
+          actions={[
+            {
+              id: "gdpr-audit",
+              label: "Audit GDPR",
+              prompt: "Analizza la pagina GDPR del CMS, stato compliance, dati trattati, policy, cookie e diritti interessati. Evidenzia gap, priorita` e prossimi step: {context}",
+            },
+            {
+              id: "gdpr-technical-check",
+              label: "Controllo tecnico",
+              prompt: "Rivedi la parte tecnica della compliance CMS: auth, RLS, audit log, cookie tecnici, data export e cancellazione. Restituisci un piano tecnico chiaro: {context}",
+            },
+          ]}
+          contextData={JSON.stringify(
+            {
+              currentRole,
+              activeTab,
+              tabs,
+            },
+            null,
+            2,
+          )}
+        />
+      </div>
       {/* Tabs */}
       <div className="flex gap-1 border-b overflow-x-auto" style={{ borderColor: "var(--c-border)" }}>
         {tabs.map(tab => (

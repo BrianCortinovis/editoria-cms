@@ -3,6 +3,25 @@ import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { writeActivityLog } from "@/lib/security/audit";
 import { triggerPublish } from "@/lib/publish/runner";
 import { CMS_EDITOR_ROLES, requireTenantAccess } from "@/lib/cms/tenant-access";
+import { z } from "zod";
+
+const formFieldSchema = z.object({
+  name: z.string().min(1),
+  type: z.string().min(1),
+  label: z.string().optional(),
+  required: z.boolean().optional(),
+}).passthrough();
+
+const formPatchSchema = z.object({
+  tenant_id: z.string().uuid("tenant_id deve essere un UUID valido"),
+  name: z.string().min(1).transform((v) => v.trim()).optional(),
+  slug: z.string().optional(),
+  description: z.string().nullable().optional(),
+  fields: z.array(formFieldSchema).optional(),
+  recipient_emails: z.array(z.string().email("email non valida")).optional(),
+  success_message: z.string().nullable().optional(),
+  is_active: z.boolean().optional(),
+}).passthrough();
 
 export async function PATCH(
   request: Request,
@@ -15,10 +34,15 @@ export async function PATCH(
 
   const { formId } = await params;
   const body = await request.json().catch(() => null);
-  const tenantId = typeof body?.tenant_id === "string" ? body.tenant_id : null;
-  if (!tenantId) {
-    return NextResponse.json({ error: "tenant_id required" }, { status: 400 });
+  const parsed = formPatchSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Dati non validi", details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
   }
+
+  const tenantId = parsed.data.tenant_id;
 
   const access = await requireTenantAccess(tenantId, CMS_EDITOR_ROLES);
   if ("error" in access) {
@@ -26,13 +50,13 @@ export async function PATCH(
   }
 
   const patch: Record<string, unknown> = {};
-  if (typeof body?.name === "string") patch.name = body.name.trim();
-  if (typeof body?.slug === "string") patch.slug = body.slug;
-  if ("description" in (body || {})) patch.description = typeof body?.description === "string" && body.description ? body.description : null;
-  if (Array.isArray(body?.fields)) patch.fields = body.fields;
-  if (Array.isArray(body?.recipient_emails)) patch.recipient_emails = body.recipient_emails.map(String);
-  if ("success_message" in (body || {})) patch.success_message = typeof body?.success_message === "string" && body.success_message ? body.success_message : null;
-  if (body?.is_active !== undefined) patch.is_active = Boolean(body.is_active);
+  if (parsed.data.name !== undefined) patch.name = parsed.data.name;
+  if (parsed.data.slug !== undefined) patch.slug = parsed.data.slug;
+  if ("description" in parsed.data) patch.description = parsed.data.description || null;
+  if (parsed.data.fields !== undefined) patch.fields = parsed.data.fields;
+  if (parsed.data.recipient_emails !== undefined) patch.recipient_emails = parsed.data.recipient_emails;
+  if ("success_message" in parsed.data) patch.success_message = parsed.data.success_message || null;
+  if (parsed.data.is_active !== undefined) patch.is_active = parsed.data.is_active;
 
   const { data, error } = await access.sessionClient
     .from("site_forms")
@@ -43,7 +67,8 @@ export async function PATCH(
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || "Unable to update form" }, { status: 500 });
+    console.error("form.update failed:", error?.message);
+    return NextResponse.json({ error: "Unable to update form" }, { status: 500 });
   }
 
   await writeActivityLog({

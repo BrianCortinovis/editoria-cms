@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server";
 import { searchSiteContent } from "@/lib/site/search";
 import { checkRateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { getPublicApiCorsHeaders } from "@/lib/security/cors";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
-
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, { status: 204, headers: getPublicApiCorsHeaders(request) });
 }
 
 export async function GET(request: Request) {
@@ -21,7 +16,7 @@ export async function GET(request: Request) {
   const clientIp = getClientIp(request);
 
   if (!tenantSlug || !query) {
-    return NextResponse.json({ error: "tenant and q parameters required" }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json({ error: "tenant and q parameters required" }, { status: 400, headers: getPublicApiCorsHeaders(request) });
   }
 
   const limiter = await checkRateLimit(
@@ -35,7 +30,7 @@ export async function GET(request: Request) {
       {
         status: 429,
         headers: {
-          ...CORS_HEADERS,
+          ...getPublicApiCorsHeaders(request),
           "Retry-After": String(Math.ceil(limiter.retryAfterMs / 1000)),
         },
       }
@@ -50,7 +45,7 @@ export async function GET(request: Request) {
   });
 
   if (!response) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 404, headers: CORS_HEADERS });
+    return NextResponse.json({ error: "Tenant not found" }, { status: 404, headers: getPublicApiCorsHeaders(request) });
   }
 
   return NextResponse.json(
@@ -61,7 +56,7 @@ export async function GET(request: Request) {
       provider: response.provider,
     },
     {
-      headers: { ...CORS_HEADERS, "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" },
+      headers: { ...getPublicApiCorsHeaders(request), "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" },
     }
   );
 }

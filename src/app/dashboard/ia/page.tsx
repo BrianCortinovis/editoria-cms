@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/lib/store';
 import toast from 'react-hot-toast';
 import { Sparkles, Save, Loader2, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { isModuleActive } from '@/lib/modules';
 
 interface AISettings {
   claude_api_key: string;
@@ -56,6 +57,14 @@ const DEFAULT_MODELS = {
   ollama: 'llama3.2',
 };
 
+function cleanSecret(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function cleanValue(value: unknown, fallback = '') {
+  return typeof value === 'string' ? value.trim() : fallback;
+}
+
 export default function IAPage() {
   const { currentTenant, currentRole } = useAuthStore();
   const [settings, setSettings] = useState<AISettings>({
@@ -72,6 +81,7 @@ export default function IAPage() {
   const [loading, setLoading] = useState(true);
   const [statuses, setStatuses] = useState<Record<string, 'active' | 'inactive' | 'error'>>({});
   const canManageAi = currentRole === 'admin';
+  const aiModuleEnabled = isModuleActive((currentTenant?.settings as Record<string, unknown>) || {}, 'ai_assistant');
 
   useEffect(() => {
     if (!canManageAi || !currentTenant) return;
@@ -91,14 +101,14 @@ export default function IAPage() {
           const aiConfig = tenant.settings.module_config.ai_assistant;
           setSettings(prev => ({
             ...prev,
-            claude_api_key: aiConfig.claude_api_key || '',
-            claude_model: aiConfig.claude_model || DEFAULT_MODELS.claude,
-            openai_api_key: aiConfig.openai_api_key || '',
-            openai_model: aiConfig.openai_model || DEFAULT_MODELS.openai,
-            gemini_api_key: aiConfig.gemini_api_key || '',
-            gemini_model: aiConfig.gemini_model || DEFAULT_MODELS.gemini,
-            ollama_url: aiConfig.ollama_url || '',
-            ollama_model: aiConfig.ollama_model || DEFAULT_MODELS.ollama,
+            claude_api_key: cleanSecret(aiConfig.claude_api_key),
+            claude_model: cleanValue(aiConfig.claude_model, DEFAULT_MODELS.claude),
+            openai_api_key: cleanSecret(aiConfig.openai_api_key),
+            openai_model: cleanValue(aiConfig.openai_model, DEFAULT_MODELS.openai),
+            gemini_api_key: cleanSecret(aiConfig.gemini_api_key),
+            gemini_model: cleanValue(aiConfig.gemini_model, DEFAULT_MODELS.gemini),
+            ollama_url: cleanValue(aiConfig.ollama_url),
+            ollama_model: cleanValue(aiConfig.ollama_model, DEFAULT_MODELS.ollama),
           }));
         }
       } catch (error) {
@@ -114,10 +124,10 @@ export default function IAPage() {
 
   const checkProviderStatus = async (providerKey: string) => {
     // Dummy status check - in production would test API key
-    const apiKey = settings[`${providerKey}_api_key` as keyof AISettings];
+    const apiKey = cleanSecret(settings[`${providerKey}_api_key` as keyof AISettings]);
     if (!apiKey) {
       setStatuses(prev => ({ ...prev, [providerKey]: 'inactive' }));
-    } else if ((apiKey as string).length < 10) {
+    } else if (apiKey.length < 10) {
       setStatuses(prev => ({ ...prev, [providerKey]: 'error' }));
     } else {
       setStatuses(prev => ({ ...prev, [providerKey]: 'active' }));
@@ -149,14 +159,14 @@ export default function IAPage() {
             module_config: {
               ...currentModuleConfig,
               ai_assistant: {
-                claude_api_key: settings.claude_api_key.trim(),
-                claude_model: settings.claude_model,
-                openai_api_key: settings.openai_api_key.trim(),
-                openai_model: settings.openai_model,
-                gemini_api_key: settings.gemini_api_key.trim(),
-                gemini_model: settings.gemini_model,
-                ollama_url: settings.ollama_url.trim(),
-                ollama_model: settings.ollama_model,
+                claude_api_key: cleanSecret(settings.claude_api_key),
+                claude_model: cleanValue(settings.claude_model, DEFAULT_MODELS.claude),
+                openai_api_key: cleanSecret(settings.openai_api_key),
+                openai_model: cleanValue(settings.openai_model, DEFAULT_MODELS.openai),
+                gemini_api_key: cleanSecret(settings.gemini_api_key),
+                gemini_model: cleanValue(settings.gemini_model, DEFAULT_MODELS.gemini),
+                ollama_url: cleanValue(settings.ollama_url),
+                ollama_model: cleanValue(settings.ollama_model, DEFAULT_MODELS.ollama),
               },
             },
           },
@@ -180,6 +190,17 @@ export default function IAPage() {
         <Sparkles className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
         <p className="text-sm" style={{ color: "var(--c-text-2)" }}>
           Solo gli Admin possono gestire provider e credenziali IA del tenant.
+        </p>
+      </div>
+    );
+  }
+
+  if (!aiModuleEnabled) {
+    return (
+      <div className="max-w-2xl text-center py-20">
+        <Sparkles className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
+        <p className="text-sm" style={{ color: "var(--c-text-2)" }}>
+          Il modulo IA non e` attivo per questo tenant. Attivalo dal Superadmin per usare il tool.
         </p>
       </div>
     );
@@ -276,7 +297,14 @@ export default function IAPage() {
                         ...prev,
                         [`${provider.key}_api_key`]: e.target.value,
                       }));
-                      checkProviderStatus(provider.key);
+                    }}
+                    onBlur={e => {
+                      const nextValue = e.target.value.trim();
+                      setSettings(prev => ({
+                        ...prev,
+                        [`${provider.key}_api_key`]: nextValue,
+                      }));
+                      void checkProviderStatus(provider.key);
                     }}
                     placeholder="Incolla la tua API key qui..."
                     className="w-full px-3 py-2 rounded-lg border text-sm"
@@ -337,6 +365,12 @@ export default function IAPage() {
                       setSettings(prev => ({
                         ...prev,
                         ollama_url: e.target.value,
+                      }))
+                    }
+                    onBlur={e =>
+                      setSettings(prev => ({
+                        ...prev,
+                        ollama_url: e.target.value.trim(),
                       }))
                     }
                     placeholder="es: http://192.168.1.100:11434"

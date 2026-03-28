@@ -1,4 +1,5 @@
 import { getSuperadminOverview } from "@/lib/superadmin/service";
+import { SiteModulesControlTable } from "@/components/admin/SiteModulesControlTable";
 
 export default async function AdminSitesPage() {
   const overview = await getSuperadminOverview();
@@ -72,6 +73,21 @@ export default async function AdminSitesPage() {
           </tbody>
         </table>
       </div>
+
+      <section className="space-y-3">
+        <div className="border-b pb-3" style={{ borderColor: "var(--c-border)" }}>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: "var(--c-text-2)" }}>
+            Tenant Modules
+          </p>
+          <h3 className="mt-1 text-lg font-semibold" style={{ color: "var(--c-text-0)" }}>
+            Attivazioni manuali moduli
+          </h3>
+          <p className="mt-1 text-sm" style={{ color: "var(--c-text-2)" }}>
+            Qui attivi o disattivi i moduli premium per singolo tenant. Per ora la gestione extra resta manuale dal Superadmin.
+          </p>
+        </div>
+        <SiteModulesControlTable sites={overview.sites} />
+      </section>
     </div>
   );
 }

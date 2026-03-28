@@ -17,6 +17,7 @@ import {
   TrendingUp,
   ScanLine,
 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface DashStats {
   articles: number;
@@ -122,12 +123,40 @@ export default function DashboardPage() {
     <div>
       {/* Welcome */}
       <div className="mb-6">
-        <h2 className="text-xl font-semibold" style={{ color: "var(--c-text-0)" }}>
-          {profile?.full_name?.split(" ")[0] || "Ciao"}
-        </h2>
-        <p className="text-sm mt-0.5" style={{ color: "var(--c-text-2)" }}>
-          {currentTenant?.name}
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold" style={{ color: "var(--c-text-0)" }}>
+              {profile?.full_name?.split(" ")[0] || "Ciao"}
+            </h2>
+            <p className="text-sm mt-0.5" style={{ color: "var(--c-text-2)" }}>
+              {currentTenant?.name}
+            </p>
+          </div>
+          <AIButton
+            compact
+            actions={[
+              {
+                id: "dashboard-ops",
+                label: "Sintesi operativa",
+                prompt: "Analizza dashboard, numeri del tenant, articoli recenti e moduli principali. Suggerisci priorita` operative per redazione, tecnico, SEO e publish: {context}",
+              },
+              {
+                id: "dashboard-tech",
+                label: "Controllo tecnico",
+                prompt: "Rivedi il tenant dal punto di vista tecnico e gestionale: contenuti, media, eventi, banner e strumenti disponibili. Evidenzia rischi e next step: {context}",
+              },
+            ]}
+            contextData={JSON.stringify(
+              {
+                tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+                stats,
+                recentArticles,
+              },
+              null,
+              2,
+            )}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">

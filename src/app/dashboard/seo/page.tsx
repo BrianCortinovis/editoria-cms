@@ -14,6 +14,7 @@ import {
   XCircle,
   Rss,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import AIButton from "@/components/ai/AIButton";
 import toast from "react-hot-toast";
@@ -25,9 +26,25 @@ interface ArticleSEO {
   meta_title: string | null;
   meta_description: string | null;
   og_image_url: string | null;
+  reading_time_minutes: number | null;
   view_count: number;
   published_at: string | null;
 }
+
+interface SeoRuntimeChecks {
+  sitemapReachable: boolean;
+  articleSchemaPresent: boolean;
+  articleOgPresent: boolean;
+  analyticsRuntimePresent: boolean;
+  tagManagerRuntimePresent: boolean;
+  adsenseRuntimePresent: boolean;
+  searchConsoleVerificationPresent: boolean;
+  googleNewsPublicationRuntimePresent: boolean;
+  slugCoverageOk: boolean;
+  readingTimeCoverageOk: boolean;
+}
+
+type CheckStatus = "verified" | "configured" | "missing" | "unknown";
 
 interface SeoAnalysisSuggestion {
   article_title?: string;
@@ -56,6 +73,18 @@ export default function SeoPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<SeoAnalysisResult | null>(null);
   const [siteSettings, setSiteSettings] = useState<Record<string, string>>({});
+  const [runtimeChecks, setRuntimeChecks] = useState<SeoRuntimeChecks>({
+    sitemapReachable: false,
+    articleSchemaPresent: false,
+    articleOgPresent: false,
+    analyticsRuntimePresent: false,
+    tagManagerRuntimePresent: false,
+    adsenseRuntimePresent: false,
+    searchConsoleVerificationPresent: false,
+    googleNewsPublicationRuntimePresent: false,
+    slugCoverageOk: false,
+    readingTimeCoverageOk: false,
+  });
   const canUseSeoTools =
     currentRole === "admin" ||
     currentRole === "chief_editor" ||
@@ -67,7 +96,7 @@ export default function SeoPage() {
     const supabase = createClient();
 
     supabase.from("articles")
-      .select("id, title, slug, meta_title, meta_description, og_image_url, view_count, published_at")
+      .select("id, title, slug, meta_title, meta_description, og_image_url, reading_time_minutes, view_count, published_at")
       .eq("tenant_id", currentTenant.id)
       .eq("status", "published")
       .order("published_at", { ascending: false })
@@ -86,6 +115,104 @@ export default function SeoPage() {
         setSiteSettings((data?.settings ?? {}) as Record<string, string>);
       });
   }, [currentTenant]);
+
+  useEffect(() => {
+    if (!currentTenant) return;
+    const tenantSlug = currentTenant.slug;
+
+    let cancelled = false;
+
+    async function verifySeoRuntime() {
+      const slugCoverageOk =
+        articles.length > 0 &&
+        articles.every((article) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(article.slug));
+      const readingTimeCoverageOk =
+        articles.length > 0 &&
+        articles.every((article) => typeof article.reading_time_minutes === "number" && article.reading_time_minutes > 0);
+
+      let sitemapReachable = false;
+      let articleSchemaPresent = false;
+      let articleOgPresent = false;
+      let analyticsRuntimePresent = false;
+      let tagManagerRuntimePresent = false;
+      let adsenseRuntimePresent = false;
+      let searchConsoleVerificationPresent = false;
+      let googleNewsPublicationRuntimePresent = false;
+
+      try {
+        const sitemapResponse = await fetch("/sitemap.xml", { cache: "no-store" });
+        const sitemapBody = await sitemapResponse.text();
+        sitemapReachable = sitemapResponse.ok && /<urlset|<sitemapindex/i.test(sitemapBody);
+      } catch {
+        sitemapReachable = false;
+      }
+
+      const sampleArticle = articles[0];
+      if (sampleArticle?.slug) {
+        try {
+          const articleResponse = await fetch(`/site/${tenantSlug}/articolo/${sampleArticle.slug}`, { cache: "no-store" });
+          const articleHtml = await articleResponse.text();
+          articleSchemaPresent =
+            articleResponse.ok &&
+            articleHtml.includes('application/ld+json') &&
+            articleHtml.includes('"@type":"NewsArticle"');
+          articleOgPresent =
+            articleResponse.ok &&
+            /property=["']og:title["']/i.test(articleHtml) &&
+            /property=["']og:description["']/i.test(articleHtml);
+          analyticsRuntimePresent =
+            articleResponse.ok &&
+            (/googletagmanager\.com\/gtag\/js/i.test(articleHtml) || /gtag\(/i.test(articleHtml));
+          tagManagerRuntimePresent =
+            articleResponse.ok &&
+            (/googletagmanager\.com\/gtm\.js/i.test(articleHtml) || /gtm\.start/i.test(articleHtml));
+          adsenseRuntimePresent =
+            articleResponse.ok &&
+            /pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/i.test(articleHtml);
+          searchConsoleVerificationPresent =
+            articleResponse.ok &&
+            (siteSettings.google_search_console_verification
+              ? articleHtml.includes(`name="google-site-verification"`) &&
+                articleHtml.includes(String(siteSettings.google_search_console_verification))
+              : false);
+          googleNewsPublicationRuntimePresent =
+            articleResponse.ok &&
+            (siteSettings.google_news_publication_name
+              ? articleHtml.includes(String(siteSettings.google_news_publication_name))
+              : false);
+        } catch {
+          articleSchemaPresent = false;
+          articleOgPresent = false;
+          analyticsRuntimePresent = false;
+          tagManagerRuntimePresent = false;
+          adsenseRuntimePresent = false;
+          searchConsoleVerificationPresent = false;
+          googleNewsPublicationRuntimePresent = false;
+        }
+      }
+
+      if (!cancelled) {
+        setRuntimeChecks({
+          sitemapReachable,
+          articleSchemaPresent,
+          articleOgPresent,
+          analyticsRuntimePresent,
+          tagManagerRuntimePresent,
+          adsenseRuntimePresent,
+          searchConsoleVerificationPresent,
+          googleNewsPublicationRuntimePresent,
+          slugCoverageOk,
+          readingTimeCoverageOk,
+        });
+      }
+    }
+
+    void verifySeoRuntime();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [articles, currentTenant, siteSettings]);
 
   const withMeta = articles.filter(a => a.meta_title && a.meta_description);
   const withOG = articles.filter(a => a.og_image_url);
@@ -108,12 +235,32 @@ export default function SeoPage() {
     );
   };
 
-  const CheckItem = ({ ok, label }: { ok: boolean; label: string }) => (
-    <div className="flex items-center gap-2 py-1.5">
-      {ok ? <CheckCircle className="w-4 h-4" style={{ color: "var(--c-success)" }} /> : <XCircle className="w-4 h-4" style={{ color: "var(--c-danger)" }} />}
-      <span className="text-xs" style={{ color: ok ? "var(--c-text-0)" : "var(--c-text-2)" }}>{label}</span>
-    </div>
-  );
+  const CheckItem = ({ status, label }: { status: CheckStatus; label: string }) => {
+    const icon =
+      status === "verified" ? (
+        <CheckCircle className="w-4 h-4" style={{ color: "var(--c-success)" }} />
+      ) : status === "configured" ? (
+        <AlertCircle className="w-4 h-4" style={{ color: "var(--c-warning)" }} />
+      ) : status === "unknown" ? (
+        <AlertCircle className="w-4 h-4" style={{ color: "var(--c-text-3)" }} />
+      ) : (
+        <XCircle className="w-4 h-4" style={{ color: "var(--c-danger)" }} />
+      );
+
+    return (
+      <div className="flex items-center gap-2 py-1.5">
+        {icon}
+        <span
+          className="text-xs"
+          style={{
+            color: status === "verified" ? "var(--c-text-0)" : "var(--c-text-2)",
+          }}
+        >
+          {label}
+        </span>
+      </div>
+    );
+  };
 
   const handleSEOAnalysis = async () => {
     if (!currentTenant || articles.length === 0 || !canUseSeoTools) return;
@@ -244,7 +391,7 @@ export default function SeoPage() {
                     {
                       id: "analisi_seo",
                       label: "Analisi SEO completa",
-                      prompt: "Esegui un'analisi SEO completa per un giornale online italiano basandoti sui seguenti dati degli articoli pubblicati. Evidenzia problemi critici e opportunità. Dati: {context}",
+                      prompt: "Esegui un'analisi SEO completa basandoti solo sui dati degli articoli pubblicati e del tenant corrente presenti nel contesto. Separa la risposta in: fatti verificati, verifiche mancanti, opportunita' e azioni consigliate. Non dichiarare criticita' non supportate dai dati. Dati: {context}",
                     },
                     {
                       id: "suggerisci_miglioramenti",
@@ -256,22 +403,106 @@ export default function SeoPage() {
                       label: "Genera meta description sito",
                       prompt: "Genera una meta description ottimizzata per SEO (max 160 caratteri) per il sito di un giornale locale italiano, basandoti sui contenuti pubblicati: {context}",
                     },
+                    {
+                      id: "audit-analytics-news",
+                      label: "Audit analytics e Google News",
+                      prompt: "Controlla SEO editoriale, analytics, Google News, sitemap, structured data e tracking per questa testata. Restituisci checklist tecnica con priorita`: {context}",
+                    },
+                    {
+                      id: "piano-home-serp",
+                      label: "Migliora home e SERP",
+                      prompt: "Proponi miglioramenti pratici per homepage, listing e snippet SERP del sito, considerando articoli pubblicati, meta e copertura contenuti: {context}",
+                    },
                   ]}
-                  contextData={articles.map(a => `"${a.title}" - Meta: ${a.meta_title ? 'si' : 'no'}, Desc: ${a.meta_description ? 'si' : 'no'}, Visite: ${a.view_count}`).join(" | ")}
+                  contextData={JSON.stringify(
+                    {
+                      tenant: currentTenant ? { name: currentTenant.name, slug: currentTenant.slug } : null,
+                      siteSettings: {
+                      siteDescription: siteSettings.site_description || "",
+                      googleAnalytics: siteSettings.google_analytics || "",
+                      googleTagManager: siteSettings.google_tag_manager || "",
+                      googleAdsense: siteSettings.google_adsense || "",
+                      googleSearchConsoleVerification: siteSettings.google_search_console_verification || "",
+                      googleNewsPublicationName: siteSettings.google_news_publication_name || "",
+                    },
+                      articles: articles.map((a) => ({
+                        title: a.title,
+                        slug: a.slug,
+                        hasMetaTitle: Boolean(a.meta_title),
+                        hasMetaDescription: Boolean(a.meta_description),
+                        hasOgImage: Boolean(a.og_image_url),
+                        viewCount: a.view_count,
+                        publishedAt: a.published_at,
+                      })),
+                    },
+                    null,
+                    2,
+                  )}
                   compact
                 />
               </div>
             </div>
           </div>
           <div className="p-4">
-            <CheckItem ok={true} label="Sitemap.xml generabile da API" />
-            <CheckItem ok={true} label="Schema.org NewsArticle nei dati" />
-            <CheckItem ok={true} label="Open Graph tags per ogni articolo" />
-            <CheckItem ok={true} label="Slug SEO-friendly automatici" />
-            <CheckItem ok={true} label="Tempo di lettura calcolato" />
-            <CheckItem ok={!!siteSettings.google_analytics} label={`Google Analytics ${siteSettings.google_analytics ? "configurato" : "non configurato"}`} />
-            <CheckItem ok={!!siteSettings.site_description} label={`Meta description sito ${siteSettings.site_description ? "presente" : "mancante"}`} />
-            <CheckItem ok={seoScore >= 80} label={`${seoScore}% articoli con meta completi`} />
+            <div className="mb-3 flex flex-wrap gap-3 text-[11px]" style={{ color: "var(--c-text-2)" }}>
+              <span className="inline-flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5" style={{ color: "var(--c-success)" }} /> verificato nel runtime</span>
+              <span className="inline-flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" style={{ color: "var(--c-warning)" }} /> solo configurato o non verificato</span>
+              <span className="inline-flex items-center gap-1.5"><XCircle className="w-3.5 h-3.5" style={{ color: "var(--c-danger)" }} /> assente</span>
+            </div>
+            <CheckItem status={runtimeChecks.sitemapReachable ? "verified" : "missing"} label="Sitemap.xml pubblico raggiungibile" />
+            <CheckItem status={runtimeChecks.articleSchemaPresent ? "verified" : "missing"} label="JSON-LD NewsArticle presente in una pagina articolo" />
+            <CheckItem status={runtimeChecks.articleOgPresent ? "verified" : "missing"} label="Meta Open Graph presenti in una pagina articolo" />
+            <CheckItem status={runtimeChecks.slugCoverageOk ? "verified" : "missing"} label="Slug articoli coerenti e SEO-friendly" />
+            <CheckItem status={runtimeChecks.readingTimeCoverageOk ? "verified" : "missing"} label="Tempo di lettura presente negli articoli pubblicati" />
+            <CheckItem
+              status={runtimeChecks.tagManagerRuntimePresent || runtimeChecks.analyticsRuntimePresent ? "verified" : siteSettings.google_analytics || siteSettings.google_tag_manager ? "configured" : "missing"}
+              label={
+                runtimeChecks.tagManagerRuntimePresent
+                  ? `Google Tag Manager attivo nel runtime pubblico (${siteSettings.google_tag_manager})`
+                  : runtimeChecks.analyticsRuntimePresent
+                    ? `Google Analytics attivo nel runtime pubblico (${siteSettings.google_analytics})`
+                    : siteSettings.google_tag_manager
+                      ? `Google Tag Manager configurato ma non verificato nel runtime (${siteSettings.google_tag_manager})`
+                      : siteSettings.google_analytics
+                        ? `Google Analytics inserito nelle impostazioni ma non verificato nel runtime (${siteSettings.google_analytics})`
+                        : "Google Analytics / Tag Manager non configurati"
+              }
+            />
+            <CheckItem
+              status={runtimeChecks.adsenseRuntimePresent ? "verified" : siteSettings.google_adsense ? "configured" : "missing"}
+              label={
+                runtimeChecks.adsenseRuntimePresent
+                  ? `Google AdSense rilevato nel runtime pubblico (${siteSettings.google_adsense})`
+                  : siteSettings.google_adsense
+                    ? `Google AdSense configurato ma non verificato nel runtime (${siteSettings.google_adsense})`
+                    : "Google AdSense non configurato"
+              }
+            />
+            <CheckItem
+              status={!!siteSettings.site_description ? "configured" : "missing"}
+              label={siteSettings.site_description ? "Meta description sito configurata" : "Meta description sito mancante"}
+            />
+            <CheckItem status={seoScore >= 80 ? "verified" : "configured"} label={`${seoScore}% articoli con meta completi`} />
+            <CheckItem
+              status={runtimeChecks.searchConsoleVerificationPresent ? "verified" : siteSettings.google_search_console_verification ? "configured" : "missing"}
+              label={
+                runtimeChecks.searchConsoleVerificationPresent
+                  ? "Meta Search Console presente nel runtime pubblico"
+                  : siteSettings.google_search_console_verification
+                    ? "Search Console configurato ma non verificato nel runtime"
+                    : "Search Console non configurato"
+              }
+            />
+            <CheckItem
+              status={runtimeChecks.googleNewsPublicationRuntimePresent ? "verified" : siteSettings.google_news_publication_name ? "configured" : "missing"}
+              label={
+                runtimeChecks.googleNewsPublicationRuntimePresent
+                  ? `Nome pubblicazione Google News presente nei dati pubblici (${siteSettings.google_news_publication_name})`
+                  : siteSettings.google_news_publication_name
+                    ? `Nome pubblicazione Google News configurato ma non verificato nel runtime (${siteSettings.google_news_publication_name})`
+                    : "Nome pubblicazione Google News non configurato"
+              }
+            />
           </div>
         </div>
 
@@ -280,9 +511,9 @@ export default function SeoPage() {
           <div className="card-header flex items-center gap-2"><Globe className="w-4 h-4" /> Risorse SEO</div>
           <div className="p-4 space-y-3">
             {[
-              { label: "RSS Feed", desc: "Feed Atom per Google News e aggregatori", icon: Rss, url: `/api/v1/articles?tenant=${currentTenant?.slug}&limit=20` },
-              { label: "Sitemap dati", desc: "Lista articoli per generare sitemap.xml", icon: Globe, url: `/api/v1/articles?tenant=${currentTenant?.slug}&limit=100` },
-              { label: "Schema.org", desc: "Dati strutturati NewsArticle da API articoli", icon: BarChart3, url: `/api/v1/articles/${"{slug}"}?tenant=${currentTenant?.slug}` },
+              { label: "Articoli JSON", desc: "Endpoint pubblico dei contenuti pubblicati", icon: Rss, url: `/api/v1/articles?tenant=${currentTenant?.slug}&limit=20` },
+              { label: "Sitemap XML", desc: "Sitemap pubblica generata dal runtime", icon: Globe, url: `/sitemap.xml` },
+              { label: "Breadcrumb JSON-LD", desc: "Schema breadcrumb dedicato per tenant e percorso", icon: BarChart3, url: `/api/seo/breadcrumb?tenant_slug=${currentTenant?.slug}&page_path=/` },
             ].map(r => (
               <div key={r.label} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "var(--c-bg-2)" }}>
                 <r.icon className="w-4 h-4 shrink-0" style={{ color: "var(--c-accent)" }} />

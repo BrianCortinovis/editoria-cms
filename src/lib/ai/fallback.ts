@@ -3,6 +3,10 @@ import { resolveProvider, type AITask } from "@/lib/ai/resolver";
 
 type AIConfig = Record<string, string | undefined>;
 
+function cleanConfigValue(value?: string) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 const FALLBACK_ORDER: Record<AIProvider, AIProvider[]> = {
   claude: ["openai", "gemini", "ollama"],
   openai: ["claude", "gemini", "ollama"],
@@ -12,25 +16,26 @@ const FALLBACK_ORDER: Record<AIProvider, AIProvider[]> = {
 
 function getProviderRuntimeConfig(aiConfig: AIConfig, provider: AIProvider, preferredModel?: string) {
   if (provider === "ollama") {
-    if (!aiConfig.ollama_url) {
+    const ollamaUrl = cleanConfigValue(aiConfig.ollama_url);
+    if (!ollamaUrl) {
       return null;
     }
 
     return {
-      apiKey: aiConfig.ollama_url,
-      model: preferredModel || aiConfig.ollama_model,
-      ollamaUrl: aiConfig.ollama_url,
+      apiKey: ollamaUrl,
+      model: cleanConfigValue(preferredModel) || cleanConfigValue(aiConfig.ollama_model),
+      ollamaUrl,
     };
   }
 
-  const apiKey = aiConfig[`${provider}_api_key`];
+  const apiKey = cleanConfigValue(aiConfig[`${provider}_api_key`]);
   if (!apiKey) {
     return null;
   }
 
   return {
     apiKey,
-    model: preferredModel || aiConfig[`${provider}_model`],
+    model: cleanConfigValue(preferredModel) || cleanConfigValue(aiConfig[`${provider}_model`]),
   };
 }
 

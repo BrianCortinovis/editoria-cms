@@ -3,14 +3,10 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { readPublishedJson } from "@/lib/publish/storage";
 import type { PublishedSettingsDocument } from "@/lib/publish/types";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
+import { getPublicApiCorsHeaders } from "@/lib/security/cors";
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, { status: 204, headers: getPublicApiCorsHeaders(request) });
 }
 
 // GET: Public endpoint — fetch site config (theme, nav, footer) for a tenant
@@ -19,7 +15,7 @@ export async function GET(request: Request) {
   const tenantSlug = searchParams.get("tenant");
 
   if (!tenantSlug) {
-    return NextResponse.json({ error: "tenant parameter required" }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json({ error: "tenant parameter required" }, { status: 400, headers: getPublicApiCorsHeaders(request) });
   }
 
   const publishedSettings = await readPublishedJson<PublishedSettingsDocument>(`sites/${encodeURIComponent(tenantSlug)}/settings.json`);
@@ -34,7 +30,7 @@ export async function GET(request: Request) {
       config: publishedSettings.config || null,
     }, {
       headers: {
-        ...CORS_HEADERS,
+        ...getPublicApiCorsHeaders(request),
         "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120",
       },
     });
@@ -49,7 +45,7 @@ export async function GET(request: Request) {
     .single();
 
   if (!tenant) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 404, headers: CORS_HEADERS });
+    return NextResponse.json({ error: "Tenant not found" }, { status: 404, headers: getPublicApiCorsHeaders(request) });
   }
 
   const { data: config } = await supabase
@@ -68,7 +64,7 @@ export async function GET(request: Request) {
     config: config || null,
   }, {
     headers: {
-      ...CORS_HEADERS,
+      ...getPublicApiCorsHeaders(request),
       "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
     },
   });

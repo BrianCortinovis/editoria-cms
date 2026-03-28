@@ -17,7 +17,7 @@ import type { AdvancedGradient, AnimationEffect, Block, BlockAnimation, BlockEff
 import { createBlock } from '@/lib/types';
 import { getBlockDefinition } from '@/lib/blocks/registry';
 import { generateId } from '@/lib/utils/id';
-import { buildChatSystemPrompt } from '@/lib/ai/prompts';
+import { buildChatSystemPrompt, buildCmsFactPolicy } from '@/lib/ai/prompts';
 import { sanitizeFieldResponse } from '@/lib/ai/field-response';
 import { extractPageBackgroundSettings, upsertPageBackgroundMeta } from '@/lib/page-settings';
 import { useAIConfigStore } from '@/lib/stores/ai-config-store';
@@ -1848,7 +1848,9 @@ ISTRUZIONI OBBLIGATORIE:
           preferredProvider: selectedProvider,
           preferredModel: selectedModel,
           systemPrompt: targetField
-            ? `Sei un assistente del CMS online. Compili campi del CMS in modo coerente con la pagina aperta. Rispondi sempre in italiano e restituisci solo il valore finale del campo.`
+            ? `Sei un assistente del CMS online del tenant "${currentTenant.name}".
+Compili campi del CMS in modo coerente con la pagina aperta. Rispondi sempre in italiano e restituisci solo il valore finale del campo.
+${buildCmsFactPolicy({ tenantName: currentTenant.name, pageTitle: pageContext.pageTitle || pageContext.pageName })}`
             : buildChatSystemPrompt({ tenantName: currentTenant.name, pageTitle: pageContext.pageTitle || pageContext.pageName }),
         }),
       });

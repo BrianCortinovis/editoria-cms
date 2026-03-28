@@ -54,6 +54,7 @@ export interface SuperadminSiteRow {
   publishBlocked: boolean;
   estimatedMonthlyEgressBytes: number;
   lastUsageMeasuredAt: string | null;
+  activeModules: string[];
   createdAt: string;
 }
 
@@ -125,16 +126,8 @@ export async function isUserSuperAdmin(userId: string) {
     return false;
   }
 
-  const { data: legacyMemberships, error: legacyError } = await serviceClient
-    .from("user_tenants")
-    .select("role")
-    .eq("user_id", userId);
-
-  if (legacyError) {
-    return false;
-  }
-
-  return (legacyMemberships || []).some((membership) => membership.role === "admin" || membership.role === "super_admin");
+  console.warn("[superadmin] is_platform_superadmin column missing from profiles table — denying access (default deny)");
+  return false;
 }
 
 export async function getSuperadminOverview(): Promise<SuperadminOverview> {
@@ -184,8 +177,12 @@ export async function getSuperadminOverview(): Promise<SuperadminOverview> {
   for (const job of publishJobs) siteIds.add(job.site_id);
 
   const siteIdList = Array.from(siteIds);
+  const tenantIdList = Array.from(new Set(allSites.map((site) => site.tenant_id)));
   const membershipCountsResponse = await (siteIdList.length > 0
     ? serviceClient.from("tenant_memberships").select("site_id").in("site_id", siteIdList).is("revoked_at", null)
+    : Promise.resolve({ data: [], error: null }));
+  const tenantSettingsResponse = await (tenantIdList.length > 0
+    ? serviceClient.from("tenants").select("id, settings").in("id", tenantIdList)
     : Promise.resolve({ data: [], error: null }));
 
   const siteById = new Map(allSites.map((site) => [site.id, site]));
@@ -210,6 +207,7 @@ export async function getSuperadminOverview(): Promise<SuperadminOverview> {
   const infraBySite = new Map(infrastructure.map((item) => [item.site_id, item]));
   const releaseVersionById = new Map(publishReleases.map((release) => [release.id, release.version_label]));
   const quotaBySite = new Map(storageQuotas.map((item) => [item.site_id, item]));
+  const tenantSettingsById = new Map((tenantSettingsResponse.data || []).map((tenant) => [tenant.id, tenant.settings || {}]));
   const latestUsageBySite = new Map<string, typeof usageSnapshots[number]>();
   for (const snapshot of usageSnapshots) {
     if (!latestUsageBySite.has(snapshot.site_id)) {
@@ -234,6 +232,7 @@ export async function getSuperadminOverview(): Promise<SuperadminOverview> {
       const subscription = subscriptionsBySiteId.get(site.id);
       const quota = quotaBySite.get(site.id);
       const usage = latestUsageBySite.get(site.id);
+      const tenantSettings = tenantSettingsById.get(site.tenant_id) as Record<string, unknown> | undefined;
       const storageUsedBytes = toSafeNumber(usage?.media_library_bytes);
       const storageHardLimitBytes = quota ? toSafeNumber(quota.hard_limit_bytes) : null;
       const storageUsagePercent =
@@ -269,6 +268,9 @@ export async function getSuperadminOverview(): Promise<SuperadminOverview> {
         publishBlocked: Boolean(quota?.publish_blocked),
         estimatedMonthlyEgressBytes: toSafeNumber(usage?.estimated_monthly_egress_bytes),
         lastUsageMeasuredAt: usage?.measured_at ?? null,
+        activeModules: Array.isArray(tenantSettings?.active_modules)
+          ? tenantSettings.active_modules.filter((item): item is string => typeof item === "string")
+          : [],
         createdAt: site.created_at,
       };
     })

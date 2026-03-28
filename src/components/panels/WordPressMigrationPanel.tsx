@@ -232,6 +232,28 @@ export function WordPressMigrationPanel() {
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
         {activeTab === 'upload' && (
           <div className="space-y-4">
+            <div className="flex items-center justify-end">
+              <AIButton
+                compact
+                taskType="chatbot"
+                actions={[
+                  {
+                    id: 'wp_upload_requirements',
+                    label: 'Verifica file e requisiti',
+                    prompt: 'Spiega cosa controllare prima di caricare un export WordPress in questo CMS: formato file, limiti, immagini, commenti, autori e rischi di import: {context}',
+                  },
+                ]}
+                contextData={JSON.stringify({
+                  hasFile: Boolean(file),
+                  fileName: file?.name || null,
+                  fileSize: file?.size || null,
+                  currentTenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+                }, null, 2)}
+                onResult={(result) => setMigrationNotes(result)}
+                autoApply
+              />
+            </div>
+
             <div
               onClick={() => document.getElementById('file-input')?.click()}
               onDragOver={handleDragOver}
@@ -318,6 +340,28 @@ export function WordPressMigrationPanel() {
 
         {activeTab === 'config' && (
           <div className="space-y-3">
+            <div className="flex items-center justify-end">
+              <AIButton
+                compact
+                taskType="chatbot"
+                actions={[
+                  {
+                    id: 'wp_config_review',
+                    label: 'Rivedi configurazione',
+                    prompt: 'Analizza questa configurazione di migrazione WordPress e suggerisci settaggi migliori per categorie, tag, autori, date, commenti, immagini, slugs e batch: {context}',
+                  },
+                ]}
+                contextData={JSON.stringify({
+                  config,
+                  batchConfig,
+                  preview,
+                  currentTenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+                }, null, 2)}
+                onResult={(result) => setMigrationNotes(result)}
+                autoApply
+              />
+            </div>
+
             {[
               { key: 'importCategories', label: 'Import Categories' },
               { key: 'importTags', label: 'Import Tags' },
@@ -504,6 +548,27 @@ export function WordPressMigrationPanel() {
 
         {activeTab === 'history' && (
           <div className="space-y-2">
+            <div className="flex items-center justify-end">
+              <AIButton
+                compact
+                taskType="chatbot"
+                actions={[
+                  {
+                    id: 'wp_history_summary',
+                    label: 'Leggi storico',
+                    prompt: 'Riassumi lo storico migrazioni visibile e suggerisci prossimi controlli tecnici o editoriali post-import: {context}',
+                  },
+                ]}
+                contextData={JSON.stringify({
+                  jobs,
+                  migrationNotes,
+                  currentTenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+                }, null, 2)}
+                onResult={(result) => setMigrationNotes(result)}
+                autoApply
+              />
+            </div>
+
             {jobs.length === 0 ? (
               <p className="text-xs text-center py-6" style={{ color: 'var(--c-text-1)' }}>
                 No migrations yet

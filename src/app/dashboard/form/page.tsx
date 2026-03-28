@@ -5,6 +5,7 @@ import slugify from "slugify";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/lib/store";
 import { Check, Plus } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface SiteForm {
   id: string;
@@ -182,9 +183,41 @@ export default function FormPage() {
           <h2 className="text-lg font-semibold" style={{ color: "var(--c-text-0)" }}>Form</h2>
           <p className="text-sm" style={{ color: "var(--c-text-2)" }}>Form builder leggero, submission e endpoint pubblico.</p>
         </div>
-        <button onClick={() => { resetEditor(); setShowEditor(true); }} className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-white text-sm font-semibold" style={{ background: "var(--c-accent)" }}>
-          <Plus className="w-4 h-4" /> Nuovo Form
-        </button>
+        <div className="flex items-center gap-2">
+          <AIButton
+            compact
+            actions={[
+              {
+                id: "form-strategy",
+                label: "Progetta form",
+                prompt: "Suggerisci come strutturare form, campi, destinatari e messaggi di successo per il tenant corrente in base al contesto disponibile: {context}",
+              },
+              {
+                id: "form-audit",
+                label: "Audit form",
+                prompt: "Analizza form, submissions, endpoint pubblici e controlli necessari lato CMS per sicurezza, deliverability e UX: {context}",
+              },
+            ]}
+            contextData={JSON.stringify({
+              tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+              forms,
+              submissions,
+              editor: {
+                editingId,
+                name,
+                slug,
+                description,
+                fieldsJson,
+                recipients,
+                successMessage,
+                isActive,
+              },
+            }, null, 2)}
+          />
+          <button onClick={() => { resetEditor(); setShowEditor(true); }} className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-white text-sm font-semibold" style={{ background: "var(--c-accent)" }}>
+            <Plus className="w-4 h-4" /> Nuovo Form
+          </button>
+        </div>
       </div>
 
       {!moduleReady ? (

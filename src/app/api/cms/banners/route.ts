@@ -4,6 +4,28 @@ import { writeActivityLog } from "@/lib/security/audit";
 import { triggerPublish } from "@/lib/publish/runner";
 import { sanitizeExternalUrl, sanitizeHtml } from "@/lib/security/html";
 import { CMS_BANNER_ROLES, CMS_VIEW_ROLES, requireTenantAccess } from "@/lib/cms/tenant-access";
+import { z } from "zod";
+
+const bannerPositions = ["sidebar", "header", "footer", "inline", "popup", "interstitial"] as const;
+const bannerTypes = ["image", "html", "video"] as const;
+const bannerDevices = ["all", "desktop", "mobile", "tablet"] as const;
+
+const bannerCreateSchema = z.object({
+  tenant_id: z.string().uuid("tenant_id deve essere un UUID valido"),
+  name: z.string().min(1, "name obbligatorio").transform((v) => v.trim()),
+  position: z.enum(bannerPositions).optional().default("sidebar"),
+  type: z.enum(bannerTypes).optional().default("image"),
+  image_url: z.string().optional().nullable(),
+  html_content: z.string().optional().nullable(),
+  link_url: z.string().optional().nullable(),
+  target_categories: z.array(z.string()).optional().default([]),
+  target_device: z.enum(bannerDevices).optional().default("all"),
+  weight: z.number().int().min(1).max(100).optional().default(1),
+  advertiser_id: z.string().uuid().optional().nullable(),
+  starts_at: z.string().datetime().optional().nullable(),
+  ends_at: z.string().datetime().optional().nullable(),
+  is_active: z.boolean().optional().default(false),
+}).passthrough();
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -25,7 +47,8 @@ export async function GET(request: Request) {
   ]);
 
   if (bannersRes.error || advertisersRes.error || categoriesRes.error) {
-    return NextResponse.json({ error: bannersRes.error?.message || advertisersRes.error?.message || categoriesRes.error?.message || "Unable to load banners" }, { status: 500 });
+    console.error("banners.list failed:", bannersRes.error?.message || advertisersRes.error?.message || categoriesRes.error?.message);
+    return NextResponse.json({ error: "Unable to load banners" }, { status: 500 });
   }
 
   return NextResponse.json({
@@ -42,10 +65,15 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const tenantId = typeof body?.tenant_id === "string" ? body.tenant_id : null;
-  if (!tenantId || typeof body?.name !== "string" || !body.name.trim()) {
-    return NextResponse.json({ error: "tenant_id and name required" }, { status: 400 });
+  const parsed = bannerCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Dati non validi", details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
   }
+
+  const tenantId = parsed.data.tenant_id;
 
   const access = await requireTenantAccess(tenantId, CMS_BANNER_ROLES);
   if ("error" in access) {
@@ -54,24 +82,25 @@ export async function POST(request: Request) {
 
   const payload = {
     tenant_id: tenantId,
-    name: body.name.trim(),
-    position: String(body.position || "sidebar"),
-    type: String(body.type || "image"),
-    image_url: sanitizeExternalUrl(body.image_url, true),
-    html_content: typeof body.html_content === "string" ? sanitizeHtml(body.html_content) : null,
-    link_url: sanitizeExternalUrl(body.link_url, true),
-    target_categories: Array.isArray(body.target_categories) ? body.target_categories.map(String) : [],
-    target_device: String(body.target_device || "all"),
-    weight: Number(body.weight || 1),
-    advertiser_id: typeof body.advertiser_id === "string" && body.advertiser_id ? body.advertiser_id : null,
-    starts_at: typeof body.starts_at === "string" && body.starts_at ? body.starts_at : null,
-    ends_at: typeof body.ends_at === "string" && body.ends_at ? body.ends_at : null,
-    is_active: Boolean(body.is_active),
+    name: parsed.data.name,
+    position: parsed.data.position,
+    type: parsed.data.type,
+    image_url: sanitizeExternalUrl(parsed.data.image_url, true),
+    html_content: typeof parsed.data.html_content === "string" ? sanitizeHtml(parsed.data.html_content) : null,
+    link_url: sanitizeExternalUrl(parsed.data.link_url, true),
+    target_categories: parsed.data.target_categories,
+    target_device: parsed.data.target_device,
+    weight: parsed.data.weight,
+    advertiser_id: parsed.data.advertiser_id || null,
+    starts_at: parsed.data.starts_at || null,
+    ends_at: parsed.data.ends_at || null,
+    is_active: parsed.data.is_active,
   };
 
   const { data, error } = await access.sessionClient.from("banners").insert(payload).select("*").single();
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || "Unable to create banner" }, { status: 500 });
+    console.error("banner.create failed:", error?.message);
+    return NextResponse.json({ error: "Unable to create banner" }, { status: 500 });
   }
 
   await writeActivityLog({

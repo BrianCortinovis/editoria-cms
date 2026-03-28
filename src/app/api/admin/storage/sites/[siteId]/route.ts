@@ -56,6 +56,15 @@ export async function PATCH(
     return NextResponse.json({ error: error?.message || "Unable to save storage policy" }, { status: 500 });
   }
 
+  await access.serviceClient.from("audit_logs").insert({
+    tenant_id: null,
+    actor_user_id: access.user.id,
+    action: "platform.storage_quota_updated",
+    resource_type: "site_storage_quota",
+    resource_id: siteId,
+    metadata: { changes: payload },
+  }).maybeSingle();
+
   return NextResponse.json({ quota: data });
 }
 
@@ -74,6 +83,15 @@ export async function POST(
   if (!snapshot) {
     return NextResponse.json({ error: "Unable to recalculate usage" }, { status: 500 });
   }
+
+  await access.serviceClient.from("audit_logs").insert({
+    tenant_id: null,
+    actor_user_id: access.user.id,
+    action: "platform.storage_recalculated",
+    resource_type: "site_storage_quota",
+    resource_id: siteId,
+    metadata: {},
+  }).maybeSingle();
 
   return NextResponse.json({ snapshot });
 }

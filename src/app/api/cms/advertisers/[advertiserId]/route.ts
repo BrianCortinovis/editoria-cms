@@ -40,7 +40,8 @@ export async function PATCH(
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || "Unable to update advertiser" }, { status: 500 });
+    console.error("advertiser.update failed:", error?.message);
+    return NextResponse.json({ error: "Unable to update advertiser" }, { status: 500 });
   }
 
   await writeActivityLog({
@@ -84,7 +85,8 @@ export async function DELETE(
     .eq("id", advertiserId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("advertiser.delete failed:", error.message);
+    return NextResponse.json({ error: "Unable to delete advertiser" }, { status: 500 });
   }
 
   await writeActivityLog({

@@ -19,6 +19,7 @@ import {
   LayoutTemplate,
   Search,
 } from 'lucide-react';
+import AIButton from '@/components/ai/AIButton';
 
 interface SitePage {
   id: string;
@@ -365,7 +366,7 @@ export default function PaginePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--c-text-0)' }}>
             Pagine Sito
@@ -374,15 +375,48 @@ export default function PaginePage() {
             Gestisci tutte le pagine del sito
           </p>
         </div>
-        <button
-          onClick={() => setShowNewPage(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-white font-medium transition"
-          style={{ background: 'var(--c-accent)' }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-        >
-          <Plus className="w-5 h-5" /> Nuova Pagina
-        </button>
+        <div className="flex items-center gap-2">
+          <AIButton
+            compact
+            actions={[
+              {
+                id: "page-plan",
+                label: "Piano pagine",
+                prompt: "Analizza l'albero pagine, gli slug, i meta e lo stato di pubblicazione. Suggerisci struttura, pagine mancanti, SEO e contenuti istituzionali da creare o rifinire: {context}",
+              },
+              {
+                id: "page-seo-audit",
+                label: "Audit SEO pagine",
+                prompt: "Controlla pagine, slug, meta title, meta description, canonical e rischi di contenuto debole o duplicato. Restituisci una checklist operativa: {context}",
+              },
+            ]}
+            contextData={JSON.stringify(
+              {
+                tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+                pages,
+                draftPage: {
+                  title: newPageTitle,
+                  slug: newPageSlug,
+                  metaTitle: newPageMetaTitle,
+                  metaDescription: newPageMetaDescription,
+                  ogTitle: newPageOgTitle,
+                  ogDescription: newPageOgDescription,
+                },
+              },
+              null,
+              2,
+            )}
+          />
+          <button
+            onClick={() => setShowNewPage(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-white font-medium transition"
+            style={{ background: 'var(--c-accent)' }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+          >
+            <Plus className="w-5 h-5" /> Nuova Pagina
+          </button>
+        </div>
       </div>
 
       {/* New Page Modal */}

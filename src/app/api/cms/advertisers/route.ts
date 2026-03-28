@@ -23,7 +23,8 @@ export async function GET(request: Request) {
     .order("name");
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("advertisers.list failed:", error.message);
+    return NextResponse.json({ error: "Unable to load advertisers" }, { status: 500 });
   }
 
   return NextResponse.json({ advertisers: data || [] });
@@ -61,7 +62,8 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || "Unable to create advertiser" }, { status: 500 });
+    console.error("advertiser.create failed:", error?.message);
+    return NextResponse.json({ error: "Unable to create advertiser" }, { status: 500 });
   }
 
   await writeActivityLog({

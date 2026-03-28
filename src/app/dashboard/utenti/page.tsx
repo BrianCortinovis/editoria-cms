@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import type { UserRole } from "@/types/database";
 import { normalizeCmsRole } from "@/lib/cms/roles";
+import AIButton from "@/components/ai/AIButton";
 
 interface TeamMember {
   id: string;
@@ -179,17 +181,43 @@ export default function UtentiPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <p className="text-sm" style={{ color: "var(--c-text-2)" }}>{members.length} membr{members.length === 1 ? "o" : "i"} nella redazione</p>
-        {isAdmin && (
-          <button
-            onClick={() => setShowInvite(true)}
-            className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
-            style={{ background: "var(--c-accent)" }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
-          >
-            <Plus className="w-4 h-4" /> Aggiungi Membro
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <AIButton
+            compact
+            actions={[
+              {
+                id: "team-structure",
+                label: "Ruoli redazione",
+                prompt: "Analizza team, ruoli e distribuzione della redazione. Suggerisci struttura, permessi, ruoli mancanti e workflow piu` adatto al sito: {context}",
+              },
+              {
+                id: "team-access-audit",
+                label: "Audit accessi",
+                prompt: "Controlla accessi, ruoli e rischi organizzativi del team CMS. Evidenzia dove limitare permessi, creare ruoli o separare funzioni: {context}",
+              },
+            ]}
+            contextData={JSON.stringify(
+              {
+                tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+                currentRole,
+                members,
+              },
+              null,
+              2,
+            )}
+          />
+          {isAdmin && (
+            <button
+              onClick={() => setShowInvite(true)}
+              className="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition"
+              style={{ background: "var(--c-accent)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}
+            >
+              <Plus className="w-4 h-4" /> Aggiungi Membro
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Invite form */}
@@ -284,7 +312,7 @@ export default function UtentiPage() {
                   {/* Avatar */}
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold uppercase shrink-0 overflow-hidden" style={{ background: "var(--c-bg-2)", color: "var(--c-text-2)" }}>
                     {member.profile?.avatar_url ? (
-                      <img src={member.profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                      <Image src={member.profile.avatar_url} alt="" className="w-full h-full object-cover" width={40} height={40} unoptimized />
                     ) : (
                       member.profile?.full_name?.charAt(0) || member.profile?.email?.charAt(0) || "?"
                     )}

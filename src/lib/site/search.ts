@@ -280,7 +280,8 @@ async function runPublishedSearch(tenant: SearchTenant, tenantSlug: string, quer
 
 async function runSimpleSearch(tenant: SearchTenant, query: string, limit: number) {
   const supabase = await createServiceRoleClient();
-  const pattern = `%${query}%`;
+  const escaped = query.replace(/[%_()&|]/g, '\\$&');
+  const pattern = `%${escaped}%`;
 
   const [{ data: articles }, { data: pages }] = await Promise.all([
     supabase

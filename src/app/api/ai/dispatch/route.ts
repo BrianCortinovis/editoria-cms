@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { callAIWithFallback } from '@/lib/ai/fallback';
-import { HUMAN_WORKFLOW_GUIDANCE } from '@/lib/ai/prompts';
+import { HUMAN_WORKFLOW_GUIDANCE, buildCmsFactPolicy } from '@/lib/ai/prompts';
 import type { AIMessage, AIProvider } from '@/lib/ai/providers';
 import type { AITask } from '@/lib/ai/resolver';
+import { getModuleConfig, isModuleActive } from '@/lib/modules';
 
 interface DispatchPayload {
   taskType: string;
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
     // Load tenant config
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
-      .select('settings')
+      .select('name, settings')
       .eq('id', tenantToUse)
       .single();
 
@@ -95,10 +96,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
-    const aiConfig = tenant.settings?.module_config?.ai_assistant || {};
-    const sysPrompt = systemPrompt || `Sei un assistente AI del CMS online. Aiuti redazione, SEO, analytics, tecnico e gestione operativa.
+    const settings = (tenant.settings || {}) as Record<string, unknown>;
+    if (!isModuleActive(settings, "ai_assistant")) {
+      return NextResponse.json({ error: "Modulo IA non attivo per questo tenant" }, { status: 403 });
+    }
+
+    const aiConfig = getModuleConfig(settings, "ai_assistant");
+    const sysPrompt = systemPrompt || `Sei un assistente AI del CMS online del tenant "${tenant.name || tenantToUse}". Aiuti redazione, SEO, analytics, tecnico e gestione operativa.
 Non sei un builder visuale e non parli dell'editor desktop se non richiesto come integrazione CMS.
 Rispondi in italiano in modo conciso, pratico e orientato all'azione. Task: ${taskType || 'general'}.
+${buildCmsFactPolicy({ tenantName: tenant.name || tenantToUse })}
 ${HUMAN_WORKFLOW_GUIDANCE}`;
 
     const task = normalizeTask(taskType);

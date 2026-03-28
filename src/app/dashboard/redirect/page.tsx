@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import { Check, Plus } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface RedirectRow {
   id: string;
@@ -91,6 +92,27 @@ export default function RedirectPage() {
           <h2 className="text-lg font-semibold" style={{ color: "var(--c-text-0)" }}>Redirect</h2>
           <p className="text-sm" style={{ color: "var(--c-text-2)" }}>Gestione permalink legacy e migrazioni WordPress SEO-safe.</p>
         </div>
+        <AIButton
+          compact
+          actions={[
+            {
+              id: "redirect-plan",
+              label: "Piano redirect",
+              prompt: "Analizza i redirect attuali del tenant e suggerisci una strategia SEO-safe per migrazioni WordPress, permalink legacy e categorie/articoli: {context}",
+            },
+            {
+              id: "redirect-rules",
+              label: "Regole consigliate",
+              prompt: "Proponi regole pratiche e controlli per gestire redirect 301/302 in un CMS editoriale multi-tenant: {context}",
+            },
+          ]}
+          contextData={JSON.stringify({
+            tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+            redirects,
+            draft: { sourcePath, targetPath, statusCode, isActive },
+            moduleReady,
+          }, null, 2)}
+        />
       </div>
 
       {!moduleReady ? (

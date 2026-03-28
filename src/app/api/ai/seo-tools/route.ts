@@ -3,6 +3,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supab
 import { callAIWithFallback } from "@/lib/ai/fallback";
 import { isModuleActive, getModuleConfig } from "@/lib/modules";
 import { resolveProvider, type ResolvedProvider } from "@/lib/ai/resolver";
+import { buildCmsFactPolicy } from "@/lib/ai/prompts";
 
 const SEO_EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
 
@@ -38,6 +39,7 @@ type AIConfig = Record<string, string | undefined>;
 interface SeoAiContext {
   aiConfig: AIConfig;
   resolved: ResolvedProvider;
+  tenantName: string;
 }
 
 interface SchemaArticle {
@@ -116,7 +118,7 @@ export async function POST(request: NextRequest) {
     // Get tenant settings
     const { data: tenant } = await supabase
       .from("tenants")
-      .select("settings")
+      .select("name, settings")
       .eq("id", tenant_id)
       .single();
 
@@ -134,35 +136,35 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case "analyze_seo":
-        result = await analyzeSEO(articles, { aiConfig, resolved });
+        result = await analyzeSEO(articles, { aiConfig, resolved, tenantName: tenant.name || tenant_id });
         break;
 
       case "generate_meta":
         if (!articles || articles.length === 0) {
           return NextResponse.json({ error: "articles required for meta generation" }, { status: 400 });
         }
-        result = await generateMetaTags(articles, { aiConfig, resolved });
+        result = await generateMetaTags(articles, { aiConfig, resolved, tenantName: tenant.name || tenant_id });
         break;
 
       case "keyword_analysis":
         if (!articles || articles.length === 0) {
           return NextResponse.json({ error: "articles required for keyword analysis" }, { status: 400 });
         }
-        result = await analyzeKeywords(articles, { aiConfig, resolved });
+        result = await analyzeKeywords(articles, { aiConfig, resolved, tenantName: tenant.name || tenant_id });
         break;
 
       case "readability":
         if (!articles || articles.length === 0) {
           return NextResponse.json({ error: "articles required for readability analysis" }, { status: 400 });
         }
-        result = await analyzeReadability(articles, { aiConfig, resolved });
+        result = await analyzeReadability(articles, { aiConfig, resolved, tenantName: tenant.name || tenant_id });
         break;
 
       case "internal_linking":
         if (!articles || articles.length === 0) {
           return NextResponse.json({ error: "articles required for linking suggestions" }, { status: 400 });
         }
-        result = await suggestInternalLinks(articles, { aiConfig, resolved });
+        result = await suggestInternalLinks(articles, { aiConfig, resolved, tenantName: tenant.name || tenant_id });
         break;
 
       case "schema_markup":
@@ -186,7 +188,7 @@ export async function POST(request: NextRequest) {
         if (!page) {
           return NextResponse.json({ error: "page required for page optimization" }, { status: 400 });
         }
-        result = await optimizePageSeo(page, { aiConfig, resolved });
+        result = await optimizePageSeo(page, { aiConfig, resolved, tenantName: tenant.name || tenant_id });
         break;
 
       default:
@@ -329,7 +331,8 @@ Regole:
   const result = await callSeoAi(context, [
     {
       role: "system",
-      content: "Sei un SEO strategist senior per CMS editoriali. Produci solo JSON valido, conciso e applicabile direttamente.",
+      content: `Sei un SEO strategist senior per CMS editoriali. Produci solo JSON valido, conciso e applicabile direttamente.
+${buildCmsFactPolicy({ tenantName: context.tenantName })}`,
     },
     { role: "user", content: prompt },
   ]);
@@ -394,7 +397,8 @@ Fornisci:
   const result = await callSeoAi(context, [
     {
       role: "system",
-      content: "Sei un esperto SEO per siti giornalistici italiani. Fornisci analisi concrete e attuabili.",
+      content: `Sei un esperto SEO per siti giornalistici italiani. Fornisci analisi concrete e attuabili.
+${buildCmsFactPolicy({ tenantName: context.tenantName })}`,
     },
     { role: "user", content: prompt },
   ]);
@@ -438,7 +442,8 @@ META_DESCRIPTION: [descrizione]`;
       const result = await callSeoAi(context, [
         {
           role: "system",
-          content: "Sei un esperto SEO. Genera meta tag concisi e ottimizzati per i motori di ricerca.",
+          content: `Sei un esperto SEO. Genera meta tag concisi e ottimizzati per i motori di ricerca.
+${buildCmsFactPolicy({ tenantName: context.tenantName })}`,
         },
         { role: "user", content: prompt },
       ]);
@@ -490,7 +495,8 @@ Formato: Un paragrafo per articolo con raccomandazioni concrete.`;
   const result = await callSeoAi(context, [
     {
       role: "system",
-      content: "Sei un esperto SEO specializzato in ottimizzazione keywords per siti giornalistici italiani.",
+      content: `Sei un esperto SEO specializzato in ottimizzazione keywords per siti giornalistici italiani.
+${buildCmsFactPolicy({ tenantName: context.tenantName })}`,
     },
     { role: "user", content: prompt },
   ]);
@@ -528,7 +534,8 @@ Per ogni aspetto, suggerisci 2-3 miglioramenti specifici applicabili.`;
   const result = await callSeoAi(context, [
     {
       role: "system",
-      content: "Sei un esperto di SEO e readability per siti giornalistici italiani.",
+      content: `Sei un esperto di SEO e readability per siti giornalistici italiani.
+${buildCmsFactPolicy({ tenantName: context.tenantName })}`,
     },
     { role: "user", content: prompt },
   ]);
@@ -566,7 +573,8 @@ Formato:
   const result = await callSeoAi(context, [
     {
       role: "system",
-      content: "Sei un esperto SEO specializzato in strategie di internal linking per siti di notizie italiani.",
+      content: `Sei un esperto SEO specializzato in strategie di internal linking per siti di notizie italiani.
+${buildCmsFactPolicy({ tenantName: context.tenantName })}`,
     },
     { role: "user", content: prompt },
   ]);

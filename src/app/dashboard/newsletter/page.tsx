@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { GuideSheet } from "@/components/help/GuideSheet";
+import AIButton from "@/components/ai/AIButton";
 import {
   getDefaultNewsletterComposerState,
   type NewsletterCampaignRecord,
@@ -315,6 +316,47 @@ export default function NewsletterPage() {
           },
         ]}
       />
+
+      <div className="flex justify-end">
+        <AIButton
+          actions={[
+            {
+              id: "newsletter-strategy",
+              label: "Strategia newsletter",
+              prompt: "Analizza configurazione newsletter, campagne, provider, articoli selezionati e digest del tenant. Suggerisci miglioramenti pratici per composizione, conversione, SEO editoriale e handoff provider: {context}",
+            },
+            {
+              id: "newsletter-copy",
+              label: "Ottimizza campagna",
+              prompt: "Rivedi subject, preheader, blocchi editoriali e selezione articoli della newsletter. Proponi una versione piu` forte per apertura, CTR e continuita` editoriale: {context}",
+            },
+            {
+              id: "newsletter-provider-check",
+              label: "Controllo provider",
+              prompt: "Controlla configurazione provider, sender, audience, digest, placements e payload della newsletter. Evidenzia configurazioni mancanti, rischi e prossimi step: {context}",
+            },
+          ]}
+          contextData={JSON.stringify(
+            {
+              tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+              config,
+              campaign: selectedCampaign,
+              forms,
+              categories,
+              articles: articles.slice(0, 12).map((article) => ({
+                id: article.id,
+                title: article.title,
+                slug: article.slug,
+                categoryName: article.categoryName ?? null,
+                categorySlug: article.categorySlug ?? null,
+              })),
+              previewState,
+            },
+            null,
+            2,
+          )}
+        />
+      </div>
 
       <section className="grid gap-4 md:grid-cols-4">
         {[

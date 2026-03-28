@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface LogEntry {
   id: string;
@@ -103,6 +104,31 @@ export default function ActivityLogPage() {
           <span className="text-sm" style={{ color: "var(--c-text-2)" }}>Registro attività</span>
         </div>
         <div className="flex items-center gap-2">
+          <AIButton
+            compact
+            actions={[
+              {
+                id: "activity-audit",
+                label: "Audit attivita`",
+                prompt: "Analizza il registro attivita` del CMS. Evidenzia pattern anomali, azioni ripetitive, rischi operativi e controlli utili per redazione e tecnico: {context}",
+              },
+              {
+                id: "activity-summary",
+                label: "Sintesi operativa",
+                prompt: "Riassumi il log attivita` in modo operativo basandoti solo sugli eventi presenti nel contesto. Separa: fatti osservati, controlli consigliati, azioni immediate. Non parlare di colli di bottiglia se non emergono chiaramente dai log: {context}",
+              },
+            ]}
+            contextData={JSON.stringify(
+              {
+                tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+                page,
+                hasMore,
+                entries: entries.slice(0, 50),
+              },
+              null,
+              2,
+            )}
+          />
           <button
             onClick={() => setPage(p => Math.max(0, p - 1))}
             disabled={page === 0}

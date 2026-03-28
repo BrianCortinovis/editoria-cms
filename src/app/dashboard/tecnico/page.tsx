@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import { GuideSheet } from "@/components/help/GuideSheet";
-import { SystemPanel } from "@/components/panels/SystemPanel";
+import AIButton from "@/components/ai/AIButton";
 import { Cpu, FlaskConical, Play } from "lucide-react";
 
 interface TechStats {
@@ -45,6 +45,17 @@ interface TechOverview {
   storage: {
     bucketCount: number;
     mediaObjectCount: number;
+    mediaLibraryBytes: number;
+    mediaLibraryObjectCount: number;
+    quota: {
+      mediaProvider: string;
+      publishedMediaProvider: string;
+      softLimitBytes: number;
+      hardLimitBytes: number;
+      monthlyEgressLimitBytes: number | null;
+      uploadBlocked: boolean;
+      publishBlocked: boolean;
+    } | null;
   };
   subscription: {
     plan_code: string;
@@ -130,6 +141,18 @@ function InfoLine({ label, value, mono = false }: { label: string; value: string
 function formatDateTime(value?: string | null) {
   if (!value) return "Mai";
   return new Date(value).toLocaleString("it-IT");
+}
+
+function formatBytes(bytes?: number | null) {
+  if (!bytes || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
 export default function TecnicoPage() {
@@ -361,15 +384,94 @@ export default function TecnicoPage() {
 
       <article className="rounded-[1.9rem] border px-5 py-6 md:px-8" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)" }}>
         <div className="mx-auto max-w-5xl space-y-10">
+          <section id="assistente-tecnico" className="scroll-mt-24">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+                  Assistente tecnico
+                </div>
+                <h2 className="mt-2 text-xl font-semibold" style={{ color: "var(--c-text-0)" }}>
+                  Analisi IA di runtime, publish, storage e integrazione
+                </h2>
+              </div>
+              <AIButton
+                compact
+                actions={[
+                  {
+                    id: "runtime-audit",
+                    label: "Audit runtime",
+                    prompt:
+                      "Analizza il tenant corrente usando solo i dati forniti. Separa la risposta in: fatti verificati, verifiche mancanti, azioni consigliate. Non dichiarare colli di bottiglia o problemi runtime se non sono supportati da questi dati: {context}",
+                  },
+                  {
+                    id: "publish-check",
+                    label: "Verifica publish",
+                    prompt:
+                      "Valuta la pipeline di publish del tenant usando solo il contesto fornito. Indica solo problemi verificabili, controlli mancanti e azioni consigliate. Se un punto non e' verificabile, dichiaralo apertamente: {context}",
+                  },
+                  {
+                    id: "storage-security",
+                    label: "Storage e sicurezza",
+                    prompt:
+                      "Analizza storage, bucket, media, RLS, quote tenant e superficie di attacco del CMS limitandoti al tenant corrente. Produci checklist pratica di hardening e controlli periodici. Non citare metriche o vulnerabilita' non presenti nel contesto: {context}",
+                  },
+                  {
+                    id: "custom-site-brief",
+                    label: "Brief sito custom",
+                    prompt:
+                      "Prepara un brief tecnico per collegare un sito custom al CMS di questo tenant, includendo publish layer, bridge pack, media, banner, cron e verifiche finali: {context}",
+                  },
+                ]}
+                contextData={JSON.stringify(
+                  {
+                    tenant: overview?.tenant ?? currentTenant ?? null,
+                    site: overview?.site ?? null,
+                    projectRef: overview?.projectRef ?? null,
+                    supabaseHost: overview?.supabaseHost ?? null,
+                    stats: overview?.stats ?? stats ?? null,
+                    storage: overview?.storage ?? null,
+                    subscription: overview?.subscription ?? null,
+                    cron: overview?.cron ?? null,
+                    billing: overview?.billing ?? null,
+                    commands: COMMAND_TEMPLATES,
+                  },
+                  null,
+                  2,
+                )}
+              />
+            </div>
+            <div className="mt-4 rounded-[1.2rem] border px-4 py-4 text-sm leading-7" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-0)", color: "var(--c-text-1)" }}>
+              Usa questo pannello per avere audit tecnici contestuali del tenant corrente: runtime osservabile, publish, storage, cron, security posture e integrazione di siti custom o esterni. Le risposte devono basarsi solo sui dati mostrati qui o nel contesto fornito.
+            </div>
+          </section>
+
           <section id="stato-sistema" className="scroll-mt-24">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
-              Stato sistema
+              Stato osservabile
             </div>
             <h2 className="mt-2 text-xl font-semibold" style={{ color: "var(--c-text-0)" }}>
-              Vista live del tenant e del runtime
+              Dati reali disponibili per il tenant corrente
             </h2>
-            <div className="mt-5 overflow-hidden rounded-[1.5rem] border" style={{ borderColor: "var(--c-border)" }}>
-              <SystemPanel />
+            <div className="mt-5 grid gap-6 xl:grid-cols-2">
+              <section className="rounded-[1.2rem] border px-4 py-4" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-0)" }}>
+                <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Disponibile adesso</h3>
+                <div className="mt-3">
+                  <InfoLine label="Stato sito" value={overview?.site?.status || "—"} />
+                  <InfoLine label="Dominio principale" value={overview?.tenant?.domain || currentTenant?.domain || "Non configurato"} mono />
+                  <InfoLine label="Ultimo cron publish" value={formatDateTime(overview?.cron.publishMaintenance?.createdAt)} />
+                  <InfoLine label="Ultimo cron SEO" value={formatDateTime(overview?.cron.seoAnalysis?.createdAt)} />
+                  <InfoLine label="Articoli osservati" value={String(overview?.stats.articles ?? stats?.totalArticles ?? "—")} />
+                  <InfoLine label="Media osservati" value={String(overview?.stats.media ?? stats?.totalMedia ?? "—")} />
+                  <InfoLine label="Media library bytes" value={formatBytes(overview?.storage.mediaLibraryBytes)} />
+                </div>
+              </section>
+              <section className="rounded-[1.2rem] border px-4 py-4" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-0)" }}>
+                <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Non disponibile qui</h3>
+                <div className="mt-3 space-y-3 text-sm leading-7" style={{ color: "var(--c-text-1)" }}>
+                  <p>Questa pagina non mostra metriche runtime live come CPU, RAM, latency applicativa o query costose. Se quei dati non sono collegati a una sorgente reale, non devono essere trattati come fatti.</p>
+                  <p>Quando l&apos;IA analizza questa sezione, deve limitarsi ai dati osservabili del tenant corrente e dichiarare esplicitamente cio` che non e` verificato.</p>
+                </div>
+              </section>
             </div>
           </section>
 
@@ -407,17 +509,24 @@ export default function TecnicoPage() {
               <section>
                 <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Uso osservabile</h3>
                 <div className="mt-3">
-                  <InfoLine label="Platform members" value={String(overview?.stats.members ?? "—")} />
-                  <InfoLine label="Platform domains" value={String(overview?.stats.domains ?? "—")} />
+                  <InfoLine label="Team members" value={String(overview?.stats.members ?? "—")} />
+                  <InfoLine label="Connected domains" value={String(overview?.stats.domains ?? "—")} />
                   <InfoLine label="Site pages" value={String(overview?.stats.pages ?? "—")} />
                   <InfoLine label="Published articles" value={String(overview?.stats.articles ?? "—")} />
                   <InfoLine label="Media objects" value={String(overview?.storage.mediaObjectCount ?? "—")} />
+                  <InfoLine label="Media library size" value={formatBytes(overview?.storage.mediaLibraryBytes)} />
                 </div>
               </section>
               <section>
                 <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Storage e subscription</h3>
                 <div className="mt-3">
-                  <InfoLine label="Buckets" value={String(overview?.storage.bucketCount ?? "—")} />
+                  <InfoLine label="Bucket media disponibile" value={(overview?.storage.bucketCount ?? 0) > 0 ? "Si`" : "No"} />
+                  <InfoLine label="Provider media" value={overview?.storage.quota?.mediaProvider || "Non configurato"} />
+                  <InfoLine label="Provider published media" value={overview?.storage.quota?.publishedMediaProvider || "Non configurato"} />
+                  <InfoLine label="Soft limit storage" value={overview?.storage.quota ? formatBytes(overview.storage.quota.softLimitBytes) : "Non configurato"} />
+                  <InfoLine label="Hard limit storage" value={overview?.storage.quota ? formatBytes(overview.storage.quota.hardLimitBytes) : "Non configurato"} />
+                  <InfoLine label="Upload bloccati" value={overview?.storage.quota?.uploadBlocked ? "Si`" : "No"} />
+                  <InfoLine label="Publish bloccato" value={overview?.storage.quota?.publishBlocked ? "Si`" : "No"} />
                   <InfoLine label="Plan" value={overview?.subscription?.plan_code || "free"} />
                   <InfoLine label="Subscription" value={overview?.subscription?.status || "active"} />
                   <InfoLine label="Billing state" value={overview?.billing.available ? "Configurato" : "Non configurato"} />

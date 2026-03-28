@@ -17,6 +17,7 @@ import {
   Loader2,
   Package,
 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 const iconMap: Record<string, typeof Sparkles> = {
   Sparkles, Mail, Lock, Share2, Globe,
@@ -122,10 +123,38 @@ export default function ModuliPage() {
             Attiva moduli premium per questa testata. Ogni modulo richiede configurazione separata.
           </p>
         </div>
-        <button onClick={handleSave} disabled={saving} className="btn btn-primary">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Salva
-        </button>
+        <div className="flex items-center gap-2">
+          <AIButton
+            compact
+            actions={[
+              {
+                id: "module-plan",
+                label: "Piano moduli",
+                prompt: "Analizza moduli attivi e configurazioni del tenant e suggerisci quali moduli attivare o rifinire per newsroom, SEO, ADV e gestione: {context}",
+              },
+              {
+                id: "module-risk-check",
+                label: "Controllo dipendenze",
+                prompt: "Controlla dipendenze, moduli disattivi critici, configurazioni mancanti e rischi operativi del CMS in questa pagina moduli: {context}",
+              },
+            ]}
+            contextData={JSON.stringify({
+              tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+              activeModules,
+              moduleConfig,
+              availableModules: AVAILABLE_MODULES.map((mod) => ({
+                id: mod.id,
+                name: mod.name,
+                description: mod.description,
+                configFields: mod.configFields?.map((field) => field.key) || [],
+              })),
+            }, null, 2)}
+          />
+          <button onClick={handleSave} disabled={saving} className="btn btn-primary">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Salva
+          </button>
+        </div>
       </div>
 
       {AVAILABLE_MODULES.map(mod => {

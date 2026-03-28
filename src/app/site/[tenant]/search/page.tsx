@@ -30,7 +30,7 @@ export default async function TenantSearchPage({ params, searchParams }: Props) 
     : null;
 
   return (
-    <SiteLayout tenant={resolved.tenant} config={resolved.config}>
+    <SiteLayout tenant={resolved.tenant} config={resolved.config} tenantSettings={resolved.tenantSettings}>
       <section style={{ maxWidth: '980px', margin: '0 auto', padding: 'var(--e-section-gap, 48px) 0' }}>
         <div style={{ display: 'grid', gap: '18px', marginBottom: '28px' }}>
           <div>

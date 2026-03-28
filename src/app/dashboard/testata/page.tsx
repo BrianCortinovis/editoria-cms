@@ -6,6 +6,7 @@ import { requestPublishTrigger } from "@/lib/publish/client";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
 import { Save, Building2, Loader2, Users, Plus, X, Edit2 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 type TeamMember = {
   id: string;
@@ -185,6 +186,47 @@ export default function TestataPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
+      <div className="flex justify-end">
+        <AIButton
+          compact
+          actions={[
+            {
+              id: "editorial-sheet-audit",
+              label: "Audit scheda testata",
+              prompt: "Analizza la scheda testata del tenant e indica dati mancanti, criticita` legali/editoriali e priorita` operative da completare: {context}",
+            },
+            {
+              id: "team-structure",
+              label: "Organizza redazione",
+              prompt: "Proponi come strutturare ruoli, team e dati editoriali di questa testata per lavorare bene nel CMS: {context}",
+            },
+          ]}
+          contextData={JSON.stringify({
+            tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+            ragioneSociale,
+            partitaIva,
+            codiceFiscale,
+            indirizzo,
+            citta,
+            cap,
+            provincia,
+            nazione,
+            telefono,
+            email,
+            pec,
+            sdi,
+            direttoreResponsabile,
+            registroTribunale,
+            numRegistro,
+            dataRegistro,
+            editore,
+            iscrRoc,
+            tipologia,
+            teamMembers,
+          }, null, 2)}
+        />
+      </div>
+
       {/* Dati Fiscali */}
       <div className="card">
         <div className="card-header flex items-center gap-2">

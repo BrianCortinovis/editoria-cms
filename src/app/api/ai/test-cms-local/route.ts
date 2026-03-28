@@ -73,6 +73,26 @@ export async function POST(request: NextRequest) {
           includesAny(text, ["media", "gallery", "immagini", "alt", "formato"]),
       },
       {
+        name: "settings-seo-analytics-support",
+        task: "chatbot" as const,
+        messages: buildMessages(
+          buildChatSystemPrompt({ tenantName: tenant.name, pageTitle: "Impostazioni · SEO & Analytics" }),
+          "Sono nella pagina SEO & Analytics del CMS. Dammi una checklist pratica per sito description, GA4, Search Console, sitemap e Google News.",
+        ),
+        validate: (text: string) =>
+          includesAny(text, ["ga4", "search console", "sitemap", "google news", "description"]),
+      },
+      {
+        name: "technical-runtime-support",
+        task: "chatbot" as const,
+        messages: buildMessages(
+          buildChatSystemPrompt({ tenantName: tenant.name, pageTitle: "Tecnico" }),
+          "Sono nella pagina Tecnico. Indicami come controllare publish, cron, storage, bridge pack e sicurezza tenant del CMS.",
+        ),
+        validate: (text: string) =>
+          includesAny(text, ["publish", "cron", "storage", "bridge", "tenant", "sicurezza"]),
+      },
+      {
         name: "field-assist-contract",
         task: "field-assist" as const,
         messages: buildMessages(

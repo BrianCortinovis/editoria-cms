@@ -4,14 +4,11 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 import { verifyTurnstileToken } from '@/lib/security/turnstile';
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+import { getPublicApiCorsHeadersWithPost } from '@/lib/security/cors';
 
 function hashValue(value: string) {
-  return crypto.createHash('sha256').update(value).digest('hex');
+  const salt = process.env.IP_HASH_SALT || 'editoria-cms-default-salt';
+  return crypto.createHmac('sha256', salt).update(value).digest('hex');
 }
 
 async function supportsFormsTables() {
@@ -20,8 +17,8 @@ async function supportsFormsTables() {
   return !error;
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, { status: 204, headers: getPublicApiCorsHeadersWithPost(request) });
 }
 
 export async function GET(
@@ -32,17 +29,17 @@ export async function GET(
   const tenantSlug = new URL(request.url).searchParams.get('tenant');
 
   if (!tenantSlug) {
-    return NextResponse.json({ error: 'tenant parameter required' }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'tenant parameter required' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   if (!(await supportsFormsTables())) {
-    return NextResponse.json({ formsEnabled: false }, { headers: CORS_HEADERS });
+    return NextResponse.json({ formsEnabled: false }, { headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const supabase = await createServiceRoleClient();
   const { data: tenant } = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single();
   if (!tenant) {
-    return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const { data: form } = await supabase
@@ -54,10 +51,10 @@ export async function GET(
     .maybeSingle();
 
   if (!form) {
-    return NextResponse.json({ error: 'Form not found' }, { status: 404, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Form not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
-  return NextResponse.json({ formsEnabled: true, form }, { headers: CORS_HEADERS });
+  return NextResponse.json({ formsEnabled: true, form }, { headers: getPublicApiCorsHeadersWithPost(request) });
 }
 
 export async function POST(
@@ -67,7 +64,7 @@ export async function POST(
   const { slug } = await params;
 
   if (!(await supportsFormsTables())) {
-    return NextResponse.json({ error: 'Forms module not initialized' }, { status: 503, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Forms module not initialized' }, { status: 503, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const body = await request.json();
@@ -77,11 +74,11 @@ export async function POST(
   const honeypot = String(body.website || '');
 
   if (!tenantSlug) {
-    return NextResponse.json({ error: 'tenant required' }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'tenant required' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   if (honeypot) {
-    return NextResponse.json({ success: true }, { headers: CORS_HEADERS });
+    return NextResponse.json({ success: true }, { headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const clientIp = getClientIp(request);
@@ -89,23 +86,23 @@ export async function POST(
   if (!limiter.allowed) {
     return NextResponse.json(
       { error: 'Too many submissions, please try again later.' },
-      { status: 429, headers: { ...CORS_HEADERS, 'Retry-After': String(Math.ceil(limiter.retryAfterMs / 1000)) } }
+      { status: 429, headers: { ...getPublicApiCorsHeadersWithPost(request), 'Retry-After': String(Math.ceil(limiter.retryAfterMs / 1000)) } }
     );
   }
 
   if (JSON.stringify(payload).length > 20_000) {
-    return NextResponse.json({ error: 'Payload too large' }, { status: 413, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const isHuman = await verifyTurnstileToken(String(body.turnstile_token || ''), clientIp);
   if (!isHuman) {
-    return NextResponse.json({ error: 'Bot protection check failed' }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Bot protection check failed' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const supabase = await createServiceRoleClient();
   const { data: tenant } = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single();
   if (!tenant) {
-    return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const { data: form } = await supabase
@@ -117,7 +114,7 @@ export async function POST(
     .maybeSingle();
 
   if (!form) {
-    return NextResponse.json({ error: 'Form not found' }, { status: 404, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Form not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const requiredFields = Array.isArray(form.fields)
@@ -130,7 +127,7 @@ export async function POST(
   });
 
   if (missing.length > 0) {
-    return NextResponse.json({ error: `Campi obbligatori mancanti: ${missing.join(', ')}` }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json({ error: `Campi obbligatori mancanti: ${missing.join(', ')}` }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const { error } = await supabase.from('form_submissions').insert({
@@ -145,11 +142,12 @@ export async function POST(
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500, headers: CORS_HEADERS });
+    console.error("form_submission.insert failed:", error.message);
+    return NextResponse.json({ error: 'Unable to save submission' }, { status: 500, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   return NextResponse.json(
     { success: true, message: form.success_message || 'Invio ricevuto correttamente.' },
-    { headers: CORS_HEADERS }
+    { headers: getPublicApiCorsHeadersWithPost(request) }
   );
 }

@@ -44,6 +44,7 @@ import { useThemeStore } from "@/lib/theme";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import type { UserRole } from "@/types/database";
+import { isModuleActive } from "@/lib/modules";
 
 export const mainNav = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
@@ -201,6 +202,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const router = useRouter();
   const { currentTenant, currentRole, tenants, setCurrentTenant, reset, profile } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
+  const aiModuleEnabled = isModuleActive((currentTenant?.settings as Record<string, unknown>) || {}, "ai_assistant");
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -219,7 +221,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const visibleMainNav = filterNavByRole(mainNav, currentRole, "main");
   const visibleEditorialNav = filterNavByRole(editorialNav, currentRole, "editorial");
   const visibleAdvNav = filterNavByRole(advNav, currentRole, "adv");
-  const visibleSystemNav = filterNavByRole(systemNav, currentRole, "system");
+  const visibleSystemNav = filterNavByRole(systemNav, currentRole, "system")
+    .filter((item) => item.href !== "/dashboard/ia" || aiModuleEnabled);
   const [collapsedSections, setCollapsedSections] = useState({
     main: false,
     editorial: false,

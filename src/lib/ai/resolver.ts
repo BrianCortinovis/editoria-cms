@@ -31,6 +31,10 @@ interface AIConfig {
   [key: string]: string | undefined;
 }
 
+function cleanConfigValue(value?: string) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 export interface ResolvedProvider {
   provider: AIProvider;
   apiKey: string;
@@ -48,13 +52,14 @@ export interface ResolvedProvider {
 export function resolveProvider(config: AIConfig, task: AITask): ResolvedProvider {
   // 1. Check task-specific override
   const taskOverride = config[`task_${task}`];
-  if (taskOverride && taskOverride !== "default") {
-    const resolved = getProviderCredentials(config, taskOverride as AIProvider);
+  const normalizedTaskOverride = cleanConfigValue(taskOverride);
+  if (normalizedTaskOverride && normalizedTaskOverride !== "default") {
+    const resolved = getProviderCredentials(config, normalizedTaskOverride as AIProvider);
     if (resolved) return resolved;
   }
 
   // 2. Check default provider
-  const defaultProvider = config.ai_provider_default as AIProvider | undefined;
+  const defaultProvider = cleanConfigValue(config.ai_provider_default) as AIProvider | undefined;
   if (defaultProvider) {
     const resolved = getProviderCredentials(config, defaultProvider);
     if (resolved) return resolved;
@@ -86,14 +91,16 @@ export function resolveProvider(config: AIConfig, task: AITask): ResolvedProvide
 function getProviderCredentials(config: AIConfig, provider: AIProvider): ResolvedProvider | null {
   // Ollama uses ollamaUrl instead of apiKey
   if (provider === 'ollama') {
-    const ollamaUrl = config.ollama_url;
+    const ollamaUrl = cleanConfigValue(config.ollama_url);
     if (!ollamaUrl) return null;
-    return { provider, apiKey: ollamaUrl, model: config.ollama_model || undefined };
+    const model = cleanConfigValue(config.ollama_model);
+    return { provider, apiKey: ollamaUrl, model: model || undefined };
   }
 
   const keyField = `${provider}_api_key`;
   const modelField = `${provider}_model`;
-  const apiKey = config[keyField];
+  const apiKey = cleanConfigValue(config[keyField]);
   if (!apiKey) return null;
-  return { provider, apiKey, model: config[modelField] || undefined };
+  const model = cleanConfigValue(config[modelField]);
+  return { provider, apiKey, model: model || undefined };
 }

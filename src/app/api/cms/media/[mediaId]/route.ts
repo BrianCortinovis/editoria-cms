@@ -33,7 +33,13 @@ export async function PATCH(
 
   const patch: Record<string, unknown> = {};
   if (typeof body?.alt_text === "string") patch.alt_text = body.alt_text.trim() || null;
-  if (typeof body?.folder === "string") patch.folder = body.folder.trim() || null;
+  if (typeof body?.folder === "string") {
+    const folder = body.folder.trim() || null;
+    if (folder && (/\.\./.test(folder) || folder.startsWith("/") || !/^[a-zA-Z0-9\-_/]+$/.test(folder))) {
+      return NextResponse.json({ error: "Invalid folder path" }, { status: 400 });
+    }
+    patch.folder = folder;
+  }
 
   const { data, error } = await access.sessionClient
     .from("media")
@@ -44,7 +50,8 @@ export async function PATCH(
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || "Unable to update media" }, { status: 500 });
+    console.error("media.update failed:", error?.message);
+    return NextResponse.json({ error: "Unable to update media" }, { status: 500 });
   }
 
   await writeActivityLog({
@@ -95,7 +102,8 @@ export async function DELETE(
     .single();
 
   if (mediaError || !media) {
-    return NextResponse.json({ error: mediaError?.message || "Media not found" }, { status: 404 });
+    console.error("media.lookup failed:", mediaError?.message);
+    return NextResponse.json({ error: "Media not found" }, { status: 404 });
   }
 
   await access.serviceClient.storage.from("media").remove([String(media.filename)]);
@@ -107,7 +115,8 @@ export async function DELETE(
     .eq("id", mediaId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("media.delete failed:", error.message);
+    return NextResponse.json({ error: "Unable to delete media" }, { status: 500 });
   }
 
   await writeActivityLog({

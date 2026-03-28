@@ -48,7 +48,8 @@ export async function PATCH(
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || "Unable to update event" }, { status: 500 });
+    console.error("event.update failed:", error?.message);
+    return NextResponse.json({ error: "Unable to update event" }, { status: 500 });
   }
 
   await writeActivityLog({
@@ -86,7 +87,8 @@ export async function DELETE(
 
   const { error } = await access.sessionClient.from("events").delete().eq("tenant_id", tenantId).eq("id", eventId);
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("event.delete failed:", error.message);
+    return NextResponse.json({ error: "Unable to delete event" }, { status: 500 });
   }
 
   await writeActivityLog({

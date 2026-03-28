@@ -825,7 +825,10 @@ export async function buildPublishedLayoutDocument(
             }
 
             if (pinnedIds.length > 0) {
-              query = query.not('id', 'in', `(${pinnedIds.join(',')})`);
+              const safeIds = pinnedIds.filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+              if (safeIds.length > 0) {
+                query = query.not('id', 'in', `(${safeIds.join(',')})`);
+              }
             }
 
             const { data } = await query;

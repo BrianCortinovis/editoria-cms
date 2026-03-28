@@ -4,6 +4,24 @@ import { writeActivityLog } from "@/lib/security/audit";
 import { triggerPublish } from "@/lib/publish/runner";
 import { sanitizeExternalUrl, sanitizeHtml } from "@/lib/security/html";
 import { CMS_BANNER_ROLES, requireTenantAccess } from "@/lib/cms/tenant-access";
+import { z } from "zod";
+
+const bannerPatchSchema = z.object({
+  tenant_id: z.string().uuid("tenant_id deve essere un UUID valido"),
+  name: z.string().min(1).transform((v) => v.trim()).optional(),
+  position: z.enum(["sidebar", "header", "footer", "inline", "popup", "interstitial"]).optional(),
+  type: z.enum(["image", "html", "video"]).optional(),
+  image_url: z.string().nullable().optional(),
+  html_content: z.string().nullable().optional(),
+  link_url: z.string().nullable().optional(),
+  target_categories: z.array(z.string()).optional(),
+  target_device: z.enum(["all", "desktop", "mobile", "tablet"]).optional(),
+  weight: z.number().int().min(1).max(100).optional(),
+  advertiser_id: z.string().uuid().nullable().optional(),
+  starts_at: z.string().datetime().nullable().optional(),
+  ends_at: z.string().datetime().nullable().optional(),
+  is_active: z.boolean().optional(),
+}).passthrough();
 
 export async function PATCH(
   request: Request,
@@ -16,10 +34,15 @@ export async function PATCH(
 
   const { bannerId } = await params;
   const body = await request.json().catch(() => null);
-  const tenantId = typeof body?.tenant_id === "string" ? body.tenant_id : null;
-  if (!tenantId) {
-    return NextResponse.json({ error: "tenant_id required" }, { status: 400 });
+  const parsed = bannerPatchSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Dati non validi", details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
   }
+
+  const tenantId = parsed.data.tenant_id;
 
   const access = await requireTenantAccess(tenantId, CMS_BANNER_ROLES);
   if ("error" in access) {
@@ -27,19 +50,19 @@ export async function PATCH(
   }
 
   const patch: Record<string, unknown> = {};
-  if (typeof body?.name === "string") patch.name = body.name.trim();
-  if (typeof body?.position === "string") patch.position = body.position;
-  if (typeof body?.type === "string") patch.type = body.type;
-  if ("image_url" in (body || {})) patch.image_url = sanitizeExternalUrl(body.image_url, true);
-  if ("html_content" in (body || {})) patch.html_content = typeof body?.html_content === "string" ? sanitizeHtml(body.html_content) : null;
-  if ("link_url" in (body || {})) patch.link_url = sanitizeExternalUrl(body.link_url, true);
-  if (Array.isArray(body?.target_categories)) patch.target_categories = body.target_categories.map(String);
-  if (typeof body?.target_device === "string") patch.target_device = body.target_device;
-  if (body?.weight !== undefined) patch.weight = Number(body.weight || 1);
-  if ("advertiser_id" in (body || {})) patch.advertiser_id = typeof body?.advertiser_id === "string" && body.advertiser_id ? body.advertiser_id : null;
-  if ("starts_at" in (body || {})) patch.starts_at = typeof body?.starts_at === "string" && body.starts_at ? body.starts_at : null;
-  if ("ends_at" in (body || {})) patch.ends_at = typeof body?.ends_at === "string" && body.ends_at ? body.ends_at : null;
-  if (body?.is_active !== undefined) patch.is_active = Boolean(body.is_active);
+  if (parsed.data.name !== undefined) patch.name = parsed.data.name;
+  if (parsed.data.position !== undefined) patch.position = parsed.data.position;
+  if (parsed.data.type !== undefined) patch.type = parsed.data.type;
+  if ("image_url" in parsed.data) patch.image_url = sanitizeExternalUrl(parsed.data.image_url, true);
+  if ("html_content" in parsed.data) patch.html_content = typeof parsed.data.html_content === "string" ? sanitizeHtml(parsed.data.html_content) : null;
+  if ("link_url" in parsed.data) patch.link_url = sanitizeExternalUrl(parsed.data.link_url, true);
+  if (parsed.data.target_categories !== undefined) patch.target_categories = parsed.data.target_categories;
+  if (parsed.data.target_device !== undefined) patch.target_device = parsed.data.target_device;
+  if (parsed.data.weight !== undefined) patch.weight = parsed.data.weight;
+  if ("advertiser_id" in parsed.data) patch.advertiser_id = parsed.data.advertiser_id || null;
+  if ("starts_at" in parsed.data) patch.starts_at = parsed.data.starts_at || null;
+  if ("ends_at" in parsed.data) patch.ends_at = parsed.data.ends_at || null;
+  if (parsed.data.is_active !== undefined) patch.is_active = parsed.data.is_active;
 
   const { data, error } = await access.sessionClient
     .from("banners")
@@ -50,7 +73,8 @@ export async function PATCH(
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || "Unable to update banner" }, { status: 500 });
+    console.error("banner.update failed:", error?.message);
+    return NextResponse.json({ error: "Unable to update banner" }, { status: 500 });
   }
 
   await writeActivityLog({
@@ -88,7 +112,8 @@ export async function DELETE(
 
   const { error } = await access.sessionClient.from("banners").delete().eq("tenant_id", tenantId).eq("id", bannerId);
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("banner.delete failed:", error.message);
+    return NextResponse.json({ error: "Unable to delete banner" }, { status: 500 });
   }
 
   await writeActivityLog({

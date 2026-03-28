@@ -6,15 +6,11 @@ import { useAuthStore } from "@/lib/store";
 import {
   Receipt,
   TrendingUp,
-  TrendingDown,
-  DollarSign,
   Users,
   Megaphone,
-  Calendar,
   PieChart,
-  ArrowUpRight,
-  ArrowDownRight,
 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface BannerRevenue {
   id: string;
@@ -79,6 +75,24 @@ export default function ContabilitaPage() {
 
   return (
     <div className="max-w-5xl space-y-6">
+      <div className="flex justify-end">
+        <AIButton
+          compact
+          actions={[
+            {
+              id: "adv-finance-audit",
+              label: "Audit conti ADV",
+              prompt: "Analizza performance banner, impression, click, CTR e numero inserzionisti. Suggerisci lettura manageriale, criticita` e prossime azioni commerciali: {context}",
+            },
+            {
+              id: "adv-report",
+              label: "Report commerciale",
+              prompt: "Genera un breve report commerciale basato sui dati ADV attuali, con punti forti, criticita` e raccomandazioni per clienti e campagne: {context}",
+            },
+          ]}
+          contextData={JSON.stringify({ tenant: currentTenant, advertiserCount, banners, totalImpressions, totalClicks, activeBanners, avgCTR }, null, 2)}
+        />
+      </div>
       {/* KPI */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard icon={Megaphone} label="Banner attivi" value={activeBanners} color="var(--c-accent)" />

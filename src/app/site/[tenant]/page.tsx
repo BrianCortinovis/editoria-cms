@@ -17,14 +17,14 @@ export default async function TenantHomePage({ params }: Props) {
   const resolved = await resolveTenant(tenantSlug);
   if (!resolved) notFound();
 
-  const { tenant, config } = resolved;
+  const { tenant, config, tenantSettings } = resolved;
 
   // Try homepage slug, then "/"
   const page = await getPublishedPage(tenant.id, 'homepage')
     || await getPublishedPage(tenant.id, '/');
 
   return (
-    <SiteLayout tenant={tenant} config={config}>
+    <SiteLayout tenant={tenant} config={config} tenantSettings={tenantSettings}>
       {page ? (
         <PageBackgroundFrame meta={page.meta as Record<string, unknown>} scopeId={`public-home-${page.id}`}>
           <BlockRenderer
@@ -79,6 +79,17 @@ export async function generateMetadata({ params }: Props) {
             ? meta.description
             : `${resolved.tenant.name} - Testata giornalistica`),
       url: canonical,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: typeof meta.ogTitle === 'string' && meta.ogTitle.trim()
+        ? meta.ogTitle
+        : (typeof meta.title === 'string' && meta.title.trim() ? meta.title : resolved.tenant.name),
+      description: typeof meta.ogDescription === 'string' && meta.ogDescription.trim()
+        ? meta.ogDescription
+        : (typeof meta.description === 'string' && meta.description.trim()
+            ? meta.description
+            : `${resolved.tenant.name} - Testata giornalistica`),
     },
   };
 }

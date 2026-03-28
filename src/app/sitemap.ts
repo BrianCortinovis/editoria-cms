@@ -18,11 +18,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       entries.push(entry);
     };
 
-    const { data: siteDirectories } = await supabase.storage
-      .from('published')
-      .list('sites', { limit: 500, sortBy: { column: 'name', order: 'asc' } });
+    let allDirectories: { name: string }[] = [];
+    let offset = 0;
+    const PAGE_SIZE = 500;
+    while (true) {
+      const { data: batch } = await supabase.storage
+        .from('published')
+        .list('sites', { limit: PAGE_SIZE, offset, sortBy: { column: 'name', order: 'asc' } });
+      if (!batch || batch.length === 0) break;
+      allDirectories = allDirectories.concat(batch);
+      if (batch.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
 
-    for (const directory of siteDirectories || []) {
+    for (const directory of allDirectories) {
       const slug = String(directory.name || '').trim();
       if (!slug) continue;
 

@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import Image from 'next/image';
 import { getPublishedCategoryBySlug, resolveTenant } from '@/lib/site/tenant-resolver';
 import { buildTenantRedirectUrl, resolveRedirect } from '@/lib/site/redirects';
 import { SiteLayout } from '@/components/render/SiteLayout';
@@ -32,7 +33,7 @@ export default async function CategoryPage({ params }: Props) {
   const resolved = await resolveTenant(tenantSlug);
   if (!resolved) notFound();
 
-  const { tenant, config } = resolved;
+  const { tenant, config, tenantSettings } = resolved;
   const publishedCategory = await getPublishedCategoryBySlug(tenant.slug, categorySlug);
   let category = publishedCategory?.category
     ? {
@@ -117,7 +118,7 @@ export default async function CategoryPage({ params }: Props) {
   }>;
 
   return (
-    <SiteLayout tenant={tenant} config={config}>
+    <SiteLayout tenant={tenant} config={config} tenantSettings={tenantSettings}>
       <div style={{ padding: 'var(--e-section-gap, 48px) 0' }}>
         {/* Category header */}
         <div style={{ marginBottom: '32px' }}>
@@ -153,7 +154,7 @@ export default async function CategoryPage({ params }: Props) {
               }}
             >
               {article.cover_image_url && (
-                <img src={article.cover_image_url} alt={article.title} style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover' }} loading="lazy" />
+                <Image src={article.cover_image_url} alt={article.title} width={300} height={169} style={{ width: '100%', height: 'auto', aspectRatio: '16/9', objectFit: 'cover' }} unoptimized />
               )}
               <div style={{ padding: '16px' }}>
                 <h3 style={{ fontFamily: 'var(--e-font-heading)', fontWeight: 700, fontSize: '18px', color: 'var(--e-color-text)' }}>
@@ -209,6 +210,11 @@ export async function generateMetadata({ params }: Props) {
     description: category.description || `Articoli nella categoria ${category.name}`,
     alternates: {
       canonical,
+    },
+    twitter: {
+      card: 'summary',
+      title: `${category.name} - ${resolved.tenant.name}`,
+      description: category.description || `Articoli nella categoria ${category.name}`,
     },
   };
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
 import { Check, MessageSquare, ShieldAlert, Trash2 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface CommentRow {
   id: string;
@@ -88,6 +89,30 @@ export default function CommentiPage() {
           <h2 className="text-lg font-semibold" style={{ color: "var(--c-text-0)" }}>Commenti</h2>
           <p className="text-sm" style={{ color: "var(--c-text-2)" }}>Moderazione commenti sito e import WordPress.</p>
         </div>
+        <AIButton
+          compact
+          actions={[
+            {
+              id: "comments-policy",
+              label: "Policy commenti",
+              prompt: "Analizza volume, stati e tono dei commenti. Suggerisci policy di moderazione, soglie antispam, workflow redazionale e risposte operative: {context}",
+            },
+            {
+              id: "comments-risk",
+              label: "Rischi moderazione",
+              prompt: "Controlla rischi di spam, escalation, reputazione e compliance nei commenti correnti. Restituisci una checklist pratica per il team: {context}",
+            },
+          ]}
+          contextData={JSON.stringify(
+            {
+              tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+              moduleReady,
+              comments: comments.slice(0, 20),
+            },
+            null,
+            2,
+          )}
+        />
       </div>
 
       {!moduleReady ? (

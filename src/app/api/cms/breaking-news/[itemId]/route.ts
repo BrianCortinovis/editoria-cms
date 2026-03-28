@@ -42,7 +42,8 @@ export async function PATCH(
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || "Unable to update breaking news" }, { status: 500 });
+    console.error("breaking_news.update failed:", error?.message);
+    return NextResponse.json({ error: "Unable to update breaking news" }, { status: 500 });
   }
 
   await writeActivityLog({
@@ -86,7 +87,8 @@ export async function DELETE(
     .eq("id", itemId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("breaking_news.delete failed:", error.message);
+    return NextResponse.json({ error: "Unable to delete breaking news" }, { status: 500 });
   }
 
   await writeActivityLog({

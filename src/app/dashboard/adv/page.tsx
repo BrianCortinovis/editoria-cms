@@ -16,6 +16,7 @@ import {
   Receipt,
   Sparkles,
 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface AdvMetrics {
   totalBanners: number;
@@ -46,6 +47,9 @@ interface AdvertiserRow {
 
 export default function AdvPage() {
   const { currentTenant } = useAuthStore();
+  const aiEnabled = Array.isArray((currentTenant?.settings as Record<string, unknown> | undefined)?.active_modules)
+    ? ((currentTenant?.settings as Record<string, unknown>).active_modules as string[]).includes("ai_assistant")
+    : false;
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<AdvMetrics>({
     totalBanners: 0,
@@ -135,18 +139,38 @@ export default function AdvPage() {
     { href: "/dashboard/inserzionisti", label: "Gestisci clienti", icon: Building2 },
     { href: "/dashboard/contabilita", label: "Performance e conti", icon: Receipt },
     { href: "/dashboard/layout/content", label: "Slot e regole ADV", icon: CalendarClock },
-    { href: "/dashboard/ia", label: "Tool IA campagne", icon: Sparkles },
+    ...(aiEnabled ? [{ href: "/dashboard/ia", label: "Tool IA campagne", icon: Sparkles }] : []),
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
-        <h2 className="text-xl font-semibold" style={{ color: "var(--c-text-0)" }}>
-          ADV
-        </h2>
-        <p className="text-sm max-w-3xl" style={{ color: "var(--c-text-2)" }}>
-          Hub commerciale per banner, clienti e performance pubblicitarie. I moduli restano separati, ma qui hai una vista unica dell&apos;area advertising del CMS.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold" style={{ color: "var(--c-text-0)" }}>
+              ADV
+            </h2>
+            <p className="text-sm max-w-3xl" style={{ color: "var(--c-text-2)" }}>
+              Hub commerciale per banner, clienti e performance pubblicitarie. I moduli restano separati, ma qui hai una vista unica dell&apos;area advertising del CMS.
+            </p>
+          </div>
+          <AIButton
+            compact
+            actions={[
+              {
+                id: "adv-plan",
+                label: "Piano ADV",
+                prompt: "Analizza dashboard ADV, campagne, clienti, CTR e slot attivi. Suggerisci azioni commerciali, ottimizzazione inventory e priorita` operative: {context}",
+              },
+              {
+                id: "adv-audit",
+                label: "Audit performance",
+                prompt: "Controlla numeri ADV, attivita` banner e possibili problemi di riempimento, CTR, rotazione o pricing. Restituisci una checklist chiara: {context}",
+              },
+            ]}
+            contextData={JSON.stringify({ tenant: currentTenant, metrics, campaigns, advertisers }, null, 2)}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">

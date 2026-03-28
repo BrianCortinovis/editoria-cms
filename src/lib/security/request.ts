@@ -36,6 +36,13 @@ function isAllowedOrigin(origin: string, requestOrigin: string) {
 }
 
 export function isTrustedOrigin(request: Request) {
+  if (process.env.NODE_ENV === 'production') {
+    const url = new URL(request.url);
+    if (url.protocol !== 'https:') {
+      return false;
+    }
+  }
+
   const origin = request.headers.get("origin");
   const referer = request.headers.get("referer");
   const requestOrigin = new URL(request.url).origin;

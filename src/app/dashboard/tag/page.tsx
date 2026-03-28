@@ -7,6 +7,7 @@ import { useAuthStore } from "@/lib/store";
 import slugify from "slugify";
 import toast from "react-hot-toast";
 import { Plus, X, Tag as TagIcon } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface TagItem {
   id: string;
@@ -107,6 +108,25 @@ export default function TagPage() {
           >
             <Plus className="w-4 h-4" /> Aggiungi
           </button>
+          <AIButton
+            compact
+            actions={[
+              {
+                id: "tag-strategy",
+                label: "Strategia tag",
+                prompt: "Analizza i tag esistenti del CMS e suggerisci pulizia tassonomica, tag mancanti, unificazioni e uso corretto per SEO e redazione: {context}",
+              },
+            ]}
+            contextData={JSON.stringify(
+              {
+                tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+                tags,
+                draftTag: newTag,
+              },
+              null,
+              2,
+            )}
+          />
         </div>
       )}
 

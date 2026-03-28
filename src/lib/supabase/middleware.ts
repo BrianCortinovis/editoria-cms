@@ -53,6 +53,21 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Defense-in-depth: /admin routes require superadmin privilege
+  if (user && pathname.startsWith("/admin")) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_platform_superadmin")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!profile?.is_platform_superadmin) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/app";
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (user && isGuest) {
     const url = request.nextUrl.clone();
     url.pathname = "/app";

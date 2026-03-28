@@ -21,7 +21,8 @@ export async function GET(request: Request) {
     .limit(100);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("comments.list failed:", error.message);
+    return NextResponse.json({ error: "Unable to load comments" }, { status: 500 });
   }
 
   return NextResponse.json({ comments: data || [] });

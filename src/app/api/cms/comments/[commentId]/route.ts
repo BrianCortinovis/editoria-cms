@@ -37,7 +37,8 @@ export async function PATCH(
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || "Unable to update comment" }, { status: 500 });
+    console.error("comment.update failed:", error?.message);
+    return NextResponse.json({ error: "Unable to update comment" }, { status: 500 });
   }
 
   await writeActivityLog({

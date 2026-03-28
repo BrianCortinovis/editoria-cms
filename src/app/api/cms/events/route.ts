@@ -24,7 +24,8 @@ export async function GET(request: Request) {
     .order("starts_at", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("events.list failed:", error.message);
+    return NextResponse.json({ error: "Unable to load events" }, { status: 500 });
   }
 
   return NextResponse.json({ events: data || [] });
@@ -64,7 +65,8 @@ export async function POST(request: Request) {
 
   const { data, error } = await access.sessionClient.from("events").insert(payload).select("*").single();
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || "Unable to create event" }, { status: 500 });
+    console.error("event.create failed:", error?.message);
+    return NextResponse.json({ error: "Unable to create event" }, { status: 500 });
   }
 
   await writeActivityLog({

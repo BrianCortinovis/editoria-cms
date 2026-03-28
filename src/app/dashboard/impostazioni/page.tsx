@@ -8,6 +8,8 @@ import { ExternalLink, FileText, Globe, Image as ImageIcon, Loader2, Save, Setti
 import { createClient } from "@/lib/supabase/client";
 import { requestPublishTrigger } from "@/lib/publish/client";
 import { useAuthStore } from "@/lib/store";
+import AIButton from "@/components/ai/AIButton";
+import AIFieldHelper from "@/components/ai/AIFieldHelper";
 
 type SettingsTab = "identity" | "social" | "seo" | "security";
 
@@ -37,7 +39,10 @@ export default function ImpostazioniPage() {
 
   const [siteDescription, setSiteDescription] = useState("");
   const [googleAnalytics, setGoogleAnalytics] = useState("");
+  const [googleTagManager, setGoogleTagManager] = useState("");
   const [googleAdsense, setGoogleAdsense] = useState("");
+  const [googleSearchConsoleVerification, setGoogleSearchConsoleVerification] = useState("");
+  const [googleNewsPublicationName, setGoogleNewsPublicationName] = useState("");
 
   const isAdmin = currentRole === "admin";
 
@@ -73,7 +78,10 @@ export default function ImpostazioniPage() {
       setYoutube(settings.youtube ?? "");
       setSiteDescription(settings.site_description ?? "");
       setGoogleAnalytics(settings.google_analytics ?? "");
+      setGoogleTagManager(settings.google_tag_manager ?? "");
       setGoogleAdsense(settings.google_adsense ?? "");
+      setGoogleSearchConsoleVerification(settings.google_search_console_verification ?? "");
+      setGoogleNewsPublicationName(settings.google_news_publication_name ?? "");
     }
 
     void loadTenantSettings();
@@ -101,7 +109,10 @@ export default function ImpostazioniPage() {
           youtube,
           site_description: siteDescription,
           google_analytics: googleAnalytics,
+          google_tag_manager: googleTagManager,
           google_adsense: googleAdsense,
+          google_search_console_verification: googleSearchConsoleVerification,
+          google_news_publication_name: googleNewsPublicationName,
         },
       })
       .eq("id", currentTenant.id);
@@ -136,7 +147,10 @@ export default function ImpostazioniPage() {
           youtube,
           site_description: siteDescription,
           google_analytics: googleAnalytics,
+          google_tag_manager: googleTagManager,
           google_adsense: googleAdsense,
+          google_search_console_verification: googleSearchConsoleVerification,
+          google_news_publication_name: googleNewsPublicationName,
         },
       },
       currentRole
@@ -332,16 +346,81 @@ export default function ImpostazioniPage() {
 
         {activeTab === "seo" && (
           <div className="space-y-6">
-            <div>
+            <div className="flex items-start justify-between gap-4">
+              <div>
               <h2 className="text-lg font-semibold" style={{ color: "var(--c-text-0)" }}>
                 SEO e analytics
               </h2>
+              </div>
+              <AIButton
+                compact
+                actions={[
+                  {
+                    id: "audit-seo-analytics",
+                    label: "Audit SEO & Analytics",
+                    prompt:
+                      "Analizza la configurazione SEO e analytics del sito di una testata locale italiana. Evidenzia rischi, campi mancanti, priorita` operative e prossime azioni basandoti su questi dati: {context}",
+                  },
+                  {
+                    id: "tracking-plan",
+                    label: "Piano tracciamenti",
+                    prompt:
+                      "Prepara un piano pratico per tracking, GA4, Search Console, Google News, sitemap e Open Graph per questo sito CMS. Restituisci checklist operativa e controlli da fare: {context}",
+                  },
+                  {
+                    id: "adsense-readiness",
+                    label: "Verifica AdSense",
+                    prompt:
+                      "Valuta se la configurazione corrente del sito e` pronta per AdSense e monetizzazione editoriale. Elenca controlli tecnici, SEO e contenutistici da completare: {context}",
+                  },
+                ]}
+                contextData={JSON.stringify(
+                  {
+                    tenant: {
+                      name,
+                      slug,
+                      domain,
+                    },
+                    settings: {
+                      siteDescription,
+                      googleAnalytics,
+                      googleTagManager,
+                      googleAdsense,
+                      googleSearchConsoleVerification,
+                      googleNewsPublicationName,
+                      social: { facebook, instagram, twitter, telegram, youtube },
+                    },
+                  },
+                  null,
+                  2,
+                )}
+              />
             </div>
 
             <div>
-              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>
-                Descrizione sito
-              </label>
+              <div className="flex items-center justify-between gap-3">
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>
+                  Descrizione sito
+                </label>
+                <AIFieldHelper
+                  compact
+                  fieldName="Descrizione sito"
+                  fieldType="description"
+                  fieldValue={siteDescription}
+                  context={{
+                    siteName: name,
+                    siteSlug: slug,
+                    domain,
+                    social: { facebook, instagram, twitter, telegram, youtube },
+                    googleAnalytics,
+                    googleTagManager,
+                    googleAdsense,
+                    googleSearchConsoleVerification,
+                    googleNewsPublicationName,
+                  }}
+                  onGenerate={setSiteDescription}
+                />
+              </div>
               <textarea
                 value={siteDescription}
                 onChange={(event) => setSiteDescription(event.target.value)}
@@ -369,6 +448,20 @@ export default function ImpostazioniPage() {
 
               <div>
                 <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>
+                  Google Tag Manager ID
+                </label>
+                <input
+                  type="text"
+                  value={googleTagManager}
+                  onChange={(event) => setGoogleTagManager(event.target.value)}
+                  placeholder="GTM-XXXXXXX"
+                  className="mt-1 w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>
                   Google AdSense Publisher ID
                 </label>
                 <input
@@ -376,6 +469,34 @@ export default function ImpostazioniPage() {
                   value={googleAdsense}
                   onChange={(event) => setGoogleAdsense(event.target.value)}
                   placeholder="ca-pub-XXXXXXXXXX"
+                  className="mt-1 w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>
+                  Google Search Console verification
+                </label>
+                <input
+                  type="text"
+                  value={googleSearchConsoleVerification}
+                  onChange={(event) => setGoogleSearchConsoleVerification(event.target.value)}
+                  placeholder="meta verification token"
+                  className="mt-1 w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>
+                  Nome pubblicazione Google News
+                </label>
+                <input
+                  type="text"
+                  value={googleNewsPublicationName}
+                  onChange={(event) => setGoogleNewsPublicationName(event.target.value)}
+                  placeholder="Val Brembana Web"
                   className="mt-1 w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1"
                   style={{ border: "1px solid var(--c-border)" }}
                 />

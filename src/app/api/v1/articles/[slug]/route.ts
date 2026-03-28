@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { enrichArticlesWithCategories } from "@/lib/articles/taxonomy";
 import { readPublishedJson } from "@/lib/publish/storage";
+import { getPublicApiCorsHeaders } from "@/lib/security/cors";
 import type { PublishedManifest, PublishedArticleDocument } from "@/lib/publish/types";
 
 export async function GET(
@@ -24,7 +25,7 @@ export async function GET(
       return NextResponse.json({ article: articleDocument.article }, {
         headers: {
           "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
-          "Access-Control-Allow-Origin": "*",
+          ...getPublicApiCorsHeaders(request),
         },
       });
     }
@@ -66,7 +67,7 @@ export async function GET(
   return NextResponse.json({ article: enrichedArticle }, {
     headers: {
       "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
-      "Access-Control-Allow-Origin": "*",
+      ...getPublicApiCorsHeaders(request),
     },
   });
 }

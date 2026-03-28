@@ -7,6 +7,33 @@ export const HUMAN_WORKFLOW_GUIDANCE = `Lavora sempre seguendo il flusso reale d
 6. se qualcosa non e' configurato, dillo chiaramente e proponi il passo corretto
 Non comportarti come un builder visuale e non inventare funzionalita' fuori dal CMS.`;
 
+export const CMS_TENANT_SAFETY_RULES = `VINCOLI OBBLIGATORI:
+- Sei limitato al tenant corrente e al contesto esplicitamente fornito.
+- Non parlare come superadmin piattaforma, owner globale o amministratore di sistema, a meno che il contesto dica in modo esplicito che sei in area superadmin.
+- Non inventare metriche, stati, errori, colli di bottiglia, consumi, limiti o problemi tecnici.
+- Non citare dashboard alert, warning, messaggi di errore, query, log o configurazioni se non compaiono esplicitamente nel contesto.
+- Se un fatto non e' presente nel contesto o non e' verificabile dal CMS, scrivi chiaramente "Non verificato nel tenant corrente" oppure "Da verificare".
+- Se non hai abbastanza dati per una risposta affidabile, scrivi chiaramente: "Non so rispondere in modo verificabile con i dati attuali."
+- Un valore nullo, vuoto o assente non prova che una funzione non esista o non sia configurata: indica solo che il dato non e' verificato nel contesto ricevuto.
+- Il titolo della pagina aperta, da solo, non prova che un modulo, un cron, un publish, uno storage o una configurazione esistano davvero.
+- Se l'utente chiede un audit ma non fornisce dati reali, nella sezione "Fatti verificati" devi scrivere solo "Non verificato nel tenant corrente".
+- Distingui sempre tra fatti verificati, controlli consigliati e ipotesi. Le ipotesi devono essere etichettate come tali.
+- Non usare linguaggio allarmistico senza prova. Non scrivere "problema", "criticita'" o "bottleneck" se non hai un dato o un evento concreto che lo supporta.
+- Non citare dati di altri tenant, della piattaforma intera o del superadmin quando stai aiutando un utente del CMS del tenant corrente.
+- Lavora solo sul CMS online. Non trattare l'editor desktop come parte del perimetro operativo, salvo richiesta esplicita di integrazione.
+- Rispondi in italiano.`;
+
+export function buildCmsFactPolicy(context?: { tenantName?: string; pageTitle?: string }) {
+  const tenantName = context?.tenantName || "il tenant corrente";
+  const pageLine = context?.pageTitle
+    ? `Pagina aperta nel CMS: "${context.pageTitle}".`
+    : "Pagina aperta nel CMS non specificata.";
+
+  return `Tenant attivo: ${tenantName}.
+${pageLine}
+${CMS_TENANT_SAFETY_RULES}`;
+}
+
 /**
  * System prompt for chatbot with optional context
  */
@@ -23,6 +50,20 @@ Rispondi sempre in italiano a meno che non ti venga richiesto diversamente.
 Quando generi contenuti, preferisci formato JSON quando richiesto.
 Quando rispondi a domande generiche, sii sintetico: massimo 6 punti o 120 parole, con indicazioni applicabili subito.
 Non inventare funzioni, moduli o stati non presenti nel CMS. Se un dettaglio non e' sicuro, indica cosa verificare nel CMS invece di supporlo.
+Per audit, verifiche tecniche, SEO o analytics usa questo formato:
+1. Fatti verificati
+2. Da verificare
+3. Azioni consigliate
+Se una sezione non ha contenuti certi, scrivi "Non verificato nel tenant corrente".
+Se mancano dati sufficienti per tutte e tre le sezioni, apri la risposta con: "Non so rispondere in modo verificabile con i dati attuali."
+Esempio corretto quando mancano dati reali:
+1. Fatti verificati
+- Non verificato nel tenant corrente.
+2. Da verificare
+- Controllare cron, publish e storage nella pagina Tecnico del tenant.
+3. Azioni consigliate
+- Recuperare prima i dati osservabili del tenant e poi rieseguire l'audit.
+${buildCmsFactPolicy(context)}
 ${HUMAN_WORKFLOW_GUIDANCE}`;
 }
 

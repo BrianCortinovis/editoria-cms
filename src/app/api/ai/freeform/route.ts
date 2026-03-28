@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isModuleActive, getModuleConfig } from "@/lib/modules";
 import { callAIWithFallback } from "@/lib/ai/fallback";
 import type { AITask } from "@/lib/ai/resolver";
+import { buildCmsFactPolicy } from "@/lib/ai/prompts";
 
 export async function POST(request: Request) {
   try {
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { data: tenant } = await supabase.from("tenants").select("settings").eq("id", tenant_id).single();
+    const { data: tenant } = await supabase.from("tenants").select("name, settings").eq("id", tenant_id).single();
     if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 
     const settings = (tenant.settings ?? {}) as Record<string, unknown>;
@@ -36,10 +37,11 @@ export async function POST(request: Request) {
 
     const aiConfig = getModuleConfig(settings, "ai_assistant");
     const result = await callAIWithFallback({
-      aiConfig,
-      task: (task || "seo") as AITask,
-      messages: [
-        { role: "system", content: system || "Sei un assistente operativo del CMS online. Aiuti su redazione, SEO, analytics, tecnico, workflow, publish e gestione. Rispondi in italiano in modo conciso e utile." },
+        aiConfig,
+        task: (task || "seo") as AITask,
+        messages: [
+        { role: "system", content: system || `Sei un assistente operativo del CMS online del tenant "${tenant.name || tenant_id}". Aiuti su redazione, SEO, analytics, tecnico, workflow, publish e gestione. Rispondi in italiano in modo conciso e utile.
+${buildCmsFactPolicy({ tenantName: tenant.name || tenant_id })}` },
         { role: "user", content: prompt },
       ],
     });

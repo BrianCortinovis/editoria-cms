@@ -3,7 +3,21 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { fetchArticleIdsForCategory } from "@/lib/articles/taxonomy";
 import { getActiveExclusivePlacementArticleIds, isPlacementActive } from "@/lib/editorial/placements";
 import { readPublishedJson } from "@/lib/publish/storage";
+import { getPublicApiCorsHeaders } from "@/lib/security/cors";
 import type { PublishedLayoutDocument, PublishedManifest } from "@/lib/publish/types";
+
+const VALID_PAGE_TYPES = new Set([
+  "homepage",
+  "article",
+  "category",
+  "page",
+  "search",
+  "tag",
+  "author",
+  "archive",
+]);
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface LayoutSlotRow {
   id: string;
@@ -49,6 +63,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "tenant parameter required" }, { status: 400 });
   }
 
+  if (!VALID_PAGE_TYPES.has(pageType)) {
+    return NextResponse.json({ error: "invalid page type" }, { status: 400 });
+  }
+
   const manifest = await readPublishedJson<PublishedManifest>(`sites/${encodeURIComponent(tenantSlug)}/manifest.json`);
   const publishedLayoutPath = manifest?.documents.layouts?.[pageType];
   if (publishedLayoutPath) {
@@ -65,7 +83,7 @@ export async function GET(request: Request) {
         {
           headers: {
             "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
-            "Access-Control-Allow-Origin": "*",
+            ...getPublicApiCorsHeaders(request),
           },
         }
       );
@@ -209,7 +227,10 @@ export async function GET(request: Request) {
             }
 
             if (pinnedIds.length > 0) {
-              query = query.not("id", "in", `(${pinnedIds.join(",")})`);
+              const safeIds = pinnedIds.filter((id) => UUID_RE.test(id));
+              if (safeIds.length > 0) {
+                query = query.not("id", "in", `(${safeIds.join(",")})`);
+              }
             }
 
             const { data } = await query;
@@ -259,7 +280,7 @@ export async function GET(request: Request) {
     {
       headers: {
         "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
-        "Access-Control-Allow-Origin": "*",
+        ...getPublicApiCorsHeaders(request),
       },
     }
   );

@@ -7,11 +7,7 @@ import { isModuleActive, getModuleConfig } from "@/lib/modules";
 import { readPublishedJson } from "@/lib/publish/storage";
 import type { PublishedPostsDocument, PublishedSettingsDocument } from "@/lib/publish/types";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
+import { getPublicApiCorsHeaders } from "@/lib/security/cors";
 
 interface RelatedArticle {
   id: string;
@@ -25,8 +21,8 @@ interface RelatedArticle {
   categories?: { name: string; slug: string; color: string | null } | null;
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, { status: 204, headers: getPublicApiCorsHeaders(request) });
 }
 
 export async function GET(
@@ -39,7 +35,7 @@ export async function GET(
   const limit = Math.min(Number(searchParams.get("limit") || 5), 10);
 
   if (!tenantSlug) {
-    return NextResponse.json({ error: "tenant parameter required" }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json({ error: "tenant parameter required" }, { status: 400, headers: getPublicApiCorsHeaders(request) });
   }
 
   const [publishedSettings, publishedPosts] = await Promise.all([
@@ -52,7 +48,7 @@ export async function GET(
     const sourceArticle = publishedPosts.articles.find((article) => article.slug === slug);
 
     if (!sourceArticle) {
-      return NextResponse.json({ error: "Article not found" }, { status: 404, headers: CORS_HEADERS });
+      return NextResponse.json({ error: "Article not found" }, { status: 404, headers: getPublicApiCorsHeaders(request) });
     }
 
     const sourceCategorySlugs = new Set(
@@ -75,7 +71,7 @@ export async function GET(
 
     if (!isModuleActive(settings, "ai_assistant")) {
       return NextResponse.json({ articles: candidates.slice(0, limit) }, {
-        headers: { ...CORS_HEADERS, "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+        headers: { ...getPublicApiCorsHeaders(request), "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
       });
     }
 
@@ -98,11 +94,11 @@ export async function GET(
         .map((i) => candidates[i]);
 
       return NextResponse.json({ articles: related, provider }, {
-        headers: { ...CORS_HEADERS, "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+        headers: { ...getPublicApiCorsHeaders(request), "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
       });
     } catch {
       return NextResponse.json({ articles: candidates.slice(0, limit) }, {
-        headers: { ...CORS_HEADERS, "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+        headers: { ...getPublicApiCorsHeaders(request), "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
       });
     }
   }
@@ -116,7 +112,7 @@ export async function GET(
     .single();
 
   if (!tenant) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 404, headers: CORS_HEADERS });
+    return NextResponse.json({ error: "Tenant not found" }, { status: 404, headers: getPublicApiCorsHeaders(request) });
   }
 
   // Get the source article
@@ -129,7 +125,7 @@ export async function GET(
     .single();
 
   if (!article) {
-    return NextResponse.json({ error: "Article not found" }, { status: 404, headers: CORS_HEADERS });
+    return NextResponse.json({ error: "Article not found" }, { status: 404, headers: getPublicApiCorsHeaders(request) });
   }
 
   const settings = (tenant.settings ?? {}) as Record<string, unknown>;
@@ -186,7 +182,7 @@ export async function GET(
   }
 
   if (!sameCatArticles || sameCatArticles.length === 0) {
-    return NextResponse.json({ articles: [] }, { headers: CORS_HEADERS });
+    return NextResponse.json({ articles: [] }, { headers: getPublicApiCorsHeaders(request) });
   }
 
   const enrichedArticles = await enrichArticlesWithCategories(
@@ -199,7 +195,7 @@ export async function GET(
   if (!isModuleActive(settings, "ai_assistant")) {
     // Without AI, just return most recent articles
     return NextResponse.json({ articles: enrichedArticles.slice(0, limit) }, {
-      headers: { ...CORS_HEADERS, "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+      headers: { ...getPublicApiCorsHeaders(request), "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
     });
   }
 
@@ -224,9 +220,9 @@ export async function GET(
       .map((i) => enrichedArticles[i]);
 
     return NextResponse.json({ articles: related, provider }, {
-      headers: { ...CORS_HEADERS, "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+      headers: { ...getPublicApiCorsHeaders(request), "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
     });
   } catch {
-    return NextResponse.json({ articles: enrichedArticles.slice(0, limit) }, { headers: CORS_HEADERS });
+    return NextResponse.json({ articles: enrichedArticles.slice(0, limit) }, { headers: getPublicApiCorsHeaders(request) });
   }
 }

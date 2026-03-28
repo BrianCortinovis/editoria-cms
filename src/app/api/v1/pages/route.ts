@@ -4,6 +4,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { buildDefaultPageMeta, slugifyPageTitle } from '@/lib/pages/page-seo';
 import { readPublishedJson } from '@/lib/publish/storage';
 import type { PublishedManifest, PublishedPageDocument } from '@/lib/publish/types';
+import { z } from 'zod';
+
+const pageCreateUpdateSchema = z.object({
+  id: z.string().uuid().optional(),
+  title: z.string().min(1, 'title obbligatorio'),
+  slug: z.string().regex(/^[a-z0-9-]*$/, 'slug non valido (solo a-z, 0-9, -)').optional().default(''),
+  tenant_id: z.string().uuid('tenant_id deve essere un UUID valido'),
+  blocks: z.array(z.any()).optional(),
+  meta: z.record(z.unknown()).optional(),
+  is_published: z.boolean().optional(),
+}).passthrough();
 
 const PAGE_EDITOR_ROLES = new Set(['admin', 'chief_editor', 'editor']);
 
@@ -84,7 +95,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, title, slug, blocks, meta, tenant_id, is_published } = body;
+    const parsed = pageCreateUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Dati non validi', details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+    const { id, title, slug, blocks, meta, tenant_id, is_published } = parsed.data;
     const normalizedSlug = typeof slug === 'string' && slug.trim() ? slug.trim() : slugifyPageTitle(String(title || ''));
 
     // Verify user has access to this tenant

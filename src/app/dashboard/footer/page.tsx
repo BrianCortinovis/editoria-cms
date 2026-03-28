@@ -6,6 +6,7 @@ import { Save } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { normalizeFooterConfig } from "@/lib/site/footer";
 import { mergeNewsletterIntoFooter, normalizeNewsletterConfig } from "@/lib/site/newsletter";
+import AIButton from "@/components/ai/AIButton";
 
 export default function FooterPage() {
   const { currentTenant } = useAuthStore();
@@ -129,15 +130,49 @@ export default function FooterPage() {
             Gestione centralizzata del pie di pagina del sito. Il blocco `Footer` dell&apos;editor può usare questa configurazione globale oppure restare completamente custom.
           </p>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-4 py-2.5 rounded-lg text-white text-sm font-semibold"
-          style={{ background: "var(--c-accent)", opacity: saving ? 0.7 : 1 }}
-        >
-          <Save className="w-4 h-4 inline mr-2" />
-          {saving ? "Salvataggio..." : "Salva footer"}
-        </button>
+        <div className="flex items-center gap-2">
+          <AIButton
+            compact
+            actions={[
+              {
+                id: "footer-audit",
+                label: "Audit footer",
+                prompt: "Analizza footer, colonne, link rapidi, social e box newsletter. Suggerisci miglioramenti di UX, SEO, conversione e ordine informativo: {context}",
+              },
+              {
+                id: "footer-copy",
+                label: "Testi footer",
+                prompt: "Rivedi descrizioni, copyright, link e box newsletter del footer. Proponi copy piu` chiaro, istituzionale e utile per il sito: {context}",
+              },
+            ]}
+            contextData={JSON.stringify({
+              tenant: currentTenant,
+              footerRecord,
+              draft: {
+                logoUrl,
+                description,
+                copyright,
+                columnsJson,
+                linksJson,
+                socialJson,
+                newsletterEnabled,
+                newsletterTitle,
+                newsletterDescription,
+                newsletterButtonText,
+                newsletterFormSlug,
+              },
+            }, null, 2)}
+          />
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2.5 rounded-lg text-white text-sm font-semibold"
+            style={{ background: "var(--c-accent)", opacity: saving ? 0.7 : 1 }}
+          >
+            <Save className="w-4 h-4 inline mr-2" />
+            {saving ? "Salvataggio..." : "Salva footer"}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">

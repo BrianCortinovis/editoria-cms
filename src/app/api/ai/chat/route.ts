@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { callAIWithFallback } from '@/lib/ai/fallback';
 import { buildChatSystemPrompt } from '@/lib/ai/prompts';
 import type { AIMessage, AIProvider } from '@/lib/ai/providers';
+import { getModuleConfig, isModuleActive } from '@/lib/modules';
 
 interface ChatPayload {
   messages: AIMessage[];
@@ -52,7 +53,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
-    const aiConfig = tenant.settings?.module_config?.ai_assistant || {};
+    const settings = (tenant.settings || {}) as Record<string, unknown>;
+    if (!isModuleActive(settings, "ai_assistant")) {
+      return NextResponse.json({ error: 'Modulo IA non attivo per questo tenant' }, { status: 403 });
+    }
+
+    const aiConfig = getModuleConfig(settings, "ai_assistant");
     const tenantName = tenant.name || 'Editoria CMS';
 
     // Build system prompt with tenant context

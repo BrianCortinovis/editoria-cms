@@ -4,6 +4,16 @@ import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { writeActivityLog, writePageAuditLog } from "@/lib/security/audit";
 import { buildDefaultPageMeta, slugifyPageTitle } from "@/lib/pages/page-seo";
 import { triggerPublish } from "@/lib/publish/runner";
+import { z } from "zod";
+
+const builderPageCreateSchema = z.object({
+  tenant_id: z.string().uuid("tenant_id deve essere un UUID valido"),
+  title: z.string().min(1, "title obbligatorio"),
+  slug: z.string().regex(/^[a-z0-9-]*$/, "slug non valido").optional().default(""),
+  page_type: z.string().optional().default("custom"),
+  meta: z.record(z.unknown()).optional(),
+  blocks: z.array(z.any()).optional().default([]),
+}).passthrough();
 
 const PAGE_EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
 
@@ -55,12 +65,15 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { tenant_id, title, slug, page_type, meta, blocks } = body;
-  const normalizedSlug = typeof slug === "string" && slug.trim() ? slug.trim() : slugifyPageTitle(String(title || ""));
-
-  if (!tenant_id || !title || !normalizedSlug) {
-    return NextResponse.json({ error: "tenant_id, title required" }, { status: 400 });
+  const parsed = builderPageCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Dati non validi", details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
   }
+  const { tenant_id, title, slug, page_type, meta, blocks } = parsed.data;
+  const normalizedSlug = typeof slug === "string" && slug.trim() ? slug.trim() : slugifyPageTitle(String(title || ""));
 
   const supabase = await createServerSupabaseClient();
 

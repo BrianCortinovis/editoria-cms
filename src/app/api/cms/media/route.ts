@@ -29,7 +29,8 @@ export async function GET(request: Request) {
   const { data, error } = await query;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("media.list failed:", error.message);
+    return NextResponse.json({ error: "Unable to load media" }, { status: 500 });
   }
 
   return NextResponse.json({ media: data || [] });

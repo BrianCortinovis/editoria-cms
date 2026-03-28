@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCronSettingsForTenant, getCronSettingsMap } from "@/lib/cron/settings";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { getDomainProviderMode, getPlatformBaseDomain } from "@/lib/platform/constants";
+import { getObservedTenantMediaUsageBytes, getSiteStorageQuotaByTenantId } from "@/lib/superadmin/storage";
 
 function getProjectRef() {
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -44,8 +45,10 @@ export async function GET(request: Request) {
   const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/^https?:\/\//, "") || null;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
+  const tenant = await serviceClient.from("tenants").select("id, name, slug, domain").eq("id", tenantId).maybeSingle();
+  const tenantSlug = tenant.data?.slug || null;
+
   const [
-    tenant,
     site,
     members,
     domains,
@@ -54,12 +57,13 @@ export async function GET(request: Request) {
     media,
     events,
     banners,
-    buckets,
+    mediaBucket,
     mediaObjects,
     subscription,
     recentCronLogs,
+    observedMediaUsage,
+    storageQuota,
   ] = await Promise.all([
-    serviceClient.from("tenants").select("id, name, slug, domain").eq("id", tenantId).maybeSingle(),
     serviceClient.from("sites").select("id, status, default_subdomain").eq("tenant_id", tenantId).maybeSingle(),
     serviceClient.from("tenant_memberships").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).is("revoked_at", null),
     serviceClient.from("site_domains").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).is("removed_at", null),
@@ -68,8 +72,10 @@ export async function GET(request: Request) {
     serviceClient.from("media").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
     serviceClient.from("events").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
     serviceClient.from("banners").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
-    serviceClient.from("storage.buckets").select("id", { count: "exact", head: true }),
-    serviceClient.from("storage.objects").select("id", { count: "exact", head: true }).eq("bucket_id", "media"),
+    serviceClient.from("storage.buckets").select("id").eq("id", "media").maybeSingle(),
+    tenantSlug
+      ? serviceClient.from("storage.objects").select("id", { count: "exact", head: true }).eq("bucket_id", "media").ilike("name", `${tenantSlug}/%`)
+      : Promise.resolve({ count: 0 } as { count: number | null }),
     serviceClient.from("subscriptions").select("plan_code, status").eq("tenant_id", tenantId).maybeSingle(),
     serviceClient
       .from("audit_logs")
@@ -77,6 +83,8 @@ export async function GET(request: Request) {
       .in("action", ["cron.publish_maintenance", "cron.publish_maintenance.tenant", "cron.seo_analysis"])
       .order("created_at", { ascending: false })
       .limit(20),
+    getObservedTenantMediaUsageBytes(tenantId, serviceClient),
+    getSiteStorageQuotaByTenantId(tenantId, serviceClient),
   ]);
 
   const globalMaintenance =
@@ -106,8 +114,21 @@ export async function GET(request: Request) {
       banners: banners.count ?? 0,
     },
     storage: {
-      bucketCount: buckets.count ?? 0,
+      bucketCount: mediaBucket.data ? 1 : 0,
       mediaObjectCount: mediaObjects.count ?? 0,
+      mediaLibraryBytes: observedMediaUsage.bytes,
+      mediaLibraryObjectCount: observedMediaUsage.objectCount,
+      quota: storageQuota
+        ? {
+            mediaProvider: storageQuota.mediaProvider,
+            publishedMediaProvider: storageQuota.publishedMediaProvider,
+            softLimitBytes: storageQuota.softLimitBytes,
+            hardLimitBytes: storageQuota.hardLimitBytes,
+            monthlyEgressLimitBytes: storageQuota.monthlyEgressLimitBytes,
+            uploadBlocked: storageQuota.uploadBlocked,
+            publishBlocked: storageQuota.publishBlocked,
+          }
+        : null,
     },
     subscription: subscription.data || null,
     cron: {

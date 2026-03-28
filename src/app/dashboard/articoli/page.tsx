@@ -16,6 +16,7 @@ import {
   Clock,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import AIButton from "@/components/ai/AIButton";
 
 interface Article {
   id: string;
@@ -82,7 +83,11 @@ export default function ArticoliPage() {
   }, [currentTenant, filterStatus, search]);
 
   useEffect(() => {
-    loadArticles();
+    const timer = window.setTimeout(() => {
+      void loadArticles();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [loadArticles]);
 
   const handleDelete = async (id: string) => {
@@ -107,13 +112,40 @@ export default function ArticoliPage() {
             {articles.length} articol{articles.length === 1 ? "o" : "i"}
           </h2>
         </div>
-        <Link
-          href="/dashboard/articoli/nuovo"
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition hover:opacity-90"
-          style={{ background: "var(--c-accent)" }}
-        >
-          <Plus className="w-4 h-4" /> Nuovo Articolo
-        </Link>
+        <div className="flex items-center gap-2">
+          <AIButton
+            compact
+            actions={[
+              {
+                id: "articles-workflow",
+                label: "Workflow articoli",
+                prompt: "Analizza lista articoli, stati, categorie, featured e premium. Suggerisci priorita` di revisione, squilibri nel workflow e prossime azioni per la redazione: {context}",
+              },
+              {
+                id: "articles-seo-audit",
+                label: "Audit archivio",
+                prompt: "Controlla l'archivio articoli per stato editoriale, categorie, priorita`, copertura e rischi SEO o di pubblicazione. Restituisci una checklist concreta: {context}",
+              },
+            ]}
+            contextData={JSON.stringify(
+              {
+                tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+                search,
+                filterStatus,
+                articles: articles.slice(0, 30),
+              },
+              null,
+              2,
+            )}
+          />
+          <Link
+            href="/dashboard/articoli/nuovo"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition hover:opacity-90"
+            style={{ background: "var(--c-accent)" }}
+          >
+            <Plus className="w-4 h-4" /> Nuovo Articolo
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}

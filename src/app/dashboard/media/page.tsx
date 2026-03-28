@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import Image from "next/image";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
 import {
@@ -16,6 +17,7 @@ import {
   List,
   X,
 } from "lucide-react";
+import AIButton from "@/components/ai/AIButton";
 
 interface MediaItem {
   id: string;
@@ -179,7 +181,43 @@ export default function MediaPage() {
     <div className="flex gap-6">
       <div className="flex-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <p className="text-sm" style={{ color: "var(--c-text-2)" }}>{media.length} file</p>
+          <div className="flex items-center gap-3">
+            <p className="text-sm" style={{ color: "var(--c-text-2)" }}>{media.length} file</p>
+            <AIButton
+              compact
+              actions={[
+                {
+                  id: "media-audit",
+                  label: "Audit media",
+                  prompt: "Analizza libreria media, naming, alt text, peso file, formati e rischi editoriali/SEO di questo tenant. Restituisci checklist operativa: {context}",
+                },
+                {
+                  id: "media-policy",
+                  label: "Policy media",
+                  prompt: "Prepara una policy pratica per redazione e tecnico su upload immagini, video, alt text, copertine e published media layer: {context}",
+                },
+                {
+                  id: "gallery-brief",
+                  label: "Brief gallery",
+                  prompt: "Spiega come preparare una gallery pubblicabile bene nel CMS con immagini, titoli, alt, ordine e aspetti SEO: {context}",
+                },
+              ]}
+              contextData={JSON.stringify({
+                tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+                mediaCount: media.length,
+                selected,
+                recentMedia: media.slice(0, 12).map((item) => ({
+                  filename: item.original_filename,
+                  mime: item.mime_type,
+                  sizeBytes: item.size_bytes,
+                  width: item.width,
+                  height: item.height,
+                  altText: item.alt_text,
+                  folder: item.folder,
+                })),
+              }, null, 2)}
+            />
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
@@ -242,8 +280,8 @@ export default function MediaPage() {
                       background: "var(--c-bg-1)",
                       border: selected?.id === item.id ? "2px solid var(--c-accent)" : "1px solid var(--c-border)",
                     }}>
-                    <div className="aspect-square flex items-center justify-center" style={{ background: "var(--c-bg-2)" }}>
-                      {isImage ? <img src={item.thumbnail_url || item.url} alt={item.alt_text || item.original_filename} className="w-full h-full object-cover" />
+                    <div className="aspect-square relative flex items-center justify-center" style={{ background: "var(--c-bg-2)" }}>
+                      {isImage ? <Image src={item.thumbnail_url || item.url} alt={item.alt_text || item.original_filename} className="w-full h-full object-cover" fill unoptimized />
                         : <Icon className="w-10 h-10" style={{ color: "var(--c-text-3)" }} />}
                     </div>
                     <div className="px-2 py-1.5">
@@ -265,7 +303,7 @@ export default function MediaPage() {
                     onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
                     onMouseLeave={(e) => { if (selected?.id !== item.id) e.currentTarget.style.background = "transparent"; }}>
                     <div className="w-10 h-10 rounded flex items-center justify-center shrink-0 overflow-hidden" style={{ background: "var(--c-bg-2)" }}>
-                      {item.mime_type.startsWith("image/") ? <img src={item.thumbnail_url || item.url} alt="" className="w-full h-full object-cover" />
+                      {item.mime_type.startsWith("image/") ? <Image src={item.thumbnail_url || item.url} alt="" className="w-full h-full object-cover" width={40} height={40} unoptimized />
                         : <Icon className="w-5 h-5" style={{ color: "var(--c-text-3)" }} />}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -295,7 +333,7 @@ export default function MediaPage() {
               <span className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Dettagli</span>
               <button onClick={() => setSelected(null)}><X className="w-4 h-4" style={{ color: "var(--c-text-3)" }} /></button>
             </div>
-            {selected.mime_type.startsWith("image/") && <img src={selected.url} alt="" className="w-full aspect-video object-cover" />}
+            {selected.mime_type.startsWith("image/") && <Image src={selected.url} alt="" className="w-full aspect-video object-cover" width={288} height={162} unoptimized />}
             <div className="p-4 space-y-3 text-sm">
               <div>
                 <p className="text-xs font-medium" style={{ color: "var(--c-text-3)" }}>Nome file</p>

@@ -3,6 +3,25 @@ import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { writeActivityLog } from "@/lib/security/audit";
 import { triggerPublish } from "@/lib/publish/runner";
 import { CMS_EDITOR_ROLES, CMS_VIEW_ROLES, requireTenantAccess } from "@/lib/cms/tenant-access";
+import { z } from "zod";
+
+const formFieldSchema = z.object({
+  name: z.string().min(1),
+  type: z.string().min(1),
+  label: z.string().optional(),
+  required: z.boolean().optional(),
+}).passthrough();
+
+const formCreateSchema = z.object({
+  tenant_id: z.string().uuid("tenant_id deve essere un UUID valido"),
+  name: z.string().min(1, "name obbligatorio").transform((v) => v.trim()),
+  slug: z.string().optional().default(""),
+  description: z.string().nullable().optional(),
+  fields: z.array(formFieldSchema).optional().default([]),
+  recipient_emails: z.array(z.string().email("email non valida")).optional().default([]),
+  success_message: z.string().nullable().optional(),
+  is_active: z.boolean().optional().default(false),
+}).passthrough();
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -24,7 +43,8 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: false });
 
   if (formsRes.error) {
-    return NextResponse.json({ error: formsRes.error.message }, { status: 500 });
+    console.error("forms.list failed:", formsRes.error.message);
+    return NextResponse.json({ error: "Unable to load forms" }, { status: 500 });
   }
 
   let submissions: unknown[] = [];
@@ -37,7 +57,8 @@ export async function GET(request: Request) {
       .limit(50);
 
     if (submissionsRes.error) {
-      return NextResponse.json({ error: submissionsRes.error.message }, { status: 500 });
+      console.error("form_submissions.list failed:", submissionsRes.error.message);
+      return NextResponse.json({ error: "Unable to load submissions" }, { status: 500 });
     }
 
     submissions = submissionsRes.data || [];
@@ -56,10 +77,15 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const tenantId = typeof body?.tenant_id === "string" ? body.tenant_id : null;
-  if (!tenantId || typeof body?.name !== "string" || !body.name.trim()) {
-    return NextResponse.json({ error: "tenant_id and name required" }, { status: 400 });
+  const parsed = formCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Dati non validi", details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
   }
+
+  const tenantId = parsed.data.tenant_id;
 
   const access = await requireTenantAccess(tenantId, CMS_EDITOR_ROLES);
   if ("error" in access) {
@@ -68,13 +94,13 @@ export async function POST(request: Request) {
 
   const payload = {
     tenant_id: tenantId,
-    name: body.name.trim(),
-    slug: typeof body.slug === "string" ? body.slug : "",
-    description: typeof body.description === "string" && body.description ? body.description : null,
-    fields: Array.isArray(body.fields) ? body.fields : [],
-    recipient_emails: Array.isArray(body.recipient_emails) ? body.recipient_emails.map(String) : [],
-    success_message: typeof body.success_message === "string" && body.success_message ? body.success_message : null,
-    is_active: Boolean(body.is_active),
+    name: parsed.data.name,
+    slug: parsed.data.slug,
+    description: parsed.data.description || null,
+    fields: parsed.data.fields,
+    recipient_emails: parsed.data.recipient_emails,
+    success_message: parsed.data.success_message || null,
+    is_active: parsed.data.is_active,
   };
 
   const { data, error } = await access.sessionClient
@@ -84,7 +110,8 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || "Unable to create form" }, { status: 500 });
+    console.error("form.create failed:", error?.message);
+    return NextResponse.json({ error: "Unable to create form" }, { status: 500 });
   }
 
   await writeActivityLog({

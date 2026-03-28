@@ -3,6 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { callAIWithFallback } from '@/lib/ai/fallback';
 import type { AIProvider } from '@/lib/ai/providers';
 import type { AITask } from '@/lib/ai/resolver';
+import { getModuleConfig, isModuleActive } from '@/lib/modules';
+import { buildCmsFactPolicy } from '@/lib/ai/prompts';
 
 interface GeneratePayload {
   tenant_id: string;
@@ -63,7 +65,7 @@ export async function POST(request: NextRequest) {
     // Load tenant config for API keys
     const { data: tenant, error: tenantError } = await supabase
       .from('tenants')
-      .select('settings')
+      .select('name, settings')
       .eq('id', tenant_id)
       .single();
 
@@ -71,7 +73,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
-    const aiConfig = tenant.settings?.module_config?.ai_assistant || {};
+    const factPolicy = buildCmsFactPolicy({ tenantName: tenant.name || tenant_id });
+
+    const settings = (tenant.settings || {}) as Record<string, unknown>;
+    if (!isModuleActive(settings, "ai_assistant")) {
+      return NextResponse.json({ error: 'Modulo IA non attivo per questo tenant' }, { status: 403 });
+    }
+
+    const aiConfig = getModuleConfig(settings, "ai_assistant");
     let systemPrompt = '';
     let userPrompt = '';
 
@@ -83,19 +92,24 @@ export async function POST(request: NextRequest) {
       const summary = body.summary || '';
 
       if (body.type === 'seo') {
-        systemPrompt = 'Sei un esperto SEO per testate giornalistiche italiane. Genera metadati SEO ottimizzati. Rispondi SEMPRE in formato JSON valido.';
+        systemPrompt = `Sei un esperto SEO per testate giornalistiche italiane. Genera metadati SEO ottimizzati. Rispondi SEMPRE in formato JSON valido.
+${factPolicy}`;
         userPrompt = `Analizza questo articolo e genera i metadati SEO ottimizzati.\n\nTITOLO: ${title}\n${summary ? `SOMMARIO: ${summary}` : ''}\nCORPO (primi 500 caratteri): ${articleBody.slice(0, 500)}\n\nRispondi in JSON con questa struttura: { "meta_title": "...", "meta_description": "...", "suggested_tags": [...], "og_description": "..." }`;
       } else if (body.type === 'titles') {
-        systemPrompt = 'Sei un titolista esperto di giornalismo italiano. Genera titoli alternativi. Rispondi SEMPRE in formato JSON valido.';
+        systemPrompt = `Sei un titolista esperto di giornalismo italiano. Genera titoli alternativi. Rispondi SEMPRE in formato JSON valido.
+${factPolicy}`;
         userPrompt = `Dato questo articolo, suggerisci 5 titoli alternativi efficaci per il web.\n\nTITOLO ATTUALE: ${title}\nCORPO (primi 500 caratteri): ${articleBody.slice(0, 500)}\n\nRispondi in JSON: { "titles": [...] }`;
       } else if (body.type === 'social') {
-        systemPrompt = 'Sei un social media manager per testate giornalistiche. Crea post ottimizzati. Rispondi SEMPRE in formato JSON valido.';
+        systemPrompt = `Sei un social media manager per testate giornalistiche. Crea post ottimizzati. Rispondi SEMPRE in formato JSON valido.
+${factPolicy}`;
         userPrompt = `Crea post per i social media basati su questo articolo.\n\nTITOLO: ${title}\nCORPO (primi 500 caratteri): ${articleBody.slice(0, 500)}\n\nRispondi in JSON: { "facebook": "...", "instagram": "...", "telegram": "...", "twitter": "..." }`;
       } else if (body.type === 'translate') {
-        systemPrompt = 'Sei un traduttore professionista italiano-inglese specializzato in giornalismo. Traduci in modo naturale e accurato. Rispondi SEMPRE in formato JSON valido.';
+        systemPrompt = `Sei un traduttore professionista italiano-inglese specializzato in giornalismo. Traduci in modo naturale e accurato. Rispondi SEMPRE in formato JSON valido.
+${factPolicy}`;
         userPrompt = `Traduci questo articolo dall'italiano all'inglese.\n\nTITOLO: ${title}\n${summary ? `SOMMARIO: ${summary}` : ''}\nCORPO: ${articleBody.slice(0, 3000)}\n\nRispondi in JSON: { "title": "...", "summary": "...", "body": "..." }`;
       } else if (body.type === 'summary') {
-        systemPrompt = 'Sei un giornalista esperto. Genera sommari concisi. Rispondi SEMPRE in formato JSON valido.';
+        systemPrompt = `Sei un giornalista esperto. Genera sommari concisi. Rispondi SEMPRE in formato JSON valido.
+${factPolicy}`;
         userPrompt = `Genera un sommario per questo articolo.\n\nTITOLO: ${title}\nCORPO (primi 1000 caratteri): ${articleBody.slice(0, 1000)}\n\nRispondi in JSON: { "summary": "...", "reading_hook": "..." }`;
       }
     } else {
@@ -110,7 +124,8 @@ export async function POST(request: NextRequest) {
           ? JSON.stringify(body.context, null, 2)
           : '';
 
-      systemPrompt = `Sei un assistente AI per un CMS giornalistico. Genera contenuti di qualità. Rispondi sempre in italiano.`;
+      systemPrompt = `Sei un assistente AI per il CMS giornalistico del tenant "${tenant.name || tenant_id}". Genera contenuti di qualità. Rispondi sempre in italiano.
+${factPolicy}`;
       userPrompt = `Genera contenuto per il campo "${fieldName}" di tipo "${fieldType}":
 ${currentValue ? `Contenuto attuale: ${currentValue}` : ''}
 ${context ? `Contesto disponibile:\n${context}` : ''}

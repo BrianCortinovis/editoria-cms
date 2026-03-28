@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { readPublishedJson } from "@/lib/publish/storage";
+import { getPublicApiCorsHeaders } from "@/lib/security/cors";
 import type { PublishedBannersDocument } from "@/lib/publish/types";
 
 export async function GET(request: Request) {
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ banners: selected }, {
       headers: {
         "Cache-Control": "no-cache",
-        "Access-Control-Allow-Origin": "*",
+        ...getPublicApiCorsHeaders(request),
       },
     });
   }
@@ -78,7 +79,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ banners: selected }, {
     headers: {
       "Cache-Control": "no-cache",
-      "Access-Control-Allow-Origin": "*",
+      ...getPublicApiCorsHeaders(request),
     },
   });
 }

@@ -13,6 +13,7 @@ import {
   type SocialAutoConfig,
 } from '@/lib/social/platforms';
 import { CheckCircle2, ExternalLink, Link2, Save, Send, Share2, ShieldCheck, Sparkles } from 'lucide-react';
+import AIButton from '@/components/ai/AIButton';
 
 export default function SocialPage() {
   const { currentTenant, currentRole } = useAuthStore();
@@ -180,11 +181,34 @@ export default function SocialPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <Share2 size={24} style={{ color: 'var(--c-accent)' }} />
-          <h2 className="text-xl font-semibold" style={{ color: 'var(--c-text-0)' }}>
-            Social Publishing
-          </h2>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Share2 size={24} style={{ color: 'var(--c-accent)' }} />
+            <h2 className="text-xl font-semibold" style={{ color: 'var(--c-text-0)' }}>
+              Social Publishing
+            </h2>
+          </div>
+          <AIButton
+            compact
+            actions={[
+              {
+                id: 'social-strategy',
+                label: 'Strategia social',
+                prompt: 'Analizza configurazione social, canali attivi, hashtag e link di share di questo tenant. Suggerisci miglioramenti pratici di workflow e compatibilita`: {context}',
+              },
+              {
+                id: 'social-checklist',
+                label: 'Checklist pubblicazione',
+                prompt: 'Prepara una checklist operativa per pubblicare bene sui social da questo CMS: copy, URL, hashtag, token, canali e controlli finali: {context}',
+              },
+            ]}
+            contextData={JSON.stringify({
+              tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+              config,
+              enabledPlatforms: enabledPlatforms.map((platform) => platform.key),
+              shareLinks,
+            }, null, 2)}
+          />
         </div>
         <p className="text-sm max-w-4xl" style={{ color: 'var(--c-text-2)' }}>
           Base unica per rendere il CMS compatibile con il maggior numero possibile di canali social. Qui prepari account, webhook, handle, token e comportamento di pubblicazione. I publish automatici veri richiedono poi credenziali e approvazioni delle singole piattaforme.

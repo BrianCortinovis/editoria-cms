@@ -11,6 +11,7 @@ import { parseNaturalLanguage, detectContextFromText } from "@/lib/ai/natural-la
 import toast from "react-hot-toast";
 import { Sparkles, Loader2, Copy, Check, X } from "lucide-react";
 import type { Block } from "@/lib/types";
+import { buildCmsFactPolicy } from "@/lib/ai/prompts";
 
 interface AIAction {
   id: string;
@@ -242,9 +243,15 @@ export default function AIButton({ actions, fieldValue, contextData: contextData
   const [loading, setLoading] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState<string | null>(null);
+  const [selectedActionId, setSelectedActionId] = useState<string | null>(actions[0]?.id ?? null);
 
   const settings = (currentTenant?.settings ?? {}) as Record<string, unknown>;
   if (!isModuleActive(settings, "ai_assistant")) return null;
+
+  const defaultSystemPrompt = `Sei un assistente operativo del CMS online del tenant "${currentTenant?.name || "tenant corrente"}".
+Aiuti a compilare campi, revisionare contenuti, ottimizzare SEO, analytics, tecnico e gestione operativa.
+Quando l'utente ti chiede un risultato per un campo o un modulo, genera direttamente l'output finale, senza spiegazioni inutili.
+${buildCmsFactPolicy({ tenantName: currentTenant?.name })}`;
 
   const handleAction = async (action: AIAction) => {
     if (!currentTenant) return;
@@ -273,7 +280,7 @@ export default function AIButton({ actions, fieldValue, contextData: contextData
           taskType: effectiveTaskType,
           preferredProvider: selectedProvider,
           preferredModel: selectedModel,
-          systemPrompt: systemPrompt || "Sei un assistente editoriale operativo per un CMS giornalistico italiano. Quando l'utente ti chiede un risultato per un campo o un modulo, genera direttamente l'output finale, senza spiegazioni inutili.",
+          systemPrompt: systemPrompt || defaultSystemPrompt,
           prompt: buildDispatchPrompt({
             actionPrompt: action.prompt,
             fieldName,
@@ -333,6 +340,160 @@ export default function AIButton({ actions, fieldValue, contextData: contextData
     setTimeout(() => setCopied(null), 2000);
   };
 
+  const selectedAction = actions.find((action) => action.id === selectedActionId) ?? actions[0] ?? null;
+  const selectedResult = selectedAction ? results[selectedAction.id] : "";
+
+  const renderAssistantPanel = () => (
+    <div
+      className="fixed bottom-4 right-4 z-[70] flex w-[min(94vw,920px)] min-w-[320px] max-w-[94vw] flex-col overflow-hidden rounded-2xl shadow-2xl"
+      style={{
+        background: "var(--c-bg-1)",
+        border: "1px solid var(--c-border)",
+        height: "min(78vh, 640px)",
+        minHeight: "360px",
+        resize: "both",
+      }}
+    >
+      <div className="flex items-center justify-between gap-3 border-b px-4 py-3" style={{ borderColor: "var(--c-border)" }}>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>
+            <Sparkles className="h-4 w-4 shrink-0" style={{ color: "var(--c-accent)" }} />
+            <span className="truncate">AI Assistant</span>
+          </div>
+          <p className="mt-1 text-xs" style={{ color: "var(--c-text-2)" }}>
+            Provider: {selectedProvider} {selectedModel ? `· ${selectedModel}` : ""}
+          </p>
+        </div>
+        <button onClick={() => setOpen(false)} className="rounded-lg p-1.5 transition hover:opacity-70">
+          <X className="h-4 w-4" style={{ color: "var(--c-text-3)" }} />
+        </button>
+      </div>
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)]">
+        <div className="min-h-0 border-b md:border-b-0 md:border-r" style={{ borderColor: "var(--c-border)" }}>
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="border-b px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ borderColor: "var(--c-border)", color: "var(--c-text-3)" }}>
+              Azioni
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-2">
+              <div className="space-y-1.5">
+                {actions.map((action) => {
+                  const isSelected = selectedAction?.id === action.id;
+                  const hasResult = Boolean(results[action.id]);
+                  return (
+                    <button
+                      key={action.id}
+                      onClick={() => {
+                        setSelectedActionId(action.id);
+                        if (!results[action.id]) {
+                          void handleAction(action);
+                        }
+                      }}
+                      disabled={loading !== null && loading !== action.id}
+                      className="w-full rounded-xl px-3 py-2 text-left text-xs font-medium transition disabled:opacity-50"
+                      style={{
+                        background: isSelected ? "var(--c-accent-soft)" : "var(--c-bg-2)",
+                        color: isSelected ? "var(--c-accent)" : "var(--c-text-1)",
+                        border: `1px solid ${isSelected ? "var(--c-accent)" : "var(--c-border)"}`,
+                      }}
+                    >
+                      <div className="flex items-start gap-2">
+                        {loading === action.id ? (
+                          <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />
+                        ) : (
+                          <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: isSelected ? "var(--c-accent)" : "var(--c-text-3)" }} />
+                        )}
+                        <div className="min-w-0">
+                          <div className="truncate">{action.label}</div>
+                          <div className="mt-1 text-[10px]" style={{ color: hasResult ? "var(--c-text-2)" : "var(--c-text-3)" }}>
+                            {hasResult ? "Risposta disponibile" : "Genera risposta"}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex min-h-0 flex-col">
+          <div className="border-b px-4 py-3" style={{ borderColor: "var(--c-border)" }}>
+            <div className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>
+              {selectedAction?.label || "Risposta"}
+            </div>
+            <p className="mt-1 text-xs" style={{ color: "var(--c-text-2)" }}>
+              Pannello ridimensionabile e con scroll interno per leggere risposte lunghe.
+            </p>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            {selectedAction ? (
+              selectedResult ? (
+                <div
+                  className="rounded-xl border p-4 text-sm leading-7"
+                  style={{ background: "var(--c-bg-2)", borderColor: "var(--c-border)", color: "var(--c-text-0)" }}
+                >
+                  <pre className="whitespace-pre-wrap break-words font-sans">{selectedResult}</pre>
+                </div>
+              ) : loading === selectedAction.id ? (
+                <div className="flex h-full min-h-[160px] items-center justify-center rounded-xl border" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-2)" }}>
+                  <div className="flex items-center gap-2 text-sm" style={{ color: "var(--c-text-2)" }}>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generazione in corso...
+                  </div>
+                </div>
+              ) : (
+                <div className="flex h-full min-h-[160px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm" style={{ borderColor: "var(--c-border)", color: "var(--c-text-2)", background: "var(--c-bg-2)" }}>
+                  Seleziona un’azione a sinistra per generare o rileggere la risposta.
+                </div>
+              )
+            ) : null}
+          </div>
+
+          {selectedAction ? (
+            <div className="border-t px-4 py-3" style={{ borderColor: "var(--c-border)" }}>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => void handleAction(selectedAction)}
+                  disabled={loading !== null}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition disabled:opacity-50"
+                  style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}
+                >
+                  {loading === selectedAction.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  Rigenera
+                </button>
+                {selectedResult ? (
+                  <>
+                    <button
+                      onClick={() => copyText(selectedResult, selectedAction.id)}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs"
+                      style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)", border: "1px solid var(--c-border)" }}
+                    >
+                      {copied === selectedAction.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copied === selectedAction.id ? "Copiato" : "Copia"}
+                    </button>
+                    {onApply ? (
+                      <button
+                        onClick={() => { onApply(selectedAction.id, selectedResult); setOpen(false); }}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs"
+                        style={{ background: "var(--c-accent)", color: "#fff" }}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        Applica
+                      </button>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+
   if (compact) {
     return (
       <>
@@ -345,49 +506,7 @@ export default function AIButton({ actions, fieldValue, contextData: contextData
           <Sparkles className="w-4 h-4" />
         </button>
 
-        {open && (
-          <div className="absolute right-0 top-full mt-1 w-72 rounded-xl shadow-xl z-50 p-3 space-y-2"
-            style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: "var(--c-text-0)" }}>
-                <Sparkles className="w-3 h-3" style={{ color: "var(--c-accent)" }} /> AI Assistant
-              </span>
-              <button onClick={() => setOpen(false)}><X className="w-3 h-3" style={{ color: "var(--c-text-3)" }} /></button>
-            </div>
-            {actions.map(a => (
-              <div key={a.id}>
-                <button
-                  onClick={() => handleAction(a)}
-                  disabled={loading !== null}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition disabled:opacity-50 text-left"
-                  style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}
-                >
-                  {loading === a.id ? <Loader2 className="w-3 h-3 animate-spin shrink-0" /> : <Sparkles className="w-3 h-3 shrink-0" style={{ color: "var(--c-accent)" }} />}
-                  {a.label}
-                </button>
-                {results[a.id] && (
-                  <div className="mt-1 p-2 rounded-lg text-xs" style={{ background: "var(--c-bg-3)", color: "var(--c-text-0)" }}>
-                    <p className="whitespace-pre-wrap">{results[a.id]}</p>
-                    <div className="flex items-center gap-1 mt-1.5">
-                      <button onClick={() => copyText(results[a.id], a.id)}
-                        className="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1"
-                        style={{ background: "var(--c-bg-2)", color: "var(--c-text-2)" }}>
-                        {copied === a.id ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />} Copia
-                      </button>
-                      {onApply && (
-                        <button onClick={() => onApply(a.id, results[a.id])}
-                          className="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1"
-                          style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}>
-                          <Check className="w-2.5 h-2.5" /> Usa
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        {open ? renderAssistantPanel() : null}
       </>
     );
   }
@@ -403,49 +522,7 @@ export default function AIButton({ actions, fieldValue, contextData: contextData
         <Sparkles className="w-3.5 h-3.5" /> IA
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-full mt-1 w-80 rounded-xl shadow-xl z-50 p-3 space-y-2"
-          style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: "var(--c-text-0)" }}>
-              <Sparkles className="w-3 h-3" style={{ color: "var(--c-accent)" }} /> AI Assistant
-            </span>
-            <button onClick={() => setOpen(false)}><X className="w-3 h-3" style={{ color: "var(--c-text-3)" }} /></button>
-          </div>
-          {actions.map(a => (
-            <div key={a.id}>
-              <button
-                onClick={() => handleAction(a)}
-                disabled={loading !== null}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition disabled:opacity-50 text-left"
-                style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}
-              >
-                {loading === a.id ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--c-accent)" }} />}
-                {a.label}
-              </button>
-              {results[a.id] && (
-                <div className="mt-1.5 p-2.5 rounded-lg text-xs leading-relaxed" style={{ background: "var(--c-bg-3)", color: "var(--c-text-0)" }}>
-                  <p className="whitespace-pre-wrap">{results[a.id]}</p>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <button onClick={() => copyText(results[a.id], a.id)}
-                      className="text-[10px] px-2 py-0.5 rounded flex items-center gap-1"
-                      style={{ background: "var(--c-bg-2)", color: "var(--c-text-2)" }}>
-                      {copied === a.id ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />} Copia
-                    </button>
-                    {onApply && (
-                      <button onClick={() => { onApply(a.id, results[a.id]); setOpen(false); }}
-                        className="text-[10px] px-2 py-0.5 rounded flex items-center gap-1"
-                        style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}>
-                        <Check className="w-2.5 h-2.5" /> Applica
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      {open ? renderAssistantPanel() : null}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { useAuthStore } from "@/lib/store";
 import { createClient } from "@/lib/supabase/client";
 import { generateId } from "@/lib/utils/id";
 import { normalizeNavigationConfig, type SiteMenuItem, type SiteMenuKey } from "@/lib/site/navigation";
+import AIButton from "@/components/ai/AIButton";
 
 interface SourceItem {
   id: string;
@@ -302,15 +303,38 @@ export default function MenuPage() {
             Gestione menu globale del CMS con aggancio a pagine, categorie e tag. I blocchi di navigazione dell&apos;editor possono usare questi menu oppure restare totalmente custom.
           </p>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-4 py-2.5 rounded-lg text-white text-sm font-semibold"
-          style={{ background: "var(--c-accent)", opacity: saving ? 0.7 : 1 }}
-        >
-          <Save className="w-4 h-4 inline mr-2" />
-          {saving ? "Salvataggio..." : "Salva menu"}
-        </button>
+        <div className="flex items-center gap-2">
+          <AIButton
+            compact
+            actions={[
+              {
+                id: "menu-audit",
+                label: "Audit menu",
+                prompt: "Analizza la struttura menu del tenant, evidenzia problemi di navigazione, SEO e gerarchia editoriale, e proponi miglioramenti: {context}",
+              },
+              {
+                id: "menu-structure",
+                label: "Proponi struttura",
+                prompt: "Suggerisci una struttura menu migliore per una testata locale italiana, usando pagine, categorie e tag disponibili nel CMS: {context}",
+              },
+            ]}
+            contextData={JSON.stringify({
+              tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
+              menuKey,
+              navigationConfig,
+              sources,
+            }, null, 2)}
+          />
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2.5 rounded-lg text-white text-sm font-semibold"
+            style={{ background: "var(--c-accent)", opacity: saving ? 0.7 : 1 }}
+          >
+            <Save className="w-4 h-4 inline mr-2" />
+            {saving ? "Salvataggio..." : "Salva menu"}
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">

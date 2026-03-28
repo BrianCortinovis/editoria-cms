@@ -1,17 +1,24 @@
-import type { ResolvedTenant, SiteConfig } from '@/lib/site/tenant-resolver';
+import type { ResolvedTenant, SiteConfig, TenantSettings } from '@/lib/site/tenant-resolver';
 import { themeToCSS } from '@/lib/site/theme-injector';
 import { getNavigationMenu, normalizeNavigationConfig } from '@/lib/site/navigation';
 import { normalizeFooterConfig } from '@/lib/site/footer';
 import { sanitizeCss } from '@/lib/security/html';
 import { PublicSiteRuntime } from './PublicSiteRuntime';
+import { buildTenantPublicUrl } from '@/lib/site/public-url';
 
 interface Props {
   tenant: ResolvedTenant;
   config: SiteConfig | null;
+  tenantSettings?: TenantSettings;
   children: React.ReactNode;
 }
 
-export function SiteLayout({ tenant, config, children }: Props) {
+function getStringSetting(settings: TenantSettings | undefined, key: string) {
+  const value = settings?.[key];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+export function SiteLayout({ tenant, config, tenantSettings, children }: Props) {
   const themeCSS = config?.theme ? themeToCSS(config.theme) : '';
   const themeConfig = (config?.theme || {}) as Record<string, unknown>;
   const navigationConfig = normalizeNavigationConfig(config?.navigation || []);
@@ -22,6 +29,21 @@ export function SiteLayout({ tenant, config, children }: Props) {
   const chromePreset = typeof themeConfig.layoutPreset === 'string' ? themeConfig.layoutPreset : 'default';
   const isNewspaperChrome = chromePreset === 'newspaper';
   const mastheadNote = typeof themeConfig.mastheadNote === 'string' ? themeConfig.mastheadNote : '';
+  const siteDescription = getStringSetting(tenantSettings, 'site_description');
+  const gaId = getStringSetting(tenantSettings, 'google_analytics');
+  const gtmId = getStringSetting(tenantSettings, 'google_tag_manager');
+  const adsenseId = getStringSetting(tenantSettings, 'google_adsense');
+  const searchConsoleVerification = getStringSetting(tenantSettings, 'google_search_console_verification');
+  const googleNewsPublicationName = getStringSetting(tenantSettings, 'google_news_publication_name');
+  const publicBaseUrl = buildTenantPublicUrl(tenant, '/');
+  const organizationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'NewsMediaOrganization',
+    name: googleNewsPublicationName || tenant.name,
+    url: publicBaseUrl,
+    description: siteDescription || undefined,
+    logo: tenant.logo_url ? { '@type': 'ImageObject', url: tenant.logo_url } : undefined,
+  };
   const formattedDate = new Intl.DateTimeFormat('it-IT', {
     weekday: 'long',
     day: 'numeric',
@@ -34,7 +56,45 @@ export function SiteLayout({ tenant, config, children }: Props) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {siteDescription ? <meta name="description" content={siteDescription} /> : null}
+        {searchConsoleVerification ? <meta name="google-site-verification" content={searchConsoleVerification} /> : null}
         {config?.favicon_url && <link rel="icon" href={config.favicon_url} />}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
+        {gtmId ? (
+          <>
+            <script async src={`https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(gtmId)}`} />
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
+                `,
+              }}
+            />
+          </>
+        ) : gaId ? (
+          <>
+            <script async src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`} />
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${gaId}');
+                `,
+              }}
+            />
+          </>
+        ) : null}
+        {adsenseId ? (
+          <script
+            async
+            crossOrigin="anonymous"
+            data-ad-client={adsenseId}
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"
+          />
+        ) : null}
         {themeCSS && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(themeCSS) }} />}
         {config?.global_css && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(config.global_css) }} />}
         <style dangerouslySetInnerHTML={{ __html: `
@@ -52,6 +112,16 @@ export function SiteLayout({ tenant, config, children }: Props) {
         `}} />
       </head>
       <body>
+        {gtmId ? (
+          <noscript>
+            <iframe
+              src={`https://www.googletagmanager.com/ns.html?id=${encodeURIComponent(gtmId)}`}
+              height="0"
+              width="0"
+              style={{ display: 'none', visibility: 'hidden' }}
+            />
+          </noscript>
+        ) : null}
         <PublicSiteRuntime />
         {topbarMenu.length > 0 && (
           <div

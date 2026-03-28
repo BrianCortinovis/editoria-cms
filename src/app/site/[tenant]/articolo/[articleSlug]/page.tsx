@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import Image from 'next/image';
 import { getPublishedArticleBySlug, resolveTenant } from '@/lib/site/tenant-resolver';
 import { buildTenantRedirectUrl, resolveRedirect } from '@/lib/site/redirects';
 import { SiteLayout } from '@/components/render/SiteLayout';
@@ -38,7 +39,7 @@ export default async function ArticlePage({ params }: Props) {
   const resolved = await resolveTenant(tenantSlug);
   if (!resolved) notFound();
 
-  const { tenant, config } = resolved;
+  const { tenant, config, tenantSettings } = resolved;
   const publishedArticle = await getPublishedArticleBySlug(tenant.slug, articleSlug);
 
   let article = publishedArticle as SiteArticleRecord | null;
@@ -96,7 +97,7 @@ export default async function ArticlePage({ params }: Props) {
   };
 
   return (
-    <SiteLayout tenant={tenant} config={config}>
+    <SiteLayout tenant={tenant} config={config} tenantSettings={tenantSettings}>
       <article style={{ maxWidth: '800px', margin: '0 auto', padding: 'var(--e-section-gap, 48px) 0' }}>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
         {/* Category */}
@@ -145,7 +146,7 @@ export default async function ArticlePage({ params }: Props) {
           {author && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {author.avatar_url && (
-                <img src={author.avatar_url} alt={author.full_name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
+                <Image src={author.avatar_url} alt={author.full_name} width={32} height={32} style={{ borderRadius: '50%', objectFit: 'cover' }} unoptimized />
               )}
               <span style={{ fontWeight: 600 }}>{author.full_name}</span>
             </div>
@@ -158,10 +159,13 @@ export default async function ArticlePage({ params }: Props) {
 
         {/* Cover image */}
         {enrichedArticle.cover_image_url && (
-          <img
+          <Image
             src={enrichedArticle.cover_image_url}
             alt={enrichedArticle.title}
-            style={{ width: '100%', borderRadius: 'var(--e-border-radius, 8px)', marginTop: '32px' }}
+            width={800}
+            height={450}
+            style={{ width: '100%', height: 'auto', borderRadius: 'var(--e-border-radius, 8px)', marginTop: '32px' }}
+            unoptimized
           />
         )}
 
@@ -177,7 +181,7 @@ export default async function ArticlePage({ params }: Props) {
           <div style={{ marginTop: '48px', padding: '24px', backgroundColor: 'var(--e-color-surface)', borderRadius: 'var(--e-border-radius, 8px)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
               {author.avatar_url && (
-                <img src={author.avatar_url} alt={author.full_name} style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }} />
+                <Image src={author.avatar_url} alt={author.full_name} width={48} height={48} style={{ borderRadius: '50%', objectFit: 'cover' }} unoptimized />
               )}
               <div>
                 <div style={{ fontWeight: 700 }}>{author.full_name}</div>
@@ -239,6 +243,12 @@ export async function generateMetadata({ params }: Props) {
       type: 'article',
       url: canonical,
       images: article.og_image_url || article.cover_image_url ? [{ url: article.og_image_url || article.cover_image_url }] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: article.meta_title || article.title,
+      description: article.meta_description || '',
+      images: article.og_image_url || article.cover_image_url ? [article.og_image_url || article.cover_image_url] : [],
     },
   };
 }

@@ -20,7 +20,7 @@ export default async function TenantCatchAllPage({ params }: Props) {
   const resolved = await resolveTenant(tenantSlug);
   if (!resolved) notFound();
 
-  const { tenant, config } = resolved;
+  const { tenant, config, tenantSettings } = resolved;
   const page = await getPublishedPage(tenant.id, pageSlug);
   if (!page) {
     const matchedRedirect = await resolveRedirect(tenant.id, `/${pageSlug}`);
@@ -31,7 +31,7 @@ export default async function TenantCatchAllPage({ params }: Props) {
   }
 
   return (
-    <SiteLayout tenant={tenant} config={config}>
+    <SiteLayout tenant={tenant} config={config} tenantSettings={tenantSettings}>
       <PageBackgroundFrame meta={page.meta as Record<string, unknown>} scopeId={`public-page-${page.id}`}>
         <BlockRenderer
           blocks={page.blocks as Block[]}
@@ -81,6 +81,17 @@ export async function generateMetadata({ params }: Props) {
             ? meta.description
             : `${page.title} - ${resolved.tenant.name}`),
       url: canonical,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: typeof meta?.ogTitle === 'string' && meta.ogTitle.trim()
+        ? meta.ogTitle
+        : (typeof meta?.title === 'string' && meta.title.trim() ? meta.title : page.title),
+      description: typeof meta?.ogDescription === 'string' && meta.ogDescription.trim()
+        ? meta.ogDescription
+        : (typeof meta?.description === 'string' && meta.description.trim()
+            ? meta.description
+            : `${page.title} - ${resolved.tenant.name}`),
     },
   };
 }

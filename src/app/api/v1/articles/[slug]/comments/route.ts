@@ -5,11 +5,7 @@ import { sanitizeExternalUrl } from '@/lib/security/html';
 import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 import { verifyTurnstileToken } from '@/lib/security/turnstile';
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+import { getPublicApiCorsHeadersWithPost } from '@/lib/security/cors';
 
 function hashValue(value: string) {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -21,8 +17,8 @@ async function supportsCommentsTable() {
   return !error;
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, { status: 204, headers: getPublicApiCorsHeadersWithPost(request) });
 }
 
 export async function GET(
@@ -33,17 +29,17 @@ export async function GET(
   const tenantSlug = new URL(request.url).searchParams.get('tenant');
 
   if (!tenantSlug) {
-    return NextResponse.json({ error: 'tenant parameter required' }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'tenant parameter required' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   if (!(await supportsCommentsTable())) {
-    return NextResponse.json({ commentsEnabled: false, comments: [] }, { headers: CORS_HEADERS });
+    return NextResponse.json({ commentsEnabled: false, comments: [] }, { headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const supabase = await createServiceRoleClient();
   const { data: tenant } = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single();
   if (!tenant) {
-    return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const { data: article } = await supabase
@@ -55,7 +51,7 @@ export async function GET(
     .maybeSingle();
 
   if (!article) {
-    return NextResponse.json({ error: 'Article not found' }, { status: 404, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Article not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const { data: comments } = await supabase
@@ -66,7 +62,7 @@ export async function GET(
     .eq('status', 'approved')
     .order('created_at', { ascending: true });
 
-  return NextResponse.json({ commentsEnabled: true, comments: comments || [] }, { headers: CORS_HEADERS });
+  return NextResponse.json({ commentsEnabled: true, comments: comments || [] }, { headers: getPublicApiCorsHeadersWithPost(request) });
 }
 
 export async function POST(
@@ -76,7 +72,7 @@ export async function POST(
   const { slug } = await params;
 
   if (!(await supportsCommentsTable())) {
-    return NextResponse.json({ error: 'Comments module not initialized' }, { status: 503, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Comments module not initialized' }, { status: 503, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const body = await request.json();
@@ -89,11 +85,11 @@ export async function POST(
   const honeypot = String(body.website || '');
 
   if (!tenantSlug || !authorName || !authorEmail || !commentBody) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Missing required fields' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   if (honeypot) {
-    return NextResponse.json({ success: true, pending: true }, { headers: CORS_HEADERS });
+    return NextResponse.json({ success: true, pending: true }, { headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const clientIp = getClientIp(request);
@@ -101,7 +97,7 @@ export async function POST(
   if (!limiter.allowed) {
     return NextResponse.json(
       { error: 'Too many comments, please try again later.' },
-      { status: 429, headers: { ...CORS_HEADERS, 'Retry-After': String(Math.ceil(limiter.retryAfterMs / 1000)) } }
+      { status: 429, headers: { ...getPublicApiCorsHeadersWithPost(request), 'Retry-After': String(Math.ceil(limiter.retryAfterMs / 1000)) } }
     );
   }
 
@@ -111,18 +107,18 @@ export async function POST(
     authorUrl.length > 500 ||
     commentBody.length > 5_000
   ) {
-    return NextResponse.json({ error: 'Input too long' }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Input too long' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const isHuman = await verifyTurnstileToken(String(body.turnstile_token || ''), clientIp);
   if (!isHuman) {
-    return NextResponse.json({ error: 'Bot protection check failed' }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Bot protection check failed' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const supabase = await createServiceRoleClient();
   const { data: tenant } = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single();
   if (!tenant) {
-    return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const { data: article } = await supabase
@@ -134,7 +130,7 @@ export async function POST(
     .maybeSingle();
 
   if (!article) {
-    return NextResponse.json({ error: 'Article not found' }, { status: 404, headers: CORS_HEADERS });
+    return NextResponse.json({ error: 'Article not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   const { error } = await supabase.from('article_comments').insert({
@@ -153,11 +149,11 @@ export async function POST(
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500, headers: CORS_HEADERS });
+    return NextResponse.json({ error: error.message }, { status: 500, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   return NextResponse.json(
     { success: true, pending: true, message: 'Commento inviato e in attesa di moderazione.' },
-    { headers: CORS_HEADERS }
+    { headers: getPublicApiCorsHeadersWithPost(request) }
   );
 }

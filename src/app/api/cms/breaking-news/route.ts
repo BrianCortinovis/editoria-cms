@@ -25,7 +25,8 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("breaking_news.list failed:", error.message);
+    return NextResponse.json({ error: "Unable to load breaking news" }, { status: 500 });
   }
 
   return NextResponse.json({ items: data || [] });
@@ -65,7 +66,8 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || "Unable to create breaking news" }, { status: 500 });
+    console.error("breaking_news.create failed:", error?.message);
+    return NextResponse.json({ error: "Unable to create breaking news" }, { status: 500 });
   }
 
   await writeActivityLog({

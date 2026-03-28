@@ -62,6 +62,9 @@ const statusStyles: Record<string, React.CSSProperties> = {
 
 export default function RedazionePage() {
   const { currentTenant, currentRole } = useAuthStore();
+  const aiEnabled = Array.isArray((currentTenant?.settings as Record<string, unknown> | undefined)?.active_modules)
+    ? ((currentTenant?.settings as Record<string, unknown>).active_modules as string[]).includes("ai_assistant")
+    : false;
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<WorkflowStats>({
     drafts: 0,
@@ -193,7 +196,7 @@ export default function RedazionePage() {
     { href: "/dashboard/commenti", label: "Moderazione commenti", icon: MessageSquare },
     { href: "/dashboard/breaking-news", label: "Desk breaking", icon: Zap },
     { href: "/dashboard/eventi", label: "Agenda eventi", icon: CalendarClock },
-    { href: "/dashboard/ia", label: "Tool IA redazione", icon: Sparkles },
+    ...(aiEnabled ? [{ href: "/dashboard/ia", label: "Tool IA redazione", icon: Sparkles }] : []),
   ];
   const productionLinks = [
     { href: "/dashboard/desk", label: "Desk Giornalisti", note: "Bozze veloci, media dal campo, invio in revisione." },

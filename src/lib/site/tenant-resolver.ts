@@ -26,6 +26,10 @@ export interface SiteConfig {
   global_css: string | null;
 }
 
+export interface TenantSettings {
+  [key: string]: unknown;
+}
+
 export interface PublishedPagePayload {
   id: string;
   title: string;
@@ -45,6 +49,7 @@ export interface PublishedPagePayload {
 export async function resolveTenant(tenantSlug: string): Promise<{
   tenant: ResolvedTenant;
   config: SiteConfig | null;
+  tenantSettings: TenantSettings;
 } | null> {
   const publishedSettings = await readPublishedJson<PublishedSettingsDocument>(`sites/${encodeURIComponent(tenantSlug)}/settings.json`);
 
@@ -52,6 +57,7 @@ export async function resolveTenant(tenantSlug: string): Promise<{
     return {
       tenant: publishedSettings.tenant,
       config: publishedSettings.config,
+      tenantSettings: (publishedSettings.tenantSettings || {}) as TenantSettings,
     };
   }
 
@@ -59,7 +65,7 @@ export async function resolveTenant(tenantSlug: string): Promise<{
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, name, slug, domain, logo_url')
+    .select('id, name, slug, domain, logo_url, settings')
     .eq('slug', tenantSlug)
     .single();
 
@@ -71,7 +77,17 @@ export async function resolveTenant(tenantSlug: string): Promise<{
     .eq('tenant_id', tenant.id)
     .single();
 
-  return { tenant, config };
+  return {
+    tenant: {
+      id: tenant.id,
+      name: tenant.name,
+      slug: tenant.slug,
+      domain: tenant.domain,
+      logo_url: tenant.logo_url,
+    },
+    config,
+    tenantSettings: (tenant.settings || {}) as TenantSettings,
+  };
 }
 
 /**

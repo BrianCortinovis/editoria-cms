@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readPublishedJson } from "@/lib/publish/storage";
+import { getPublicApiCorsHeaders } from "@/lib/security/cors";
 import type { PublishedBannerZonesDocument } from "@/lib/publish/types";
 
 export async function GET(request: Request) {
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
     {
       headers: {
         "Cache-Control": "no-cache",
-        "Access-Control-Allow-Origin": "*",
+        ...getPublicApiCorsHeaders(request),
       },
     },
   );

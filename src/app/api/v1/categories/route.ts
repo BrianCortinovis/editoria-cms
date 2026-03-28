@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { readPublishedJson } from "@/lib/publish/storage";
+import { getPublicApiCorsHeaders } from "@/lib/security/cors";
 import type { PublishedManifest, PublishedCategoryDocument } from "@/lib/publish/types";
 
 export async function GET(request: Request) {
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
     }, {
       headers: {
         "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
-        "Access-Control-Allow-Origin": "*",
+        ...getPublicApiCorsHeaders(request),
       },
     });
   }
@@ -57,7 +58,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ categories: data }, {
     headers: {
       "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
-      "Access-Control-Allow-Origin": "*",
+      ...getPublicApiCorsHeaders(request),
     },
   });
 }
