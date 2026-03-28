@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   const to = body?.to;
   if (!to || typeof to !== "string" || !to.includes("@")) {
     return NextResponse.json(
-      { error: "Indirizzo email valido richiesto" },
+      { error: "Valid email address required" },
       { status: 400 }
     );
   }
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
   if (!result.success) {
     return NextResponse.json(
-      { error: result.error || "Invio fallito", transport },
+      { error: result.error || "Send failed", transport },
       { status: 500 }
     );
   }

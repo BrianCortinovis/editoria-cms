@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { callAI } from '@/lib/ai/providers';
 import { resolveProvider } from '@/lib/ai/resolver';
-import type { AIMessage } from '@/lib/ai/providers';
+import type { AIMessage, AIProvider } from '@/lib/ai/providers';
 
 interface DebugPayload {
   prompt: string;
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const { prompt, systemPrompt, blockList } = body;
 
     if (!prompt?.trim()) {
-      return NextResponse.json({ error: 'Prompt richiesto' }, { status: 400 });
+      return NextResponse.json({ error: 'Prompt required' }, { status: 400 });
     }
 
     const supabase = await createServerSupabaseClient();
@@ -67,10 +67,10 @@ export async function POST(request: NextRequest) {
     // Resolve provider
     let resolvedProvider;
     try {
-      resolvedProvider = resolveProvider(aiConfig, 'chatbot' as any);
+      resolvedProvider = resolveProvider(aiConfig, 'chatbot');
     } catch (e) {
       return NextResponse.json(
-        { error: 'Nessun provider IA configurato' },
+        { error: 'No AI provider configured' },
         { status: 400 }
       );
     }
@@ -101,7 +101,7 @@ Quando crei layout, genera JSON array con azioni "add-block". Usa SOLO blocchi d
     logs.push(`\n📝 System Prompt:\n${finalSystemPrompt}\n`);
     logs.push(`💬 User Prompt:\n${prompt}\n`);
 
-    for (const provider of tryProviders as any[]) {
+    for (const provider of tryProviders as AIProvider[]) {
       try {
         logs.push(`\n🚀 Tentando con ${provider}...`);
 
@@ -117,11 +117,11 @@ Quando crei layout, genera JSON array con azioni "add-block". Usa SOLO blocchi d
           : credentials[`${provider}_api_key`];
 
         if (!apiKey) {
-          logs.push(`⚠️  ${provider}: API key non configurata`);
+          logs.push(`⚠️  ${provider}: API key not configured`);
           continue;
         }
 
-        logs.push(`⏳ Chiamata in corso...`);
+        logs.push(`⏳ Request in progress...`);
 
         const result = await callAI(provider, messages, {
           apiKey,
@@ -129,8 +129,8 @@ Quando crei layout, genera JSON array con azioni "add-block". Usa SOLO blocchi d
           ollamaUrl: provider === 'ollama' ? apiKey : undefined,
         });
 
-        logs.push(`✨ Risposta ricevuta!`);
-        logs.push(`📊 Provider usato: ${result.provider}`);
+        logs.push(`✨ Response received!`);
+        logs.push(`📊 Provider used: ${result.provider}`);
         logs.push(`🤖 Modello: ${result.model}`);
         logs.push(`\n📄 Response:\n${result.text}`);
 
@@ -140,7 +140,7 @@ Quando crei layout, genera JSON array con azioni "add-block". Usa SOLO blocchi d
           logs.push(`\n✅ JSON valido!`);
           logs.push(`📦 Actions count: ${Array.isArray(parsed) ? parsed.length : 1}`);
           if (Array.isArray(parsed)) {
-            parsed.forEach((action: any, idx: number) => {
+            parsed.forEach((action: Record<string, unknown>, idx: number) => {
               logs.push(`  [${idx}] ${action.action} - ${action.blockType || action.label || ''}`);
             });
           }
@@ -166,13 +166,13 @@ Quando crei layout, genera JSON array con azioni "add-block". Usa SOLO blocchi d
     logs.push(`\n\n❌ Tutti i provider hanno fallito!`);
     return NextResponse.json({
       success: false,
-      error: lastError?.message || 'Nessun provider disponibile',
+      error: lastError?.message || 'No provider available',
       logs: logs.join('\n'),
     }, { status: 500 });
   } catch (error: unknown) {
     const err = error as { message?: string };
     return NextResponse.json(
-      { error: err.message || 'Errore generico', logs: `❌ ${err.message}` },
+      { error: err.message || 'Unknown error', logs: `❌ ${err.message}` },
       { status: 500 }
     );
   }

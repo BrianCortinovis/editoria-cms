@@ -70,13 +70,12 @@ export default function UtentiPage() {
 
     if (data) {
       setMembers(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data.map((d: any) => ({
+        data.map((d) => ({
           id: d.id,
           user_id: d.user_id,
           role: normalizeCmsRole(d.role) ?? "contributor",
           created_at: d.created_at,
-          profile: d.profiles,
+          profile: d.profiles as unknown as { email: string; full_name: string; avatar_url: string | null; bio: string | null } | null,
         }))
       );
     }

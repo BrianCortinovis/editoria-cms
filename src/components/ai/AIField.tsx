@@ -10,7 +10,7 @@ interface AIFieldProps {
   type?: "text" | "email" | "url" | "tel" | "number" | "date" | "datetime-local";
   multiline?: boolean;
   rows?: number;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   disabled?: boolean;
   className?: string;
   /** If false, hides the AI button */

@@ -94,7 +94,7 @@ function extractBlocks(html: string, rootSelector: string = 'body'): BlockData[]
 /**
  * Detect block type from element
  */
-function detectBlockType($el: any, element: any): string {
+function detectBlockType($el: ReturnType<cheerio.CheerioAPI>, element: { name: string; attribs?: Record<string, string> }): string {
   const tag = element.name;
   const classes = ($el.attr('class') || '').toLowerCase();
   const id = ($el.attr('id') || '').toLowerCase();
@@ -155,7 +155,7 @@ function detectBlockType($el: any, element: any): string {
 /**
  * Convert blocks to CMS layout format
  */
-function blocksToLayoutSlots(blocks: BlockData[]): any[] {
+function blocksToLayoutSlots(blocks: BlockData[]): Array<Record<string, unknown>> {
   return blocks.map((block, index) => ({
     slot_key: `slot_${block.id || index}`,
     label: generateLabel(block),
@@ -321,17 +321,20 @@ export async function POST(request: NextRequest) {
       total_blocks: blocks.length,
       total_children: blocks.reduce((sum, b) => sum + b.children.length, 0),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error importing layout from URL:', error);
 
-    if (error.name === 'AbortError') {
+    const errName = error instanceof Error ? error.name : '';
+    const errMessage = error instanceof Error ? error.message : 'Failed to import layout from URL';
+
+    if (errName === 'AbortError') {
       return NextResponse.json({ error: 'Request timeout - URL took too long to respond' }, { status: 408 });
     }
 
     return NextResponse.json(
-      { error: error.message || 'Failed to import layout from URL' },
+      { error: errMessage },
       {
-        status: /invalid url|not allowed|only http and https|private|loopback|credentials/i.test(error.message || '')
+        status: /invalid url|not allowed|only http and https|private|loopback|credentials/i.test(errMessage)
           ? 400
           : 500,
       }

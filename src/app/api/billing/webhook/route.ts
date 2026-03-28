@@ -8,7 +8,7 @@ import type { SubscriptionStatus } from "@/types/database";
 export async function POST(request: NextRequest) {
   if (!isStripeConfigured()) {
     return NextResponse.json(
-      { error: "Billing non configurato" },
+      { error: "Billing not configured" },
       { status: 503 },
     );
   }

@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     // Check per-user AI access (superadmin toggle)
     if (!(await isAiEnabledForUser(user.id))) {
-      return NextResponse.json({ error: "AI disabilitata per questo utente" }, { status: 403 });
+      return NextResponse.json({ error: "AI disabled for this user" }, { status: 403 });
     }
 
     // Rate limit: 15 req / 10 min

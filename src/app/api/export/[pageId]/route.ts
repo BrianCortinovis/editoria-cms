@@ -76,13 +76,13 @@ export async function GET(
   }
 }
 
-function generateHTML(meta: any, blocks: any[]): string {
-  const title = meta?.title || 'Exported Page';
-  const description = meta?.description || '';
+function generateHTML(meta: Record<string, unknown> | null, blocks: Array<{ id: string; type: string; label?: string }>): string {
+  const title = (meta?.title as string) || 'Exported Page';
+  const description = (meta?.description as string) || '';
 
   const blocksHTML = blocks
     .slice(0, 20)
-    .map((block: any) => `
+    .map((block) => `
       <div class="block block-${block.type}" data-block-id="${block.id}">
         <h3>${escapeHTML(block.label || block.type)}</h3>
         <p class="block-type">Type: ${escapeHTML(block.type)}</p>

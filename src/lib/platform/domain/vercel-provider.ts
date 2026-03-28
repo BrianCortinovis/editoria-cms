@@ -112,7 +112,7 @@ export class VercelDomainProvider implements DomainProvider {
 
   async checkSslStatus(hostname: string): Promise<DomainSslStatus> {
     if (!getVercelHeaders() || !getVercelProjectPath()) {
-      return { status: "pending", message: "Configura le credenziali Vercel per leggere lo stato SSL." };
+      return { status: "pending", message: "Configure Vercel credentials to check SSL status." };
     }
 
     const encodedName = encodeURIComponent(hostname);

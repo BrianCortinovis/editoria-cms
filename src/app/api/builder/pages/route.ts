@@ -7,12 +7,12 @@ import { triggerPublish } from "@/lib/publish/runner";
 import { z } from "zod";
 
 const builderPageCreateSchema = z.object({
-  tenant_id: z.string().uuid("tenant_id deve essere un UUID valido"),
-  title: z.string().min(1, "title obbligatorio"),
-  slug: z.string().regex(/^[a-z0-9-]*$/, "slug non valido").optional().default(""),
+  tenant_id: z.string().uuid("tenant_id must be a valid UUID"),
+  title: z.string().min(1, "title is required"),
+  slug: z.string().regex(/^[a-z0-9-]*$/, "invalid slug").optional().default(""),
   page_type: z.string().optional().default("custom"),
   meta: z.record(z.unknown()).optional(),
-  blocks: z.array(z.any()).optional().default([]),
+  blocks: z.array(z.record(z.unknown())).transform((val) => val as unknown as import("@/lib/types/block").Block[]).optional().default([]),
 }).passthrough();
 
 const PAGE_EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);

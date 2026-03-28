@@ -12,6 +12,9 @@ import {
   buildDividerFromText,
   buildGradientFromText,
   type AICommand,
+  type AnimationCommand,
+  type EffectCommand,
+  type ClipPathCommand,
 } from './command-parser';
 
 export interface CommandExecution {
@@ -46,7 +49,7 @@ export function parseNaturalLanguage(text: string, context: 'divider' | 'gradien
 
     // Animation context: "animazione elegante on scroll"
     if (context === 'animation') {
-      const cmd: any = { action: 'updateAnimation' };
+      const cmd: Partial<AnimationCommand> & { action: 'updateAnimation' } = { action: 'updateAnimation' };
 
       // Trigger
       if (lower.includes('scroll')) cmd.trigger = 'scroll';
@@ -83,7 +86,7 @@ export function parseNaturalLanguage(text: string, context: 'divider' | 'gradien
 
     // Effect context: "glassmorphism scuro" or "noise grain effect"
     if (context === 'effect') {
-      const cmd: any = { action: 'updateEffects' };
+      const cmd: Partial<EffectCommand> & { action: 'updateEffects' } = { action: 'updateEffects' };
 
       if (lower.includes('glassmorphism') || lower.includes('vetro')) {
         cmd.glassmorphism = {
@@ -118,7 +121,7 @@ export function parseNaturalLanguage(text: string, context: 'divider' | 'gradien
 
     // Shape context: "forma circolare organica"
     if (context === 'shape') {
-      const cmd: any = { action: 'updateClipPath' };
+      const cmd: Partial<ClipPathCommand> & { action: 'updateClipPath' } = { action: 'updateClipPath' };
 
       if (lower.includes('circolo') || lower.includes('cerchio') || lower.includes('rotondo')) {
         cmd.type = 'circle';
@@ -143,9 +146,9 @@ export function parseNaturalLanguage(text: string, context: 'divider' | 'gradien
       }
     }
 
-    return { success: false, error: `Impossibile interpretare il comando: "${text}"` };
+    return { success: false, error: `Unable to interpret command: "${text}"` };
   } catch (e) {
-    return { success: false, error: `Errore nel parsing: ${String(e)}` };
+    return { success: false, error: `Parsing error: ${String(e)}` };
   }
 }
 
@@ -165,7 +168,7 @@ export function executeNaturalCommand(
       onCommand(result.command);
       return { success: true, command: result.command };
     } catch (e) {
-      return { success: false, error: `Errore nell'esecuzione: ${String(e)}` };
+      return { success: false, error: `Execution error: ${String(e)}` };
     }
   }
 

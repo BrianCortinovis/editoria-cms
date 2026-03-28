@@ -2,7 +2,7 @@ import Stripe from "stripe";
 
 function getStripeClient(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new Error("STRIPE_SECRET_KEY non configurata");
+  if (!key) throw new Error("STRIPE_SECRET_KEY not configured");
   return new Stripe(key, { apiVersion: "2026-03-25.dahlia" });
 }
 
@@ -45,13 +45,13 @@ export async function createCheckoutSession(opts: {
 }): Promise<string> {
   const stripe = getStripeClient();
   const plan = PLAN_PRICES[opts.planCode];
-  if (!plan) throw new Error(`Piano non valido: ${opts.planCode}`);
+  if (!plan) throw new Error(`Invalid plan: ${opts.planCode}`);
 
   const priceId =
     opts.interval === "year" ? plan.yearlyPriceId : plan.monthlyPriceId;
   if (!priceId)
     throw new Error(
-      `Prezzo non configurato per piano ${opts.planCode} (${opts.interval})`,
+      `Price not configured for plan ${opts.planCode} (${opts.interval})`,
     );
 
   const session = await stripe.checkout.sessions.create({
@@ -97,6 +97,6 @@ export function constructWebhookEvent(
 ): Stripe.Event {
   const stripe = getStripeClient();
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!secret) throw new Error("STRIPE_WEBHOOK_SECRET non configurata");
+  if (!secret) throw new Error("STRIPE_WEBHOOK_SECRET not configured");
   return stripe.webhooks.constructEvent(payload, signature, secret);
 }

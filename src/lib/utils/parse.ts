@@ -4,7 +4,7 @@
  */
 export function safeParse<T = unknown>(value: string): T | string {
   if (typeof value !== 'string') {
-    return value as unknown as T;
+    return value as T;
   }
   try {
     return JSON.parse(value) as T;
@@ -22,5 +22,5 @@ export function parseAIResponse<T = unknown>(data: unknown): T | string {
   if (typeof data === 'string') {
     return safeParse<T>(data);
   }
-  return data as unknown as T;
+  return data as T;
 }

@@ -78,15 +78,18 @@ export default function DashboardPage() {
 
       if (recent) {
         setRecentArticles(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          recent.map((a: any) => ({
-            id: a.id,
-            title: a.title,
-            status: a.status,
-            created_at: a.created_at,
-            author_name: a.profiles?.full_name ?? "—",
-            category_name: a.categories?.name ?? null,
-          }))
+          recent.map((a) => {
+            const profiles = a.profiles as unknown as { full_name?: string } | null;
+            const categories = a.categories as unknown as { name?: string } | null;
+            return {
+              id: a.id,
+              title: a.title,
+              status: a.status,
+              created_at: a.created_at,
+              author_name: profiles?.full_name ?? "—",
+              category_name: categories?.name ?? null,
+            };
+          })
         );
       }
     }

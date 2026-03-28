@@ -12,7 +12,7 @@ import {
 export async function POST(request: NextRequest) {
   if (!isStripeConfigured()) {
     return NextResponse.json(
-      { error: "Billing non configurato" },
+      { error: "Billing not configured" },
       { status: 503 },
     );
   }
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
   if (!siteId) {
     return NextResponse.json(
-      { error: "siteId richiesto" },
+      { error: "siteId required" },
       { status: 400 },
     );
   }
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
 
   if (error || !subscription?.external_customer_id) {
     return NextResponse.json(
-      { error: "Nessun abbonamento Stripe trovato per questo sito" },
+      { error: "No Stripe subscription found for this site" },
       { status: 404 },
     );
   }
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error("Portal session creation failed:", err);
     const message =
-      err instanceof Error ? err.message : "Errore creazione portale";
+      err instanceof Error ? err.message : "Portal session creation failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

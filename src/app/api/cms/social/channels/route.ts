@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     .single();
 
   if (error || !tenant) {
-    return NextResponse.json({ error: "Tenant non trovato" }, { status: 404 });
+    return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
   const settings = (tenant.settings ?? {}) as Record<string, unknown>;
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     .single();
 
   if (readError || !tenant) {
-    return NextResponse.json({ error: "Tenant non trovato" }, { status: 404 });
+    return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
   const currentSettings = (tenant.settings ?? {}) as Record<string, unknown>;

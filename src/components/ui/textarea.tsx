@@ -79,7 +79,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 
     const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
       syncValue(e.currentTarget);
-      (onInput as any)?.(e);
+      onInput?.(e as React.FormEvent<HTMLTextAreaElement> & React.InputEvent<HTMLTextAreaElement>);
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

@@ -7,7 +7,7 @@ import { CMS_BANNER_ROLES, requireTenantAccess } from "@/lib/cms/tenant-access";
 import { z } from "zod";
 
 const bannerPatchSchema = z.object({
-  tenant_id: z.string().uuid("tenant_id deve essere un UUID valido"),
+  tenant_id: z.string().uuid("tenant_id must be a valid UUID"),
   name: z.string().min(1).transform((v) => v.trim()).optional(),
   position: z.enum(["sidebar", "header", "footer", "inline", "popup", "interstitial"]).optional(),
   type: z.enum(["image", "html", "video"]).optional(),

@@ -10,6 +10,11 @@ import { Plus } from 'lucide-react';
 import { useDroppable } from '@dnd-kit/core';
 import { PageBackgroundFrame } from '@/components/render/PageBackgroundFrame';
 
+interface CanvasWindow extends Window {
+  __canvasFitWidth?: () => void;
+  __canvasFitAll?: () => void;
+}
+
 export function Canvas() {
   const { blocks, pageMeta, selectBlock, selectBlocks, clearSelection, selectedBlockIds, selectedBlockId } = usePageStore();
   const { deviceMode, zoom, setZoom, showGrid, gridSize, showOutlines } = useUiStore();
@@ -79,8 +84,8 @@ export function Canvas() {
   }, [containerSize, canvasWidth, setZoom]);
 
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).__canvasFitWidth = fitToWidth;
-    (window as unknown as Record<string, unknown>).__canvasFitAll = fitAll;
+    (window as CanvasWindow).__canvasFitWidth = fitToWidth;
+    (window as CanvasWindow).__canvasFitAll = fitAll;
   }, [fitToWidth, fitAll]);
 
   // Mouse wheel zoom (only with Ctrl/Cmd)

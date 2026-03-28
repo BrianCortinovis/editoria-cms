@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     const { taskType, prompt, systemPrompt, preferredProvider, preferredModel, tenant_id } = body;
 
     if (!prompt?.trim()) {
-      return NextResponse.json({ error: 'Prompt richiesto' }, { status: 400 });
+      return NextResponse.json({ error: 'Prompt required' }, { status: 400 });
     }
 
     const supabase = await createServerSupabaseClient();
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     // Check per-user AI access (superadmin toggle)
     if (!(await isAiEnabledForUser(user.id))) {
-      return NextResponse.json({ error: 'AI disabilitata per questo utente' }, { status: 403 });
+      return NextResponse.json({ error: 'AI disabled for this user' }, { status: 403 });
     }
 
     // Rate limit: 20 req / 10 min
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
 
     const settings = (tenant.settings || {}) as Record<string, unknown>;
     if (!isModuleActive(settings, "ai_assistant")) {
-      return NextResponse.json({ error: "Modulo IA non attivo per questo tenant" }, { status: 403 });
+      return NextResponse.json({ error: "AI module not active for this tenant" }, { status: 403 });
     }
 
     const aiConfig = getModuleConfig(settings, "ai_assistant");
@@ -144,7 +144,7 @@ ${HUMAN_WORKFLOW_GUIDANCE}`;
       const message = error instanceof Error ? error.message : String(error);
       if (/No AI provider configured|non configurato/i.test(message)) {
         return NextResponse.json(
-          { error: 'Nessun provider IA configurato. Vai a Impostazioni > IA' },
+          { error: 'No AI provider configured. Go to Settings > AI' },
           { status: 400 }
         );
       }
@@ -164,7 +164,7 @@ ${HUMAN_WORKFLOW_GUIDANCE}`;
     const err = error as { message?: string };
     console.error('AI dispatch error:', err);
     return NextResponse.json(
-      { error: err.message || 'Errore generazione AI', content: '' },
+      { error: err.message || 'AI generation error', content: '' },
       { status: 500 }
     );
   }

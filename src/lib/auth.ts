@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import type { UserRole } from "@/types/database";
+import type { Tables, UserRole } from "@/types/database";
 import { normalizeCmsRole } from "@/lib/cms/roles";
 
 export async function getSession() {
@@ -26,10 +26,9 @@ export async function getUserTenants(userId: string) {
 
   if (!data) return [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return data.map((item: any) => ({
-    ...item.tenants,
-    role: normalizeCmsRole(item.role) ?? "contributor",
+  return data.map((item) => ({
+    ...(item.tenants as unknown as Tables<"tenants">),
+    role: (normalizeCmsRole(item.role) ?? "contributor") as UserRole,
   }));
 }
 

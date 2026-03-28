@@ -154,7 +154,7 @@ export async function GET(request: Request) {
     },
     billing: {
       available: false,
-      note: "Billing API Supabase non configurata in ambiente applicativo. Qui mostriamo consumi osservabili e stato schema.",
+      note: "Billing API not configured in the application environment. Showing observable consumption and schema status.",
     },
   });
 }

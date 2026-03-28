@@ -32,11 +32,11 @@ export async function POST(
     const role = String(body.role || "");
 
     if (!email) {
-      return NextResponse.json({ error: "Email obbligatoria" }, { status: 400 });
+      return NextResponse.json({ error: "Email required" }, { status: 400 });
     }
 
     if (!PLATFORM_MEMBERSHIP_ROLES.includes(role as (typeof PLATFORM_MEMBERSHIP_ROLES)[number])) {
-      return NextResponse.json({ error: "Ruolo non valido" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
     const member = await addSiteMemberForCurrentUser({

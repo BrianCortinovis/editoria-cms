@@ -16,7 +16,7 @@ export async function PATCH(
     const role = String(body.role || "");
 
     if (!PLATFORM_MEMBERSHIP_ROLES.includes(role as (typeof PLATFORM_MEMBERSHIP_ROLES)[number])) {
-      return NextResponse.json({ error: "Ruolo non valido" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
     await updateSiteMemberRoleForCurrentUser({

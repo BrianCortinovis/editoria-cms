@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!body || !body.tenant_id || !body.article_id) {
     return NextResponse.json(
-      { error: "tenant_id e article_id richiesti" },
+      { error: "tenant_id and article_id required" },
       { status: 400 },
     );
   }
@@ -37,12 +37,12 @@ export async function POST(request: Request) {
     .single();
 
   if (articleError || !article) {
-    return NextResponse.json({ error: "Articolo non trovato" }, { status: 404 });
+    return NextResponse.json({ error: "Article not found" }, { status: 404 });
   }
 
   if (article.status !== "published") {
     return NextResponse.json(
-      { error: "L'articolo non e' pubblicato" },
+      { error: "Article is not published" },
       { status: 400 },
     );
   }
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     .single();
 
   if (!tenant) {
-    return NextResponse.json({ error: "Tenant non trovato" }, { status: 404 });
+    return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
   const settings = (tenant.settings ?? {}) as Record<string, unknown>;

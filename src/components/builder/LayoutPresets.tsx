@@ -23,8 +23,7 @@ interface PresetBlock {
   type: BlockType;
   label: string;
   props?: Record<string, unknown>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  styleOverrides?: Record<string, any>;
+  styleOverrides?: { [K in keyof BlockStyle]?: BlockStyle[K] extends Record<string, unknown> ? Partial<BlockStyle[K]> : BlockStyle[K] };
   children?: PresetBlock[];
 }
 
@@ -632,7 +631,7 @@ export function LayoutPresets({ open, onClose, onApplyBlocks }: LayoutPresetsPro
       def.type,
       presetBlock.label || def.label,
       { ...def.defaultProps, ...(presetBlock.props || {}) },
-      presetBlock.styleOverrides ? { ...def.defaultStyle, ...presetBlock.styleOverrides } : def.defaultStyle
+      presetBlock.styleOverrides ? { ...def.defaultStyle, ...presetBlock.styleOverrides } as Partial<BlockStyle> : def.defaultStyle
     );
 
     block.id = generateId();
@@ -1422,7 +1421,7 @@ REGOLE:
                         applying && 'pointer-events-none opacity-70'
                       )}
                       onClick={() => {
-                        if (isFeatured) applyPreset(preset as unknown as FeaturedPreset);
+                        if (isFeatured) applyPreset(preset as FeaturedPreset);
                         else if (rows) applyGridPreset(preset as LayoutPresetDef);
                       }}
                     >

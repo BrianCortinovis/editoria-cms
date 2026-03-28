@@ -22,7 +22,20 @@ interface RenderBannerDynamicProps {
 }
 
 export function RenderBannerDynamic({ block, data }: RenderBannerDynamicProps) {
-  const props = block.props as Record<string, any>;
+  const props = block.props as {
+    banners?: BannerItem[];
+    autoplay?: boolean;
+    autoplayInterval?: number;
+    transitionDuration?: number;
+    transitionType?: string;
+    height?: number;
+    overlayOpacity?: number;
+    overlayColor?: string;
+    showDots?: boolean;
+    showArrows?: boolean;
+    loop?: boolean;
+    [key: string]: unknown;
+  };
   const banners: BannerItem[] = data || props.banners || [];
   const [activeIndex, setActiveIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);

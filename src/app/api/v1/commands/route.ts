@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
     const commands = Array.isArray(body.commands) ? body.commands : [];
 
     if (commands.length === 0) {
-      return NextResponse.json({ error: 'commands richiesto' }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: 'commands required' }, { status: 400, headers: corsHeaders });
     }
 
     const actorId = await resolveActorId(request);

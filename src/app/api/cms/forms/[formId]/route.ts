@@ -13,12 +13,12 @@ const formFieldSchema = z.object({
 }).passthrough();
 
 const formPatchSchema = z.object({
-  tenant_id: z.string().uuid("tenant_id deve essere un UUID valido"),
+  tenant_id: z.string().uuid("tenant_id must be a valid UUID"),
   name: z.string().min(1).transform((v) => v.trim()).optional(),
   slug: z.string().optional(),
   description: z.string().nullable().optional(),
   fields: z.array(formFieldSchema).optional(),
-  recipient_emails: z.array(z.string().email("email non valida")).optional(),
+  recipient_emails: z.array(z.string().email("invalid email")).optional(),
   success_message: z.string().nullable().optional(),
   is_active: z.boolean().optional(),
 }).passthrough();

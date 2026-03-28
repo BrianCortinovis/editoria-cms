@@ -199,7 +199,7 @@ export async function POST(
       !["manual", "mixed"].includes(slot.assignment_mode ?? "") ||
       slotTenantId !== access.article.tenant_id
     ) {
-      return NextResponse.json({ error: "Slot non valido per questo articolo" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid slot for this article" }, { status: 400 });
     }
 
     // Delete any existing assignment for this article

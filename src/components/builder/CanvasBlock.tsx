@@ -713,10 +713,10 @@ export function CanvasBlock({ block, selected, primarySelected, showOutlines }: 
     // Ensure overflow is hidden when clip-path is applied so shape renders correctly
     wrapperStyle.overflow = 'hidden';
     // Remove effects from content div to avoid duplication
-    delete (blockStyle as any).boxShadow;
-    delete (blockStyle as any).filter;
-    delete (blockStyle as any).backdropFilter;
-    delete (blockStyle as any).mixBlendMode;
+    delete (blockStyle as Record<string, unknown>).boxShadow;
+    delete (blockStyle as Record<string, unknown>).filter;
+    delete (blockStyle as Record<string, unknown>).backdropFilter;
+    delete (blockStyle as Record<string, unknown>).mixBlendMode;
   }
 
   const isEditing = editingBlockId === block.id;
@@ -1093,9 +1093,6 @@ export function CanvasBlock({ block, selected, primarySelected, showOutlines }: 
               />
             </div>
           </div>
-
-          {/* Toolbar position buttons - DEPRECATED: moved to main toolbar */}
-          {/* Hidden - block tools now in main toolbar */}
 
           {/* Dimensions + position badge */}
           <div className="absolute bottom-2 right-2 text-sm font-mono px-3 py-1.5 rounded-lg z-50 pointer-events-none shadow-lg" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-0)' }}>
@@ -1660,9 +1657,9 @@ function BannerAdContent({ block }: { block: Block }) {
 }
 
 function BannerDynamicContent({ block, data, loading }: { block: Block; data: unknown[]; loading: boolean }) {
-  const p = block.props as { height?: number; banners?: any[] };
+  const p = block.props as { height?: number; banners?: Array<{ title?: string; [key: string]: unknown }> };
   const height = p.height || 300;
-  const banners = (data as any[]) || p.banners || [];
+  const banners = (data as Array<{ title?: string; [key: string]: unknown }>) || p.banners || [];
 
   if (loading) return <PreviewLoading label="banner dinamico" />;
 
@@ -1894,9 +1891,37 @@ function CounterContent({ block }: { block: Block }) {
   );
 }
 
+interface GalleryItem {
+  id?: string;
+  src?: string;
+  type?: string;
+  caption?: string;
+  badge?: string;
+  overlay?: { enabled: boolean; title?: string; description?: string; position?: string; color?: string };
+  buttons?: Array<{ id?: string; label?: string; text?: string; url?: string; style?: string }>;
+}
+
+interface ImageGalleryBlockProps {
+  items?: GalleryItem[];
+  images?: GalleryItem[];
+  layout?: string;
+  columns?: number;
+  gap?: string;
+  aspectRatio?: string;
+  objectFit?: string;
+  borderRadius?: string;
+  hoverEffect?: string;
+  showCaptions?: boolean;
+  captionPosition?: string;
+  lightbox?: boolean;
+  animation?: string;
+  maxItems?: number;
+  loadMore?: boolean;
+}
+
 function ImageGalleryContent({ block }: { block: Block }) {
-  const p = block.props as any;
-  const items: any[] = p.items || p.images || [];
+  const p = block.props as ImageGalleryBlockProps;
+  const items: GalleryItem[] = p.items || p.images || [];
   const layout: string = p.layout || 'grid';
   const columns: number = p.columns || 3;
   const gap: string = p.gap || '12px';
@@ -2027,12 +2052,12 @@ function ImageGalleryContent({ block }: { block: Block }) {
     }
   };
 
-  const renderItem = (item: any, index: number) => {
+  const renderItem = (item: GalleryItem, index: number) => {
     const hasSrc = !!item.src;
     const isVideo = item.type === 'video';
     const gradient = GALLERY_GRADIENTS[index % GALLERY_GRADIENTS.length];
     const overlay = item.overlay || { enabled: false };
-    const buttons: any[] = item.buttons || [];
+    const buttons = item.buttons || [];
     const badge: string = item.badge || '';
     const caption: string = item.caption || '';
     const showOverlayCaption = showCaptions && captionPosition.startsWith('overlay');
@@ -2191,7 +2216,7 @@ function ImageGalleryContent({ block }: { block: Block }) {
               {/* Buttons inside overlay */}
               {buttons.length > 0 && (
                 <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                  {buttons.map((btn: any) => (
+                  {buttons.map((btn) => (
                     <span
                       key={btn.id}
                       style={{
@@ -2311,8 +2336,20 @@ function AudioContent({ block }: { block: Block }) {
   );
 }
 
+interface VideoBlockProps {
+  source?: string;
+  url?: string;
+  poster?: string;
+  aspectRatio?: string;
+  objectFit?: string;
+  caption?: string;
+  overlay?: { enabled: boolean; title?: string; description?: string; playButtonStyle?: string; playButtonSize?: string; color?: string; position?: string };
+  chapters?: { time: string; title: string }[];
+  thumbnail?: { show: boolean; text?: string; style?: string };
+}
+
 function VideoContent({ block }: { block: Block }) {
-  const p = block.props as any;
+  const p = block.props as VideoBlockProps;
   const source: string = p.source || 'youtube';
   const url: string = p.url || '';
   const poster: string = p.poster || '';
@@ -2616,9 +2653,41 @@ function ComparisonContent({ block }: { block: Block }) {
 // ================================================================
 // CAROUSEL CONTENT
 // ================================================================
+interface CarouselItem {
+  id?: string;
+  title?: string;
+  image?: string;
+  type?: string;
+  category?: string;
+  badge?: string;
+  overlay?: { enabled: boolean };
+  excerpt?: string;
+  description?: string;
+  author?: string;
+  date?: string;
+  buttons?: Array<{ id?: string; label?: string; text?: string; url?: string; style?: string }>;
+}
+
+interface CarouselBlockProps {
+  items?: CarouselItem[];
+  scrollDirection?: string;
+  scrollSnap?: boolean;
+  showArrows?: boolean;
+  showDots?: boolean;
+  slidesPerView?: number;
+  spaceBetween?: number;
+  cardStyle?: string;
+  showCategory?: boolean;
+  showDate?: boolean;
+  showAuthor?: boolean;
+  showExcerpt?: boolean;
+  hoverEffect?: string;
+  height?: string;
+}
+
 function CarouselContent({ block }: { block: Block }) {
-  const p = block.props as any;
-  const items: any[] = p.items || [];
+  const p = block.props as CarouselBlockProps;
+  const items: CarouselItem[] = p.items || [];
   const scrollDirection: string = p.scrollDirection || 'horizontal';
   const scrollSnap: boolean = p.scrollSnap !== false;
   const showArrows: boolean = p.showArrows !== false;
@@ -2717,7 +2786,7 @@ function CarouselContent({ block }: { block: Block }) {
   };
 
   // Render a single item
-  const renderItem = (item: any, index: number) => {
+  const renderItem = (item: CarouselItem, index: number) => {
     const hasImage = !!item.image;
     const gradient = CAROUSEL_GRADIENTS[index % CAROUSEL_GRADIENTS.length];
     const isArticle = item.type === 'article';
@@ -2839,7 +2908,7 @@ function CarouselContent({ block }: { block: Block }) {
           {/* Card buttons */}
           {!isArticle && item.buttons && item.buttons.length > 0 && (
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              {item.buttons.map((btn: any) => (
+              {item.buttons.map((btn) => (
                 <span
                   key={btn.id}
                   style={{
@@ -3666,7 +3735,17 @@ function SlideshowContent({ block }: { block: Block }) {
 // ================================================================
 // CSS BUILDER
 // ================================================================
-function buildCSSFiltersString(filters: any): string {
+interface CSSFilters {
+  blur?: number;
+  brightness?: number;
+  contrast?: number;
+  saturation?: number;
+  hueRotate?: number;
+  opacity?: number;
+  dropShadow?: number;
+}
+
+function buildCSSFiltersString(filters: CSSFilters | undefined | null): string {
   if (!filters) return '';
   const parts: string[] = [];
   if (filters.blur) parts.push(`blur(${filters.blur}px)`);
@@ -3710,10 +3789,10 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
   // Use background shorthand for all types to avoid conflicts with backgroundColor
   if (s.background.type === 'color' && s.background.value) {
     css.background = s.background.value;
-    delete (css as any).backgroundColor;
+    delete (css as Record<string, unknown>).backgroundColor;
   } else if (s.background.type === 'gradient' && s.background.value) {
     css.background = s.background.value;
-    delete (css as any).backgroundColor;
+    delete (css as Record<string, unknown>).backgroundColor;
   } else if (s.background.type === 'image' && s.background.value) {
     css.background = `url(${s.background.value})`;
     css.backgroundSize = s.background.size || 'cover';
@@ -3722,7 +3801,7 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
     if (s.background.parallax) {
       css.backgroundAttachment = 'fixed';
     }
-    delete (css as any).backgroundColor;
+    delete (css as Record<string, unknown>).backgroundColor;
   }
   if (s.background.advancedGradient) {
     css.backgroundImage = buildCssGradient(s.background.advancedGradient);
@@ -3761,10 +3840,9 @@ function buildCssFromBlockStyle(block: Block): React.CSSProperties {
 
   // Apply clip-path from dividers (section border shaping)
   // If topDivider or bottomDivider exist, apply them as clip-path to make shape contour
-  const blockRef = block as any;
-  if (blockRef.shape?.topDivider || blockRef.shape?.bottomDivider) {
-    const topDivider = blockRef.shape?.topDivider;
-    const bottomDivider = blockRef.shape?.bottomDivider;
+  if (block.shape?.topDivider || block.shape?.bottomDivider) {
+    const topDivider = block.shape?.topDivider;
+    const bottomDivider = block.shape?.bottomDivider;
 
     // If only topDivider, apply top clip-path
     if (topDivider && !bottomDivider) {

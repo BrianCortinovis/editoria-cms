@@ -11,8 +11,8 @@ const bannerTypes = ["image", "html", "video"] as const;
 const bannerDevices = ["all", "desktop", "mobile", "tablet"] as const;
 
 const bannerCreateSchema = z.object({
-  tenant_id: z.string().uuid("tenant_id deve essere un UUID valido"),
-  name: z.string().min(1, "name obbligatorio").transform((v) => v.trim()),
+  tenant_id: z.string().uuid("tenant_id must be a valid UUID"),
+  name: z.string().min(1, "name is required").transform((v) => v.trim()),
   position: z.enum(bannerPositions).optional().default("sidebar"),
   type: z.enum(bannerTypes).optional().default("image"),
   image_url: z.string().optional().nullable(),

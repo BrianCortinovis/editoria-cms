@@ -34,7 +34,7 @@ async function postToTelegram(
     const botToken = ch.accessToken;
     const chatId = ch.primaryValue;
     if (!botToken || !chatId) {
-      return { platform: "telegram", success: false, error: "Bot token o chat ID mancante" };
+      return { platform: "telegram", success: false, error: "Bot token or chat ID missing" };
     }
     const text = `<b>${escapeHtml(payload.title)}</b>\n\n${escapeHtml(payload.summary || "")}\n\n${payload.url}`;
     const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -63,7 +63,7 @@ async function postToFacebook(
     const pageId = ch.primaryValue;
     const accessToken = ch.accessToken;
     if (!pageId || !accessToken) {
-      return { platform: "facebook", success: false, error: "Page ID o access token mancante" };
+      return { platform: "facebook", success: false, error: "Page ID or access token missing" };
     }
     const body: Record<string, string> = {
       message: `${payload.title}\n\n${payload.summary || ""}`,
@@ -90,7 +90,7 @@ async function postToTwitter(
   try {
     const bearerToken = ch.accessToken;
     if (!bearerToken) {
-      return { platform: "x", success: false, error: "Bearer token mancante" };
+      return { platform: "x", success: false, error: "Bearer token missing" };
     }
     const text = truncate(`${payload.title}\n\n${payload.url}`, 280);
     const res = await fetch("https://api.x.com/2/tweets", {
@@ -117,7 +117,7 @@ async function postToLinkedin(
     const organizationId = ch.primaryValue;
     const accessToken = ch.accessToken;
     if (!organizationId || !accessToken) {
-      return { platform: "linkedin", success: false, error: "Organization ID o access token mancante" };
+      return { platform: "linkedin", success: false, error: "Organization ID or access token missing" };
     }
     const body = {
       author: `urn:li:organization:${organizationId}`,
@@ -256,7 +256,7 @@ export async function testSocialChannel(
 ): Promise<SocialPostResult> {
   const poster = PLATFORM_POSTERS[platform];
   if (!poster) {
-    return { platform, success: false, error: "Piattaforma non supportata per posting diretto" };
+    return { platform, success: false, error: "Platform not supported for direct posting" };
   }
   const testPayload: SocialPostPayload = {
     title: "Test Editoria CMS",

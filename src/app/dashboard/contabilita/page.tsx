@@ -41,9 +41,8 @@ export default function ContabilitaPage() {
       ]);
 
       if (bannersRes.data) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setBanners(bannersRes.data.map((b: any) => ({
-          ...b, advertiser_name: b.advertisers?.name ?? null,
+        setBanners(bannersRes.data.map((b) => ({
+          ...b, advertiser_name: (b.advertisers as unknown as { name: string } | null)?.name ?? null,
         })));
       }
       setAdvertiserCount(advRes.count ?? 0);

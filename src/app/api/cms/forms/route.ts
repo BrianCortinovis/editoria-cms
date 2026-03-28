@@ -13,12 +13,12 @@ const formFieldSchema = z.object({
 }).passthrough();
 
 const formCreateSchema = z.object({
-  tenant_id: z.string().uuid("tenant_id deve essere un UUID valido"),
-  name: z.string().min(1, "name obbligatorio").transform((v) => v.trim()),
+  tenant_id: z.string().uuid("tenant_id must be a valid UUID"),
+  name: z.string().min(1, "name is required").transform((v) => v.trim()),
   slug: z.string().optional().default(""),
   description: z.string().nullable().optional(),
   fields: z.array(formFieldSchema).optional().default([]),
-  recipient_emails: z.array(z.string().email("email non valida")).optional().default([]),
+  recipient_emails: z.array(z.string().email("invalid email")).optional().default([]),
   success_message: z.string().nullable().optional(),
   is_active: z.boolean().optional().default(false),
 }).passthrough();

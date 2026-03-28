@@ -70,15 +70,14 @@ export default function ActivityLogPage() {
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
     if (data) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setEntries(data.map((d: any) => ({
+      setEntries(data.map((d) => ({
         id: d.id,
         action: d.action,
         entity_type: d.entity_type,
         entity_id: d.entity_id,
         details: d.details,
         created_at: d.created_at,
-        user: d.profiles,
+        user: d.profiles as unknown as { full_name: string; email: string } | null,
       })));
       setHasMore(data.length === PAGE_SIZE);
     }

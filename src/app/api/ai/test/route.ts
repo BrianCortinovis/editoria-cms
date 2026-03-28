@@ -52,15 +52,15 @@ const TEST_CASES: TestCase[] = [
   },
 ];
 
-function parseAiResponse(content: string): any[] | null {
+function parseAiResponse(content: string): Array<Record<string, unknown>> | null {
   let cleaned = content.trim();
   cleaned = cleaned.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
   cleaned = cleaned.replace(/^```\s*/i, '').replace(/\s*```$/i, '');
 
   try {
     const parsed = JSON.parse(cleaned);
-    if (Array.isArray(parsed)) return parsed;
-    if (parsed.action) return [parsed];
+    if (Array.isArray(parsed)) return parsed as Array<Record<string, unknown>>;
+    if (parsed.action) return [parsed as Record<string, unknown>];
     return null;
   } catch {
     return null;
@@ -71,7 +71,7 @@ function validateJsonResponse(content: string): { valid: boolean; actionCount?: 
   const parsed = parseAiResponse(content);
   if (!parsed) return { valid: false };
 
-  const types = new Set(parsed.map((p: any) => p.action || p.blockType));
+  const types = new Set(parsed.map((p) => String(p.action || p.blockType || '')));
   return { valid: true, actionCount: parsed.length, types: Array.from(types) };
 }
 
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     let resolvedProvider;
     try {
-      resolvedProvider = resolveProvider(aiConfig, 'chatbot' as any);
+      resolvedProvider = resolveProvider(aiConfig, 'chatbot');
     } catch (e) {
       return NextResponse.json(
         { error: 'Provider not configured', status: 'error' },
@@ -118,12 +118,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const results: any[] = [];
+    const results: Array<Record<string, unknown>> = [];
     let passed = 0;
     let failed = 0;
 
     for (const testCase of TEST_CASES) {
-      const testResult: any = {
+      const testResult: Record<string, unknown> = {
         name: testCase.name,
         description: testCase.description,
         expectedType: testCase.expectedType,

@@ -80,10 +80,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Group articles by journalist
-    const journalistArticles = new Map<string, any[]>();
+    type TrainArticle = typeof articles[number];
+    type AuthorProfile = { id: string; full_name: string; email: string };
+    const journalistArticles = new Map<string, TrainArticle[]>();
 
-    articles.forEach((article: any) => {
-      const author = article.profiles as any;
+    articles.forEach((article) => {
+      const author = article.profiles as unknown as AuthorProfile | null;
       if (!author?.id) return;
 
       if (!journalistArticles.has(author.id)) {
@@ -94,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     // Analyze each journalist
     const journalists = Array.from(journalistArticles.entries()).map(([authorId, authArticles]) => {
-      const author = (authArticles[0].profiles as any);
+      const author = authArticles[0].profiles as unknown as AuthorProfile;
       const texts = authArticles.map(a => `${a.title} ${a.summary || ''}`).join(' ');
 
       return {

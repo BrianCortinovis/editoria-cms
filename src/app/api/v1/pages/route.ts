@@ -8,10 +8,10 @@ import { z } from 'zod';
 
 const pageCreateUpdateSchema = z.object({
   id: z.string().uuid().optional(),
-  title: z.string().min(1, 'title obbligatorio'),
-  slug: z.string().regex(/^[a-z0-9-]*$/, 'slug non valido (solo a-z, 0-9, -)').optional().default(''),
-  tenant_id: z.string().uuid('tenant_id deve essere un UUID valido'),
-  blocks: z.array(z.any()).optional(),
+  title: z.string().min(1, 'title is required'),
+  slug: z.string().regex(/^[a-z0-9-]*$/, 'invalid slug (only a-z, 0-9, -)').optional().default(''),
+  tenant_id: z.string().uuid('tenant_id must be a valid UUID'),
+  blocks: z.array(z.record(z.unknown())).transform((val) => val as unknown as import("@/lib/types/block").Block[]).optional(),
   meta: z.record(z.unknown()).optional(),
   is_published: z.boolean().optional(),
 }).passthrough();

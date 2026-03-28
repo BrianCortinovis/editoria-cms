@@ -17,7 +17,7 @@ export interface SiteCreationCheck {
 }
 
 export async function checkSiteCreationLimit(
-  supabase: any,
+  supabase: Pick<import("@supabase/supabase-js").SupabaseClient, "from">,
   userId: string
 ): Promise<SiteCreationCheck> {
   // Get all sites where this user is owner
@@ -28,7 +28,7 @@ export async function checkSiteCreationLimit(
     .eq("role", "owner")
     .is("revoked_at", null);
 
-  const ownedSiteIds = (memberships || []).map((m: any) => m.site_id);
+  const ownedSiteIds = (memberships || []).map((m: Record<string, unknown>) => m.site_id as string);
   const currentCount = ownedSiteIds.length;
 
   // Get the best plan the user has across all their owned sites

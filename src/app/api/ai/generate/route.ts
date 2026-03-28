@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Check per-user AI access (superadmin toggle)
     if (!(await isAiEnabledForUser(user.id))) {
-      return NextResponse.json({ error: 'AI disabilitata per questo utente' }, { status: 403 });
+      return NextResponse.json({ error: 'AI disabled for this user' }, { status: 403 });
     }
 
     // Verify tenant membership
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     const settings = (tenant.settings || {}) as Record<string, unknown>;
     if (!isModuleActive(settings, "ai_assistant")) {
-      return NextResponse.json({ error: 'Modulo IA non attivo per questo tenant' }, { status: 403 });
+      return NextResponse.json({ error: 'AI module not active for this tenant' }, { status: 403 });
     }
 
     const aiConfig = getModuleConfig(settings, "ai_assistant");

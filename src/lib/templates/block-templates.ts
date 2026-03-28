@@ -6,7 +6,7 @@ export interface BlockTemplate {
   name: string;
   category: 'banner' | 'slideshow' | 'gallery' | 'video' | 'carousel';
   preview: string; // URL preview
-  defaultBlock: Record<string, any>;
+  defaultBlock: Record<string, unknown>;
 }
 
 export const BANNER_TEMPLATES: BlockTemplate[] = [

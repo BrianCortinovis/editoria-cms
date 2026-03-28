@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useUiStore } from '@/lib/stores/ui-store';
 import { useAuthStore } from '@/lib/store';
-import { useAIConfigStore } from '@/lib/stores/ai-config-store';
+import { useAIConfigStore, type AIProvider as StoreAIProvider } from '@/lib/stores/ai-config-store';
 import { X, Sparkles, Send } from 'lucide-react';
 import type { AIMessage, AIProvider } from '@/lib/ai/providers';
 import { QUICK_PROMPTS } from '@/lib/ai/prompts';
@@ -40,7 +40,7 @@ export function AiPanel() {
 
   const handleProviderChange = (provider: AIProvider) => {
     const models = PROVIDERS.find(p => p.value === provider)?.models || [];
-    setConfig(provider as any, models[0] || '');
+    setConfig(provider as StoreAIProvider, models[0] || '');
   };
 
   const scrollToBottom = () => {

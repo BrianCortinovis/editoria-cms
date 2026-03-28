@@ -34,7 +34,8 @@ export interface EffectCommand {
   glassmorphism?: {
     blur: number;
     saturation: number;
-    opacity: number;
+    bgOpacity: number;
+    bgColor?: string;
     borderOpacity: number;
   };
   noise?: {

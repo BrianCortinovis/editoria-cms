@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { callAI } from '@/lib/ai/providers';
 import { resolveProvider } from '@/lib/ai/resolver';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import type { AIMessage } from '@/lib/ai/providers';
+import type { AIMessage, AIProvider } from '@/lib/ai/providers';
 
 // SOLO PER TESTING LOCALE - Rimuovere in produzione
 const BLOCK_LIST = 'section, hero, text, columns, container, image-gallery, video, slideshow, carousel, quote, accordion, tabs, social, newsletter, newsletter-signup, cms-form, banner-ad, banner-zone, related-content, author-bio, timeline, counter, divider, article-grid, article-hero, category-nav, event-list, search-bar, breaking-ticker';
@@ -53,15 +53,15 @@ const TEST_CASES: TestCase[] = [
   },
 ];
 
-function parseAiResponse(content: string): any[] | null {
+function parseAiResponse(content: string): Array<Record<string, unknown>> | null {
   let cleaned = content.trim();
   cleaned = cleaned.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
   cleaned = cleaned.replace(/^```\s*/i, '').replace(/\s*```$/i, '');
 
   try {
     const parsed = JSON.parse(cleaned);
-    if (Array.isArray(parsed)) return parsed;
-    if (parsed.action) return [parsed];
+    if (Array.isArray(parsed)) return parsed as Array<Record<string, unknown>>;
+    if (parsed.action) return [parsed as Record<string, unknown>];
     return null;
   } catch {
     return null;
@@ -72,7 +72,7 @@ function validateJsonResponse(content: string): { valid: boolean; actionCount?: 
   const parsed = parseAiResponse(content);
   if (!parsed) return { valid: false };
 
-  const types = new Set(parsed.map((p: any) => p.action || p.blockType));
+  const types = new Set(parsed.map((p) => String(p.action || p.blockType || '')));
   return { valid: true, actionCount: parsed.length, types: Array.from(types) };
 }
 
@@ -96,19 +96,19 @@ export async function POST(request: NextRequest) {
     }
 
     const TEST_CONFIG = {
-      provider: provider as any,
+      provider: provider as AIProvider,
       apiKey,
       model: model || 'claude-opus-4-1-20250805',
     };
 
-    const results: any[] = [];
+    const results: Array<Record<string, unknown>> = [];
     let passed = 0;
     let failed = 0;
 
     console.log('🚀 Inizio test suite IA locale');
 
     for (const testCase of TEST_CASES) {
-      const testResult: any = {
+      const testResult: Record<string, unknown> = {
         name: testCase.name,
         description: testCase.description,
         expectedType: testCase.expectedType,
@@ -138,7 +138,7 @@ Rispondi SEMPRE con un JSON array di azioni "add-block". Rispondi SEMPRE in ital
         console.log(`🤖 Model: ${TEST_CONFIG.model}`);
 
         if (!TEST_CONFIG.apiKey) {
-          throw new Error(`API key non configurata per ${TEST_CONFIG.provider}`);
+          throw new Error(`API key not configured for ${TEST_CONFIG.provider}`);
         }
 
         const result = await callAI(TEST_CONFIG.provider, messages, {

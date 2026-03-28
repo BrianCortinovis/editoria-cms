@@ -10,7 +10,7 @@ import {
 export async function POST(request: NextRequest) {
   if (!isStripeConfigured()) {
     return NextResponse.json(
-      { error: "Billing non configurato" },
+      { error: "Billing not configured" },
       { status: 503 },
     );
   }
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   if (!body) {
     return NextResponse.json(
-      { error: "Body JSON richiesto" },
+      { error: "JSON body required" },
       { status: 400 },
     );
   }
@@ -43,14 +43,14 @@ export async function POST(request: NextRequest) {
 
   if (!siteId || typeof siteId !== "string") {
     return NextResponse.json(
-      { error: "siteId richiesto" },
+      { error: "siteId required" },
       { status: 400 },
     );
   }
 
   if (!planCode || !PLAN_PRICES[planCode] || planCode === "free") {
     return NextResponse.json(
-      { error: "Piano non valido. Valori consentiti: base, medium, enterprise" },
+      { error: "Invalid plan. Allowed values: base, medium, enterprise" },
       { status: 400 },
     );
   }
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error("Checkout session creation failed:", err);
     const message =
-      err instanceof Error ? err.message : "Errore creazione sessione";
+      err instanceof Error ? err.message : "Checkout session creation failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

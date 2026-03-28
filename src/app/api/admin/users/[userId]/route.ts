@@ -16,7 +16,7 @@ export async function PATCH(
   const body = await request.json().catch(() => null);
 
   if (!body || typeof body !== "object") {
-    return NextResponse.json({ error: "Body richiesto" }, { status: 400 });
+    return NextResponse.json({ error: "Request body required" }, { status: 400 });
   }
 
   // Validate that the user exists
@@ -29,7 +29,7 @@ export async function PATCH(
 
   if (fetchError || !profile) {
     return NextResponse.json(
-      { error: fetchError?.message || "Utente non trovato" },
+      { error: fetchError?.message || "User not found" },
       { status: 404 },
     );
   }
@@ -43,7 +43,7 @@ export async function PATCH(
 
   if (Object.keys(updatePayload).length === 0) {
     return NextResponse.json(
-      { error: "Nessun campo da aggiornare" },
+      { error: "No fields to update" },
       { status: 400 },
     );
   }
@@ -57,7 +57,7 @@ export async function PATCH(
 
   if (updateError || !updated) {
     return NextResponse.json(
-      { error: updateError?.message || "Errore aggiornamento utente" },
+      { error: updateError?.message || "User update failed" },
       { status: 500 },
     );
   }

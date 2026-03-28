@@ -14,6 +14,11 @@ import { Button } from '@/components/ui/button';
 import type { DeviceMode } from '@/lib/config/breakpoints';
 import { useState } from 'react';
 
+interface CanvasWindow extends Window {
+  __canvasFitWidth?: () => void;
+  __canvasFitAll?: () => void;
+}
+
 interface ToolbarProps {
   projectId: string;
   onSave: () => void;
@@ -155,14 +160,14 @@ export function Toolbar({
               ))}
               <div className="border-t my-1" style={{ borderColor: "var(--c-border)" }} />
               <button
-                onClick={() => (window as unknown as Record<string, unknown>).__canvasFitWidth && ((window as unknown as Record<string, unknown>).__canvasFitWidth as () => void)()}
+                onClick={() => (window as CanvasWindow).__canvasFitWidth?.()}
                 style={{ color: "var(--c-text-1)" }}
                 className="w-full px-3 py-1 text-[10px] text-left hover:text-accent"
               >
                 Adatta larghezza
               </button>
               <button
-                onClick={() => (window as unknown as Record<string, unknown>).__canvasFitAll && ((window as unknown as Record<string, unknown>).__canvasFitAll as () => void)()}
+                onClick={() => (window as CanvasWindow).__canvasFitAll?.()}
                 style={{ color: "var(--c-text-1)" }}
                 className="w-full px-3 py-1 text-[10px] text-left hover:text-accent"
               >
@@ -180,7 +185,7 @@ export function Toolbar({
           {/* Fit Width */}
           <Button
             variant="ghost" size="xs"
-            onClick={() => (window as unknown as Record<string, unknown>).__canvasFitWidth && ((window as unknown as Record<string, unknown>).__canvasFitWidth as () => void)()}
+            onClick={() => (window as CanvasWindow).__canvasFitWidth?.()}
             title="Adatta alla larghezza"
           >
             <Maximize2 size={13} />
@@ -189,7 +194,7 @@ export function Toolbar({
           {/* Fit All */}
           <Button
             variant="ghost" size="xs"
-            onClick={() => (window as unknown as Record<string, unknown>).__canvasFitAll && ((window as unknown as Record<string, unknown>).__canvasFitAll as () => void)()}
+            onClick={() => (window as CanvasWindow).__canvasFitAll?.()}
             title="Inquadra tutto"
           >
             <ScanLine size={13} />

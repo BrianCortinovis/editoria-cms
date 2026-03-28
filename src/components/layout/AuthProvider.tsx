@@ -119,9 +119,8 @@ export default function AuthProvider({ children, initialAuth }: AuthProviderProp
         .eq("user_id", user.id);
 
       if (userTenants && userTenants.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mapped = userTenants.map((ut: any) => ({
-          ...sanitizeTenantForClient(ut.tenants || {}),
+        const mapped = userTenants.map((ut) => ({
+          ...sanitizeTenantForClient((ut.tenants ?? {}) as unknown as Record<string, unknown>),
           role: (normalizeCmsRole(ut.role) ?? "contributor") as UserRole,
         }));
 

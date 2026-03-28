@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const message = body?.message;
   if (!message || typeof message !== "string") {
-    return NextResponse.json({ error: "Messaggio richiesto" }, { status: 400 });
+    return NextResponse.json({ error: "Message required" }, { status: 400 });
   }
 
   // Fetch real platform data
@@ -97,7 +97,7 @@ ${platformContext}`;
     const platformAi = resolvePlatformAiProvider();
     if (!platformAi) {
       return NextResponse.json(
-        { error: "IA superadmin non configurata. Imposta ANTHROPIC_API_KEY, OPENAI_API_KEY o GEMINI_API_KEY." },
+        { error: "Superadmin AI not configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY." },
         { status: 503 }
       );
     }
@@ -116,7 +116,7 @@ ${platformContext}`;
     return NextResponse.json(
       {
         error:
-          "Errore nella risposta IA. Verifica la configurazione API key.",
+          "AI response error. Check your API key configuration.",
       },
       { status: 500 }
     );

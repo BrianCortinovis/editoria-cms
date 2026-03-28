@@ -79,15 +79,17 @@ export function initializeHoverGradients(configs: HoverGradientConfig[]) {
 if (typeof window !== 'undefined' && document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     // Check for data attributes or window props
-    const scrollConfigs = (window as any).__scrollGradients || [];
-    const hoverConfigs = (window as any).__hoverGradients || [];
+    const win = window as unknown as Record<string, unknown>;
+    const scrollConfigs = (win.__scrollGradients || []) as Parameters<typeof initializeScrollGradients>[0];
+    const hoverConfigs = (win.__hoverGradients || []) as Parameters<typeof initializeHoverGradients>[0];
 
     if (scrollConfigs.length > 0) initializeScrollGradients(scrollConfigs);
     if (hoverConfigs.length > 0) initializeHoverGradients(hoverConfigs);
   });
 } else if (typeof window !== 'undefined') {
-  const scrollConfigs = (window as any).__scrollGradients || [];
-  const hoverConfigs = (window as any).__hoverGradients || [];
+  const win = window as unknown as Record<string, unknown>;
+  const scrollConfigs = (win.__scrollGradients || []) as Parameters<typeof initializeScrollGradients>[0];
+  const hoverConfigs = (win.__hoverGradients || []) as Parameters<typeof initializeHoverGradients>[0];
 
   if (scrollConfigs.length > 0) initializeScrollGradients(scrollConfigs);
   if (hoverConfigs.length > 0) initializeHoverGradients(hoverConfigs);
