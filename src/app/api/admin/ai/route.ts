@@ -3,7 +3,21 @@ import { requireSuperAdminApi } from "@/lib/superadmin/api";
 import { getSuperadminOverview } from "@/lib/superadmin/service";
 import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { callAI } from "@/lib/ai/providers";
-import type { AIMessage } from "@/lib/ai/providers";
+import type { AIMessage, AIProvider } from "@/lib/ai/providers";
+
+/** Detect which AI provider is available from platform env vars. */
+function resolvePlatformAiProvider(): { provider: AIProvider; apiKey: string; model: string } | null {
+  if (process.env.ANTHROPIC_API_KEY) {
+    return { provider: "claude", apiKey: process.env.ANTHROPIC_API_KEY, model: "claude-sonnet-4-20250514" };
+  }
+  if (process.env.OPENAI_API_KEY) {
+    return { provider: "openai", apiKey: process.env.OPENAI_API_KEY, model: "gpt-4o-mini" };
+  }
+  if (process.env.GEMINI_API_KEY) {
+    return { provider: "gemini", apiKey: process.env.GEMINI_API_KEY, model: "gemini-2.0-flash" };
+  }
+  return null;
+}
 
 export async function POST(request: NextRequest) {
   const trustedOriginError = assertTrustedMutationRequest(request);
@@ -80,17 +94,17 @@ ${platformContext}`;
       { role: "user", content: message },
     ];
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
+    const platformAi = resolvePlatformAiProvider();
+    if (!platformAi) {
       return NextResponse.json(
-        { error: "IA superadmin non configurata" },
+        { error: "IA superadmin non configurata. Imposta ANTHROPIC_API_KEY, OPENAI_API_KEY o GEMINI_API_KEY." },
         { status: 503 }
       );
     }
 
-    const response = await callAI("claude", messages, {
-      apiKey,
-      model: "claude-sonnet-4-20250514",
+    const response = await callAI(platformAi.provider, messages, {
+      apiKey: platformAi.apiKey,
+      model: platformAi.model,
     });
 
     return NextResponse.json({
