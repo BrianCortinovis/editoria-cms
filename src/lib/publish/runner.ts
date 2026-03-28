@@ -288,6 +288,24 @@ async function finalizeRelease(tenantId: string, releaseId: string, taskTypes: s
   return manifest;
 }
 
+async function triggerRevalidation(tenantSlug: string) {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
+  if (!baseUrl || !process.env.REVALIDATION_SECRET) return;
+
+  try {
+    await fetch(`${baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`}/api/revalidate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-revalidation-secret": process.env.REVALIDATION_SECRET,
+      },
+      body: JSON.stringify({ tenantSlug, type: "full" }),
+    });
+  } catch (error) {
+    console.error("Revalidation trigger failed:", error);
+  }
+}
+
 export async function triggerPublish(tenantId: string, tasks: PublishTask[], initiatedBy?: string | null): Promise<PublishedManifest> {
   const { context, releaseId } = await startRelease(tenantId, initiatedBy);
   const executedTasks: string[] = [];
@@ -374,7 +392,12 @@ export async function triggerPublish(tenantId: string, tasks: PublishTask[], ini
     executedTasks.push('media-manifest');
     executedTasks.push('banner-zones');
 
-    return await finalizeRelease(context.tenantId, releaseId, executedTasks);
+    const manifest = await finalizeRelease(context.tenantId, releaseId, executedTasks);
+
+    // Invalidate cached pages so visitors see fresh content immediately
+    await triggerRevalidation(context.tenantSlug);
+
+    return manifest;
   } catch (error) {
     const supabase = await createServiceRoleClient();
     const message = error instanceof Error ? error.message : 'Unknown publish failure';

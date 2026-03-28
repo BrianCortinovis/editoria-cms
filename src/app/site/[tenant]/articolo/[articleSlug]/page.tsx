@@ -146,7 +146,7 @@ export default async function ArticlePage({ params }: Props) {
           {author && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {author.avatar_url && (
-                <Image src={author.avatar_url} alt={author.full_name} width={32} height={32} style={{ borderRadius: '50%', objectFit: 'cover' }} unoptimized />
+                <Image src={author.avatar_url} alt={author.full_name} width={32} height={32} style={{ borderRadius: '50%', objectFit: 'cover' }} loading="lazy" />
               )}
               <span style={{ fontWeight: 600 }}>{author.full_name}</span>
             </div>
@@ -164,8 +164,9 @@ export default async function ArticlePage({ params }: Props) {
             alt={enrichedArticle.title}
             width={800}
             height={450}
+            priority
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 800px"
             style={{ width: '100%', height: 'auto', borderRadius: 'var(--e-border-radius, 8px)', marginTop: '32px' }}
-            unoptimized
           />
         )}
 
@@ -181,7 +182,7 @@ export default async function ArticlePage({ params }: Props) {
           <div style={{ marginTop: '48px', padding: '24px', backgroundColor: 'var(--e-color-surface)', borderRadius: 'var(--e-border-radius, 8px)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
               {author.avatar_url && (
-                <Image src={author.avatar_url} alt={author.full_name} width={48} height={48} style={{ borderRadius: '50%', objectFit: 'cover' }} unoptimized />
+                <Image src={author.avatar_url} alt={author.full_name} width={48} height={48} style={{ borderRadius: '50%', objectFit: 'cover' }} loading="lazy" />
               )}
               <div>
                 <div style={{ fontWeight: 700 }}>{author.full_name}</div>

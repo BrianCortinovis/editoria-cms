@@ -154,7 +154,7 @@ export default async function CategoryPage({ params }: Props) {
               }}
             >
               {article.cover_image_url && (
-                <Image src={article.cover_image_url} alt={article.title} width={300} height={169} style={{ width: '100%', height: 'auto', aspectRatio: '16/9', objectFit: 'cover' }} unoptimized />
+                <Image src={article.cover_image_url} alt={article.title} width={300} height={169} sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 800px" loading="lazy" style={{ width: '100%', height: 'auto', aspectRatio: '16/9', objectFit: 'cover' }} />
               )}
               <div style={{ padding: '16px' }}>
                 <h3 style={{ fontFamily: 'var(--e-font-heading)', fontWeight: 700, fontSize: '18px', color: 'var(--e-color-text)' }}>

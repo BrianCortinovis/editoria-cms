@@ -20,7 +20,9 @@ const contentSecurityPolicy = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {
-    unoptimized: true,
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     remotePatterns: [
       {
         protocol: "https",
@@ -39,6 +41,12 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "Cross-Origin-Resource-Policy", value: "cross-origin" },
           { key: "Vary", value: "Origin" },
+        ],
+      },
+      {
+        source: "/site/:tenant/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=600" },
         ],
       },
       {
