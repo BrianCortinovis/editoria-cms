@@ -30,6 +30,7 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
   const isNewspaperChrome = chromePreset === 'newspaper';
   const mastheadNote = typeof themeConfig.mastheadNote === 'string' ? themeConfig.mastheadNote : '';
   const siteDescription = getStringSetting(tenantSettings, 'site_description');
+  const siteLang = getStringSetting(tenantSettings, 'language') || 'it';
   const gaId = getStringSetting(tenantSettings, 'google_analytics');
   const gtmId = getStringSetting(tenantSettings, 'google_tag_manager');
   const adsenseId = getStringSetting(tenantSettings, 'google_adsense');
@@ -44,7 +45,8 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
     description: siteDescription || undefined,
     logo: tenant.logo_url ? { '@type': 'ImageObject', url: tenant.logo_url } : undefined,
   };
-  const formattedDate = new Intl.DateTimeFormat('it-IT', {
+  const localeMap: Record<string, string> = { it: 'it-IT', en: 'en-US', de: 'de-DE', fr: 'fr-FR', es: 'es-ES', pt: 'pt-PT' };
+  const formattedDate = new Intl.DateTimeFormat(localeMap[siteLang] || siteLang, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -52,7 +54,7 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
   }).format(new Date());
 
   return (
-    <html lang="it">
+    <html lang={siteLang}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
