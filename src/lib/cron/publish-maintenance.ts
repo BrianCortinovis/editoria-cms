@@ -272,6 +272,15 @@ export async function runPublishMaintenance(): Promise<MaintenanceRunSummary> {
     );
   }
 
+  // Refresh materialized views after content changes
+  if (tenantIds.length > 0) {
+    try {
+      await supabase.rpc("refresh_materialized_views");
+    } catch (mvError) {
+      console.error("MV refresh after publish maintenance:", mvError);
+    }
+  }
+
   return {
     processedAt: now,
     scheduledArticlesPublished,
