@@ -68,8 +68,14 @@ export async function runSeoAnalysisCron() {
         continue;
       }
 
+      const seoBaseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL;
+      if (!seoBaseUrl) {
+        results.push({ tenant_id: tenant.id, status: "error", message: "NEXTAUTH_URL or NEXT_PUBLIC_APP_URL not configured" });
+        continue;
+      }
+
       const response = await fetch(
-        `${process.env.NEXTAUTH_URL || "https://editoria-cms.vercel.app"}/api/ai/seo-tools`,
+        `${seoBaseUrl}/api/ai/seo-tools`,
         {
           method: "POST",
           headers: {

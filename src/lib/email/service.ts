@@ -5,18 +5,28 @@ type EmailTransport = "smtp" | "resend" | "console";
 function getTransportMode(): EmailTransport {
   if (process.env.EMAIL_TRANSPORT === "resend") return "resend";
   if (process.env.SMTP_HOST) return "smtp";
+  if (process.env.NODE_ENV === "production") {
+    console.warn("[EMAIL] Nessun provider email configurato in produzione (SMTP_HOST o RESEND_API_KEY mancante). Modalità console attiva.");
+  }
   return "console";
 }
 
 function createSmtpTransport() {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!host || !user || !pass) {
+    throw new Error(
+      `Configurazione SMTP incompleta: ${[!host && "SMTP_HOST", !user && "SMTP_USER", !pass && "SMTP_PASS"].filter(Boolean).join(", ")} mancante`
+    );
+  }
+
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST!,
+    host,
     port: parseInt(process.env.SMTP_PORT || "587"),
     secure: process.env.SMTP_SECURE === "true",
-    auth: {
-      user: process.env.SMTP_USER!,
-      pass: process.env.SMTP_PASS!,
-    },
+    auth: { user, pass },
   });
 }
 

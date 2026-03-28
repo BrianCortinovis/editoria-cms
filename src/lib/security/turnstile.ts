@@ -1,6 +1,10 @@
 export async function verifyTurnstileToken(token: string, remoteIp?: string) {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[TURNSTILE] TURNSTILE_SECRET_KEY non configurata in produzione - richiesta rifiutata");
+      return false;
+    }
     return true;
   }
 

@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const filename = `${tenantSlug}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const filename = `${tenantSlug}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
   const bytes = await file.arrayBuffer();
   const uploadBuffer = Buffer.from(bytes);
 

@@ -8,9 +8,10 @@ import { formSubmission } from '@/lib/email/templates';
 
 import { getPublicApiCorsHeadersWithPost } from '@/lib/security/cors';
 
+const _processIpSalt = process.env.IP_HASH_SALT || crypto.randomBytes(32).toString('hex');
+
 function hashValue(value: string) {
-  const salt = process.env.IP_HASH_SALT || 'editoria-cms-default-salt';
-  return crypto.createHmac('sha256', salt).update(value).digest('hex');
+  return crypto.createHmac('sha256', _processIpSalt).update(value).digest('hex');
 }
 
 async function supportsFormsTables() {

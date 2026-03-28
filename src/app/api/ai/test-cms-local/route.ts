@@ -5,8 +5,6 @@ import { sanitizeFieldResponse } from "@/lib/ai/field-response";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { AIMessage } from "@/lib/ai/providers";
 
-const DEFAULT_TENANT_ID = "125172d3-f498-439f-a045-61e409dac706";
-
 function buildMessages(system: string, prompt: string): AIMessage[] {
   return [
     { role: "system", content: system },
@@ -36,7 +34,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json().catch(() => ({}));
-    const tenantId = body.tenant_id || DEFAULT_TENANT_ID;
+    const tenantId = body.tenant_id;
+    if (!tenantId) {
+      return NextResponse.json({ error: "tenant_id is required" }, { status: 400 });
+    }
 
     const supabase = await createServiceRoleClient();
     const { data: tenant, error } = await supabase

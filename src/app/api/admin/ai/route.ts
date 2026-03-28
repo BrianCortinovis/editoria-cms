@@ -80,7 +80,14 @@ ${platformContext}`;
       { role: "user", content: message },
     ];
 
-    const apiKey = process.env.ANTHROPIC_API_KEY || "";
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "IA superadmin non configurata" },
+        { status: 503 }
+      );
+    }
+
     const response = await callAI("claude", messages, {
       apiKey,
       model: "claude-sonnet-4-20250514",

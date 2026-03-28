@@ -16,9 +16,13 @@ function getDefaultBaseUrl() {
     return `https://${process.env.VERCEL_URL}`;
   }
 
-  return process.env.NODE_ENV === 'production'
-    ? 'https://editoria-cms.vercel.app'
-    : 'http://localhost:3000';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) return appUrl;
+
+  if (process.env.NODE_ENV === 'production') {
+    console.warn("NEXT_PUBLIC_APP_URL not set in production, using localhost fallback");
+  }
+  return 'http://localhost:3000';
 }
 
 function normalizeBaseUrl(value?: string | null) {

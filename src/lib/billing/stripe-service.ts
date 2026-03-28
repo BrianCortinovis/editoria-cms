@@ -18,18 +18,18 @@ export const PLAN_PRICES: Record<
   free: { name: "Free", monthlyPriceId: null, yearlyPriceId: null },
   base: {
     name: "Base",
-    monthlyPriceId: process.env.STRIPE_PRICE_BASE_MONTHLY || "",
-    yearlyPriceId: process.env.STRIPE_PRICE_BASE_YEARLY || "",
+    monthlyPriceId: process.env.STRIPE_PRICE_BASE_MONTHLY || null,
+    yearlyPriceId: process.env.STRIPE_PRICE_BASE_YEARLY || null,
   },
   medium: {
     name: "Medium",
-    monthlyPriceId: process.env.STRIPE_PRICE_MEDIUM_MONTHLY || "",
-    yearlyPriceId: process.env.STRIPE_PRICE_MEDIUM_YEARLY || "",
+    monthlyPriceId: process.env.STRIPE_PRICE_MEDIUM_MONTHLY || null,
+    yearlyPriceId: process.env.STRIPE_PRICE_MEDIUM_YEARLY || null,
   },
   enterprise: {
     name: "Enterprise",
-    monthlyPriceId: process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY || "",
-    yearlyPriceId: process.env.STRIPE_PRICE_ENTERPRISE_YEARLY || "",
+    monthlyPriceId: process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY || null,
+    yearlyPriceId: process.env.STRIPE_PRICE_ENTERPRISE_YEARLY || null,
   },
 };
 

@@ -289,9 +289,19 @@ async function finalizeRelease(tenantId: string, releaseId: string, taskTypes: s
   return manifest;
 }
 
+let _revalidationSecretWarned = false;
+
 async function triggerRevalidation(tenantSlug: string) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
-  if (!baseUrl || !process.env.REVALIDATION_SECRET) return;
+  if (!baseUrl) return;
+
+  if (!process.env.REVALIDATION_SECRET) {
+    if (!_revalidationSecretWarned) {
+      console.warn("[PUBLISH] REVALIDATION_SECRET non configurata - revalidation disabilitata");
+      _revalidationSecretWarned = true;
+    }
+    return;
+  }
 
   try {
     await fetch(`${baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`}/api/revalidate`, {

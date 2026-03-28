@@ -15,7 +15,7 @@ const themeBootScript = `
     if (theme === "light" || theme === "dark") {
       document.documentElement.setAttribute("data-theme", theme);
     }
-  } catch (error) {}
+  } catch (_) { /* localStorage may be unavailable (SSR / private browsing) */ }
 `;
 
 export const metadata: Metadata = {
