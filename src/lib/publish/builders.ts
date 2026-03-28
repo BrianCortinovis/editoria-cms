@@ -50,6 +50,7 @@ interface ArticleRow {
   meta_title: string | null;
   meta_description: string | null;
   og_image_url: string | null;
+  language?: string | null;
   category_id?: string | null;
   is_featured: boolean;
   is_breaking: boolean;
@@ -151,6 +152,7 @@ function normalizeArticleSummary(article: ArticleRow & { all_categories?: Array<
     meta_title: article.meta_title,
     meta_description: article.meta_description,
     og_image_url: article.og_image_url,
+    language: article.language || null,
     is_featured: article.is_featured,
     is_breaking: article.is_breaking,
     is_premium: article.is_premium,
@@ -345,7 +347,7 @@ export async function buildPublishedArticleDocument(context: PublishSiteContext,
   const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const { data } = await supabase
     .from('articles')
-    .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, category_id, is_featured, is_breaking, is_premium, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color, description)')
+    .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, language, category_id, is_featured, is_breaking, is_premium, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color, description)')
     .eq('tenant_id', context.tenantId)
     .eq('id', articleId)
     .eq('status', 'published')
@@ -361,6 +363,10 @@ export async function buildPublishedArticleDocument(context: PublishSiteContext,
     [data as unknown as ArticleRow]
   );
 
+  // Fetch translations if available
+  const { getArticleTranslations } = await import('@/lib/multilingual/service');
+  const translations = await getArticleTranslations(supabase, data.id);
+
   return {
     type: 'article',
     generatedAt: new Date().toISOString(),
@@ -369,9 +375,11 @@ export async function buildPublishedArticleDocument(context: PublishSiteContext,
     article: {
       ...normalizeArticleSummary(article as ArticleRow & { all_categories?: PublishedArticleSummary['all_categories'] }),
       body: data.body,
+      language: (data as Record<string, unknown>).language as string | null,
       is_featured: data.is_featured,
       is_breaking: data.is_breaking,
       is_premium: data.is_premium,
+      ...(translations.length > 0 ? { translations } : {}),
     },
   };
 }

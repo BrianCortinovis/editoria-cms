@@ -243,6 +243,13 @@ export interface PublishedCategorySummary {
   description?: string | null;
 }
 
+export interface PublishedTranslationLink {
+  language: string;
+  articleId: string;
+  slug: string;
+  title: string;
+}
+
 export interface PublishedArticleSummary {
   id: string;
   title: string;
@@ -255,6 +262,7 @@ export interface PublishedArticleSummary {
   meta_title: string | null;
   meta_description: string | null;
   og_image_url: string | null;
+  language?: string | null;
   is_featured?: boolean;
   is_breaking?: boolean;
   is_premium?: boolean;
@@ -273,6 +281,7 @@ export interface PublishedArticleDocument {
     is_featured: boolean;
     is_breaking: boolean;
     is_premium: boolean;
+    translations?: PublishedTranslationLink[];
   };
 }
 

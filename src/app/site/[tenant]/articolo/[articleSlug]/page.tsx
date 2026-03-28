@@ -4,10 +4,12 @@ import { getPublishedArticleBySlug, resolveTenant } from '@/lib/site/tenant-reso
 import { buildTenantRedirectUrl, resolveRedirect } from '@/lib/site/redirects';
 import { SiteLayout } from '@/components/render/SiteLayout';
 import { ArticleComments } from '@/components/site/ArticleComments';
+import { LanguageSwitcher } from '@/components/render/LanguageSwitcher';
 import { enrichArticlesWithCategories } from '@/lib/articles/taxonomy';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { buildTenantPublicUrl } from '@/lib/site/public-url';
 import { sanitizeHtml } from '@/lib/security/html';
+import { getArticleTranslations, buildHreflangEntries } from '@/lib/multilingual/service';
 
 export const revalidate = 300;
 
@@ -28,6 +30,7 @@ interface SiteArticleRecord {
   meta_title: string | null;
   meta_description: string | null;
   og_image_url: string | null;
+  language?: string | null;
   category_id?: string | null;
   profiles?: { full_name: string; avatar_url: string | null; bio: string | null } | null;
   categories?: { name: string; slug: string; color: string | null } | null;
@@ -48,7 +51,7 @@ export default async function ArticlePage({ params }: Props) {
     const supabase = await createServiceRoleClient();
     const { data } = await supabase
       .from('articles')
-      .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, category_id, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color)')
+      .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, language, category_id, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color)')
       .eq('tenant_id', tenant.id)
       .eq('slug', articleSlug)
       .eq('status', 'published')
@@ -79,6 +82,17 @@ export default async function ArticlePage({ params }: Props) {
   const author = enrichedArticle.profiles as unknown as { full_name: string; avatar_url: string | null; bio: string | null } | null;
   const categories = (enrichedArticle.all_categories as Array<{ name: string; slug: string; color: string | null }> | undefined) || [];
   const canonicalUrl = buildTenantPublicUrl(tenant, `/articolo/${articleSlug}`);
+
+  // Fetch translations for language switcher
+  const supabaseForTranslations = await createServiceRoleClient();
+  const translations = await getArticleTranslations(supabaseForTranslations, article.id);
+  const articleLang = (enrichedArticle as SiteArticleRecord).language || 'it';
+  const translationLinks = translations.map((t) => ({
+    lang: t.language,
+    href: buildTenantPublicUrl(tenant, `/articolo/${t.slug}`),
+    label: t.title,
+  }));
+
   const articleSchema = {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
@@ -119,6 +133,13 @@ export default async function ArticlePage({ params }: Props) {
                 {category.name}
               </a>
             ))}
+          </div>
+        )}
+
+        {/* Language switcher */}
+        {translationLinks.length > 0 && (
+          <div style={{ marginTop: '12px' }}>
+            <LanguageSwitcher currentLang={articleLang} translations={translationLinks} />
           </div>
         )}
 
@@ -209,11 +230,13 @@ export async function generateMetadata({ params }: Props) {
   const publishedArticle = await getPublishedArticleBySlug(resolved.tenant.slug, articleSlug);
   let article = publishedArticle
     ? {
+        id: publishedArticle.id,
         title: publishedArticle.title,
         meta_title: publishedArticle.meta_title,
         meta_description: publishedArticle.meta_description,
         og_image_url: publishedArticle.og_image_url,
         cover_image_url: publishedArticle.cover_image_url,
+        language: publishedArticle.language ?? null,
       }
     : null;
 
@@ -221,7 +244,7 @@ export async function generateMetadata({ params }: Props) {
     const supabase = await createServiceRoleClient();
     const { data } = await supabase
       .from('articles')
-      .select('title, meta_title, meta_description, og_image_url, cover_image_url')
+      .select('id, title, meta_title, meta_description, og_image_url, cover_image_url, language')
       .eq('tenant_id', resolved.tenant.id)
       .eq('slug', articleSlug)
       .eq('status', 'published')
@@ -232,11 +255,28 @@ export async function generateMetadata({ params }: Props) {
   if (!article) return {};
   const canonical = buildTenantPublicUrl(resolved.tenant, `/articolo/${articleSlug}`);
 
+  // Fetch translations for hreflang tags
+  const supabase = await createServiceRoleClient();
+  const translations = await getArticleTranslations(supabase, article.id);
+  const hreflangEntries = translations.length > 0
+    ? buildHreflangEntries(
+        article.language || 'it',
+        canonical,
+        translations,
+        (slug) => buildTenantPublicUrl(resolved.tenant, `/articolo/${slug}`),
+      )
+    : null;
+
   return {
     title: article.meta_title || article.title,
     description: article.meta_description || '',
     alternates: {
       canonical,
+      ...(hreflangEntries ? {
+        languages: Object.fromEntries(
+          hreflangEntries.map((e) => [e.lang, e.href])
+        ),
+      } : {}),
     },
     openGraph: {
       title: article.meta_title || article.title,
