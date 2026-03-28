@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'crypto';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClient, createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import {
   buildPublishedArticleDocument,
   buildPublishedBannersDocument,
@@ -229,7 +229,8 @@ async function publishCategory(tenantId: string, categoryId: string) {
 }
 
 async function publishAllPages(tenantId: string) {
-  const supabase = await createServiceRoleClient();
+  // Editorial data: use tenant-aware client (dedicated DB for enterprise)
+  const supabase = await createServiceRoleClientForTenant(tenantId);
   const { data: pages } = await supabase
     .from('site_pages')
     .select('id')

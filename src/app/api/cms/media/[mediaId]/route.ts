@@ -106,7 +106,12 @@ export async function DELETE(
     return NextResponse.json({ error: "Media not found" }, { status: 404 });
   }
 
-  await access.serviceClient.storage.from("media").remove([String(media.filename)]);
+  // Only remove from Supabase Storage if tenant uses it (not VPS-hosted media)
+  const { getSiteStorageQuotaByTenantId } = await import("@/lib/superadmin/storage");
+  const quota = await getSiteStorageQuotaByTenantId(tenantId, access.serviceClient);
+  if (!quota || quota.mediaProvider !== "customer_vps_local") {
+    await access.serviceClient.storage.from("media").remove([String(media.filename)]);
+  }
 
   const { error } = await access.sessionClient
     .from("media")

@@ -2027,8 +2027,13 @@ async function executeSingleCommand(
       if (context.dryRun) {
         return { message: `Dry-run: eliminerei il media "${media.original_filename}"` };
       }
-      const storageError = await supabase.storage.from('media').remove([String(media.filename || '')]);
-      if (storageError.error) throw storageError.error;
+      // Only remove from Supabase Storage for non-VPS media providers
+      const { getSiteStorageQuotaByTenantId } = await import('@/lib/superadmin/storage');
+      const mediaQuota = await getSiteStorageQuotaByTenantId(context.tenantId, supabase);
+      if (!mediaQuota || mediaQuota.mediaProvider !== 'customer_vps_local') {
+        const storageError = await supabase.storage.from('media').remove([String(media.filename || '')]);
+        if (storageError.error) throw storageError.error;
+      }
       const { error } = await supabase
         .from('media')
         .delete()

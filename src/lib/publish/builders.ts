@@ -1,4 +1,4 @@
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClient, createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import { enrichArticlesWithCategories, fetchArticleIdsForCategory } from '@/lib/articles/taxonomy';
 import { resolveBlockData } from '@/lib/site/block-data-resolver';
 import { getActiveExclusivePlacementArticleIds, isPlacementActive } from '@/lib/editorial/placements';
@@ -94,7 +94,8 @@ interface PinnedArticleRow {
 type SlotArticle = NonNullable<PinnedArticleRow['articles']>;
 
 export async function resolvePublishSiteContext(tenantId: string): Promise<PublishSiteContext | null> {
-  const supabase = await createServiceRoleClient();
+  // Use tenant-aware client: shared DB for shared tenants, dedicated DB for enterprise
+  const supabase = await createServiceRoleClientForTenant(tenantId);
   const { data } = await supabase
     .from('sites')
     .select('id, tenant_id, slug, name, deleted_at, tenants!inner(id, slug, name, domain, logo_url)')
@@ -250,7 +251,7 @@ function collectModuleEntries(input: {
 }
 
 export async function buildPublishedSettingsDocument(context: PublishSiteContext): Promise<PublishedSettingsDocument> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const [{ data: tenant }, { data: config }] = await Promise.all([
     supabase
       .from('tenants')
@@ -306,7 +307,7 @@ export async function buildPublishedMenuDocument(context: PublishSiteContext): P
 }
 
 export async function buildPublishedPageDocument(context: PublishSiteContext, pageId: string): Promise<PublishedPageDocument | null> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const { data: page } = await supabase
     .from('site_pages')
     .select('id, title, slug, page_type, meta, blocks, custom_css, updated_at, is_published')
@@ -341,7 +342,7 @@ export async function buildPublishedPageDocument(context: PublishSiteContext, pa
 }
 
 export async function buildPublishedArticleDocument(context: PublishSiteContext, articleId: string): Promise<PublishedArticleDocument | null> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const { data } = await supabase
     .from('articles')
     .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, category_id, is_featured, is_breaking, is_premium, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color, description)')
@@ -376,7 +377,7 @@ export async function buildPublishedArticleDocument(context: PublishSiteContext,
 }
 
 export async function buildPublishedCategoryDocument(context: PublishSiteContext, categoryId: string): Promise<PublishedCategoryDocument | null> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const { data: category } = await supabase
     .from('categories')
     .select('id, name, slug, description, color, created_at')
@@ -428,7 +429,7 @@ export async function buildPublishedCategoryDocument(context: PublishSiteContext
 }
 
 export async function buildPublishedPostsDocument(context: PublishSiteContext): Promise<PublishedPostsDocument> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const { data } = await supabase
     .from('articles')
     .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, category_id, is_featured, is_breaking, is_premium, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color, description)')
@@ -469,7 +470,7 @@ function excerpt(value?: string | null, maxLength = 180) {
 }
 
 export async function buildPublishedSearchDocument(context: PublishSiteContext): Promise<PublishedSearchDocument> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const [posts, pages] = await Promise.all([
     buildPublishedPostsDocument(context),
     supabase
@@ -521,7 +522,7 @@ export async function buildPublishedSearchDocument(context: PublishSiteContext):
 }
 
 export async function buildPublishedTagsDocument(context: PublishSiteContext): Promise<PublishedTagsDocument> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const { data } = await supabase
     .from('tags')
     .select('id, name, slug')
@@ -542,7 +543,7 @@ export async function buildPublishedTagsDocument(context: PublishSiteContext): P
 }
 
 export async function buildPublishedEventsDocument(context: PublishSiteContext): Promise<PublishedEventsDocument> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const { data } = await supabase
     .from('events')
     .select('*')
@@ -560,7 +561,7 @@ export async function buildPublishedEventsDocument(context: PublishSiteContext):
 }
 
 export async function buildPublishedBreakingNewsDocument(context: PublishSiteContext): Promise<PublishedBreakingNewsDocument> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const { data } = await supabase
     .from('breaking_news')
     .select('*')
@@ -580,7 +581,7 @@ export async function buildPublishedBreakingNewsDocument(context: PublishSiteCon
 }
 
 export async function buildPublishedBannersDocument(context: PublishSiteContext): Promise<PublishedBannersDocument> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const now = new Date().toISOString();
   const { data } = await supabase
     .from('banners')
@@ -628,7 +629,7 @@ export async function buildPublishedBannerZonesDocument(context: PublishSiteCont
 }
 
 export async function buildPublishedMediaManifestDocument(context: PublishSiteContext): Promise<PublishedMediaManifestDocument> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const { data } = await supabase
     .from('media')
     .select('id, filename, original_filename, mime_type, size_bytes, width, height, url, thumbnail_url, alt_text, folder, created_at')
@@ -670,7 +671,7 @@ export async function buildPublishedMediaManifestDocument(context: PublishSiteCo
 }
 
 export async function buildPublishedModulesDocument(context: PublishSiteContext): Promise<PublishedModulesDocument> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const { data: pages } = await supabase
     .from('site_pages')
     .select('id, slug, page_type, blocks, updated_at')
@@ -708,7 +709,7 @@ export async function buildPublishedLayoutDocument(
   context: PublishSiteContext,
   pageType: string
 ): Promise<PublishedLayoutDocument | null> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const { data: siteConfig } = await supabase
     .from('site_config')
     .select('theme')
@@ -875,7 +876,7 @@ export async function buildPublishedLayoutDocument(
 }
 
 export async function buildPublishedManifest(context: PublishSiteContext, releaseId: string): Promise<PublishedManifest> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const [{ data: pages }, { data: articles }, { data: categories }, { data: layouts }] = await Promise.all([
     supabase
       .from('site_pages')
