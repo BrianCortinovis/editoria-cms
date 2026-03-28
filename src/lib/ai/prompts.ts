@@ -23,10 +23,14 @@ export const CMS_TENANT_SAFETY_RULES = `VINCOLI OBBLIGATORI:
 - Lavora solo sul CMS online. Non trattare l'editor desktop come parte del perimetro operativo, salvo richiesta esplicita di integrazione.
 - Rispondi in italiano.`;
 
+function sanitizePromptValue(value: string): string {
+  return value.replace(/["\\\n\r]/g, '');
+}
+
 export function buildCmsFactPolicy(context?: { tenantName?: string; pageTitle?: string }) {
-  const tenantName = context?.tenantName || "il tenant corrente";
+  const tenantName = sanitizePromptValue(context?.tenantName || "il tenant corrente");
   const pageLine = context?.pageTitle
-    ? `Pagina aperta nel CMS: "${context.pageTitle}".`
+    ? `Pagina aperta nel CMS: "${sanitizePromptValue(context.pageTitle)}".`
     : "Pagina aperta nel CMS non specificata.";
 
   return `Tenant attivo: ${tenantName}.
@@ -38,8 +42,8 @@ ${CMS_TENANT_SAFETY_RULES}`;
  * System prompt for chatbot with optional context
  */
 export function buildChatSystemPrompt(context?: { tenantName?: string; pageTitle?: string }): string {
-  const tenantName = context?.tenantName || 'un sito editoriale';
-  const pageContext = context?.pageTitle ? `\nStai attualmente aiutando un editor a lavorare sulla pagina: "${context.pageTitle}".` : '';
+  const tenantName = sanitizePromptValue(context?.tenantName || 'un sito editoriale');
+  const pageContext = context?.pageTitle ? `\nStai attualmente aiutando un editor a lavorare sulla pagina: "${sanitizePromptValue(context.pageTitle)}".` : '';
 
   return `Sei un assistente AI specializzato esclusivamente nel CMS di ${tenantName}.
 Aiuti redazione, SEO, tecnico, analytics e gestione operativa del CMS.${pageContext}

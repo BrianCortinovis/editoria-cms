@@ -11,11 +11,13 @@ import {
   LayoutDashboard,
   TimerReset,
   Shield,
+  Users,
 } from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/sites", label: "Siti", icon: Database },
+  { href: "/admin/users", label: "Utenti", icon: Users },
   { href: "/admin/storage", label: "Storage", icon: HardDrive },
   { href: "/admin/domains", label: "Domini", icon: Globe },
   { href: "/admin/publish", label: "Publish", icon: Activity },

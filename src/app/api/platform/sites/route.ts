@@ -14,9 +14,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json(created);
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to create site";
+    const isLimitError = message.includes("limite di siti");
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to create site" },
-      { status: 400 }
+      { error: message },
+      { status: isLimitError ? 403 : 400 }
     );
   }
 }

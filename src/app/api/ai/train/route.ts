@@ -26,7 +26,11 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createServiceRoleClient();
-    const tenantSlug = request.nextUrl.searchParams.get('tenant') || 'demo';
+    const tenantSlug = request.nextUrl.searchParams.get('tenant');
+
+    if (!tenantSlug) {
+      return NextResponse.json({ error: 'tenant query param required' }, { status: 400 });
+    }
 
     // Get tenant
     const { data: tenant } = await supabase
@@ -39,6 +43,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
+    // Verify membership BEFORE any data queries
     const { data: membership } = await supabase
       .from('user_tenants')
       .select('role')

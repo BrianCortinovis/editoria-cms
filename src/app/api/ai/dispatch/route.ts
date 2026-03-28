@@ -5,6 +5,8 @@ import { HUMAN_WORKFLOW_GUIDANCE, buildCmsFactPolicy } from '@/lib/ai/prompts';
 import type { AIMessage, AIProvider } from '@/lib/ai/providers';
 import type { AITask } from '@/lib/ai/resolver';
 import { getModuleConfig, isModuleActive } from '@/lib/modules';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
+import { isAiEnabledForUser } from '@/lib/ai/access';
 
 interface DispatchPayload {
   taskType: string;
@@ -55,6 +57,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check per-user AI access (superadmin toggle)
+    if (!(await isAiEnabledForUser(user.id))) {
+      return NextResponse.json({ error: 'AI disabilitata per questo utente' }, { status: 403 });
+    }
+
+    // Rate limit: 20 req / 10 min
+    const clientIp = getClientIp(request);
+    const limiter = await checkRateLimit(`ai-dispatch:${user.id}:${clientIp}`, 20, 10 * 60 * 1000);
+    if (!limiter.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     // Get tenant_id from auth or request
     let tenantToUse = tenant_id;
     if (!tenantToUse) {
@@ -102,10 +116,11 @@ export async function POST(request: NextRequest) {
     }
 
     const aiConfig = getModuleConfig(settings, "ai_assistant");
-    const sysPrompt = systemPrompt || `Sei un assistente AI del CMS online del tenant "${tenant.name || tenantToUse}". Aiuti redazione, SEO, analytics, tecnico e gestione operativa.
+    const safeTenantName = (tenant.name || tenantToUse || '').replace(/["\\\n\r]/g, '');
+    const sysPrompt = systemPrompt || `Sei un assistente AI del CMS online del tenant "${safeTenantName}". Aiuti redazione, SEO, analytics, tecnico e gestione operativa.
 Non sei un builder visuale e non parli dell'editor desktop se non richiesto come integrazione CMS.
 Rispondi in italiano in modo conciso, pratico e orientato all'azione. Task: ${taskType || 'general'}.
-${buildCmsFactPolicy({ tenantName: tenant.name || tenantToUse })}
+${buildCmsFactPolicy({ tenantName: safeTenantName })}
 ${HUMAN_WORKFLOW_GUIDANCE}`;
 
     const task = normalizeTask(taskType);

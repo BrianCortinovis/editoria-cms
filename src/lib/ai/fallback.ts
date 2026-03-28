@@ -108,5 +108,6 @@ export async function callAIWithFallback(params: {
     .join(" | ");
 
   const baseMessage = lastError?.message || "Nessun provider IA disponibile";
-  throw new Error(`Tutti i provider IA hanno fallito. Primario: ${primary.provider}. Tentativi: ${attemptedProviders}. Ultimo errore: ${baseMessage}`);
+  console.error(`AI fallback chain exhausted. Primary: ${primary.provider}. Attempts: ${attemptedProviders}. Last error: ${baseMessage}`);
+  throw new Error("Nessun provider IA disponibile. Verifica la configurazione nelle impostazioni del tenant.");
 }

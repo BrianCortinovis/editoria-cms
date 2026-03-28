@@ -4,6 +4,8 @@ import { callAIWithFallback } from '@/lib/ai/fallback';
 import { buildChatSystemPrompt } from '@/lib/ai/prompts';
 import type { AIMessage, AIProvider } from '@/lib/ai/providers';
 import { getModuleConfig, isModuleActive } from '@/lib/modules';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
+import { isAiEnabledForUser } from '@/lib/ai/access';
 
 interface ChatPayload {
   messages: AIMessage[];
@@ -30,6 +32,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check per-user AI access (superadmin toggle)
+    if (!(await isAiEnabledForUser(user.id))) {
+      return NextResponse.json({ error: 'AI disabilitata per questo utente' }, { status: 403 });
+    }
+
     // Verify tenant membership
     const { data: access, error: accessError } = await supabase
       .from('user_tenants')
@@ -40,6 +47,13 @@ export async function POST(request: NextRequest) {
 
     if (accessError || !access) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Rate limit: 15 req / 10 min
+    const clientIp = getClientIp(request);
+    const limiter = await checkRateLimit(`ai-chat:${user.id}:${clientIp}`, 15, 10 * 60 * 1000);
+    if (!limiter.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
 
     // Load tenant config

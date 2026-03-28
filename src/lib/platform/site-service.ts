@@ -1,6 +1,7 @@
 import slugify from "slugify";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { buildDefaultHostname, getPlatformBaseDomain, RESERVED_SUBDOMAINS } from "@/lib/platform/constants";
+import { checkSiteCreationLimit } from "@/lib/platform/plan-limits";
 import type { PlatformMembershipRole } from "@/lib/platform/types";
 import type { UserRole } from "@/types/database";
 
@@ -38,6 +39,15 @@ export async function createSiteForCurrentUser(input: CreateSiteInput) {
 
   if (!user) {
     throw new Error("Authentication required");
+  }
+
+  // Enforce plan-based site creation limit
+  const serviceClient = await createServiceRoleClient();
+  const limitCheck = await checkSiteCreationLimit(serviceClient, user.id);
+  if (!limitCheck.allowed) {
+    throw new Error(
+      `Hai raggiunto il limite di siti per il tuo piano (${limitCheck.planCode}). Massimo ${limitCheck.maxAllowed} siti.`
+    );
   }
 
   const slug = normalizeSiteSlug(input.slug || input.name);

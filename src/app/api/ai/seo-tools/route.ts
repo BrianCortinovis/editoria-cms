@@ -4,6 +4,7 @@ import { callAIWithFallback } from "@/lib/ai/fallback";
 import { isModuleActive, getModuleConfig } from "@/lib/modules";
 import { resolveProvider, type ResolvedProvider } from "@/lib/ai/resolver";
 import { buildCmsFactPolicy } from "@/lib/ai/prompts";
+import { checkRateLimit, getClientIp } from "@/lib/security/rate-limit";
 
 const SEO_EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
 
@@ -94,6 +95,15 @@ export async function POST(request: NextRequest) {
       ? await createServiceRoleClient()
       : await createServerSupabaseClient();
 
+    // Validate tenant exists BEFORE any other logic (including cron calls)
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("name, settings")
+      .eq("id", tenant_id)
+      .single();
+
+    if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+
     const { data: { user } } = isTrustedInternalCall
       ? { data: { user: null } }
       : await supabase.auth.getUser();
@@ -113,17 +123,16 @@ export async function POST(request: NextRequest) {
       if (!membership || !SEO_EDITOR_ROLES.has(membership.role)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
+
+      // Rate limit for interactive (non-cron) calls
+      const clientIp = getClientIp(request);
+      const limiter = await checkRateLimit(`ai-seo-tools:${user.id}:${clientIp}`, 10, 10 * 60 * 1000);
+      if (!limiter.allowed) {
+        return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+      }
     }
 
-    // Get tenant settings
-    const { data: tenant } = await supabase
-      .from("tenants")
-      .select("name, settings")
-      .eq("id", tenant_id)
-      .single();
-
-    if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
-
+    // Module check applies to ALL callers including cron
     const settings = (tenant.settings ?? {}) as Record<string, unknown>;
     if (!isModuleActive(settings, "ai_assistant")) {
       return NextResponse.json({ error: "AI module not active" }, { status: 403 });

@@ -49,6 +49,7 @@
     "react-dom": "19.2.3",
     "react-hot-toast": "^2.6.0",
     "react-resizable-panels": "^4.7.3",
+    "recharts": "^3.8.1",
     "slugify": "^1.6.8",
     "zod": "^3.25.76",
     "zundo": "^2.3.0",

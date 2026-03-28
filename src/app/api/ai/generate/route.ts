@@ -5,6 +5,8 @@ import type { AIProvider } from '@/lib/ai/providers';
 import type { AITask } from '@/lib/ai/resolver';
 import { getModuleConfig, isModuleActive } from '@/lib/modules';
 import { buildCmsFactPolicy } from '@/lib/ai/prompts';
+import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
+import { isAiEnabledForUser } from '@/lib/ai/access';
 
 interface GeneratePayload {
   tenant_id: string;
@@ -50,6 +52,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check per-user AI access (superadmin toggle)
+    if (!(await isAiEnabledForUser(user.id))) {
+      return NextResponse.json({ error: 'AI disabilitata per questo utente' }, { status: 403 });
+    }
+
     // Verify tenant membership
     const { data: access, error: accessError } = await supabase
       .from('user_tenants')
@@ -60,6 +67,13 @@ export async function POST(request: NextRequest) {
 
     if (accessError || !access) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Rate limit: 20 req / 10 min
+    const clientIp = getClientIp(request);
+    const limiter = await checkRateLimit(`ai-generate:${user.id}:${clientIp}`, 20, 10 * 60 * 1000);
+    if (!limiter.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
 
     // Load tenant config for API keys
@@ -73,7 +87,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
-    const factPolicy = buildCmsFactPolicy({ tenantName: tenant.name || tenant_id });
+    const safeTenantName = (tenant.name || tenant_id || '').replace(/["\\\n\r]/g, '');
+    const factPolicy = buildCmsFactPolicy({ tenantName: safeTenantName });
 
     const settings = (tenant.settings || {}) as Record<string, unknown>;
     if (!isModuleActive(settings, "ai_assistant")) {
@@ -124,7 +139,7 @@ ${factPolicy}`;
           ? JSON.stringify(body.context, null, 2)
           : '';
 
-      systemPrompt = `Sei un assistente AI per il CMS giornalistico del tenant "${tenant.name || tenant_id}". Genera contenuti di qualità. Rispondi sempre in italiano.
+      systemPrompt = `Sei un assistente AI per il CMS giornalistico del tenant "${safeTenantName}". Genera contenuti di qualità. Rispondi sempre in italiano.
 ${factPolicy}`;
       userPrompt = `Genera contenuto per il campo "${fieldName}" di tipo "${fieldType}":
 ${currentValue ? `Contenuto attuale: ${currentValue}` : ''}

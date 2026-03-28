@@ -1,7 +1,13 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { ArrowUpRight } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { requireSuperAdmin } from "@/lib/superadmin/service";
+
+const SuperadminAiChat = dynamic(
+  () => import("@/components/admin/SuperadminAiChat"),
+  { ssr: false }
+);
 
 export default async function AdminLayout({
   children,
@@ -50,6 +56,7 @@ export default async function AdminLayout({
         </div>
         <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
       </div>
+      <SuperadminAiChat />
     </div>
   );
 }

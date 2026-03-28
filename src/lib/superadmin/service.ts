@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requirePlatformUser } from "@/lib/platform/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { getMaxSitesForPlan } from "@/lib/platform/plan-limits";
 import type { Tables } from "@/types/database";
 
 function isMissingRelation(error: { message?: string } | null | undefined) {
@@ -85,12 +86,23 @@ export interface SuperadminPublishJobRow {
   releaseVersion: string | null;
 }
 
+export interface SuperadminUserSiteCount {
+  userId: string;
+  email: string | null;
+  fullName: string | null;
+  ownedSites: number;
+  bestPlan: string;
+  maxAllowed: number;
+  atLimit: boolean;
+}
+
 export interface SuperadminOverview {
   summary: SuperadminSummary;
   sites: SuperadminSiteRow[];
   domains: SuperadminDomainRow[];
   publishJobs: SuperadminPublishJobRow[];
   recentAuditLogs: Tables<"audit_logs">[];
+  userSiteCounts: SuperadminUserSiteCount[];
 }
 
 function toSafeNumber(value: unknown, fallback = 0) {
@@ -305,6 +317,56 @@ export async function getSuperadminOverview(): Promise<SuperadminOverview> {
     releaseVersion: job.release_id ? releaseVersionById.get(job.release_id) ?? null : null,
   }));
 
+  // Build per-user site ownership counts with plan limits
+  const ownerMembershipsResponse = await serviceClient
+    .from("tenant_memberships")
+    .select("user_id, site_id")
+    .eq("role", "owner")
+    .is("revoked_at", null);
+
+  const ownerMemberships = ownerMembershipsResponse.data || [];
+  const sitesByOwner = new Map<string, string[]>();
+  for (const m of ownerMemberships) {
+    const list = sitesByOwner.get(m.user_id) || [];
+    list.push(m.site_id);
+    sitesByOwner.set(m.user_id, list);
+  }
+
+  const ownerUserIds = Array.from(sitesByOwner.keys());
+  const ownerProfilesResponse = ownerUserIds.length > 0
+    ? await serviceClient.from("profiles").select("id, email, full_name").in("id", ownerUserIds)
+    : { data: [] };
+  const ownerProfiles = new Map((ownerProfilesResponse.data || []).map((p) => [p.id, p]));
+
+  const activeSubsBySite = new Map<string, string>();
+  for (const sub of allSubscriptions) {
+    if (sub.status === "active" && sub.plan_code) {
+      activeSubsBySite.set(sub.site_id, sub.plan_code);
+    }
+  }
+
+  const planPriority = ["free", "base", "medium", "enterprise"];
+  const userSiteCounts: SuperadminUserSiteCount[] = Array.from(sitesByOwner.entries()).map(([userId, siteIdsList]) => {
+    let bestPlan = "free";
+    for (const sId of siteIdsList) {
+      const planCode = activeSubsBySite.get(sId);
+      if (planCode && planPriority.indexOf(planCode) > planPriority.indexOf(bestPlan)) {
+        bestPlan = planCode;
+      }
+    }
+    const maxAllowed = getMaxSitesForPlan(bestPlan);
+    const profile = ownerProfiles.get(userId);
+    return {
+      userId,
+      email: profile?.email ?? null,
+      fullName: profile?.full_name ?? null,
+      ownedSites: siteIdsList.length,
+      bestPlan,
+      maxAllowed,
+      atLimit: siteIdsList.length >= maxAllowed,
+    };
+  }).sort((a, b) => b.ownedSites - a.ownedSites);
+
   return {
     summary: {
       totalUsers: users.count ?? 0,
@@ -323,5 +385,6 @@ export async function getSuperadminOverview(): Promise<SuperadminOverview> {
     domains: domainRows,
     publishJobs: publishJobRows,
     recentAuditLogs: auditLogs.data || [],
+    userSiteCounts,
   };
 }
