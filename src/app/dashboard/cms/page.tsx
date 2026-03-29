@@ -42,7 +42,7 @@ export default function CmsHomePage() {
         links={[
           { href: "/dashboard/articoli", label: "Apri Articoli" },
           { href: "/dashboard/categorie", label: "Apri Categorie" },
-          { href: "/desktop-editor", label: "Apri Desktop Editor" },
+          { href: "/dashboard/desktop-bridge", label: "Bridge Desktop Editor" },
           { href: "/dashboard/tecnico", label: "Apri Tecnico" },
         ]}
         summary={[

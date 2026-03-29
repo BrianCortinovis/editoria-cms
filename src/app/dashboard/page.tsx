@@ -190,9 +190,8 @@ export default function DashboardPage() {
           </div>
         </Link>
 
-        <Link
-          href="/desktop-editor"
-          className="rounded-2xl border p-5 transition block"
+        <div
+          className="rounded-2xl border p-5 block"
           style={{ background: "var(--c-bg-1)", borderColor: "var(--c-border)" }}
         >
           <div
@@ -201,18 +200,18 @@ export default function DashboardPage() {
           >
             <Cpu className="w-5 h-5" />
           </div>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
-                Desktop Editor
-              </div>
-              <h3 className="text-lg font-semibold mt-1" style={{ color: "var(--c-text-0)" }}>
-                Builder separato
-              </h3>
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+              Desktop Editor
             </div>
-            <ArrowRight className="w-5 h-5 shrink-0" style={{ color: "var(--c-text-3)" }} />
+            <h3 className="text-lg font-semibold mt-1" style={{ color: "var(--c-text-0)" }}>
+              App desktop separata
+            </h3>
+            <p className="text-xs mt-1" style={{ color: "var(--c-text-2)" }}>
+              Usa il builder desktop per creare e gestire i layout del sito.
+            </p>
           </div>
-        </Link>
+        </div>
       </div>
 
       {/* Stats */}
@@ -268,15 +267,12 @@ export default function DashboardPage() {
             >
               <ScanLine className="w-4 h-4" style={{ color: "var(--c-text-2)" }} /> Regole Slot
             </Link>
-            <Link
-              href="/desktop-editor"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm font-medium"
-              style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-3)"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+            <div
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium opacity-60"
+              style={{ background: "var(--c-bg-2)", color: "var(--c-text-2)" }}
             >
-              <Cpu className="w-4 h-4" style={{ color: "var(--c-text-2)" }} /> Desktop Editor
-            </Link>
+              <Cpu className="w-4 h-4" /> Desktop Editor (app esterna)
+            </div>
             <Link
               href="/dashboard/media"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm font-medium"
