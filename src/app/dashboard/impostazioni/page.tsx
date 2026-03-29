@@ -185,11 +185,11 @@ export default function ImpostazioniPage() {
           </div>
 
           <Link
-            href="/dashboard/desktop-bridge"
+            href="/dashboard/importa-sito"
             className="inline-flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-70"
             style={{ color: "var(--c-accent)" }}
           >
-            Apri Desktop Bridge
+            Importa Sito
             <ExternalLink className="h-4 w-4" />
           </Link>
         </div>

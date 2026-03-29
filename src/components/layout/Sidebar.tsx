@@ -38,6 +38,7 @@ import {
   Download,
   Share2,
   ScanLine,
+  Upload,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { useThemeStore } from "@/lib/theme";
@@ -78,7 +79,7 @@ export const advNav = [
 
 export const systemNav = [
   { href: "/dashboard/testata", label: "Testata", icon: Building2 },
-  { href: "/desktop-editor", label: "Desktop", icon: Cpu },
+  { href: "/dashboard/importa-sito", label: "Importa Sito", icon: Upload },
   { href: "/dashboard/tecnico", label: "Tecnico", icon: Cpu },
   { href: "/dashboard/migrazioni", label: "Migraz.", icon: Download },
   { href: "/dashboard/seo", label: "SEO", icon: BarChart3 },

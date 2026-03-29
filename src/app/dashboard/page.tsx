@@ -16,6 +16,7 @@ import {
   ArrowRight,
   TrendingUp,
   ScanLine,
+  Upload,
 } from "lucide-react";
 import AIButton from "@/components/ai/AIButton";
 
@@ -190,28 +191,29 @@ export default function DashboardPage() {
           </div>
         </Link>
 
-        <div
-          className="rounded-2xl border p-5 block"
+        <Link
+          href="/dashboard/importa-sito"
+          className="rounded-2xl border p-5 transition block"
           style={{ background: "var(--c-bg-1)", borderColor: "var(--c-border)" }}
         >
           <div
             className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
             style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}
           >
-            <Cpu className="w-5 h-5" />
+            <Upload className="w-5 h-5" />
           </div>
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
-              Desktop Editor
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+                Importa Sito
+              </div>
+              <h3 className="text-lg font-semibold mt-1" style={{ color: "var(--c-text-0)" }}>
+                Da Desktop Builder
+              </h3>
             </div>
-            <h3 className="text-lg font-semibold mt-1" style={{ color: "var(--c-text-0)" }}>
-              App desktop separata
-            </h3>
-            <p className="text-xs mt-1" style={{ color: "var(--c-text-2)" }}>
-              Usa il builder desktop per creare e gestire i layout del sito.
-            </p>
+            <ArrowRight className="w-5 h-5 shrink-0" style={{ color: "var(--c-text-3)" }} />
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Stats */}
@@ -267,12 +269,15 @@ export default function DashboardPage() {
             >
               <ScanLine className="w-4 h-4" style={{ color: "var(--c-text-2)" }} /> Regole Slot
             </Link>
-            <div
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium opacity-60"
-              style={{ background: "var(--c-bg-2)", color: "var(--c-text-2)" }}
+            <Link
+              href="/dashboard/importa-sito"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm font-medium"
+              style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-3)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
             >
-              <Cpu className="w-4 h-4" /> Desktop Editor (app esterna)
-            </div>
+              <Cpu className="w-4 h-4" style={{ color: "var(--c-text-2)" }} /> Importa Sito
+            </Link>
             <Link
               href="/dashboard/media"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm font-medium"

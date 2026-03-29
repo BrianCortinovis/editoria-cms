@@ -315,7 +315,7 @@ export default function TecnicoPage() {
         icon={Cpu}
         links={[
           { href: "/dashboard/cms", label: "Torna al CMS" },
-          { href: "/dashboard/desktop-bridge", label: "Apri Desktop Bridge" },
+          { href: "/dashboard/importa-sito", label: "Importa Sito" },
         ]}
         summary={[
           `Tenant: ${overview?.tenant?.slug || currentTenant?.slug || "—"}`,
@@ -488,7 +488,7 @@ export default function TecnicoPage() {
                 <div className="mt-3">
                   <InfoLine label="App URL" value={overview?.appUrl || "http://localhost:3000"} mono />
                   <InfoLine label="CMS entry" value="/dashboard/cms" mono />
-                  <InfoLine label="Desktop bridge" value="/dashboard/desktop-bridge" mono />
+                  <InfoLine label="Importa sito" value="/dashboard/importa-sito" mono />
                   <InfoLine label="Domain provider" value={overview?.domainProvider || "—"} />
                   <InfoLine label="Platform base domain" value={overview?.platformBaseDomain || "localhost"} mono />
                 </div>

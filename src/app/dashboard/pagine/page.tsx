@@ -646,7 +646,7 @@ export default function PaginePage() {
                 <div className="flex items-center gap-2 ml-4">
                   {/* Edit Button */}
                   <Link
-                    href={`/dashboard/desktop-bridge?page=${page.id}`}
+                    href={`/dashboard/importa-sito?page=${page.id}`}
                     className="p-2 rounded-lg transition"
                     style={{
                       color: 'var(--c-accent)',
@@ -712,7 +712,7 @@ export default function PaginePage() {
 
                   {/* Layout Button */}
                   <Link
-                    href={`/dashboard/desktop-bridge?page=${page.id}`}
+                    href={`/dashboard/importa-sito?page=${page.id}`}
                     className="p-2 rounded-lg transition"
                     style={{
                       color: 'var(--c-text-2)',

@@ -26,7 +26,7 @@ export default function CmsHomePage() {
           contextData={JSON.stringify(
             {
               tenant: currentTenant ? { id: currentTenant.id, name: currentTenant.name, slug: currentTenant.slug } : null,
-              sections: ["articoli", "pagine", "media", "categorie", "tag", "slot", "seo", "newsletter", "tecnico", "desktop-bridge"],
+              sections: ["articoli", "pagine", "media", "categorie", "tag", "slot", "seo", "newsletter", "tecnico", "importa-sito"],
             },
             null,
             2,
@@ -42,7 +42,7 @@ export default function CmsHomePage() {
         links={[
           { href: "/dashboard/articoli", label: "Apri Articoli" },
           { href: "/dashboard/categorie", label: "Apri Categorie" },
-          { href: "/dashboard/desktop-bridge", label: "Bridge Desktop Editor" },
+          { href: "/dashboard/importa-sito", label: "Bridge Desktop Editor" },
           { href: "/dashboard/tecnico", label: "Apri Tecnico" },
         ]}
         summary={[
@@ -104,7 +104,7 @@ export default function CmsHomePage() {
             ],
             bullets: [
               "Bridge tecnico: /dashboard/tecnico",
-              "Desktop bridge: /dashboard/desktop-bridge",
+              "Desktop bridge: /dashboard/importa-sito",
               "Route pubbliche del sito: published layer e API controllate",
             ],
           },

@@ -300,7 +300,7 @@ export default function LayoutContentRulesPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href={`/dashboard/desktop-bridge?page=${selectedSitePage?.id || ""}`}
+              href={`/dashboard/importa-sito?page=${selectedSitePage?.id || ""}`}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
               style={{ background: "var(--c-bg-0)", color: "var(--c-text-1)", border: "1px solid var(--c-border)" }}
             >
@@ -309,7 +309,7 @@ export default function LayoutContentRulesPage() {
             </Link>
             {selectedSitePage && (
               <Link
-                href={`/dashboard/desktop-bridge?page=${selectedSitePage.id}`}
+                href={`/dashboard/importa-sito?page=${selectedSitePage.id}`}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
                 style={{ background: "var(--c-bg-0)", color: "var(--c-text-1)", border: "1px solid var(--c-border)" }}
               >
@@ -364,7 +364,7 @@ export default function LayoutContentRulesPage() {
             La struttura della pagina si definisce nel desktop editor separato. Quando gli slot esistono, qui puoi assegnare regole editoriali e categorie dal CMS online.
           </p>
           <Link
-            href={`/dashboard/desktop-bridge?page=${selectedSitePage?.id || ""}`}
+            href={`/dashboard/importa-sito?page=${selectedSitePage?.id || ""}`}
             className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg text-sm font-medium text-white"
             style={{ background: "var(--c-accent)" }}
           >
