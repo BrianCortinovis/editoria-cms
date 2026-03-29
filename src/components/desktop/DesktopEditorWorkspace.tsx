@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ExternalLink, FilePlus2, Loader2, MonitorCog } from "lucide-react";
+import { ArrowLeft, ExternalLink, FilePlus2, Loader2, MonitorCog, Plus, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { BuilderShell } from "@/components/builder/BuilderShell";
+import PageTemplateSelector from "@/components/builder/PageTemplateSelector";
 import { useAuthStore } from "@/lib/store";
+import type { Block } from "@/lib/types/block";
 
 interface EditorPageOption {
   id: string;
@@ -26,6 +28,11 @@ export function DesktopEditorWorkspace() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [bootstrapped, setBootstrapped] = useState(false);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [pendingTemplateBlocks, setPendingTemplateBlocks] = useState<Block[] | null>(null);
+  const [showNewPageForm, setShowNewPageForm] = useState(false);
+  const [newPageTitle, setNewPageTitle] = useState("");
+  const [newPageType, setNewPageType] = useState<string>("page");
 
   const selectedPageId = searchParams.get("page") ?? "";
   const canEdit = currentRole ? EDITOR_ROLES.has(currentRole) : false;
@@ -107,6 +114,50 @@ export function DesktopEditorWorkspace() {
     }
   }, [canEdit, currentTenant?.id, loadPages, setPageInUrl]);
 
+  const createPage = useCallback(async () => {
+    if (!currentTenant?.id || !canEdit || !newPageTitle.trim()) return;
+
+    const slug = newPageTitle
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-");
+
+    setCreating(true);
+    try {
+      const response = await fetch("/api/builder/pages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: currentTenant.id,
+          title: newPageTitle.trim(),
+          slug: slug || "nuova-pagina",
+          page_type: newPageType,
+          blocks: pendingTemplateBlocks || [],
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Impossibile creare la pagina");
+      }
+
+      toast.success("Pagina creata");
+      setShowNewPageForm(false);
+      setNewPageTitle("");
+      setNewPageType("page");
+      setPendingTemplateBlocks(null);
+      await loadPages();
+      if (payload.page?.id) {
+        setPageInUrl(payload.page.id);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Errore creazione pagina");
+    } finally {
+      setCreating(false);
+    }
+  }, [canEdit, currentTenant?.id, loadPages, newPageTitle, newPageType, setPageInUrl]);
+
   useEffect(() => {
     void loadPages();
   }, [loadPages]);
@@ -179,6 +230,97 @@ export function DesktopEditorWorkspace() {
                 )}
               </select>
             </div>
+            {canEdit && !showNewPageForm && (
+              <button
+                type="button"
+                onClick={() => setShowNewPageForm(true)}
+                className="inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium"
+                style={{ borderColor: "var(--c-border)", color: "var(--c-text-1)", background: "var(--c-bg-1)" }}
+                title="Nuova pagina"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden lg:inline">Nuova</span>
+              </button>
+            )}
+            {showNewPageForm && (
+              <div
+                className="flex items-center gap-2 rounded-full border px-3 py-1.5"
+                style={{ borderColor: "var(--c-accent)", background: "var(--c-bg-1)" }}
+              >
+                <input
+                  type="text"
+                  placeholder="Titolo pagina"
+                  value={newPageTitle}
+                  onChange={(e) => setNewPageTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void createPage();
+                    if (e.key === "Escape") { setShowNewPageForm(false); setNewPageTitle(""); }
+                  }}
+                  autoFocus
+                  className="border-none bg-transparent text-sm outline-none w-[140px]"
+                  style={{ color: "var(--c-text-0)" }}
+                />
+                <select
+                  value={newPageType}
+                  onChange={(e) => setNewPageType(e.target.value)}
+                  className="border-none bg-transparent text-xs outline-none"
+                  style={{ color: "var(--c-text-1)" }}
+                >
+                  <option value="homepage">Homepage</option>
+                  <option value="page">Pagina</option>
+                  <option value="article">Articolo</option>
+                  <option value="category">Categoria</option>
+                  <option value="search">Ricerca</option>
+                  <option value="landing">Landing</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => void createPage()}
+                  disabled={creating || !newPageTitle.trim()}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                  style={{ background: "var(--c-accent)" }}
+                >
+                  {creating ? <Loader2 className="h-3 w-3 animate-spin" /> : <FilePlus2 className="h-3 w-3" />}
+                  Crea
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateSelector(true)}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold"
+                  style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)", border: "1px solid var(--c-border)" }}
+                >
+                  Da template
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowNewPageForm(false); setNewPageTitle(""); setPendingTemplateBlocks(null); }}
+                  className="p-0.5 rounded"
+                  style={{ color: "var(--c-text-2)" }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+                {pendingTemplateBlocks && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}>
+                    Template selezionato
+                  </span>
+                )}
+              </div>
+            )}
+            {showTemplateSelector && (
+              <PageTemplateSelector
+                onSelect={(blocks: Block[]) => {
+                  setPendingTemplateBlocks(blocks);
+                  setShowTemplateSelector(false);
+                  if (!showNewPageForm) setShowNewPageForm(true);
+                  toast.success("Template selezionato — inserisci titolo e crea la pagina");
+                }}
+                onSkip={() => {
+                  setPendingTemplateBlocks(null);
+                  setShowTemplateSelector(false);
+                  if (!showNewPageForm) setShowNewPageForm(true);
+                }}
+              />
+            )}
           </div>
         </div>
       </header>

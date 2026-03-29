@@ -23,7 +23,7 @@ import { useAuthStore } from '@/lib/store';
 import '@/lib/blocks/init';
 import toast from 'react-hot-toast';
 import {
-  PanelLeft, PanelRight, ChevronLeft
+  PanelLeft, PanelRight, ChevronLeft, Circle, Globe, FileText
 } from 'lucide-react';
 
 interface BuilderShellProps {
@@ -45,13 +45,22 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
   const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiBuildOpen, setAiBuildOpen] = useState(false);
+  const [pageTitle, setPageTitle] = useState('');
+  const [isPublished, setIsPublished] = useState(false);
   const pageApiUrl = `/api/builder/pages/${pageId}`;
 
-  const persistPage = useCallback(async (nextBlocks = blocks, nextMeta = pageMeta) => {
+  const persistPage = useCallback(async (
+    nextBlocks = blocks,
+    nextMeta = pageMeta,
+    overrides?: { title?: string; is_published?: boolean },
+  ) => {
+    const body: Record<string, unknown> = { blocks: nextBlocks, meta: nextMeta };
+    if (overrides?.title !== undefined) body.title = overrides.title;
+    if (overrides?.is_published !== undefined) body.is_published = overrides.is_published;
     const response = await fetch(pageApiUrl, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blocks: nextBlocks, meta: nextMeta }),
+      body: JSON.stringify(body),
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
@@ -66,7 +75,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
     setSaveState('idle');
     setSaveMessage(null);
     try {
-      await persistPage();
+      await persistPage(blocks, pageMeta, { title: pageTitle, is_published: isPublished });
       setSaveState('saved');
       setSaveMessage('Salvato');
       toast.success('Pagina salvata');
@@ -78,7 +87,29 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
     } finally {
       setSaving(false);
     }
-  }, [persistPage]);
+  }, [persistPage, blocks, pageMeta, pageTitle, isPublished]);
+
+  const handleTogglePublish = useCallback(async () => {
+    const next = !isPublished;
+    setIsPublished(next);
+    setSaving(true);
+    setSaveState('idle');
+    setSaveMessage(null);
+    try {
+      await persistPage(blocks, pageMeta, { title: pageTitle, is_published: next });
+      setSaveState('saved');
+      setSaveMessage(next ? 'Pubblicata' : 'Bozza');
+      toast.success(next ? 'Pagina pubblicata' : 'Pagina impostata come bozza');
+    } catch (error) {
+      setIsPublished(!next); // rollback
+      console.error('Publish toggle error:', error);
+      setSaveState('error');
+      setSaveMessage(error instanceof Error ? error.message : 'Errore pubblicazione');
+      toast.error(error instanceof Error ? error.message : 'Errore pubblicazione');
+    } finally {
+      setSaving(false);
+    }
+  }, [isPublished, persistPage, blocks, pageMeta, pageTitle]);
 
   const handleClearPage = useCallback(async () => {
     setSaving(true);
@@ -171,6 +202,8 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           blocks: serverBlocks,
           currentMeta: data.page?.meta || {},
         });
+        setPageTitle(data.page?.title || '');
+        setIsPublished(data.page?.is_published === true);
         // Use autosave ONLY if server has nothing (empty page) and autosave has content
         if (serverBlocks.length === 0 && autosave && autosave.blocks.length > 0) {
           loadPage(autosave.blocks, serverMeta);
@@ -421,6 +454,55 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           saveState={saveState}
           saveMessage={saveMessage}
         />
+
+        {/* Page title & publish controls */}
+        <div
+          className="shrink-0 flex items-center gap-3 px-3 py-1.5 text-sm"
+          style={{ background: 'var(--c-bg-1)', borderBottom: '1px solid var(--c-border)' }}
+        >
+          {/* Publish status indicator */}
+          <div className="flex items-center gap-1.5" title={isPublished ? 'Pubblicata' : 'Bozza'}>
+            <Circle
+              size={8}
+              fill={isPublished ? '#10b981' : '#9ca3af'}
+              stroke="none"
+            />
+            <span className="text-[11px] font-medium" style={{ color: isPublished ? '#059669' : 'var(--c-text-2)' }}>
+              {isPublished ? 'Pubblicata' : 'Bozza'}
+            </span>
+          </div>
+
+          <div className="w-px h-5" style={{ background: 'var(--c-border)' }} />
+
+          {/* Page title inline edit */}
+          <input
+            type="text"
+            value={pageTitle}
+            onChange={(e) => setPageTitle(e.target.value)}
+            placeholder="Titolo pagina"
+            data-editor-input="true"
+            className="bg-transparent border-none outline-none text-sm font-medium flex-1 min-w-[120px] max-w-[400px] px-1"
+            style={{ color: 'var(--c-text-0)' }}
+          />
+
+          <div className="flex-1" />
+
+          {/* Publish toggle button */}
+          <button
+            type="button"
+            onClick={() => void handleTogglePublish()}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors"
+            style={{
+              borderColor: isPublished ? '#10b981' : 'var(--c-border)',
+              background: isPublished ? 'rgba(16, 185, 129, 0.08)' : 'var(--c-bg-2)',
+              color: isPublished ? '#059669' : 'var(--c-text-1)',
+            }}
+          >
+            {isPublished ? <Globe size={12} /> : <FileText size={12} />}
+            {isPublished ? 'Pubblica' : 'Bozza'}
+          </button>
+        </div>
 
         {/* Recovered work notification */}
         {recovered && (

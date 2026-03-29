@@ -8,7 +8,8 @@ import { AnimationEditor } from './AnimationEditor';
 import { SnapGridSettings, ShapeTools, PositionSizeEditor } from './AdvancedTools';
 import { ColorPaletteManager } from '@/components/builder/ColorPaletteManager';
 import { cn } from '@/lib/utils/cn';
-import { Paintbrush, Settings2, Pentagon, Move, Palette, Layers, Settings, Eye, EyeOff, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ArrowUpDown } from 'lucide-react';
+import { Paintbrush, Settings2, Pentagon, Move, Palette, Layers, Settings, Eye, EyeOff, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ArrowUpDown, ImageIcon } from 'lucide-react';
+import { MediaPickerModal } from '@/components/builder/MediaPickerModal';
 import { Input } from '@/components/ui/input';
 import { Toggle } from '@/components/ui/toggle';
 import { Textarea } from '@/components/ui/textarea';
@@ -47,6 +48,37 @@ interface EditorialBannerOption {
   html_content: string | null;
   advertiser_id: string | null;
   target_categories: string[];
+}
+
+const IMAGE_PROP_PATTERN = /image|url|src|cover|thumbnail|avatar|logo|background|banner|poster/i;
+function isImagePropName(key: string) {
+  return IMAGE_PROP_PATTERN.test(key);
+}
+
+function MediaPickerButton({ onSelect }: { onSelect: (url: string) => void }) {
+  const { currentTenant } = useAuthStore();
+  const [open, setOpen] = useState(false);
+  if (!currentTenant?.id) return null;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="shrink-0 p-1.5 rounded-lg border hover:bg-black/5 transition"
+        style={{ borderColor: 'var(--c-border)' }}
+        title="Scegli da Media Library"
+      >
+        <ImageIcon size={14} style={{ color: 'var(--c-text-2)' }} />
+      </button>
+      {open && (
+        <MediaPickerModal
+          tenantId={currentTenant.id}
+          onSelect={onSelect}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
 }
 
 function normalizeStringArray(value: unknown) {
@@ -963,8 +995,11 @@ function PropertiesEditor({
               <div className="flex-1">
                 <Input label={key} value={value as string} onChange={(e) => updateBlockProps(block.id, { [key]: e.target.value })} />
               </div>
-              <div className="pt-4">
-              </div>
+              {isImagePropName(key) && (
+                <div className="pt-4">
+                  <MediaPickerButton onSelect={(url) => updateBlockProps(block.id, { [key]: url })} />
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1522,11 +1557,18 @@ function AuthorBioProperties({ block }: { block: Block }) {
         value={String(block.props.role || '')}
         onChange={(event) => updateBlockProps(block.id, { role: event.target.value })}
       />
-      <Input
-        label="Avatar"
-        value={String(block.props.avatar || '')}
-        onChange={(event) => updateBlockProps(block.id, { avatar: event.target.value })}
-      />
+      <div className="flex items-center gap-1">
+        <div className="flex-1">
+          <Input
+            label="Avatar"
+            value={String(block.props.avatar || '')}
+            onChange={(event) => updateBlockProps(block.id, { avatar: event.target.value })}
+          />
+        </div>
+        <div className="pt-4">
+          <MediaPickerButton onSelect={(url) => updateBlockProps(block.id, { avatar: url })} />
+        </div>
+      </div>
       <Textarea
         label="Bio"
         value={String(block.props.bio || '')}
@@ -2007,7 +2049,14 @@ function HeroProperties({ block }: { block: Block }) {
           { value: 'solid-light', label: 'Light panel' },
         ]}
       />
-      <Input label="URL sfondo" value={String(block.props.backgroundImage || '')} onChange={(event) => updateBlockProps(block.id, { backgroundImage: event.target.value })} />
+      <div className="flex items-center gap-1">
+        <div className="flex-1">
+          <Input label="URL sfondo" value={String(block.props.backgroundImage || '')} onChange={(event) => updateBlockProps(block.id, { backgroundImage: event.target.value })} />
+        </div>
+        <div className="pt-4">
+          <MediaPickerButton onSelect={(url) => updateBlockProps(block.id, { backgroundImage: url })} />
+        </div>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <ColorPicker label="Eyebrow sfondo" value={String(block.props.eyebrowBgColor || '')} onChange={(value) => updateBlockProps(block.id, { eyebrowBgColor: value })} />
         <ColorPicker label="Eyebrow testo" value={String(block.props.eyebrowTextColor || '')} onChange={(value) => updateBlockProps(block.id, { eyebrowTextColor: value })} />
@@ -2550,11 +2599,18 @@ function ImageGalleryProperties({ block }: { block: Block }) {
                   Rimuovi
                 </button>
               </div>
-              <Input
-                label="Immagine"
-                value={String(item.src || item.url || '')}
-                onChange={(event) => updateItem(index, (current) => ({ ...current, src: event.target.value, url: event.target.value }))}
-              />
+              <div className="flex items-center gap-1">
+                <div className="flex-1">
+                  <Input
+                    label="Immagine"
+                    value={String(item.src || item.url || '')}
+                    onChange={(event) => updateItem(index, (current) => ({ ...current, src: event.target.value, url: event.target.value }))}
+                  />
+                </div>
+                <div className="pt-4">
+                  <MediaPickerButton onSelect={(url) => updateItem(index, (current) => ({ ...current, src: url, url }))} />
+                </div>
+              </div>
               <Input
                 label="Didascalia"
                 value={String(item.caption || '')}
@@ -2703,11 +2759,18 @@ function CarouselProperties({ block }: { block: Block }) {
                 value={String(item.excerpt || '')}
                 onChange={(event) => updateItem(index, (current) => ({ ...current, excerpt: event.target.value }))}
               />
-              <Input
-                label="Immagine"
-                value={String(item.image || '')}
-                onChange={(event) => updateItem(index, (current) => ({ ...current, image: event.target.value }))}
-              />
+              <div className="flex items-center gap-1">
+                <div className="flex-1">
+                  <Input
+                    label="Immagine"
+                    value={String(item.image || '')}
+                    onChange={(event) => updateItem(index, (current) => ({ ...current, image: event.target.value }))}
+                  />
+                </div>
+                <div className="pt-4">
+                  <MediaPickerButton onSelect={(url) => updateItem(index, (current) => ({ ...current, image: url }))} />
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <Input
                   label="Categoria"
