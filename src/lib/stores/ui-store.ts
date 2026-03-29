@@ -105,12 +105,13 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'editoria-ui-store',
-      version: 3,
+      version: 4,
       migrate: (persistedState) => {
         const state = (persistedState || {}) as Partial<UiState> & { leftPanelTab?: string };
+        const validTabs = new Set(['blocks', 'layers', 'templates', 'pages']);
         return {
           ...state,
-          leftPanelTab: state.leftPanelTab === 'layers' ? 'layers' : state.leftPanelTab === 'templates' ? 'templates' : 'blocks',
+          leftPanelTab: validTabs.has(state.leftPanelTab || '') ? state.leftPanelTab as UiState['leftPanelTab'] : 'blocks',
           snapEnabled: typeof state.snapEnabled === 'boolean' ? state.snapEnabled : true,
           snapToDocumentEdges: typeof state.snapToDocumentEdges === 'boolean' ? state.snapToDocumentEdges : true,
           selectedInnerTarget: state.selectedInnerTarget ?? null,
