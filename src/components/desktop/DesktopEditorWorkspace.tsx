@@ -366,6 +366,7 @@ export function DesktopEditorWorkspace() {
             projectId={currentTenant.id}
             projectName={currentTenant.name}
             pageId={selectedPage.id}
+            onNavigateToPage={(pid) => { setPageInUrl(pid); void loadPages(); }}
           />
         ) : bootstrapped ? (
           <div className="flex min-h-[calc(100vh-81px)] items-center justify-center px-6 text-sm" style={{ color: "var(--c-text-2)" }}>

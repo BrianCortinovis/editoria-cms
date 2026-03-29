@@ -11,7 +11,7 @@ interface UiState {
   deviceMode: DeviceMode;
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
-  leftPanelTab: 'blocks' | 'layers';
+  leftPanelTab: 'blocks' | 'layers' | 'templates' | 'pages';
   rightPanelTab: 'properties' | 'style' | 'animation' | 'shape' | 'responsive' | 'position' | 'tools' | 'gradient' | 'effects';
   hiddenRightPanelTabs: string[];
   aiPanelOpen: boolean;
@@ -32,7 +32,7 @@ interface UiState {
   setDeviceMode: (mode: DeviceMode) => void;
   setLeftPanelOpen: (open: boolean) => void;
   setRightPanelOpen: (open: boolean) => void;
-  setLeftPanelTab: (tab: 'blocks' | 'layers') => void;
+  setLeftPanelTab: (tab: 'blocks' | 'layers' | 'templates' | 'pages') => void;
   setRightPanelTab: (tab: UiState['rightPanelTab']) => void;
   toggleHiddenRightPanelTab: (tab: string) => void;
   setAiPanelOpen: (open: boolean) => void;
@@ -110,7 +110,7 @@ export const useUiStore = create<UiState>()(
         const state = (persistedState || {}) as Partial<UiState> & { leftPanelTab?: string };
         return {
           ...state,
-          leftPanelTab: state.leftPanelTab === 'layers' ? 'layers' : 'blocks',
+          leftPanelTab: state.leftPanelTab === 'layers' ? 'layers' : state.leftPanelTab === 'templates' ? 'templates' : 'blocks',
           snapEnabled: typeof state.snapEnabled === 'boolean' ? state.snapEnabled : true,
           snapToDocumentEdges: typeof state.snapToDocumentEdges === 'boolean' ? state.snapToDocumentEdges : true,
           selectedInnerTarget: state.selectedInnerTarget ?? null,

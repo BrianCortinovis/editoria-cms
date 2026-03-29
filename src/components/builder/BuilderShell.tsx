@@ -30,9 +30,10 @@ interface BuilderShellProps {
   projectId: string;
   projectName: string;
   pageId: string;
+  onNavigateToPage?: (pageId: string) => void;
 }
 
-export function BuilderShell({ projectId, projectName, pageId }: BuilderShellProps) {
+export function BuilderShell({ projectId, projectName, pageId, onNavigateToPage }: BuilderShellProps) {
   const { currentTenant } = useAuthStore();
   const {
     leftPanelOpen, rightPanelOpen,
@@ -532,7 +533,7 @@ export function BuilderShell({ projectId, projectName, pageId }: BuilderShellPro
           {/* Left Panel - Fixed width or hidden */}
           {leftPanelOpen && (
             <div className="w-[280px] shrink-0 h-full relative border-r" style={{ borderColor: 'var(--c-border)' }}>
-              <LeftPanel />
+              <LeftPanel currentPageId={pageId} onSelectPage={onNavigateToPage} />
               <button
                 onClick={() => setLeftPanelOpen(false)}
                 className="absolute top-2 right-2 p-1 rounded z-10"

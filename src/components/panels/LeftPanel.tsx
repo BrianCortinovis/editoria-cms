@@ -3,15 +3,24 @@
 import { useUiStore } from '@/lib/stores/ui-store';
 import { BlockLibrary } from './BlockLibrary';
 import { LayerTree } from './LayerTree';
+import { PageTemplatePanel } from './PageTemplatePanel';
+import { PageManagerPanel } from './PageManagerPanel';
 import { cn } from '@/lib/utils/cn';
-import { LayoutGrid, Layers, Palette, Zap, GitBranch, Settings } from 'lucide-react';
+import { LayoutGrid, Layers, LayoutTemplate, Files } from 'lucide-react';
 
-export function LeftPanel() {
+interface LeftPanelProps {
+  currentPageId?: string;
+  onSelectPage?: (pageId: string) => void;
+}
+
+export function LeftPanel({ currentPageId, onSelectPage }: LeftPanelProps) {
   const { leftPanelTab, setLeftPanelTab } = useUiStore();
 
   const tabs = [
     { id: 'blocks' as const, label: 'Blocchi', icon: LayoutGrid },
     { id: 'layers' as const, label: 'Layers', icon: Layers },
+    { id: 'templates' as const, label: 'Templates', icon: LayoutTemplate },
+    { id: 'pages' as const, label: 'Pagine', icon: Files },
   ];
 
   return (
@@ -40,6 +49,10 @@ export function LeftPanel() {
       <div className="flex-1 overflow-y-auto pb-40">
         {leftPanelTab === 'blocks' && <BlockLibrary />}
         {leftPanelTab === 'layers' && <LayerTree />}
+        {leftPanelTab === 'templates' && <PageTemplatePanel />}
+        {leftPanelTab === 'pages' && currentPageId && onSelectPage && (
+          <PageManagerPanel currentPageId={currentPageId} onSelectPage={onSelectPage} />
+        )}
       </div>
     </div>
   );
