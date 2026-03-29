@@ -1079,6 +1079,8 @@ const blankConStruttura: PageTemplate = {
 // Exports
 // ---------------------------------------------------------------------------
 
+import { PRO_TEMPLATES } from './pro-templates';
+
 export const PAGE_TEMPLATES: PageTemplate[] = [
   homepageGiornalistica,
   homepageMagazine,
@@ -1088,6 +1090,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
   categoria,
   paginaArticoloCustom,
   blankConStruttura,
+  ...PRO_TEMPLATES,
 ];
 
 export function getPageTemplateById(id: string): PageTemplate | undefined {
