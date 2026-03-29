@@ -1,10 +1,8 @@
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { Database, Globe, HardDrive, Shield, Users } from "lucide-react";
 import { getPlatformCronSettings } from "@/lib/cron/platform-settings";
 import { getSuperadminOverview } from "@/lib/superadmin/service";
-
-const PlatformCharts = dynamic(() => import("@/components/admin/PlatformCharts"), { ssr: false });
+import PlatformCharts from "@/components/admin/PlatformCharts";
 
 export default async function AdminOverviewPage() {
   const overview = await getSuperadminOverview();
