@@ -39,6 +39,7 @@ import {
   Share2,
   ScanLine,
   Upload,
+  LayoutGrid,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { useThemeStore } from "@/lib/theme";
@@ -78,6 +79,7 @@ export const advNav = [
 ];
 
 export const systemNav = [
+  { href: "/dashboard/zone-sito", label: "Zone Sito", icon: LayoutGrid },
   { href: "/dashboard/testata", label: "Testata", icon: Building2 },
   { href: "/dashboard/importa-sito", label: "Importa Sito", icon: Upload },
   { href: "/dashboard/tecnico", label: "Tecnico", icon: Cpu },

@@ -25,22 +25,26 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
     const offset = parseInt(url.searchParams.get('offset') || '0');
     const featured = url.searchParams.get('featured') === 'true';
+    const categorySlug = url.searchParams.get('category') || '';
 
-    const publishedPosts = await readPublishedJson<PublishedPostsDocument>(`sites/${encodeURIComponent(tenant.tenantSlug)}/posts.json`);
-    if (publishedPosts?.articles) {
-      const articles = featured
-        ? publishedPosts.articles.filter((article) => article.is_featured === true)
-        : publishedPosts.articles;
+    // Published JSON fallback (skip if category filter is active — JSON doesn't support it well)
+    if (!categorySlug) {
+      const publishedPosts = await readPublishedJson<PublishedPostsDocument>(`sites/${encodeURIComponent(tenant.tenantSlug)}/posts.json`);
+      if (publishedPosts?.articles) {
+        const articles = featured
+          ? publishedPosts.articles.filter((article) => article.is_featured === true)
+          : publishedPosts.articles;
 
-      return NextResponse.json(
-        {
-          articles: articles.slice(offset, offset + limit),
-          total: articles.length,
-        },
-        {
-          headers: getCacheHeadersWithSecurity('ARTICLES_LIST'),
-        }
-      );
+        return NextResponse.json(
+          {
+            articles: articles.slice(offset, offset + limit),
+            total: articles.length,
+          },
+          {
+            headers: getCacheHeadersWithSecurity('ARTICLES_LIST'),
+          }
+        );
+      }
     }
 
     const supabase = await createServiceRoleClient();
@@ -57,6 +61,19 @@ export async function GET(request: NextRequest) {
 
     if (featured) {
       query = query.eq('is_featured', true);
+    }
+
+    if (categorySlug) {
+      // Resolve category slug to ID, then filter
+      const { data: cat } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('tenant_id', tenant.tenantId)
+        .eq('slug', categorySlug)
+        .single();
+      if (cat) {
+        query = query.eq('category_id', cat.id);
+      }
     }
 
     const { data: articles, error, count } = await query;

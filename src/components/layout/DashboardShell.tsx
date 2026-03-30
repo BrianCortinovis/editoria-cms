@@ -33,6 +33,7 @@ const pageTitles: Record<string, string> = {
   "/dashboard/adv": "ADV",
   "/dashboard/form": "Form & Submissions",
   "/dashboard/banner": "Banner Pubblicitari",
+  "/dashboard/zone-sito": "Zone Sito",
   "/dashboard/inserzionisti": "Inserzionisti",
   "/dashboard/testata": "Scheda Testata",
   "/dashboard/tecnico": "Pannello Tecnico",
