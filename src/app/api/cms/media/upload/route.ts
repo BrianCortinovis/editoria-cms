@@ -4,6 +4,7 @@ import { writeActivityLog } from "@/lib/security/audit";
 import { triggerPublish } from "@/lib/publish/runner";
 import { assertCmsRateLimit, CMS_EDITOR_ROLES, requireTenantAccess } from "@/lib/cms/tenant-access";
 import { assertSiteUploadAllowed } from "@/lib/superadmin/storage";
+import { shouldUseR2, getR2CredentialsForTenant, uploadToR2 } from "@/lib/storage/r2-client";
 
 const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024;
 const ALLOWED_MEDIA_MIME_TYPES = new Set([
@@ -75,19 +76,40 @@ export async function POST(request: Request) {
   const bytes = await file.arrayBuffer();
   const uploadBuffer = Buffer.from(bytes);
 
-  const uploadResult = await access.serviceClient.storage
-    .from("media")
-    .upload(filename, uploadBuffer, {
-      contentType: file.type,
-      cacheControl: "3600",
-      upsert: false,
-    });
+  let publicUrl: string;
+  const useR2 = await shouldUseR2(tenantId);
 
-  if (uploadResult.error) {
-    return NextResponse.json({ error: uploadResult.error.message }, { status: 500 });
+  if (useR2) {
+    const r2Creds = await getR2CredentialsForTenant(tenantId);
+    if (!r2Creds) {
+      return NextResponse.json({ error: "R2 configured but credentials missing" }, { status: 500 });
+    }
+
+    try {
+      const r2Key = `tenants/${filename}`;
+      const result = await uploadToR2(r2Creds, r2Key, uploadBuffer, file.type);
+      publicUrl = result.url;
+    } catch (r2Error) {
+      return NextResponse.json({
+        error: r2Error instanceof Error ? r2Error.message : "R2 upload failed",
+      }, { status: 500 });
+    }
+  } else {
+    const uploadResult = await access.serviceClient.storage
+      .from("media")
+      .upload(filename, uploadBuffer, {
+        contentType: file.type,
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (uploadResult.error) {
+      return NextResponse.json({ error: uploadResult.error.message }, { status: 500 });
+    }
+
+    const { data: urlData } = access.serviceClient.storage.from("media").getPublicUrl(filename);
+    publicUrl = urlData.publicUrl;
   }
-
-  const { data: urlData } = access.serviceClient.storage.from("media").getPublicUrl(filename);
   const { data: inserted, error: insertError } = await access.sessionClient
     .from("media")
     .insert({
@@ -98,8 +120,8 @@ export async function POST(request: Request) {
       size_bytes: file.size,
       width: null,
       height: null,
-      url: urlData.publicUrl,
-      thumbnail_url: file.type.startsWith("image/") ? urlData.publicUrl : null,
+      url: publicUrl,
+      thumbnail_url: file.type.startsWith("image/") ? publicUrl : null,
       uploaded_by: access.user.id,
     })
     .select("*")
