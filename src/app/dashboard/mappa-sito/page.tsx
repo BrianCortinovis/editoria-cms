@@ -19,12 +19,14 @@ import {
 interface TreeNode {
   id: string;
   label: string;
-  type: "root" | "group" | "page" | "category" | "article" | "zone";
+  type: "root" | "page" | "category-page" | "article" | "zone";
   meta?: string;
   count?: number;
   isPublished?: boolean;
   color?: string;
   children?: TreeNode[];
+  /** category slug for lazy-loading articles */
+  categorySlug?: string;
   lazy?: boolean;
 }
 
@@ -33,46 +35,16 @@ interface ArticleRow { id: string; title: string; slug: string; status: string; 
 interface PageRow { id: string; title: string; slug: string; parent_id: string | null; page_type: string; is_published: boolean; sort_order: number }
 interface ZoneRow { id: string; zone_key: string; label: string; zone_type: string; is_active: boolean }
 
-/* ─── tree builders ─── */
-
-function buildCategoryTree(cats: CategoryRow[]): TreeNode[] {
-  const map = new Map<string, TreeNode>();
-  for (const c of cats) {
-    map.set(c.id, { id: `cat-${c.id}`, label: c.name, type: "category", color: c.color || undefined, meta: c.slug, children: [], lazy: true });
-  }
-  const roots: TreeNode[] = [];
-  for (const c of cats) {
-    const node = map.get(c.id)!;
-    if (c.parent_id && map.has(c.parent_id)) map.get(c.parent_id)!.children!.push(node);
-    else roots.push(node);
-  }
-  return roots;
-}
-
-function buildPageTree(pages: PageRow[]): TreeNode[] {
-  const map = new Map<string, TreeNode>();
-  for (const p of pages) {
-    map.set(p.id, { id: `page-${p.id}`, label: p.title, type: "page", meta: `/${p.slug}`, isPublished: p.is_published, children: [] });
-  }
-  const roots: TreeNode[] = [];
-  for (const p of pages) {
-    const node = map.get(p.id)!;
-    if (p.parent_id && map.has(p.parent_id)) map.get(p.parent_id)!.children!.push(node);
-    else roots.push(node);
-  }
-  return roots;
-}
-
-/* ─── main component ─── */
+/* ─── component ─── */
 
 export default function MappaSitoPage() {
   const { currentTenant } = useAuthStore();
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [loadedCategories, setLoadedCategories] = useState<Set<string>>(new Set());
+  const [loadedLazy, setLoadedLazy] = useState<Set<string>>(new Set());
   const [allArticles, setAllArticles] = useState<ArticleRow[]>([]);
-  const articlesLoaded = useRef(false);
+  const categoriesRef = useRef<CategoryRow[]>([]);
 
   const load = useCallback(async () => {
     if (!currentTenant) return;
@@ -94,27 +66,56 @@ export default function MappaSitoPage() {
     const allZones = (zones || []) as ZoneRow[];
 
     setAllArticles(allArts);
-    articlesLoaded.current = true;
+    categoriesRef.current = allCats;
 
-    const catTree = buildCategoryTree(allCats);
-    const articlesByCategory = new Map<string, number>();
-    let uncategorizedCount = 0;
+    // Map category slug -> category row for matching pages to categories
+    const catBySlug = new Map<string, CategoryRow>();
+    for (const c of allCats) catBySlug.set(c.slug, c);
+
+    // Count articles per category
+    const articleCountByCatId = new Map<string, number>();
     for (const a of allArts) {
-      if (a.category_id) articlesByCategory.set(a.category_id, (articlesByCategory.get(a.category_id) || 0) + 1);
-      else uncategorizedCount++;
+      if (a.category_id) articleCountByCatId.set(a.category_id, (articleCountByCatId.get(a.category_id) || 0) + 1);
     }
 
-    const injectCounts = (nodes: TreeNode[]) => {
-      for (const n of nodes) {
-        const catId = n.id.replace("cat-", "");
-        const c = articlesByCategory.get(catId);
-        if (c) n.count = c;
-        if (n.children?.length) injectCounts(n.children);
-      }
-    };
-    injectCounts(catTree);
+    // Build page tree — pages of type "category" get article counts and lazy children
+    const pageMap = new Map<string, TreeNode>();
+    for (const p of allPages) {
+      const matchedCat = catBySlug.get(p.slug);
+      const isCategoryPage = p.page_type === "category" && matchedCat;
+      const articleCount = isCategoryPage ? (articleCountByCatId.get(matchedCat!.id) || 0) : undefined;
 
-    const pageTree = buildPageTree(allPages);
+      pageMap.set(p.id, {
+        id: `page-${p.id}`,
+        label: p.title,
+        type: isCategoryPage ? "category-page" : "page",
+        meta: `/${p.slug}`,
+        isPublished: p.is_published,
+        color: isCategoryPage ? (matchedCat!.color || undefined) : undefined,
+        count: articleCount,
+        categorySlug: isCategoryPage ? matchedCat!.slug : undefined,
+        children: [],
+        lazy: isCategoryPage && (articleCount || 0) > 0,
+      });
+    }
+
+    const pageRoots: TreeNode[] = [];
+    for (const p of allPages) {
+      const node = pageMap.get(p.id)!;
+      if (p.parent_id && pageMap.has(p.parent_id)) {
+        pageMap.get(p.parent_id)!.children!.push(node);
+      } else {
+        pageRoots.push(node);
+      }
+    }
+
+    // Zone nodes
+    const zoneNodes: TreeNode[] = allZones.map((z) => ({
+      id: `zone-${z.id}`,
+      label: z.label + (z.is_active ? "" : " (disattiva)"),
+      type: "zone" as const,
+      meta: `${z.zone_key} · ${z.zone_type}`,
+    }));
 
     const siteTree: TreeNode[] = [{
       id: "root",
@@ -122,23 +123,26 @@ export default function MappaSitoPage() {
       type: "root",
       meta: domain,
       children: [
-        { id: "grp-pages", label: "Pagine", type: "group", count: allPages.length, children: pageTree },
-        {
-          id: "grp-notizie", label: "Notizie", type: "group", count: allArts.length,
-          children: [
-            ...catTree,
-            ...(uncategorizedCount > 0 ? [{ id: "cat-uncategorized", label: "Senza categoria", type: "category" as const, count: uncategorizedCount, lazy: true, children: [] as TreeNode[] }] : []),
-          ],
-        },
-        {
-          id: "grp-zones", label: "Zone Sito", type: "group", count: allZones.length,
-          children: allZones.map((z) => ({ id: `zone-${z.id}`, label: z.label + (z.is_active ? "" : " (disattiva)"), type: "zone" as const, meta: `${z.zone_key} · ${z.zone_type}` })),
-        },
+        ...pageRoots,
+        ...(zoneNodes.length > 0 ? [{
+          id: "grp-zones",
+          label: "Zone Sito",
+          type: "page" as const,
+          count: zoneNodes.length,
+          children: zoneNodes,
+        }] : []),
       ],
     }];
 
     setTree(siteTree);
-    setExpanded(new Set(["root", "grp-pages", "grp-notizie"]));
+    // Auto-expand root and pages with children
+    const autoExpand = new Set<string>(["root"]);
+    for (const p of allPages) {
+      if (allPages.some((c) => c.parent_id === p.id)) {
+        autoExpand.add(`page-${p.id}`);
+      }
+    }
+    setExpanded(autoExpand);
     setLoading(false);
   }, [currentTenant]);
 
@@ -148,16 +152,18 @@ export default function MappaSitoPage() {
     setExpanded((prev) => { const n = new Set(prev); if (n.has(nodeId)) n.delete(nodeId); else n.add(nodeId); return n; });
   }, []);
 
-  const expandCategory = useCallback((nodeId: string) => {
-    if (loadedCategories.has(nodeId)) { toggle(nodeId); return; }
+  // Lazy-load articles when expanding a category-page node
+  const expandLazy = useCallback((nodeId: string, categorySlug: string) => {
+    if (loadedLazy.has(nodeId)) { toggle(nodeId); return; }
 
-    const catId = nodeId.replace("cat-", "");
-    const catArts = catId === "uncategorized"
-      ? allArticles.filter((a) => !a.category_id)
-      : allArticles.filter((a) => a.category_id === catId);
+    const cat = categoriesRef.current.find((c) => c.slug === categorySlug);
+    if (!cat) { toggle(nodeId); return; }
 
+    const catArts = allArticles.filter((a) => a.category_id === cat.id);
     const articleNodes: TreeNode[] = catArts.map((a) => ({
-      id: `article-${a.id}`, label: a.title, type: "article" as const,
+      id: `article-${a.id}`,
+      label: a.title,
+      type: "article" as const,
       meta: a.status === "published" ? "pubblicato" : a.status === "draft" ? "bozza" : a.status,
       isPublished: a.status === "published",
     }));
@@ -166,18 +172,18 @@ export default function MappaSitoPage() {
       const inject = (nodes: TreeNode[]): TreeNode[] =>
         nodes.map((n) => {
           if (n.id === nodeId) {
-            const subcats = (n.children || []).filter((c) => c.type === "category");
-            return { ...n, children: [...subcats, ...articleNodes], lazy: false };
+            const existingChildren = (n.children || []).filter((c) => c.type !== "article");
+            return { ...n, children: [...existingChildren, ...articleNodes], lazy: false };
           }
           return n.children ? { ...n, children: inject(n.children) } : n;
         });
       return inject(prev);
     });
-    setLoadedCategories((prev) => new Set([...prev, nodeId]));
+    setLoadedLazy((prev) => new Set([...prev, nodeId]));
     setExpanded((prev) => new Set([...prev, nodeId]));
-  }, [allArticles, loadedCategories, toggle]);
+  }, [allArticles, loadedLazy, toggle]);
 
-  /* ─── classic tree renderer with guide lines ─── */
+  /* ─── classic tree renderer with │ ├── └── guide lines ─── */
 
   const LINE_COLOR = "var(--c-border)";
 
@@ -185,9 +191,12 @@ export default function MappaSitoPage() {
     const size = 15;
     switch (node.type) {
       case "root": return <Globe size={size} style={{ color: "var(--c-accent)" }} />;
-      case "group": return isOpen ? <FolderOpen size={size} style={{ color: "#e6a817" }} /> : <FolderClosed size={size} style={{ color: "#e6a817" }} />;
-      case "page": return <FileText size={size} style={{ color: "var(--c-accent)" }} />;
-      case "category": return isOpen ? <FolderOpen size={size} style={{ color: node.color || "#c0392b" }} /> : <FolderClosed size={size} style={{ color: node.color || "#c0392b" }} />;
+      case "page": {
+        const hasKids = (node.children?.length || 0) > 0;
+        if (hasKids) return isOpen ? <FolderOpen size={size} style={{ color: "#e6a817" }} /> : <FolderClosed size={size} style={{ color: "#e6a817" }} />;
+        return <FileText size={size} style={{ color: "var(--c-accent)" }} />;
+      }
+      case "category-page": return isOpen ? <FolderOpen size={size} style={{ color: node.color || "#c0392b" }} /> : <FolderClosed size={size} style={{ color: node.color || "#c0392b" }} />;
       case "article": return <Newspaper size={size} style={{ color: "var(--c-text-3)" }} />;
       case "zone": return <Layout size={size} style={{ color: "#5b7cfa" }} />;
       default: return <FileText size={size} />;
@@ -203,8 +212,8 @@ export default function MappaSitoPage() {
           const isOpen = expanded.has(node.id);
 
           const handleClick = () => {
-            if (node.type === "category" && node.lazy && !loadedCategories.has(node.id)) {
-              expandCategory(node.id);
+            if (node.lazy && node.categorySlug && !loadedLazy.has(node.id)) {
+              expandLazy(node.id, node.categorySlug);
             } else if (hasChildren) {
               toggle(node.id);
             }
@@ -212,30 +221,27 @@ export default function MappaSitoPage() {
 
           return (
             <div key={node.id}>
-              {/* Node row */}
               <div
                 className="flex items-center cursor-pointer select-none transition-colors"
-                style={{ height: 30 }}
+                style={{ height: 28 }}
                 onClick={handleClick}
                 onMouseEnter={(e) => { e.currentTarget.style.background = "var(--c-bg-2)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
               >
-                {/* Guide lines from parent levels */}
+                {/* Vertical guide lines from ancestors */}
                 {parentLines.map((showLine, i) => (
-                  <div key={i} style={{ width: 20, height: 30, position: "relative", flexShrink: 0 }}>
+                  <div key={i} style={{ width: 20, height: 28, position: "relative", flexShrink: 0 }}>
                     {showLine && (
                       <div style={{ position: "absolute", left: 9, top: 0, bottom: 0, width: 1, background: LINE_COLOR }} />
                     )}
                   </div>
                 ))}
 
-                {/* Current level connector: ├── or └── */}
+                {/* Current connector: ├── or └── */}
                 {depth > 0 && (
-                  <div style={{ width: 20, height: 30, position: "relative", flexShrink: 0 }}>
-                    {/* Vertical line (half if last) */}
-                    <div style={{ position: "absolute", left: 9, top: 0, height: isLast ? 15 : 30, width: 1, background: LINE_COLOR }} />
-                    {/* Horizontal line */}
-                    <div style={{ position: "absolute", left: 9, top: 14, width: 11, height: 1, background: LINE_COLOR }} />
+                  <div style={{ width: 20, height: 28, position: "relative", flexShrink: 0 }}>
+                    <div style={{ position: "absolute", left: 9, top: 0, height: isLast ? 14 : 28, width: 1, background: LINE_COLOR }} />
+                    <div style={{ position: "absolute", left: 9, top: 13, width: 11, height: 1, background: LINE_COLOR }} />
                   </div>
                 )}
 
@@ -249,13 +255,13 @@ export default function MappaSitoPage() {
                   className="text-[13px] truncate"
                   style={{
                     color: "var(--c-text-0)",
-                    fontWeight: node.type === "root" || node.type === "group" ? 600 : 400,
+                    fontWeight: node.type === "root" ? 700 : hasChildren ? 500 : 400,
                   }}
                 >
                   {node.label}
                 </span>
 
-                {/* Count badge */}
+                {/* Article count */}
                 {node.count !== undefined && node.count > 0 && (
                   <span
                     className="text-[10px] px-1.5 py-0.5 rounded ml-2 shrink-0"
@@ -265,7 +271,7 @@ export default function MappaSitoPage() {
                   </span>
                 )}
 
-                {/* Published dot */}
+                {/* Published indicator */}
                 {node.isPublished !== undefined && (
                   <span className="ml-1.5 shrink-0">
                     {node.isPublished
@@ -275,7 +281,7 @@ export default function MappaSitoPage() {
                   </span>
                 )}
 
-                {/* Meta slug */}
+                {/* Meta */}
                 {node.meta && (
                   <span className="text-[11px] font-mono ml-auto mr-3 shrink-0" style={{ color: "var(--c-text-3)" }}>
                     {node.meta}
@@ -285,11 +291,7 @@ export default function MappaSitoPage() {
 
               {/* Children */}
               {hasChildren && isOpen && node.children && (
-                <TreeBranch
-                  nodes={node.children}
-                  depth={depth + 1}
-                  parentLines={[...parentLines, !isLast]}
-                />
+                <TreeBranch nodes={node.children} depth={depth + 1} parentLines={[...parentLines, !isLast]} />
               )}
             </div>
           );
@@ -312,10 +314,7 @@ export default function MappaSitoPage() {
       {loading ? (
         <div className="py-12 text-center text-sm" style={{ color: "var(--c-text-2)" }}>Caricamento...</div>
       ) : (
-        <div
-          className="rounded-xl border overflow-hidden py-2 font-mono"
-          style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)" }}
-        >
+        <div className="rounded-xl border overflow-hidden py-2 font-mono" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)" }}>
           <TreeBranch nodes={tree} depth={0} parentLines={[]} />
         </div>
       )}
@@ -323,13 +322,11 @@ export default function MappaSitoPage() {
       <div className="rounded-xl border p-4 space-y-2" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)" }}>
         <p className="text-xs font-semibold" style={{ color: "var(--c-text-2)" }}>Legenda</p>
         <div className="flex flex-wrap gap-4 text-[11px]" style={{ color: "var(--c-text-2)" }}>
-          <span className="flex items-center gap-1"><FolderClosed size={12} style={{ color: "#e6a817" }} /> Sezione</span>
+          <span className="flex items-center gap-1"><FolderOpen size={12} style={{ color: "#e6a817" }} /> Sezione/Pagina con figli</span>
           <span className="flex items-center gap-1"><FileText size={12} style={{ color: "var(--c-accent)" }} /> Pagina</span>
-          <span className="flex items-center gap-1"><FolderClosed size={12} style={{ color: "#c0392b" }} /> Categoria</span>
+          <span className="flex items-center gap-1"><FolderOpen size={12} style={{ color: "#c0392b" }} /> Categoria (clicca per articoli)</span>
           <span className="flex items-center gap-1"><Newspaper size={12} /> Articolo</span>
           <span className="flex items-center gap-1"><Layout size={12} style={{ color: "#5b7cfa" }} /> Zona</span>
-          <span className="flex items-center gap-1"><Eye size={12} style={{ color: "#10b981" }} /> Pubblicato</span>
-          <span className="flex items-center gap-1"><EyeOff size={12} /> Bozza</span>
         </div>
       </div>
     </div>
