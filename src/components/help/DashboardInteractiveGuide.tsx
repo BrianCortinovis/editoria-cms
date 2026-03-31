@@ -361,7 +361,6 @@ const PAGE_GUIDES: Array<{ match: (pathname: string) => boolean; page: GuidePage
     match: (pathname) =>
       pathname === '/dashboard/menu' ||
       pathname === '/dashboard/footer' ||
-      pathname === '/dashboard/testata' ||
       pathname === '/dashboard/impostazioni' ||
       pathname === '/dashboard/moduli' ||
       pathname === '/dashboard/gdpr' ||
@@ -382,7 +381,7 @@ const PAGE_GUIDES: Array<{ match: (pathname: string) => boolean; page: GuidePage
         title: 'La parte di governo del CMS',
         intro: 'Qui non si produce solo contenuto: si governa il contesto tecnico e organizzativo in cui il CMS lavora.',
         bullets: [
-          'Comprende impostazioni, testata, ruoli, log, tecnico, migrazioni e bridge.',
+          'Comprende impostazioni, ruoli, log, tecnico, migrazioni e bridge.',
           'Ha un impatto trasversale su tutto il prodotto.',
           'Va letta come area di governo e controllo, non come semplice raccolta utility.',
         ],
