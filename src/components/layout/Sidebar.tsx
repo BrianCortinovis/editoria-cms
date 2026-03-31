@@ -80,7 +80,7 @@ export const advNav = [
 
 export const systemNav = [
   { href: "/dashboard/zone-sito", label: "Zone Sito", icon: LayoutGrid },
-  { href: "/dashboard/testata", label: "Testata", icon: Building2 },
+  { href: "/dashboard/mappa-sito", label: "Mappa Sito", icon: Globe },
   { href: "/dashboard/importa-sito", label: "Importa Sito", icon: Upload },
   { href: "/dashboard/tecnico", label: "Tecnico", icon: Cpu },
   { href: "/dashboard/migrazioni", label: "Migraz.", icon: Download },
