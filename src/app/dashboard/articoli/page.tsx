@@ -48,16 +48,20 @@ const statusLabels: Record<string, string> = {
   archived: "Archiviato",
 };
 
+const PAGE_SIZE = 50;
+
 export default function ArticoliPage() {
   const { currentTenant, currentRole } = useAuthStore();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
 
-  const loadArticles = useCallback(async () => {
-    if (!currentTenant) return;
+  const buildQuery = useCallback(() => {
+    if (!currentTenant) return null;
     const supabase = createClient();
 
     let query = supabase
@@ -75,12 +79,34 @@ export default function ArticoliPage() {
       query = query.ilike("title", `%${search}%`);
     }
 
-    const { data } = await query.limit(50);
+    return query;
+  }, [currentTenant, filterStatus, search]);
+
+  const loadArticles = useCallback(async () => {
+    const query = buildQuery();
+    if (!query) return;
+
+    const { data } = await query.range(0, PAGE_SIZE - 1);
     if (data) {
       setArticles(data as unknown as Article[]);
+      setHasMore(data.length === PAGE_SIZE);
     }
     setLoading(false);
-  }, [currentTenant, filterStatus, search]);
+  }, [buildQuery]);
+
+  const loadMore = useCallback(async () => {
+    const query = buildQuery();
+    if (!query || loadingMore) return;
+
+    setLoadingMore(true);
+    const offset = articles.length;
+    const { data } = await query.range(offset, offset + PAGE_SIZE - 1);
+    if (data) {
+      setArticles((prev) => [...prev, ...(data as unknown as Article[])]);
+      setHasMore(data.length === PAGE_SIZE);
+    }
+    setLoadingMore(false);
+  }, [buildQuery, articles.length, loadingMore]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -318,6 +344,20 @@ export default function ArticoliPage() {
           </div>
         )}
       </div>
+
+      {/* Load more */}
+      {!loading && hasMore && articles.length > 0 && (
+        <div className="flex justify-center mt-6">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="px-6 py-2.5 text-sm font-medium rounded-lg transition hover:opacity-90 disabled:opacity-50"
+            style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)", border: "1px solid var(--c-border)" }}
+          >
+            {loadingMore ? "Caricamento..." : "Carica altri articoli"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

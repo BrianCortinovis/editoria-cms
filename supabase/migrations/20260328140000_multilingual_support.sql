@@ -27,7 +27,7 @@ CREATE INDEX idx_article_translations_article ON article_translations(article_id
 CREATE INDEX idx_article_translations_tenant_lang ON article_translations(tenant_id, language);
 
 -- Add language to pages too
-ALTER TABLE pages ADD COLUMN IF NOT EXISTS language VARCHAR(5) DEFAULT 'it';
+ALTER TABLE site_pages ADD COLUMN IF NOT EXISTS language VARCHAR(5) DEFAULT 'it';
 
 -- Site supported languages stored in tenant settings
 -- tenantSettings.supported_languages = ["it", "en", "de"]

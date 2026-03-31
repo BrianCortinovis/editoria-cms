@@ -18,6 +18,8 @@ import {
   Copy,
   LayoutTemplate,
   Search,
+  ChevronRight,
+  ChevronDown,
 } from 'lucide-react';
 import AIButton from '@/components/ai/AIButton';
 
@@ -25,9 +27,9 @@ interface SitePage {
   id: string;
   title: string;
   slug: string;
-  parent_id: null;
+  parent_id: string | null;
   path: string;
-  depth: 0;
+  depth: number;
   seo_slug: string;
   breadcrumb: Array<{ title: string; slug: string }>;
   page_type?: string;
@@ -35,15 +37,65 @@ interface SitePage {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  children?: SitePage[];
+}
+
+function buildPageTree(flatPages: SitePage[]): SitePage[] {
+  const map = new Map<string, SitePage>();
+  for (const page of flatPages) {
+    map.set(page.id, { ...page, children: [] });
+  }
+
+  const roots: SitePage[] = [];
+  for (const page of map.values()) {
+    if (page.parent_id && map.has(page.parent_id)) {
+      map.get(page.parent_id)!.children!.push(page);
+    } else {
+      roots.push(page);
+    }
+  }
+
+  const setDepthAndPath = (nodes: SitePage[], parentPath: string, depth: number) => {
+    for (const node of nodes) {
+      node.depth = depth;
+      node.path = parentPath === '/' ? `/${node.slug}` : `${parentPath}/${node.slug}`;
+      node.breadcrumb = depth === 0
+        ? [{ title: node.title, slug: node.slug }]
+        : [...(map.get(node.parent_id!)?.breadcrumb || []), { title: node.title, slug: node.slug }];
+      if (node.children && node.children.length > 0) {
+        setDepthAndPath(node.children, node.path, depth + 1);
+      }
+    }
+  };
+
+  setDepthAndPath(roots, '', 0);
+  return roots;
+}
+
+function flattenTree(nodes: SitePage[]): SitePage[] {
+  const result: SitePage[] = [];
+  const walk = (list: SitePage[]) => {
+    for (const node of list) {
+      result.push(node);
+      if (node.children && node.children.length > 0) {
+        walk(node.children);
+      }
+    }
+  };
+  walk(nodes);
+  return result;
 }
 
 export default function PaginePage() {
   const { currentTenant } = useAuthStore();
   const [pages, setPages] = useState<SitePage[]>([]);
+  const [pageTree, setPageTree] = useState<SitePage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [showNewPage, setShowNewPage] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState('');
   const [newPageSlug, setNewPageSlug] = useState('');
+  const [newPageParentId, setNewPageParentId] = useState<string | null>(null);
   const [newPageMetaTitle, setNewPageMetaTitle] = useState('');
   const [newPageMetaDescription, setNewPageMetaDescription] = useState('');
   const [newPageOgTitle, setNewPageOgTitle] = useState('');
@@ -62,6 +114,7 @@ export default function PaginePage() {
   const loadPages = useCallback(async () => {
     if (!currentTenant) {
       setPages([]);
+      setPageTree([]);
       setLoading(false);
       return;
     }
@@ -71,20 +124,31 @@ export default function PaginePage() {
 
     const { data, error } = await supabase
       .from('site_pages')
-      .select('id, title, slug, page_type, is_published, sort_order, created_at, updated_at')
+      .select('id, title, slug, parent_id, page_type, is_published, sort_order, created_at, updated_at')
       .eq('tenant_id', currentTenant.id)
       .order('sort_order', { ascending: true })
       .order('title', { ascending: true });
 
     if (!error && data) {
-      setPages(data.map((page) => ({
+      const flat = data.map((page) => ({
         ...page,
-        parent_id: null,
+        parent_id: (page as unknown as { parent_id: string | null }).parent_id ?? null,
         path: `/${page.slug}`,
         depth: 0,
         seo_slug: page.slug,
         breadcrumb: [{ title: page.title, slug: page.slug }],
-      })));
+      }));
+      const tree = buildPageTree(flat);
+      setPageTree(tree);
+      setPages(flattenTree(tree));
+      // Auto-expand pages that have children
+      const withChildren = new Set<string>();
+      for (const p of flat) {
+        if (flat.some((c) => c.parent_id === p.id)) {
+          withChildren.add(p.id);
+        }
+      }
+      setExpandedIds((prev) => new Set([...prev, ...withChildren]));
     } else if (error) {
       toast.error(error.message || 'Errore caricamento pagine');
     }
@@ -155,6 +219,7 @@ export default function PaginePage() {
         tenant_id: currentTenant.id,
         title: newPageTitle,
         slug: newPageSlug,
+        parent_id: newPageParentId,
         page_type: newPageSlug === 'homepage' ? 'homepage' : 'custom',
         meta: nextMeta,
         is_published: false,
@@ -169,6 +234,7 @@ export default function PaginePage() {
       await loadPages();
       setNewPageTitle('');
       setNewPageSlug('');
+      setNewPageParentId(null);
       setNewPageMetaTitle('');
       setNewPageMetaDescription('');
       setNewPageOgTitle('');
@@ -474,6 +540,29 @@ export default function PaginePage() {
                 </p>
               </div>
 
+              <div>
+                <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>
+                  Pagina Padre
+                </label>
+                <select
+                  value={newPageParentId || ''}
+                  onChange={(e) => setNewPageParentId(e.target.value || null)}
+                  className="w-full px-3 py-2 rounded-lg border transition focus:outline-none"
+                  style={{
+                    background: 'var(--c-bg-0)',
+                    borderColor: 'var(--c-border)',
+                    color: 'var(--c-text-0)',
+                  }}
+                >
+                  <option value="">Nessuna (pagina principale)</option>
+                  {pages.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {'—'.repeat(p.depth)} {p.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="border rounded-xl p-4 space-y-4" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)' }}>
                 <div>
                   <h3 className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
@@ -595,7 +684,7 @@ export default function PaginePage() {
         </div>
       )}
 
-      {/* Pages List */}
+      {/* Pages Tree */}
       <div className="rounded-xl overflow-hidden border" style={{ background: 'var(--c-bg-1)', borderColor: 'var(--c-border)' }}>
         {loading ? (
           <div className="p-8 text-center" style={{ color: 'var(--c-text-2)' }}>
@@ -606,92 +695,115 @@ export default function PaginePage() {
             Nessuna pagina. Creane una per iniziare!
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: 'var(--c-border)' }}>
-            {pages.map((page) => (
+          <div>
+            <PageTreeNodes nodes={pageTree} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  function PageTreeNodes({ nodes }: { nodes: SitePage[] }) {
+    return (
+      <>
+        {nodes.map((page) => {
+          const hasChildren = page.children && page.children.length > 0;
+          const isExpanded = expandedIds.has(page.id);
+
+          return (
+            <div key={page.id}>
               <div
-                key={page.id}
-                className="p-4 flex items-center justify-between hover:bg-opacity-50 transition"
-                style={{ paddingLeft: `${page.depth * 20 + 16}px` }}
+                className="flex items-center justify-between transition border-b"
+                style={{ paddingLeft: `${page.depth * 24 + 16}px`, borderColor: 'var(--c-border)' }}
                 onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-medium" style={{ color: 'var(--c-text-0)' }}>
-                    {page.depth > 0 && <span style={{ color: 'var(--c-text-2)' }}>└ </span>}
-                    {page.title}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Globe className="w-3 h-3" style={{ color: 'var(--c-text-2)' }} />
-                    <p className="text-sm font-mono" style={{ color: 'var(--c-text-2)' }}>
-                      {page.path}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span
-                      className="text-[11px] font-medium px-2 py-0.5 rounded"
-                      style={{
-                        background: page.is_published ? statusColors.published.bg : statusColors.draft.bg,
-                        color: page.is_published ? statusColors.published.text : statusColors.draft.text,
-                      }}
+                <div className="flex-1 min-w-0 py-3 flex items-start gap-2">
+                  {/* Expand/Collapse toggle */}
+                  {hasChildren ? (
+                    <button
+                      onClick={() => setExpandedIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(page.id)) next.delete(page.id);
+                        else next.add(page.id);
+                        return next;
+                      })}
+                      className="mt-0.5 p-0.5 rounded hover:bg-[var(--c-bg-2)] transition shrink-0"
                     >
-                      {page.is_published ? 'Online' : 'Bozza'}
-                    </span>
-                    <Clock className="w-3 h-3" style={{ color: 'var(--c-text-3)' }} />
-                    <span className="text-[11px]" style={{ color: 'var(--c-text-3)' }}>
-                      {new Date(page.updated_at).toLocaleDateString('it-IT')}
-                    </span>
+                      {isExpanded
+                        ? <ChevronDown className="w-4 h-4" style={{ color: 'var(--c-text-2)' }} />
+                        : <ChevronRight className="w-4 h-4" style={{ color: 'var(--c-text-2)' }} />
+                      }
+                    </button>
+                  ) : (
+                    <div className="w-5 shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <h3 className="font-medium flex items-center gap-2" style={{ color: 'var(--c-text-0)' }}>
+                      {page.title}
+                      {hasChildren && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-2)' }}>
+                          {page.children!.length}
+                        </span>
+                      )}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Globe className="w-3 h-3" style={{ color: 'var(--c-text-2)' }} />
+                      <p className="text-sm font-mono" style={{ color: 'var(--c-text-2)' }}>
+                        {page.path}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span
+                        className="text-[11px] font-medium px-2 py-0.5 rounded"
+                        style={{
+                          background: page.is_published ? statusColors.published.bg : statusColors.draft.bg,
+                          color: page.is_published ? statusColors.published.text : statusColors.draft.text,
+                        }}
+                      >
+                        {page.is_published ? 'Online' : 'Bozza'}
+                      </span>
+                      <Clock className="w-3 h-3" style={{ color: 'var(--c-text-3)' }} />
+                      <span className="text-[11px]" style={{ color: 'var(--c-text-3)' }}>
+                        {new Date(page.updated_at).toLocaleDateString('it-IT')}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 ml-4">
-                  {/* Edit Button */}
+                <div className="flex items-center gap-1 ml-4 pr-4">
                   <Link
                     href={`/dashboard/importa-sito?page=${page.id}`}
                     className="p-2 rounded-lg transition"
-                    style={{
-                      color: 'var(--c-accent)',
-                      background: 'transparent',
-                    }}
+                    style={{ color: 'var(--c-accent)', background: 'transparent' }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    title="Apri bridge desktop"
+                    title="Modifica"
                   >
                     <Edit className="w-4 h-4" />
                   </Link>
-
-                  {/* Preview Button */}
                   <button
                     onClick={() => void handlePreviewPage(page)}
                     disabled={previewingPageId === page.id}
                     className="p-2 rounded-lg transition disabled:opacity-60"
-                    style={{
-                      color: 'var(--c-accent)',
-                      background: 'transparent',
-                    }}
+                    style={{ color: 'var(--c-accent)', background: 'transparent' }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    title="Anteprima pagina"
+                    title="Anteprima"
                   >
                     <Eye className="w-4 h-4" />
                   </button>
-
-                  {/* Duplicate Button */}
                   <button
                     onClick={() => void handleDuplicatePage(page)}
                     disabled={duplicatingPageId === page.id}
                     className="p-2 rounded-lg transition disabled:opacity-60"
-                    style={{
-                      color: 'var(--c-text-2)',
-                      background: 'transparent',
-                    }}
+                    style={{ color: 'var(--c-text-2)', background: 'transparent' }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    title="Duplica pagina"
+                    title="Duplica"
                   >
                     <Copy className="w-4 h-4" />
                   </button>
-
-                  {/* Open Live Button */}
                   <a
                     href={page.is_published ? getPublicPagePath(page) : undefined}
                     target={page.is_published ? '_blank' : undefined}
@@ -705,85 +817,56 @@ export default function PaginePage() {
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    title={page.is_published ? 'Apri pagina online' : 'Pubblica la pagina per aprirla online'}
+                    title={page.is_published ? 'Apri online' : 'Non pubblicata'}
                   >
                     <ExternalLink className="w-4 h-4" />
                   </a>
-
-                  {/* Layout Button */}
                   <Link
                     href={`/dashboard/importa-sito?page=${page.id}`}
                     className="p-2 rounded-lg transition"
-                    style={{
-                      color: 'var(--c-text-2)',
-                      background: 'transparent',
-                    }}
+                    style={{ color: 'var(--c-text-2)', background: 'transparent' }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    title="Apri bridge desktop"
+                    title="Layout"
                   >
                     <LayoutTemplate className="w-4 h-4" />
                   </Link>
-
-                  {/* SEO Button */}
                   <Link
                     href="/dashboard/seo"
                     className="p-2 rounded-lg transition"
-                    style={{
-                      color: 'var(--c-text-2)',
-                      background: 'transparent',
-                    }}
+                    style={{ color: 'var(--c-text-2)', background: 'transparent' }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    title="Apri SEO"
+                    title="SEO"
                   >
                     <Search className="w-4 h-4" />
                   </Link>
-
-                  {/* Copy URL Button */}
                   <button
                     onClick={() => void handleCopyPageUrl(page)}
                     className="p-2 rounded-lg transition"
-                    style={{
-                      color: 'var(--c-text-2)',
-                      background: 'transparent',
-                    }}
+                    style={{ color: 'var(--c-text-2)', background: 'transparent' }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    title="Copia URL pagina"
+                    title="Copia URL"
                   >
                     <Globe className="w-4 h-4" />
                   </button>
-
-                  {/* Publish Toggle */}
                   <button
                     onClick={() => togglePublish(page.id, page.is_published)}
                     disabled={publishingPageId === page.id}
                     className="p-2 rounded-lg transition"
-                    style={{
-                      color: page.is_published ? 'var(--c-accent)' : 'var(--c-text-2)',
-                      background: 'transparent',
-                    }}
+                    style={{ color: page.is_published ? 'var(--c-accent)' : 'var(--c-text-2)', background: 'transparent' }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                     title={page.is_published ? 'Nascondi' : 'Pubblica'}
                   >
-                    {page.is_published ? (
-                      <Eye className="w-4 h-4" />
-                    ) : (
-                      <EyeOff className="w-4 h-4" />
-                    )}
+                    {page.is_published ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                   </button>
-
-                  {/* Delete Button */}
                   <button
                     onClick={() => handleDeletePage(page.id)}
                     disabled={deletingPageId === page.id}
                     className="p-2 rounded-lg transition"
-                    style={{
-                      color: 'var(--c-text-2)',
-                      background: 'transparent',
-                    }}
+                    style={{ color: 'var(--c-text-2)', background: 'transparent' }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = 'rgba(239,68,68,0.15)';
                       e.currentTarget.style.color = '#ef4444';
@@ -792,16 +875,21 @@ export default function PaginePage() {
                       e.currentTarget.style.background = 'transparent';
                       e.currentTarget.style.color = 'var(--c-text-2)';
                     }}
-                    title="Elimina pagina"
+                    title="Elimina"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+
+              {/* Children */}
+              {hasChildren && isExpanded && (
+                <PageTreeNodes nodes={page.children!} />
+              )}
+            </div>
+          );
+        })}
+      </>
+    );
+  }
 }

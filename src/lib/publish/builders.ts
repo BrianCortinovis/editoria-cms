@@ -444,7 +444,7 @@ export async function buildPublishedPostsDocument(context: PublishSiteContext): 
     .eq('tenant_id', context.tenantId)
     .eq('status', 'published')
     .order('published_at', { ascending: false })
-    .limit(100);
+    .limit(2000);
 
   const enriched = await enrichArticlesWithCategories(
     supabase as never,

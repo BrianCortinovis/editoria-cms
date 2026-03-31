@@ -10,8 +10,11 @@ import { buildTenantPublicUrl } from '@/lib/site/public-url';
 
 export const revalidate = 120;
 
+const ARTICLES_PER_PAGE = 24;
+
 interface Props {
   params: Promise<{ tenant: string; categorySlug: string }>;
+  searchParams: Promise<{ page?: string }>;
 }
 
 interface CategoryPageArticleRecord {
@@ -27,8 +30,10 @@ interface CategoryPageArticleRecord {
   categories?: { name: string; slug: string; color: string | null } | null;
 }
 
-export default async function CategoryPage({ params }: Props) {
+export default async function CategoryPage({ params, searchParams }: Props) {
   const { tenant: tenantSlug, categorySlug } = await params;
+  const { page: pageParam } = await searchParams;
+  const currentPage = Math.max(1, parseInt(pageParam || '1', 10) || 1);
 
   const resolved = await resolveTenant(tenantSlug);
   if (!resolved) notFound();
@@ -44,11 +49,19 @@ export default async function CategoryPage({ params }: Props) {
         color: publishedCategory.category.color,
       }
     : null;
+  let totalArticleCount = 0;
+  const allPublishedArticles = publishedCategory?.articles
+    ? (publishedCategory.articles as Array<CategoryPageArticleRecord & { all_categories?: Array<{ name: string; slug: string; color?: string | null }> }>)
+    : null;
   let enrichedArticles:
     | Array<CategoryPageArticleRecord & { all_categories?: Array<{ name: string; slug: string; color?: string | null }> }>
-    | null = publishedCategory?.articles
-      ? (publishedCategory.articles as Array<CategoryPageArticleRecord & { all_categories?: Array<{ name: string; slug: string; color?: string | null }> }>)
-      : null;
+    | null = null;
+
+  if (allPublishedArticles) {
+    totalArticleCount = allPublishedArticles.length;
+    const offset = (currentPage - 1) * ARTICLES_PER_PAGE;
+    enrichedArticles = allPublishedArticles.slice(offset, offset + ARTICLES_PER_PAGE);
+  }
 
   if (!category) {
     const supabase = await createServiceRoleClient();
@@ -68,33 +81,38 @@ export default async function CategoryPage({ params }: Props) {
         await getActiveExclusivePlacementArticleIds(supabase as never, tenant.id)
       );
 
+      const offset = (currentPage - 1) * ARTICLES_PER_PAGE;
       const createArticleQuery = () =>
         supabase
           .from('articles')
-          .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, category_id, profiles!articles_author_id_fkey(full_name), categories:categories!articles_category_id_fkey(id, name, slug, color)')
+          .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, category_id, profiles!articles_author_id_fkey(full_name), categories:categories!articles_category_id_fkey(id, name, slug, color)', { count: 'exact' })
           .eq('tenant_id', tenant.id)
           .eq('status', 'published')
           .order('published_at', { ascending: false })
-          .limit(30);
+          .range(offset, offset + ARTICLES_PER_PAGE - 1);
 
       let articles: CategoryPageArticleRecord[] | null = null;
+      let totalCount = 0;
 
       if (relatedArticleIds && relatedArticleIds.length > 0) {
         const visibleRelatedArticleIds = relatedArticleIds.filter((articleId) => !hiddenArticleIds.has(articleId));
 
         if (visibleRelatedArticleIds.length > 0) {
-          const { data: rows } = await createArticleQuery().in('id', visibleRelatedArticleIds);
+          const { data: rows, count } = await createArticleQuery().in('id', visibleRelatedArticleIds);
           articles = (rows || []) as unknown as CategoryPageArticleRecord[];
+          totalCount = count || visibleRelatedArticleIds.length;
         } else {
           articles = [];
         }
       } else {
-        const { data: rows } = await createArticleQuery().eq('category_id', category.id);
+        const { data: rows, count } = await createArticleQuery().eq('category_id', category.id);
         articles = ((rows || []) as unknown as CategoryPageArticleRecord[]).filter(
           (article) => !hiddenArticleIds.has(article.id)
         );
+        totalCount = count || 0;
       }
 
+      totalArticleCount = totalCount;
       enrichedArticles = (await enrichArticlesWithCategories(
         supabase as never,
         tenant.id,
@@ -116,6 +134,8 @@ export default async function CategoryPage({ params }: Props) {
   const articles = (enrichedArticles || []) as Array<CategoryPageArticleRecord & {
     all_categories?: Array<{ name: string; slug: string; color?: string | null }>;
   }>;
+  const totalPages = Math.ceil(totalArticleCount / ARTICLES_PER_PAGE);
+  const basePath = `/site/${tenantSlug}/categoria/${categorySlug}`;
 
   return (
     <SiteLayout tenant={tenant} config={config} tenantSettings={tenantSettings}>
@@ -133,6 +153,12 @@ export default async function CategoryPage({ params }: Props) {
           {category.description && (
             <p style={{ color: 'var(--e-color-textSecondary)', marginTop: '8px', fontSize: '16px' }}>
               {category.description}
+            </p>
+          )}
+          {totalArticleCount > 0 && (
+            <p style={{ color: 'var(--e-color-textSecondary)', marginTop: '4px', fontSize: '14px' }}>
+              {totalArticleCount} articol{totalArticleCount === 1 ? 'o' : 'i'}
+              {totalPages > 1 && ` — Pagina ${currentPage} di ${totalPages}`}
             </p>
           )}
         </div>
@@ -174,6 +200,72 @@ export default async function CategoryPage({ params }: Props) {
             </a>
           ))}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <nav style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '48px' }}>
+            {currentPage > 1 && (
+              <a
+                href={currentPage === 2 ? basePath : `${basePath}?page=${currentPage - 1}`}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 'var(--e-border-radius, 8px)',
+                  border: '1px solid var(--e-color-border)',
+                  textDecoration: 'none',
+                  color: 'var(--e-color-text)',
+                  fontSize: '14px',
+                }}
+              >
+                &larr; Precedente
+              </a>
+            )}
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+              let pageNum: number;
+              if (totalPages <= 7) {
+                pageNum = i + 1;
+              } else if (currentPage <= 4) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 3) {
+                pageNum = totalPages - 6 + i;
+              } else {
+                pageNum = currentPage - 3 + i;
+              }
+              return (
+                <a
+                  key={pageNum}
+                  href={pageNum === 1 ? basePath : `${basePath}?page=${pageNum}`}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 'var(--e-border-radius, 8px)',
+                    border: '1px solid var(--e-color-border)',
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                    fontWeight: pageNum === currentPage ? 700 : 400,
+                    color: pageNum === currentPage ? 'var(--e-color-bg)' : 'var(--e-color-text)',
+                    background: pageNum === currentPage ? (category.color || 'var(--e-color-text)') : 'transparent',
+                  }}
+                >
+                  {pageNum}
+                </a>
+              );
+            })}
+            {currentPage < totalPages && (
+              <a
+                href={`${basePath}?page=${currentPage + 1}`}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 'var(--e-border-radius, 8px)',
+                  border: '1px solid var(--e-color-border)',
+                  textDecoration: 'none',
+                  color: 'var(--e-color-text)',
+                  fontSize: '14px',
+                }}
+              >
+                Successiva &rarr;
+              </a>
+            )}
+          </nav>
+        )}
       </div>
     </SiteLayout>
   );

@@ -22,16 +22,24 @@ CREATE TABLE IF NOT EXISTS content_zones (
 
 ALTER TABLE content_zones ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can read content_zones for their tenants" ON content_zones
-FOR SELECT USING (
-  tenant_id IN (SELECT tenant_id FROM user_tenants WHERE user_id = auth.uid())
-);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can read content_zones for their tenants' AND tablename = 'content_zones') THEN
+    CREATE POLICY "Users can read content_zones for their tenants" ON content_zones
+    FOR SELECT USING (
+      tenant_id IN (SELECT tenant_id FROM user_tenants WHERE user_id = auth.uid())
+    );
+  END IF;
+END $$;
 
-CREATE POLICY "Editors can manage content_zones for their tenants" ON content_zones
-FOR ALL USING (
-  tenant_id IN (
-    SELECT tenant_id FROM user_tenants
-    WHERE user_id = auth.uid()
-    AND role IN ('admin', 'chief_editor', 'editor')
-  )
-);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Editors can manage content_zones for their tenants' AND tablename = 'content_zones') THEN
+    CREATE POLICY "Editors can manage content_zones for their tenants" ON content_zones
+    FOR ALL USING (
+      tenant_id IN (
+        SELECT tenant_id FROM user_tenants
+        WHERE user_id = auth.uid()
+        AND role IN ('admin', 'chief_editor', 'editor')
+      )
+    );
+  END IF;
+END $$;

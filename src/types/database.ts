@@ -797,6 +797,7 @@ export interface Database {
           tenant_id: string;
           title: string;
           slug: string;
+          parent_id: string | null;
           page_type: PageType;
           meta: Record<string, unknown>;
           blocks: unknown[];
@@ -812,6 +813,7 @@ export interface Database {
           tenant_id: string;
           title: string;
           slug: string;
+          parent_id?: string | null;
           page_type?: PageType;
           meta?: Record<string, unknown>;
           blocks?: unknown[];
@@ -823,6 +825,7 @@ export interface Database {
         Update: {
           title?: string;
           slug?: string;
+          parent_id?: string | null;
           page_type?: PageType;
           meta?: Record<string, unknown>;
           blocks?: unknown[];
