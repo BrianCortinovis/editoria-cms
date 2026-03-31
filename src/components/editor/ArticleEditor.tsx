@@ -53,6 +53,82 @@ interface SiteConfigThemeRow {
   theme: Record<string, unknown> | null;
 }
 
+function CoverImageUpload({ coverImageUrl, onUrlChange, tenantId, tenantSlug }: {
+  coverImageUrl: string;
+  onUrlChange: (url: string) => void;
+  tenantId: string;
+  tenantSlug: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (file: File) => {
+    if (!tenantId) return;
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("tenant_id", tenantId);
+    formData.append("tenant_slug", tenantSlug);
+    try {
+      const res = await fetch("/api/cms/media/upload", { method: "POST", body: formData, credentials: "same-origin" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(data?.error || `Errore upload (${res.status})`);
+        return;
+      }
+      if (data?.media?.url) {
+        onUrlChange(data.media.url);
+        toast.success("Immagine caricata su R2");
+      }
+    } catch (err) {
+      toast.error("Errore upload immagine");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border, #e0e0e0)", background: "var(--c-bg-1, #fff)" }}>
+      {coverImageUrl ? (
+        <div className="relative">
+          <img src={coverImageUrl} alt="Copertina" className="w-full h-48 object-cover" />
+          <button
+            onClick={() => onUrlChange("")}
+            className="absolute top-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      ) : (
+        <label className="flex flex-col items-center justify-center py-8 cursor-pointer transition hover:bg-[var(--c-bg-2)]">
+          {uploading ? (
+            <>
+              <Loader2 className="w-8 h-8 mb-2 animate-spin" style={{ color: "var(--c-accent)" }} />
+              <span className="text-sm font-medium" style={{ color: "var(--c-accent)" }}>Caricamento su R2...</span>
+            </>
+          ) : (
+            <>
+              <ImageIcon className="w-8 h-8 mb-2" style={{ color: "var(--c-text-3, #999)" }} />
+              <span className="text-sm" style={{ color: "var(--c-text-1, #444)" }}>Carica immagine di copertina</span>
+              <span className="text-xs mt-1" style={{ color: "var(--c-text-3, #999)" }}>JPG, PNG, WebP — max 50MB</span>
+            </>
+          )}
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleUpload(file);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      )}
+    </div>
+  );
+}
+
 interface ArticleEditorProps {
   articleId?: string;
 }
@@ -620,45 +696,12 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           </div>
 
           {/* Cover Image */}
-          <div className="rounded-lg overflow-hidden group" style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-1)" }}>
-            {coverImageUrl ? (
-              <div className="relative">
-                <img src={coverImageUrl} alt="Copertina" className="w-full h-48 object-cover" />
-                <button onClick={() => setCoverImageUrl("")}
-                  className="absolute top-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center py-8 cursor-pointer transition"
-                onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
-                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                <ImageIcon className="w-8 h-8 mb-2" style={{ color: "var(--c-text-3)" }} />
-                <span className="text-sm" style={{ color: "var(--c-text-3)" }}>Carica immagine di copertina</span>
-                <span className="text-xs mt-1" style={{ color: "var(--c-text-3)" }}>JPG, PNG, WebP — max 50MB</span>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file || !currentTenant) return;
-                    const formData = new FormData();
-                    formData.append("file", file);
-                    formData.append("tenant_id", currentTenant.id);
-                    formData.append("tenant_slug", currentTenant.slug);
-                    try {
-                      const res = await fetch("/api/cms/media/upload", { method: "POST", body: formData, credentials: "same-origin" });
-                      if (!res.ok) { const d = await res.json().catch(() => null); toast.error(d?.error || "Errore upload"); return; }
-                      const data = await res.json();
-                      if (data.media?.url) { setCoverImageUrl(data.media.url); toast.success("Immagine caricata"); }
-                    } catch { toast.error("Errore upload immagine"); }
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-            )}
-          </div>
+          <CoverImageUpload
+            coverImageUrl={coverImageUrl}
+            onUrlChange={setCoverImageUrl}
+            tenantId={currentTenant?.id || ""}
+            tenantSlug={currentTenant?.slug || ""}
+          />
 
           {/* Body Editor */}
           <div className="relative group">
