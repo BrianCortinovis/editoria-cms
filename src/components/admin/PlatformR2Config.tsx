@@ -24,12 +24,20 @@ export function PlatformR2Config() {
 
   useEffect(() => {
     fetch("/api/admin/platform-r2", { credentials: "same-origin" })
-      .then((res) => res.json())
-      .then((data) => {
+      .then(async (res) => {
+        if (!res.ok) {
+          console.error("Platform R2 config load failed:", res.status);
+          setLoaded(true);
+          return;
+        }
+        const data = await res.json();
         if (data?.config) setConfig(data.config);
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch((err) => {
+        console.error("Platform R2 config fetch error:", err);
+        setLoaded(true);
+      });
   }, []);
 
   const save = async () => {
@@ -41,8 +49,12 @@ export function PlatformR2Config() {
       body: JSON.stringify({ config }),
     });
     setSaving(false);
-    if (res.ok) toast.success("Configurazione R2 piattaforma salvata");
-    else toast.error("Errore salvataggio");
+    if (res.ok) {
+      toast.success("Configurazione R2 piattaforma salvata");
+    } else {
+      const payload = await res.json().catch(() => null);
+      toast.error(payload?.error || `Errore salvataggio (${res.status})`);
+    }
   };
 
   if (!loaded) return <div className="text-sm py-4" style={{ color: "var(--c-text-2)" }}>Caricamento...</div>;
