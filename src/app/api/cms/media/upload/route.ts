@@ -18,6 +18,40 @@ const ALLOWED_MEDIA_MIME_TYPES = new Set([
 ]);
 const ALLOWED_MEDIA_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif", "mp4", "webm", "pdf"]);
 
+const MEDIA_TYPE_FOLDERS: Record<string, string> = {
+  "image/jpeg": "images",
+  "image/png": "images",
+  "image/webp": "images",
+  "image/gif": "images",
+  "video/mp4": "video",
+  "video/webm": "video",
+  "application/pdf": "documents",
+};
+
+/**
+ * Build organized storage path:
+ * {tenant-slug}/{type}/{YYYY}/{MM}/{slugified-name}-{hash}.{ext}
+ */
+function buildMediaPath(tenantSlug: string, originalName: string, mimeType: string, ext: string): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const typeFolder = MEDIA_TYPE_FOLDERS[mimeType] || "other";
+
+  // Slugify the original filename (without extension)
+  const baseName = originalName
+    .replace(/\.[^.]+$/, "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "file";
+
+  const hash = crypto.randomUUID().slice(0, 8);
+  return `${tenantSlug}/${typeFolder}/${year}/${month}/${baseName}-${hash}.${ext}`;
+}
+
 export async function POST(request: Request) {
   const trustedOriginError = assertTrustedMutationRequest(request);
   if (trustedOriginError) {
@@ -72,7 +106,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const filename = `${tenantSlug}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+  const storagePath = buildMediaPath(tenantSlug, file.name, file.type, ext);
   const bytes = await file.arrayBuffer();
   const uploadBuffer = Buffer.from(bytes);
 
@@ -86,8 +120,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      const r2Key = `tenants/${filename}`;
-      const result = await uploadToR2(r2Creds, r2Key, uploadBuffer, file.type);
+      const result = await uploadToR2(r2Creds, storagePath, uploadBuffer, file.type);
       publicUrl = result.url;
     } catch (r2Error) {
       return NextResponse.json({
@@ -97,9 +130,9 @@ export async function POST(request: Request) {
   } else {
     const uploadResult = await access.serviceClient.storage
       .from("media")
-      .upload(filename, uploadBuffer, {
+      .upload(storagePath, uploadBuffer, {
         contentType: file.type,
-        cacheControl: "3600",
+        cacheControl: "public, max-age=31536000, immutable",
         upsert: false,
       });
 
@@ -107,14 +140,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: uploadResult.error.message }, { status: 500 });
     }
 
-    const { data: urlData } = access.serviceClient.storage.from("media").getPublicUrl(filename);
+    const { data: urlData } = access.serviceClient.storage.from("media").getPublicUrl(storagePath);
     publicUrl = urlData.publicUrl;
   }
   const { data: inserted, error: insertError } = await access.sessionClient
     .from("media")
     .insert({
       tenant_id: tenantId,
-      filename,
+      filename: storagePath,
       original_filename: file.name,
       mime_type: file.type,
       size_bytes: file.size,
@@ -128,7 +161,7 @@ export async function POST(request: Request) {
     .single();
 
   if (insertError || !inserted) {
-    await access.serviceClient.storage.from("media").remove([filename]);
+    await access.serviceClient.storage.from("media").remove([storagePath]);
     return NextResponse.json({ error: insertError?.message || "Unable to persist media record" }, { status: 500 });
   }
 
