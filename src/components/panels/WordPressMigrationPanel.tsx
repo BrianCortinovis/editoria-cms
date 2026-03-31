@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Upload,
   Settings,
@@ -11,49 +11,87 @@ import {
   Bot,
   AlertTriangle,
   Database,
+  StopCircle,
+  ImageIcon,
+  FileText,
+  MessageSquare,
+  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { useAuthStore } from '@/lib/store';
+import { createClient } from '@/lib/supabase/client';
 import AIButton from '@/components/ai/AIButton';
+import { parseWpXml, parseWpJson, filterByYear } from '@/lib/migrations/wp-parser';
+import type { WpPost } from '@/lib/migrations/wp-parser';
+import { runClientMigration, type MigrationProgress } from '@/lib/migrations/wp-client-migration';
 
 interface MigrationJob {
   id: string;
   fileName: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  itemsProcessed: number;
-  totalItems: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  progress: MigrationProgress | null;
   startedAt: Date;
+  finishedAt: Date | null;
 }
 
 interface PreviewSummary {
   totalPosts: number;
   postsInSelection: number;
-  range: {
-    offset: number;
-    limit: number | null;
-    yearFrom: number | null;
-    yearTo: number | null;
-  };
   yearDistribution: Array<{ year: number; count: number }>;
   topCategories: Array<{ name: string; count: number }>;
   topTags: Array<{ name: string; count: number }>;
   sampleTitles: string[];
   estimatedComments: number;
   estimatedImages: number;
-  potentialDuplicates: Array<{ title: string; slug: string; reason: string }>;
+}
+
+function buildPreview(posts: WpPost[]): PreviewSummary {
+  const yearCounts = new Map<number, number>();
+  const catCounts = new Map<string, number>();
+  const tagCounts = new Map<string, number>();
+  let totalComments = 0;
+  let totalImages = 0;
+
+  for (const p of posts) {
+    const d = new Date(p.pubDate);
+    if (!Number.isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      yearCounts.set(y, (yearCounts.get(y) || 0) + 1);
+    }
+    for (const c of p.categories) catCounts.set(c, (catCounts.get(c) || 0) + 1);
+    for (const t of p.tags) tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
+    totalComments += p.comments.length;
+    totalImages += p.images.length;
+  }
+
+  const sortMap = (m: Map<string, number>) =>
+    [...m.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
+
+  return {
+    totalPosts: posts.length,
+    postsInSelection: posts.length,
+    yearDistribution: [...yearCounts.entries()].sort((a, b) => a[0] - b[0]).map(([year, count]) => ({ year, count })),
+    topCategories: sortMap(catCounts).slice(0, 10),
+    topTags: sortMap(tagCounts).slice(0, 10),
+    sampleTitles: posts.slice(0, 12).map((p) => p.title),
+    estimatedComments: totalComments,
+    estimatedImages: totalImages,
+  };
 }
 
 export function WordPressMigrationPanel() {
   const { currentTenant, user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'upload' | 'config' | 'analysis' | 'history'>('upload');
   const [file, setFile] = useState<File | null>(null);
+  const [parsedPosts, setParsedPosts] = useState<WpPost[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [jobs, setJobs] = useState<MigrationJob[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [preview, setPreview] = useState<PreviewSummary | null>(null);
   const [migrationNotes, setMigrationNotes] = useState('');
+  const [liveProgress, setLiveProgress] = useState<MigrationProgress | null>(null);
+  const cancelTokenRef = useRef({ cancelled: false });
 
   const [config, setConfig] = useState({
     importCategories: true,
@@ -72,7 +110,7 @@ export function WordPressMigrationPanel() {
     yearTo: '',
   });
 
-  const canRun = Boolean(file && currentTenant && user);
+  const canRun = Boolean(file && currentTenant && user && parsedPosts.length > 0);
 
   const analysisContext = useMemo(() => {
     if (!preview) return '';
@@ -94,6 +132,7 @@ export function WordPressMigrationPanel() {
     const files = e.dataTransfer.files;
     if (files?.[0]) {
       setFile(files[0]);
+      setParsedPosts([]);
       setPreview(null);
       setMigrationNotes('');
     }
@@ -102,104 +141,102 @@ export function WordPressMigrationPanel() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
       setFile(e.target.files[0]);
+      setParsedPosts([]);
       setPreview(null);
       setMigrationNotes('');
     }
   };
 
-  const appendCommonFormData = (formData: FormData, previewOnly: boolean) => {
-    formData.append('file', file as File);
-    formData.append('tenant_id', currentTenant?.id || '');
-    formData.append('default_author_id', user?.id || '');
-    formData.append('previewOnly', String(previewOnly));
-    formData.append('offset', String(batchConfig.offset || 0));
-    formData.append('limit', String(batchConfig.limit || 0));
-    formData.append('yearFrom', batchConfig.yearFrom || '');
-    formData.append('yearTo', batchConfig.yearTo || '');
-    Object.entries(config).forEach(([key, value]) => {
-      formData.append(key, String(value));
-    });
-  };
-
+  // Parse + analyze entirely in browser — zero server calls
   const handleAnalyzeArchive = async () => {
-    if (!canRun || !file) return;
+    if (!file) return;
 
     setIsAnalyzing(true);
     setMigrationNotes('');
 
     try {
-      const formData = new FormData();
-      appendCommonFormData(formData, true);
+      const text = await file.text();
+      const allPosts = file.name.endsWith('.json') ? parseWpJson(text) : parseWpXml(text);
 
-      const response = await fetch('/api/migrations/wordpress', {
-        method: 'POST',
-        body: formData,
-      });
+      const yearFrom = batchConfig.yearFrom ? Number(batchConfig.yearFrom) : null;
+      const yearTo = batchConfig.yearTo ? Number(batchConfig.yearTo) : null;
+      let filtered = filterByYear(allPosts, yearFrom, yearTo);
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Preview failed');
+      if (batchConfig.limit > 0) {
+        filtered = filtered.slice(batchConfig.offset, batchConfig.offset + batchConfig.limit);
+      } else if (batchConfig.offset > 0) {
+        filtered = filtered.slice(batchConfig.offset);
       }
 
-      setPreview((data.preview || null) as PreviewSummary | null);
+      setParsedPosts(filtered);
+      setPreview(buildPreview(filtered));
       setActiveTab('analysis');
     } catch (error) {
-      setMigrationNotes(error instanceof Error ? error.message : 'Anteprima non riuscita');
+      setMigrationNotes(error instanceof Error ? error.message : 'Errore nel parsing del file');
     } finally {
       setIsAnalyzing(false);
     }
   };
 
+  const handleCancel = useCallback(() => {
+    cancelTokenRef.current.cancelled = true;
+  }, []);
+
+  // Run migration entirely client-side: browser → Supabase direct + R2 via upload API
   const handleStartMigration = async () => {
-    if (!file || !canRun) return;
+    if (!canRun || !currentTenant || !user) return;
 
     setIsProcessing(true);
+    cancelTokenRef.current = { cancelled: false };
+
     const jobId = Math.random().toString(36).substring(7);
     const newJob: MigrationJob = {
       id: jobId,
-      fileName: file.name,
+      fileName: file!.name,
       status: 'processing',
-      progress: 0,
-      itemsProcessed: 0,
-      totalItems: preview?.postsInSelection || 0,
+      progress: null,
       startedAt: new Date(),
+      finishedAt: null,
     };
-
-    setJobs([newJob, ...jobs]);
+    setJobs((prev) => [newJob, ...prev]);
 
     try {
-      const formData = new FormData();
-      appendCommonFormData(formData, false);
+      const supabase = createClient();
+      const result = await runClientMigration(
+        supabase,
+        currentTenant.id,
+        currentTenant.slug,
+        user.id,
+        parsedPosts,
+        config,
+        (progress) => {
+          setLiveProgress({ ...progress });
+          setJobs((prev) => prev.map((j) =>
+            j.id === jobId ? { ...j, progress: { ...progress } } : j
+          ));
+        },
+        cancelTokenRef.current,
+      );
 
-      const response = await fetch('/api/migrations/wordpress', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error('Migration failed');
-
-      const data = await response.json();
-
-      setJobs(prev => prev.map(j => j.id === jobId
-        ? {
-            ...j,
-            status: 'completed',
-            progress: 100,
-            itemsProcessed: data.processed || 0,
-            totalItems: data.total || 0,
-          }
-        : j
+      setJobs((prev) => prev.map((j) =>
+        j.id === jobId
+          ? { ...j, status: result.cancelled ? 'cancelled' : 'completed', progress: result, finishedAt: new Date() }
+          : j
       ));
 
-      setFile(null);
-      setPreview(null);
-    } catch {
-      setJobs(prev => prev.map(j => j.id === jobId
-        ? { ...j, status: 'failed', progress: 0 }
-        : j
+      if (!result.cancelled) {
+        setFile(null);
+        setParsedPosts([]);
+        setPreview(null);
+      }
+    } catch (err) {
+      setJobs((prev) => prev.map((j) =>
+        j.id === jobId ? { ...j, status: 'failed', finishedAt: new Date() } : j
       ));
+      setMigrationNotes(err instanceof Error ? err.message : 'Migrazione fallita');
     } finally {
       setIsProcessing(false);
+      setLiveProgress(null);
     }
   };
 
@@ -313,26 +350,72 @@ export function WordPressMigrationPanel() {
               <div className="space-y-2">
                 <button
                   onClick={handleAnalyzeArchive}
-                  disabled={isAnalyzing || isProcessing || !canRun}
+                  disabled={isAnalyzing || isProcessing}
                   className="w-full py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
-                  style={{
-                    background: 'var(--c-bg-2)',
-                    color: 'var(--c-text-0)',
-                  }}
+                  style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-0)' }}
                 >
-                  {isAnalyzing ? 'Analisi archivio…' : 'Analizza archivio prima di importare'}
+                  {isAnalyzing ? 'Analisi in corso (locale)...' : 'Analizza archivio'}
                 </button>
                 <button
                   onClick={handleStartMigration}
                   disabled={isProcessing || !canRun}
                   className="w-full py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
-                  style={{
-                    background: 'var(--c-accent)',
-                    color: 'white',
-                  }}
+                  style={{ background: 'var(--c-accent)', color: 'white' }}
                 >
-                  {isProcessing ? 'Processing...' : !currentTenant ? 'Seleziona una testata' : 'Start Migration'}
+                  {isProcessing ? 'Migrazione in corso...' : !currentTenant ? 'Seleziona un sito' : `Avvia migrazione (${parsedPosts.length} articoli)`}
                 </button>
+                {isProcessing && (
+                  <button
+                    onClick={handleCancel}
+                    className="w-full py-2 rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                    style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
+                  >
+                    <StopCircle size={14} /> Annulla migrazione
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Live progress */}
+            {liveProgress && (
+              <div className="space-y-3 p-3 rounded-lg" style={{ background: 'var(--c-bg-1)' }}>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--c-text-2)' }}>
+                    {liveProgress.phase === 'categories' && 'Creazione categorie...'}
+                    {liveProgress.phase === 'tags' && 'Creazione tag...'}
+                    {liveProgress.phase === 'articles' && 'Importazione articoli...'}
+                    {liveProgress.phase === 'images' && 'Migrazione immagini su R2...'}
+                    {liveProgress.phase === 'done' && 'Completato!'}
+                  </p>
+                  <span className="text-xs font-mono" style={{ color: 'var(--c-text-2)' }}>
+                    {liveProgress.current}/{liveProgress.total}
+                  </span>
+                </div>
+                <div className="w-full h-2 rounded-full" style={{ background: 'var(--c-bg-2)' }}>
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${liveProgress.total > 0 ? Math.round((liveProgress.current / liveProgress.total) * 100) : 0}%`,
+                      background: liveProgress.phase === 'done' ? '#10b981' : 'var(--c-accent)',
+                    }}
+                  />
+                </div>
+                <p className="text-[11px] truncate" style={{ color: 'var(--c-text-2)' }}>
+                  {liveProgress.currentItem}
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-[11px]" style={{ color: 'var(--c-text-1)' }}>
+                  <span className="flex items-center gap-1"><FileText size={10} /> {liveProgress.articlesInserted} inseriti, {liveProgress.articlesUpdated} aggiornati</span>
+                  <span className="flex items-center gap-1"><ImageIcon size={10} /> {liveProgress.imagesMigrated} immagini ({liveProgress.imagesFailed} fallite)</span>
+                  <span className="flex items-center gap-1"><MessageSquare size={10} /> {liveProgress.commentsMigrated} commenti</span>
+                  <span className="flex items-center gap-1"><ExternalLink size={10} /> {liveProgress.redirectsCreated} redirect</span>
+                </div>
+                {liveProgress.failures.length > 0 && (
+                  <div className="text-[11px] mt-2" style={{ color: '#ef4444' }}>
+                    {liveProgress.failures.slice(-3).map((f, i) => (
+                      <p key={i}>Errore: {f.title} — {f.reason}</p>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -437,7 +520,7 @@ export function WordPressMigrationPanel() {
                     Lotto corrente: {preview.postsInSelection} / {preview.totalPosts}
                   </p>
                   <p className="text-[11px] mt-1" style={{ color: 'var(--c-text-1)' }}>
-                    Offset {preview.range.offset} · Limite {preview.range.limit ?? 'tutto'} · Anni {preview.range.yearFrom ?? 'inizio'} → {preview.range.yearTo ?? 'oggi'}
+                    Offset {batchConfig.offset} · Limite {batchConfig.limit || 'tutto'} · Anni {batchConfig.yearFrom || 'inizio'} → {batchConfig.yearTo || 'oggi'}
                   </p>
                 </div>
               )}
@@ -480,21 +563,6 @@ export function WordPressMigrationPanel() {
                 <InfoCard title="Top tag">
                   <SimpleCountList items={preview.topTags.slice(0, 8)} />
                 </InfoCard>
-
-                {preview.potentialDuplicates.length > 0 && (
-                  <div className="rounded-lg p-3" style={{ background: 'rgba(245, 158, 11, 0.12)' }}>
-                    <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--c-text-0)' }}>
-                      <AlertTriangle size={12} /> Possibili duplicati
-                    </p>
-                    <div className="mt-2 space-y-1">
-                      {preview.potentialDuplicates.slice(0, 8).map((item) => (
-                        <div key={`${item.slug}-${item.title}`} className="text-[11px]" style={{ color: 'var(--c-text-1)' }}>
-                          <strong>{item.slug}</strong> — {item.reason}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 <InfoCard title="Titoli campione">
                   <div className="space-y-1">
@@ -571,7 +639,7 @@ export function WordPressMigrationPanel() {
 
             {jobs.length === 0 ? (
               <p className="text-xs text-center py-6" style={{ color: 'var(--c-text-1)' }}>
-                No migrations yet
+                Nessuna migrazione effettuata
               </p>
             ) : (
               jobs.map(job => (
@@ -582,36 +650,50 @@ export function WordPressMigrationPanel() {
                         {job.fileName}
                       </p>
                       <p className="text-[10px] mt-1" style={{ color: 'var(--c-text-1)' }}>
-                        {job.startedAt.toLocaleString()}
+                        {job.startedAt.toLocaleString('it-IT')}
+                        {job.finishedAt && ` → ${job.finishedAt.toLocaleString('it-IT')}`}
                       </p>
                     </div>
-                    {job.status === 'completed' && (
-                      <CheckCircle size={16} style={{ color: '#10b981', flexShrink: 0 }} />
-                    )}
-                    {job.status === 'processing' && (
-                      <Clock size={16} style={{ color: '#f59e0b', flexShrink: 0 }} />
-                    )}
+                    {job.status === 'completed' && <CheckCircle size={16} style={{ color: '#10b981', flexShrink: 0 }} />}
+                    {job.status === 'processing' && <Clock size={16} style={{ color: '#f59e0b', flexShrink: 0 }} />}
+                    {job.status === 'cancelled' && <StopCircle size={16} style={{ color: '#f59e0b', flexShrink: 0 }} />}
+                    {job.status === 'failed' && <AlertTriangle size={16} style={{ color: '#ef4444', flexShrink: 0 }} />}
                   </div>
 
-                  {job.status === 'processing' && (
-                    <div className="w-full h-2 rounded-full" style={{ background: 'var(--c-bg-2)' }}>
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${job.progress}%`, background: 'var(--c-accent)' }}
-                      />
+                  {job.progress && (
+                    <div className="grid grid-cols-2 gap-1 text-[11px] mt-2" style={{ color: 'var(--c-text-1)' }}>
+                      <span>{job.progress.articlesInserted} articoli inseriti</span>
+                      <span>{job.progress.articlesUpdated} aggiornati</span>
+                      <span>{job.progress.imagesMigrated} immagini migrate</span>
+                      <span>{job.progress.imagesFailed} immagini fallite</span>
+                      <span>{job.progress.commentsMigrated} commenti</span>
+                      <span>{job.progress.redirectsCreated} redirect 301</span>
                     </div>
                   )}
 
-                  {job.status === 'completed' && (
-                    <p className="text-xs" style={{ color: 'var(--c-text-1)' }}>
-                      ✓ {job.itemsProcessed} posts imported
+                  {job.status === 'cancelled' && (
+                    <p className="text-xs mt-2" style={{ color: '#f59e0b' }}>
+                      Interrotta — riavviabile senza duplicati (legacy_wp_id)
                     </p>
                   )}
 
                   {job.status === 'failed' && (
-                    <p className="text-xs" style={{ color: 'var(--c-danger)' }}>
-                      ✗ Migration failed
+                    <p className="text-xs mt-2" style={{ color: '#ef4444' }}>
+                      Migrazione fallita — riprova, i duplicati vengono gestiti
                     </p>
+                  )}
+
+                  {job.progress && job.progress.failures.length > 0 && (
+                    <details className="mt-2">
+                      <summary className="text-[11px] cursor-pointer" style={{ color: '#ef4444' }}>
+                        {job.progress.failures.length} errori
+                      </summary>
+                      <div className="mt-1 space-y-0.5 text-[10px]" style={{ color: 'var(--c-text-2)' }}>
+                        {job.progress.failures.map((f, i) => (
+                          <p key={i}>{f.title}: {f.reason}</p>
+                        ))}
+                      </div>
+                    </details>
                   )}
                 </div>
               ))

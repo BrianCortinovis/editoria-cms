@@ -36,10 +36,10 @@ const KNOWLEDGE_BASE: Article[] = [
   },
   {
     id: '4',
-    title: 'WordPress Migration Guide',
+    title: 'Guida Migrazione WordPress',
     category: 'Migration',
-    tags: ['wordpress', 'import', 'migration', 'data'],
-    content: 'Import your WordPress content into the CMS. Supports XML and JSON exports with configurable options for categories, tags, authors, and images.',
+    tags: ['wordpress', 'import', 'migration', 'data', 'immagini', 'r2'],
+    content: `Migra il tuo sito WordPress nel CMS. Supporta archivi da 1 a 20+ anni di articoli.\n\nPREPARAZIONE:\n1. Nel tuo WordPress vai su Strumenti > Esporta > Tutto il contenuto\n2. Scarica il file .xml (WXR)\n3. Nel CMS vai su Migrazioni nella sidebar\n\nCOME FUNZIONA:\n- Tutto gira nel tuo browser, nessun timeout, nessun costo server\n- Articoli scritti direttamente nel database\n- Immagini scaricate e ricaricate su Cloudflare R2\n- Link sostituiti automaticamente nel corpo articoli\n- Redirect 301 creati per i vecchi permalink\n\nPROCEDURA:\n1. Carica il file .xml\n2. Clicca Analizza archivio per vedere il contenuto\n3. Configura cosa importare (categorie, tag, commenti, immagini)\n4. Per archivi grandi usa filtri batch: importa per anno o lotti da 500\n5. Clicca Avvia migrazione e segui la progress bar\n6. Puoi annullare e riprendere senza duplicati (legacy_wp_id)\n\nARCHIVI GRANDI (5000+ articoli):\n- Filtra per anno o usa lotti da 500-1000\n- Ogni lotto e indipendente\n- Gli articoli gia importati vengono aggiornati, non duplicati\n\nIMMIGINI:\n- Migrate automaticamente su Cloudflare R2\n- Organizzate per tipo/anno/mese\n- URL nel corpo articoli aggiornati automaticamente\n\nDOPO LA MIGRAZIONE:\n- Verifica articoli e categorie\n- Pubblica il sito per aggiornare i JSON\n- I redirect 301 sono gia attivi`,
   },
   {
     id: '5',
