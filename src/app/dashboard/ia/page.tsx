@@ -197,10 +197,11 @@ export default function IAPage() {
 
   if (!aiModuleEnabled) {
     return (
-      <div className="max-w-2xl text-center py-20">
+      <div className="max-w-2xl mx-auto text-center py-20">
         <Sparkles className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
+        <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--c-text-0)" }}>Modulo IA non attivo</h2>
         <p className="text-sm" style={{ color: "var(--c-text-2)" }}>
-          Il modulo IA non e` attivo per questo tenant. Attivalo dal Superadmin per usare il tool.
+          Il modulo IA non e` attivo per questo sito. Contatta l'amministratore della piattaforma per attivarlo.
         </p>
       </div>
     );
@@ -225,9 +226,33 @@ export default function IAPage() {
           </h1>
         </div>
         <p style={{ color: 'var(--c-text-2)' }}>
-          Configura i provider IA per assistenza CMS, redazione, SEO, analytics e supporto tecnico
+          Configura i provider IA per il tuo sito. Ogni sito usa le proprie API key — inserisci le credenziali dei provider che vuoi utilizzare.
         </p>
       </div>
+
+      {/* No keys configured banner */}
+      {!loading && !settings.claude_api_key && !settings.openai_api_key && !settings.gemini_api_key && !settings.ollama_url && (
+        <div className="rounded-lg border p-5" style={{ background: 'rgba(245, 158, 11, 0.08)', borderColor: 'rgba(245, 158, 11, 0.3)' }}>
+          <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--c-text-0)' }}>Nessuna API key configurata</h3>
+          <p className="text-xs" style={{ color: 'var(--c-text-2)' }}>
+            Per usare l'assistente IA, inserisci almeno una API key. Puoi ottenere le chiavi gratuitamente dai provider:
+          </p>
+          <div className="flex flex-wrap gap-3 mt-3">
+            {PROVIDERS.filter(p => !p.isLocal).map(p => (
+              <a
+                key={p.key}
+                href={p.docs}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-medium px-3 py-1.5 rounded-lg transition"
+                style={{ background: 'var(--c-bg-1)', color: 'var(--c-accent)', border: '1px solid var(--c-border)' }}
+              >
+                {p.icon} {p.name} — Ottieni API key
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Provider Sections */}
       <div className="space-y-4">
