@@ -35,6 +35,11 @@ type DraftMap = Record<string, {
   monthlyEgressLimitGb: string;
   uploadBlocked: boolean;
   publishBlocked: boolean;
+  r2AccountId: string;
+  r2AccessKeyId: string;
+  r2SecretAccessKey: string;
+  r2BucketName: string;
+  r2PublicUrl: string;
 }>;
 
 export function StorageControlTable({ sites }: { sites: SuperadminSiteRow[] }) {
@@ -52,6 +57,11 @@ export function StorageControlTable({ sites }: { sites: SuperadminSiteRow[] }) {
           monthlyEgressLimitGb: gbStringFromBytes(site.monthlyEgressLimitBytes),
           uploadBlocked: site.uploadBlocked,
           publishBlocked: site.publishBlocked,
+          r2AccountId: (site.config as Record<string, string>)?.r2_account_id || "",
+          r2AccessKeyId: (site.config as Record<string, string>)?.r2_access_key_id || "",
+          r2SecretAccessKey: (site.config as Record<string, string>)?.r2_secret_access_key ? "••••••••" : "",
+          r2BucketName: (site.config as Record<string, string>)?.r2_bucket_name || "",
+          r2PublicUrl: (site.config as Record<string, string>)?.r2_public_url || "",
         },
       ]),
     ),
@@ -87,6 +97,13 @@ export function StorageControlTable({ sites }: { sites: SuperadminSiteRow[] }) {
         monthlyEgressLimitBytes: bytesFromGbString(draft.monthlyEgressLimitGb),
         uploadBlocked: draft.uploadBlocked,
         publishBlocked: draft.publishBlocked,
+        r2Config: (draft.mediaProvider === "cloudflare_r2" || draft.publishedMediaProvider === "cloudflare_r2") ? {
+          r2_account_id: draft.r2AccountId,
+          r2_access_key_id: draft.r2AccessKeyId,
+          r2_secret_access_key: draft.r2SecretAccessKey === "••••••••" ? undefined : draft.r2SecretAccessKey,
+          r2_bucket_name: draft.r2BucketName,
+          r2_public_url: draft.r2PublicUrl,
+        } : undefined,
       }),
     });
 
@@ -198,6 +215,68 @@ export function StorageControlTable({ sites }: { sites: SuperadminSiteRow[] }) {
                 </label>
               </div>
             </div>
+
+            {/* R2 config fields — visible when provider is cloudflare_r2 */}
+            {(draft.mediaProvider === "cloudflare_r2" || draft.publishedMediaProvider === "cloudflare_r2") && (
+              <div className="mt-4 border-t pt-4" style={{ borderColor: "var(--c-border)" }}>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--c-text-2)" }}>
+                  R2 dedicato (enterprise) — lascia vuoto per usare R2 piattaforma
+                </p>
+                <div className="grid gap-3 xl:grid-cols-3">
+                  <label className="text-sm">
+                    <span style={{ color: "var(--c-text-2)" }}>Account ID</span>
+                    <input
+                      value={draft.r2AccountId}
+                      onChange={(event) => updateDraft(site.siteId, { r2AccountId: event.target.value })}
+                      placeholder="Cloudflare Account ID"
+                      className="mt-1 w-full border-b px-0 py-2"
+                      style={{ borderColor: "var(--c-border)", background: "transparent" }}
+                    />
+                  </label>
+                  <label className="text-sm">
+                    <span style={{ color: "var(--c-text-2)" }}>Access Key ID</span>
+                    <input
+                      value={draft.r2AccessKeyId}
+                      onChange={(event) => updateDraft(site.siteId, { r2AccessKeyId: event.target.value })}
+                      placeholder="R2 API Token key"
+                      className="mt-1 w-full border-b px-0 py-2"
+                      style={{ borderColor: "var(--c-border)", background: "transparent" }}
+                    />
+                  </label>
+                  <label className="text-sm">
+                    <span style={{ color: "var(--c-text-2)" }}>Secret Access Key</span>
+                    <input
+                      type="password"
+                      value={draft.r2SecretAccessKey}
+                      onChange={(event) => updateDraft(site.siteId, { r2SecretAccessKey: event.target.value })}
+                      placeholder="R2 API Token secret"
+                      className="mt-1 w-full border-b px-0 py-2"
+                      style={{ borderColor: "var(--c-border)", background: "transparent" }}
+                    />
+                  </label>
+                  <label className="text-sm">
+                    <span style={{ color: "var(--c-text-2)" }}>Bucket Name</span>
+                    <input
+                      value={draft.r2BucketName}
+                      onChange={(event) => updateDraft(site.siteId, { r2BucketName: event.target.value })}
+                      placeholder="es: cliente-media"
+                      className="mt-1 w-full border-b px-0 py-2"
+                      style={{ borderColor: "var(--c-border)", background: "transparent" }}
+                    />
+                  </label>
+                  <label className="text-sm xl:col-span-2">
+                    <span style={{ color: "var(--c-text-2)" }}>URL pubblico</span>
+                    <input
+                      value={draft.r2PublicUrl}
+                      onChange={(event) => updateDraft(site.siteId, { r2PublicUrl: event.target.value })}
+                      placeholder="es: https://media.cliente.it"
+                      className="mt-1 w-full border-b px-0 py-2"
+                      style={{ borderColor: "var(--c-border)", background: "transparent" }}
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div className="mt-4 flex flex-wrap items-center gap-4">
               <label className="inline-flex items-center gap-2 text-sm" style={{ color: "var(--c-text-1)" }}>

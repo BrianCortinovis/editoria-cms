@@ -1,6 +1,7 @@
-import { HardDrive, ShieldAlert, Warehouse } from "lucide-react";
+import { HardDrive, ShieldAlert, Warehouse, Cloud } from "lucide-react";
 import { getSuperadminOverview } from "@/lib/superadmin/service";
 import { StorageControlTable } from "@/components/admin/StorageControlTable";
+import { PlatformR2Config } from "@/components/admin/PlatformR2Config";
 
 export default async function AdminStoragePage() {
   const overview = await getSuperadminOverview();
@@ -37,7 +38,31 @@ export default async function AdminStoragePage() {
         </div>
       </section>
 
-      <StorageControlTable sites={overview.sites} />
+      {/* Platform R2 config */}
+      <section>
+        <div className="border-b pb-3 mb-4" style={{ borderColor: "var(--c-border)" }}>
+          <div className="flex items-center gap-2">
+            <Cloud className="h-4 w-4" style={{ color: "var(--c-text-2)" }} />
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: "var(--c-text-2)" }}>
+              Cloudflare R2 — Piattaforma
+            </p>
+          </div>
+          <p className="mt-1 text-xs" style={{ color: "var(--c-text-2)" }}>
+            R2 condiviso per tutti i siti base. I siti enterprise usano il proprio R2 configurato per-sito.
+          </p>
+        </div>
+        <PlatformR2Config />
+      </section>
+
+      {/* Per-site storage control */}
+      <section>
+        <div className="border-b pb-3 mb-4" style={{ borderColor: "var(--c-border)" }}>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: "var(--c-text-2)" }}>
+            Storage per sito
+          </p>
+        </div>
+        <StorageControlTable sites={overview.sites} />
+      </section>
     </div>
   );
 }

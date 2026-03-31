@@ -55,6 +55,7 @@ export interface SuperadminSiteRow {
   publishBlocked: boolean;
   estimatedMonthlyEgressBytes: number;
   lastUsageMeasuredAt: string | null;
+  config: Record<string, unknown>;
   activeModules: string[];
   createdAt: string;
 }
@@ -280,6 +281,7 @@ export async function getSuperadminOverview(): Promise<SuperadminOverview> {
         publishBlocked: Boolean(quota?.publish_blocked),
         estimatedMonthlyEgressBytes: toSafeNumber(usage?.estimated_monthly_egress_bytes),
         lastUsageMeasuredAt: usage?.measured_at ?? null,
+        config: (quota?.config && typeof quota.config === "object" ? quota.config : {}) as Record<string, unknown>,
         activeModules: Array.isArray(tenantSettings?.active_modules)
           ? tenantSettings.active_modules.filter((item): item is string => typeof item === "string")
           : [],
