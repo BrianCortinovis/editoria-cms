@@ -70,8 +70,8 @@ export async function uploadToR2(
   body: Buffer,
   contentType: string,
 ): Promise<{ url: string }> {
-  const endpoint = `https://${credentials.accountId}.r2.cloudflarestorage.com`;
-  const url = `${endpoint}/${credentials.bucketName}/${key}`;
+  const r2Host = `${credentials.accountId}.eu.r2.cloudflarestorage.com`;
+  const url = `https://${r2Host}/${credentials.bucketName}/${key}`;
 
   // S3-compatible PUT with AWS Signature V4
   const { SignatureV4 } = await import("@smithy/signature-v4");
@@ -117,7 +117,7 @@ export async function uploadToR2(
   // Build public URL
   const publicUrl = credentials.publicUrl
     ? `${credentials.publicUrl.replace(/\/$/, "")}/${key}`
-    : `${endpoint}/${credentials.bucketName}/${key}`;
+    : `https://${r2Host}/${credentials.bucketName}/${key}`;
 
   return { url: publicUrl };
 }
