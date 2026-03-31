@@ -5,7 +5,6 @@ import StarterKit from "@tiptap/starter-kit";
 import ImageExt from "@tiptap/extension-image";
 import LinkExt from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
-import Underline from "@tiptap/extension-underline";
 import {
   Bold,
   Italic,
@@ -71,8 +70,8 @@ export default function TiptapEditor({
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
         link: false,
+        underline: {},
       }),
-      Underline,
       ImageExt.configure({ inline: false }),
       LinkExt.configure({
         openOnClick: false,
