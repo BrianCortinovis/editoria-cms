@@ -628,26 +628,35 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                   className="absolute top-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition">
                   <X className="w-4 h-4" />
                 </button>
-                <div className="absolute top-2 right-12 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <AIFieldHelper fieldName="URL immagine copertina" fieldValue={coverImageUrl} context={title} onGenerate={setCoverImageUrl} />
-                </div>
               </div>
             ) : (
-              <div className="relative">
-                <div className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <AIFieldHelper fieldName="URL immagine copertina" fieldValue="" context={`Titolo: ${title}. Suggerisci un URL di immagine Unsplash o Pexels gratuita pertinente.`} onGenerate={setCoverImageUrl} />
-                </div>
-                <label className="flex flex-col items-center justify-center py-8 cursor-pointer transition"
-                  onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
-                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                  <ImageIcon className="w-8 h-8 mb-2" style={{ color: "var(--c-text-3)" }} />
-                  <span className="text-sm" style={{ color: "var(--c-text-3)" }}>Aggiungi immagine di copertina</span>
-                  <input type="text" placeholder="URL immagine..." value={coverImageUrl}
-                    onChange={(e) => setCoverImageUrl(e.target.value)}
-                    className="mt-2 px-3 py-1.5 rounded text-xs w-64 focus:outline-none focus:ring-1"
-                    style={{ border: "1px solid var(--c-border)" }} />
-                </label>
-              </div>
+              <label className="flex flex-col items-center justify-center py-8 cursor-pointer transition"
+                onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                <ImageIcon className="w-8 h-8 mb-2" style={{ color: "var(--c-text-3)" }} />
+                <span className="text-sm" style={{ color: "var(--c-text-3)" }}>Carica immagine di copertina</span>
+                <span className="text-xs mt-1" style={{ color: "var(--c-text-3)" }}>JPG, PNG, WebP — max 50MB</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !currentTenant) return;
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    formData.append("tenant_id", currentTenant.id);
+                    formData.append("tenant_slug", currentTenant.slug);
+                    try {
+                      const res = await fetch("/api/cms/media/upload", { method: "POST", body: formData, credentials: "same-origin" });
+                      if (!res.ok) { const d = await res.json().catch(() => null); toast.error(d?.error || "Errore upload"); return; }
+                      const data = await res.json();
+                      if (data.media?.url) { setCoverImageUrl(data.media.url); toast.success("Immagine caricata"); }
+                    } catch { toast.error("Errore upload immagine"); }
+                    e.target.value = "";
+                  }}
+                />
+              </label>
             )}
           </div>
 
