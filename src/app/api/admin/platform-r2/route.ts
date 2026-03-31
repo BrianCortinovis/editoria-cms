@@ -82,7 +82,7 @@ export async function PUT(request: Request) {
     site_id: null,
     action: AUDIT_ACTION,
     resource_type: "platform_runtime",
-    resource_id: "global",
+    resource_id: null,
     metadata: incoming,
   });
 
