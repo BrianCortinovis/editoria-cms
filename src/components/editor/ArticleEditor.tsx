@@ -584,8 +584,8 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                 }
               }}
               placeholder="Titolo dell'articolo"
-              className="w-full text-3xl font-bold font-serif border-0 bg-transparent focus:outline-none pr-10"
-              style={{ color: "var(--c-text-0)" }}
+              className="w-full text-3xl font-bold font-serif rounded-lg px-4 py-3 focus:outline-none focus:ring-2 pr-10"
+              style={{ color: "var(--c-text-0, #1a1a1a)", border: "1px solid var(--c-border, #e0e0e0)", background: "var(--c-bg-1, #fff)", "--tw-ring-color": "var(--c-accent)" } as React.CSSProperties}
             />
           </div>
 
@@ -599,8 +599,8 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
               value={subtitle}
               onChange={(e) => setSubtitle(e.target.value)}
               placeholder="Sottotitolo (opzionale)"
-              className="w-full text-lg border-0 bg-transparent focus:outline-none pr-10"
-              style={{ color: "var(--c-text-2)" }}
+              className="w-full text-lg rounded-lg px-4 py-2 focus:outline-none focus:ring-2 pr-10"
+              style={{ color: "var(--c-text-1, #444)", border: "1px solid var(--c-border, #e0e0e0)", background: "var(--c-bg-1, #fff)", "--tw-ring-color": "var(--c-accent)" } as React.CSSProperties}
             />
           </div>
 

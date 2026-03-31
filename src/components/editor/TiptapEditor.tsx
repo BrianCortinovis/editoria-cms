@@ -70,7 +70,6 @@ export default function TiptapEditor({
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
         link: false,
-        underline: {},
       }),
       ImageExt.configure({ inline: false }),
       LinkExt.configure({

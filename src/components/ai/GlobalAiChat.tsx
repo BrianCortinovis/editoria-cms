@@ -1296,10 +1296,16 @@ export function GlobalAiChat() {
       }
     };
 
+    let syncTimer: ReturnType<typeof setTimeout> | null = null;
     const handleFieldChange = (event: Event) => {
-      if (isFillableFieldElement(event.target)) {
-        syncFieldElement(event.target);
-      }
+      if (!isFillableFieldElement(event.target)) return;
+      // Debounce sync to avoid blocking typing with heavy DOM scans
+      if (syncTimer) clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => {
+        if (isFillableFieldElement(event.target)) {
+          syncFieldElement(event.target);
+        }
+      }, 300);
     };
 
     document.addEventListener('focusin', handleFocusIn, true);
@@ -1308,6 +1314,7 @@ export function GlobalAiChat() {
     document.addEventListener('change', handleFieldChange, true);
 
     return () => {
+      if (syncTimer) clearTimeout(syncTimer);
       document.removeEventListener('focusin', handleFocusIn, true);
       document.removeEventListener('click', handleClick, true);
       document.removeEventListener('input', handleFieldChange, true);
