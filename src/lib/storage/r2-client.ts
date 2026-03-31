@@ -90,13 +90,13 @@ export async function uploadToR2(
   const request = {
     method: "PUT",
     protocol: "https:",
-    hostname: `${credentials.accountId}.r2.cloudflarestorage.com`,
+    hostname: `${credentials.accountId}.eu.r2.cloudflarestorage.com`,
     path: `/${credentials.bucketName}/${key}`,
     headers: {
       "Content-Type": contentType,
       "Content-Length": String(body.length),
       "Cache-Control": "public, max-age=31536000, immutable",
-      host: `${credentials.accountId}.r2.cloudflarestorage.com`,
+      host: `${credentials.accountId}.eu.r2.cloudflarestorage.com`,
     },
     body,
   };
