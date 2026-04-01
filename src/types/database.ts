@@ -596,6 +596,14 @@ export interface Database {
           starts_at: string | null;
           ends_at: string | null;
           is_active: boolean;
+          rotation_mode: "sequential" | "random" | "weighted";
+          rotation_interval_ms: number;
+          sizing_mode: "cover" | "contain" | "stretch";
+          overlay_enabled: boolean;
+          overlay_trigger: "hover" | "click" | "auto";
+          overlay_delay_ms: number;
+          overlay_close_required: boolean;
+          overlay_target_pages: string[];
           created_at: string;
           updated_at: string;
         };
@@ -615,6 +623,14 @@ export interface Database {
           starts_at?: string | null;
           ends_at?: string | null;
           is_active?: boolean;
+          rotation_mode?: "sequential" | "random" | "weighted";
+          rotation_interval_ms?: number;
+          sizing_mode?: "cover" | "contain" | "stretch";
+          overlay_enabled?: boolean;
+          overlay_trigger?: "hover" | "click" | "auto";
+          overlay_delay_ms?: number;
+          overlay_close_required?: boolean;
+          overlay_target_pages?: string[];
         };
         Update: {
           name?: string;

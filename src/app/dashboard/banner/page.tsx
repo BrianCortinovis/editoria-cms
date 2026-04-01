@@ -165,6 +165,16 @@ export default function BannerPage() {
   const [overlayCtaLabel, setOverlayCtaLabel] = useState("Apri sponsor");
   const [overlayCtaUrl, setOverlayCtaUrl] = useState("");
 
+  // Advanced settings
+  const [rotationMode, setRotationMode] = useState<"sequential" | "random" | "weighted">("sequential");
+  const [rotationIntervalMs, setRotationIntervalMs] = useState("5000");
+  const [sizingMode, setSizingMode] = useState<"cover" | "contain" | "stretch">("cover");
+  const [advOverlayEnabled, setAdvOverlayEnabled] = useState(false);
+  const [advOverlayTrigger, setAdvOverlayTrigger] = useState<"hover" | "click" | "auto">("hover");
+  const [advOverlayDelayMs, setAdvOverlayDelayMs] = useState("0");
+  const [advOverlayCloseRequired, setAdvOverlayCloseRequired] = useState(true);
+  const [advOverlayTargetPages, setAdvOverlayTargetPages] = useState("");
+
   const readErrorMessage = useCallback(async (response: Response, fallback: string) => {
     const payload = await response.json().catch(() => null);
     return typeof payload?.error === "string" ? payload.error : fallback;
@@ -210,6 +220,9 @@ export default function BannerPage() {
     setAdvertiserId(""); setStartsAt(""); setEndsAt(""); setIsActive(true);
     setOverlayEnabled(false); setOverlayDelaySeconds("0.8"); setOverlayTargetSlugs("");
     setOverlayTitle(""); setOverlayDescription(""); setOverlayCtaLabel("Apri sponsor"); setOverlayCtaUrl("");
+    setRotationMode("sequential"); setRotationIntervalMs("5000"); setSizingMode("cover");
+    setAdvOverlayEnabled(false); setAdvOverlayTrigger("hover"); setAdvOverlayDelayMs("0");
+    setAdvOverlayCloseRequired(true); setAdvOverlayTargetPages("");
     setEditingId(null); setShowForm(false);
   };
 
@@ -229,6 +242,16 @@ export default function BannerPage() {
     setOverlayDescription(overlay.description);
     setOverlayCtaLabel(overlay.cta_label);
     setOverlayCtaUrl(overlay.cta_url || (b.link_url ?? ""));
+    // Advanced settings
+    const bAny = b as unknown as Record<string, unknown>;
+    setRotationMode((bAny.rotation_mode as typeof rotationMode) || "sequential");
+    setRotationIntervalMs(String(bAny.rotation_interval_ms || 5000));
+    setSizingMode((bAny.sizing_mode as typeof sizingMode) || "cover");
+    setAdvOverlayEnabled(bAny.overlay_enabled === true);
+    setAdvOverlayTrigger((bAny.overlay_trigger as typeof advOverlayTrigger) || "hover");
+    setAdvOverlayDelayMs(String(bAny.overlay_delay_ms || 0));
+    setAdvOverlayCloseRequired(bAny.overlay_close_required !== false);
+    setAdvOverlayTargetPages(Array.isArray(bAny.overlay_target_pages) ? (bAny.overlay_target_pages as string[]).join(", ") : "");
   };
 
   const handleSave = async () => {
@@ -263,6 +286,14 @@ export default function BannerPage() {
       starts_at: startsAt ? new Date(startsAt).toISOString() : null,
       ends_at: endsAt ? new Date(endsAt).toISOString() : null,
       is_active: isActive,
+      rotation_mode: rotationMode,
+      rotation_interval_ms: Math.max(1000, parseInt(rotationIntervalMs) || 5000),
+      sizing_mode: sizingMode,
+      overlay_enabled: advOverlayEnabled,
+      overlay_trigger: advOverlayTrigger,
+      overlay_delay_ms: Math.max(0, parseInt(advOverlayDelayMs) || 0),
+      overlay_close_required: advOverlayCloseRequired,
+      overlay_target_pages: advOverlayTargetPages.split(",").map(s => s.trim()).filter(Boolean),
     };
 
     if (editingId) {
@@ -624,6 +655,95 @@ export default function BannerPage() {
                 </div>
               </div>
             )}
+            {/* Advanced Settings */}
+            <div className="sm:col-span-2 lg:col-span-3 border-t pt-4 mt-2" style={{ borderColor: "var(--c-border)" }}>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--c-text-2)" }}>Impostazioni avanzate</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Rotazione</label>
+                  <select value={rotationMode} onChange={e => setRotationMode(e.target.value as typeof rotationMode)}
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+                    <option value="sequential">Sequenziale (stesso ordine)</option>
+                    <option value="random">Casuale (ogni caricamento)</option>
+                    <option value="weighted">Per peso (priorita')</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Intervallo rotazione (ms)</label>
+                  <input type="number" min={1000} step={500} value={rotationIntervalMs} onChange={e => setRotationIntervalMs(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ border: "1px solid var(--c-border)" }} />
+                  <p className="text-[10px] mt-1" style={{ color: "var(--c-text-3)" }}>{(parseInt(rotationIntervalMs) / 1000) || 5}s tra un banner e l&apos;altro</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Dimensionamento</label>
+                  <select value={sizingMode} onChange={e => setSizingMode(e.target.value as typeof sizingMode)}
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+                    <option value="cover">Riempi spazio (taglia bordi)</option>
+                    <option value="contain">Adatta (mostra tutto)</option>
+                    <option value="stretch">Allarga (deforma)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Peso / Priorita'</label>
+                  <input type="number" min={1} max={100} value={weight} onChange={e => setWeight(Number(e.target.value) || 1)}
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ border: "1px solid var(--c-border)" }} />
+                  <p className="text-[10px] mt-1" style={{ color: "var(--c-text-3)" }}>Piu' alto = piu' visibilita'</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Overlay on articles */}
+            <div className="sm:col-span-2 lg:col-span-3 border-t pt-4 mt-2" style={{ borderColor: "var(--c-border)" }}>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--c-text-2)" }}>Banner overlay su articoli</p>
+                  <p className="text-[11px] mt-1" style={{ color: "var(--c-text-3)" }}>Mostra il banner sopra le card articoli. L&apos;utente deve chiuderlo per accedere al contenuto.</p>
+                </div>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={advOverlayEnabled} onChange={e => setAdvOverlayEnabled(e.target.checked)} className="w-4 h-4 rounded" />
+                  <span className="text-xs font-medium" style={{ color: "var(--c-text-1)" }}>Attivo</span>
+                </label>
+              </div>
+              {advOverlayEnabled && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Trigger</label>
+                    <select value={advOverlayTrigger} onChange={e => setAdvOverlayTrigger(e.target.value as typeof advOverlayTrigger)}
+                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                      style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+                      <option value="hover">Al passaggio del mouse</option>
+                      <option value="click">Al click</option>
+                      <option value="auto">Automatico (con ritardo)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Ritardo (ms)</label>
+                    <input type="number" min={0} step={100} value={advOverlayDelayMs} onChange={e => setAdvOverlayDelayMs(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                      style={{ border: "1px solid var(--c-border)" }} />
+                    <p className="text-[10px] mt-1" style={{ color: "var(--c-text-3)" }}>Solo per trigger automatico</p>
+                  </div>
+                  <div>
+                    <label className="flex items-center gap-2 mt-6">
+                      <input type="checkbox" checked={advOverlayCloseRequired} onChange={e => setAdvOverlayCloseRequired(e.target.checked)} className="w-4 h-4 rounded" />
+                      <span className="text-xs" style={{ color: "var(--c-text-1)" }}>Chiusura obbligatoria</span>
+                    </label>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Pagine target</label>
+                    <input type="text" value={advOverlayTargetPages} onChange={e => setAdvOverlayTargetPages(e.target.value)}
+                      placeholder="homepage, cronaca, sport (vuoto = tutte)"
+                      className="w-full mt-1 px-3 py-2 rounded-lg text-xs focus:outline-none focus:ring-1"
+                      style={{ border: "1px solid var(--c-border)" }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center">
               <label className="flex items-center gap-2 cursor-pointer mt-5">
                 <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)}
