@@ -80,6 +80,19 @@ export async function POST(request: Request) {
     return access.error;
   }
 
+  // Validate advertiser belongs to same tenant
+  if (parsed.data.advertiser_id) {
+    const { data: advertiser } = await access.serviceClient
+      .from("advertisers")
+      .select("id")
+      .eq("id", parsed.data.advertiser_id)
+      .eq("tenant_id", tenantId)
+      .single();
+    if (!advertiser) {
+      return NextResponse.json({ error: "Inserzionista non valido o non appartenente a questo tenant" }, { status: 400 });
+    }
+  }
+
   const payload = {
     tenant_id: tenantId,
     name: parsed.data.name,

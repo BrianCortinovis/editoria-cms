@@ -49,6 +49,19 @@ export async function PATCH(
     return access.error;
   }
 
+  // Validate advertiser belongs to same tenant
+  if (parsed.data.advertiser_id) {
+    const { data: advertiser } = await access.serviceClient
+      .from("advertisers")
+      .select("id")
+      .eq("id", parsed.data.advertiser_id)
+      .eq("tenant_id", tenantId)
+      .single();
+    if (!advertiser) {
+      return NextResponse.json({ error: "Inserzionista non valido o non appartenente a questo tenant" }, { status: 400 });
+    }
+  }
+
   const patch: Record<string, unknown> = {};
   if (parsed.data.name !== undefined) patch.name = parsed.data.name;
   if (parsed.data.position !== undefined) patch.position = parsed.data.position;
