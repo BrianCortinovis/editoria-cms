@@ -13,8 +13,25 @@ import {
   Mail,
   Phone,
   Loader2,
+  Megaphone,
+  ChevronDown,
+  ChevronRight,
+  Image as ImageIcon,
+  Power,
 } from "lucide-react";
 import AIButton from "@/components/ai/AIButton";
+
+interface Banner {
+  id: string;
+  name: string;
+  position: string;
+  image_url: string | null;
+  link_url: string | null;
+  is_active: boolean;
+  weight: number;
+  impressions: number;
+  clicks: number;
+}
 
 interface Advertiser {
   id: string;
@@ -28,6 +45,8 @@ interface Advertiser {
 export default function InserzionistiPage() {
   const { currentTenant } = useAuthStore();
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
+  const [bannersByAdvertiser, setBannersByAdvertiser] = useState<Record<string, Banner[]>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -57,6 +76,25 @@ export default function InserzionistiPage() {
     }
     const payload = (await response.json()) as { advertisers?: Advertiser[] };
     setAdvertisers(Array.isArray(payload.advertisers) ? payload.advertisers : []);
+
+    // Load banners for all advertisers
+    const bannersResp = await fetch(`/api/cms/banners?tenant_id=${encodeURIComponent(currentTenant.id)}`, {
+      credentials: "same-origin", cache: "no-store",
+    });
+    if (bannersResp.ok) {
+      const bannersPayload = (await bannersResp.json()) as { banners?: Banner[] };
+      const allBanners = Array.isArray(bannersPayload.banners) ? bannersPayload.banners : [];
+      const grouped: Record<string, Banner[]> = {};
+      for (const b of allBanners) {
+        const advId = (b as unknown as { advertiser_id: string | null }).advertiser_id;
+        if (advId) {
+          if (!grouped[advId]) grouped[advId] = [];
+          grouped[advId].push(b);
+        }
+      }
+      setBannersByAdvertiser(grouped);
+    }
+
     setLoading(false);
   }, [currentTenant, readErrorMessage]);
 
@@ -222,34 +260,114 @@ export default function InserzionistiPage() {
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: "var(--c-border)" }}>
-            {advertisers.map(a => (
-              <div key={a.id} className="flex items-center gap-4 px-5 py-4 transition"
-                onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
-                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm shrink-0" style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}>
-                  {a.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium" style={{ color: "var(--c-text-0)" }}>{a.name}</p>
-                  <div className="flex items-center gap-3 text-xs" style={{ color: "var(--c-text-3)" }}>
-                    {a.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{a.email}</span>}
-                    {a.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{a.phone}</span>}
+            {advertisers.map(a => {
+              const advBanners = bannersByAdvertiser[a.id] || [];
+              const isExpanded = expandedId === a.id;
+
+              return (
+                <div key={a.id}>
+                  <div className="flex items-center gap-4 px-5 py-4 transition cursor-pointer"
+                    onClick={() => setExpandedId(isExpanded ? null : a.id)}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                    {/* Expand icon */}
+                    <div className="shrink-0" style={{ color: "var(--c-text-3)" }}>
+                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </div>
+                    {/* Avatar */}
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm shrink-0" style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}>
+                      {a.name.charAt(0).toUpperCase()}
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium" style={{ color: "var(--c-text-0)" }}>{a.name}</p>
+                        {advBanners.length > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1" style={{ background: "var(--c-bg-2)", color: "var(--c-text-2)" }}>
+                            <Megaphone className="w-3 h-3" /> {advBanners.length} banner
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs" style={{ color: "var(--c-text-3)" }}>
+                        {a.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{a.email}</span>}
+                        {a.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{a.phone}</span>}
+                      </div>
+                    </div>
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => startEdit(a)} className="w-8 h-8 flex items-center justify-center rounded transition"
+                        onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                        <Pencil className="w-3.5 h-3.5" style={{ color: "var(--c-text-3)" }} />
+                      </button>
+                      <button onClick={() => handleDelete(a.id)} className="w-8 h-8 flex items-center justify-center rounded transition"
+                        onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                        <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Expanded: show banners */}
+                  {isExpanded && (
+                    <div className="px-5 pb-4" style={{ paddingLeft: "76px" }}>
+                      {a.notes && (
+                        <p className="text-xs mb-3" style={{ color: "var(--c-text-3)" }}>{a.notes}</p>
+                      )}
+
+                      {advBanners.length === 0 ? (
+                        <div className="text-center py-4 rounded-lg" style={{ background: "var(--c-bg-2)" }}>
+                          <ImageIcon className="w-6 h-6 mx-auto mb-1" style={{ color: "var(--c-text-3)" }} />
+                          <p className="text-xs" style={{ color: "var(--c-text-3)" }}>Nessun banner associato</p>
+                          <a href="/dashboard/banner" className="text-xs font-medium mt-1 inline-block" style={{ color: "var(--c-accent)" }}>
+                            Crea banner →
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--c-text-2)" }}>
+                            Banner di {a.name}
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {advBanners.map(b => (
+                              <div key={b.id} className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border)", opacity: b.is_active ? 1 : 0.5 }}>
+                                {b.image_url ? (
+                                  <img src={b.image_url} alt={b.name} className="w-full h-20 object-cover" />
+                                ) : (
+                                  <div className="w-full h-20 flex items-center justify-center" style={{ background: "var(--c-bg-2)" }}>
+                                    <ImageIcon className="w-5 h-5" style={{ color: "var(--c-text-3)" }} />
+                                  </div>
+                                )}
+                                <div className="px-2 py-1.5">
+                                  <p className="text-[11px] font-medium truncate" style={{ color: "var(--c-text-0)" }}>{b.name}</p>
+                                  <div className="flex items-center justify-between mt-1">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded capitalize" style={{ background: "var(--c-bg-2)", color: "var(--c-text-3)" }}>
+                                      {b.position.replace(/-/g, " ")}
+                                    </span>
+                                    <span className="text-[10px] flex items-center gap-0.5" style={{ color: b.is_active ? "var(--c-success)" : "var(--c-text-3)" }}>
+                                      <Power className="w-2.5 h-2.5" /> {b.is_active ? "ON" : "OFF"}
+                                    </span>
+                                  </div>
+                                  {(b.impressions > 0 || b.clicks > 0) && (
+                                    <p className="text-[10px] mt-1" style={{ color: "var(--c-text-3)" }}>
+                                      {b.impressions.toLocaleString()} imp · {b.clicks} click
+                                      {b.impressions > 0 && ` · ${((b.clicks / b.impressions) * 100).toFixed(1)}% CTR`}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <a href="/dashboard/banner" className="text-xs font-medium inline-block mt-1" style={{ color: "var(--c-accent)" }}>
+                            Gestisci banner →
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => startEdit(a)} className="w-8 h-8 flex items-center justify-center rounded transition"
-                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
-                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                    <Pencil className="w-3.5 h-3.5" style={{ color: "var(--c-text-3)" }} />
-                  </button>
-                  <button onClick={() => handleDelete(a.id)} className="w-8 h-8 flex items-center justify-center rounded transition"
-                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
-                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
