@@ -24,6 +24,8 @@ export type DeploymentTargetKind = "vercel_managed" | "customer_vps" | "static_b
 export type PublishReleaseStatus = "draft" | "building" | "ready" | "active" | "failed" | "rolled_back";
 export type PublishJobStatus = "queued" | "running" | "succeeded" | "failed" | "canceled";
 
+export type ScheduledSocialPostStatus = "pending" | "sending" | "sent" | "failed" | "canceled";
+
 export interface SiteTheme {
   colors: {
     primary: string;
@@ -1540,6 +1542,51 @@ export interface Database {
           updated_at?: string;
         };
       };
+      scheduled_social_posts: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          article_id: string;
+          platform: string;
+          target_label: string;
+          channel_config: Record<string, unknown> | null;
+          custom_text: string | null;
+          scheduled_at: string;
+          status: ScheduledSocialPostStatus;
+          posted_at: string | null;
+          post_id: string | null;
+          error_message: string | null;
+          retry_count: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          article_id: string;
+          platform: string;
+          target_label?: string;
+          channel_config?: Record<string, unknown> | null;
+          custom_text?: string | null;
+          scheduled_at: string;
+          status?: ScheduledSocialPostStatus;
+          created_by?: string | null;
+        };
+        Update: {
+          platform?: string;
+          target_label?: string;
+          channel_config?: Record<string, unknown> | null;
+          custom_text?: string | null;
+          scheduled_at?: string;
+          status?: ScheduledSocialPostStatus;
+          posted_at?: string | null;
+          post_id?: string | null;
+          error_message?: string | null;
+          retry_count?: number;
+          updated_at?: string;
+        };
+      };
       publish_jobs: {
         Row: {
           id: string;
@@ -1596,6 +1643,7 @@ export interface Database {
       deployment_target_kind: DeploymentTargetKind;
       publish_release_status: PublishReleaseStatus;
       publish_job_status: PublishJobStatus;
+      scheduled_social_post_status: ScheduledSocialPostStatus;
     };
   };
 }

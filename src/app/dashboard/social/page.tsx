@@ -14,6 +14,7 @@ import {
 } from '@/lib/social/platforms';
 import { CheckCircle2, ExternalLink, Link2, Save, Send, Share2, ShieldCheck, Sparkles } from 'lucide-react';
 import AIButton from '@/components/ai/AIButton';
+import ScheduledPostsManager from '@/components/social/ScheduledPostsManager';
 
 export default function SocialPage() {
   const { currentTenant, currentRole } = useAuthStore();
@@ -505,6 +506,8 @@ export default function SocialPage() {
         </div>
       </section>
 
+      <ScheduledPostsManager />
+
       <section className="rounded-2xl p-4" style={{ background: 'var(--c-bg-1)', border: '1px solid var(--c-border)' }}>
         <div className="flex items-center gap-2 mb-2">
           <Send size={16} style={{ color: 'var(--c-accent)' }} />
@@ -513,10 +516,10 @@ export default function SocialPage() {
           </h3>
         </div>
         <div className="space-y-2 text-sm" style={{ color: 'var(--c-text-2)' }}>
-          <div>1. Il CMS è ora predisposto per quasi tutti i canali social principali.</div>
-          <div>2. Hai una configurazione unica tenant-based per account, token, handle e webhook.</div>
-          <div>3. Hai share link rapidi dove disponibili, utili come fallback immediato.</div>
-          <div>4. Il publish automatico reale richiede il passo successivo: collegare le API delle piattaforme per cui avrai credenziali valide.</div>
+          <div>1. Il CMS supporta pubblicazione automatica e programmata su tutti i canali social.</div>
+          <div>2. Puoi programmare lo stesso articolo su piattaforme diverse a orari diversi.</div>
+          <div>3. Il cron controlla ogni minuto e invia i post al momento giusto.</div>
+          <div>4. Canali attivi per posting diretto: Telegram, Facebook, X/Twitter, LinkedIn.</div>
         </div>
       </section>
     </div>

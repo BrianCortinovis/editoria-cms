@@ -27,6 +27,8 @@ import {
   Lock,
   Image as ImageIcon,
   X,
+  CalendarClock,
+  Share2,
 } from "lucide-react";
 import type { ArticleStatus } from "@/types/database";
 
@@ -160,6 +162,11 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
   const [scheduledAt, setScheduledAt] = useState("");
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showSocialSchedule, setShowSocialSchedule] = useState(false);
+  const [socialPlatform, setSocialPlatform] = useState("telegram");
+  const [socialScheduleTime, setSocialScheduleTime] = useState("");
+  const [socialTargetLabel, setSocialTargetLabel] = useState("");
+  const [schedulingSocial, setSchedulingSocial] = useState(false);
 
   // Register field setters for AI to use
   useEffect(() => {
@@ -1020,6 +1027,94 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
               style={{ border: "1px solid var(--c-border)" }}
             />
           </div>
+
+          {/* Social scheduling (solo per articoli gia' salvati e pubblicati) */}
+          {status === "published" && articleId && (
+            <div className="rounded-lg p-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold flex items-center gap-1.5" style={{ color: "var(--c-text-0)" }}>
+                  <Share2 className="w-3.5 h-3.5" style={{ color: "var(--c-accent)" }} />
+                  Programma social
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowSocialSchedule(!showSocialSchedule)}
+                  className="text-xs font-semibold rounded-lg px-2 py-1"
+                  style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}
+                >
+                  {showSocialSchedule ? "Chiudi" : "+ Aggiungi"}
+                </button>
+              </div>
+              {showSocialSchedule && (
+                <div className="space-y-2 mt-3">
+                  <select
+                    value={socialPlatform}
+                    onChange={(e) => setSocialPlatform(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ border: "1px solid var(--c-border)" }}
+                  >
+                    <option value="telegram">Telegram</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="x">X / Twitter</option>
+                    <option value="linkedin">LinkedIn</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={socialTargetLabel}
+                    onChange={(e) => setSocialTargetLabel(e.target.value)}
+                    placeholder="Target (es: Gruppo A)"
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ border: "1px solid var(--c-border)" }}
+                  />
+                  <input
+                    type="datetime-local"
+                    value={socialScheduleTime}
+                    onChange={(e) => setSocialScheduleTime(e.target.value)}
+                    min={new Date().toISOString().slice(0, 16)}
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ border: "1px solid var(--c-border)" }}
+                  />
+                  <button
+                    type="button"
+                    disabled={schedulingSocial || !socialScheduleTime}
+                    onClick={async () => {
+                      if (!currentTenant || !articleId || !socialScheduleTime) return;
+                      setSchedulingSocial(true);
+                      try {
+                        const res = await fetch("/api/cms/social/scheduled", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            tenant_id: currentTenant.id,
+                            posts: [{
+                              article_id: articleId,
+                              platform: socialPlatform,
+                              target_label: socialTargetLabel,
+                              scheduled_at: new Date(socialScheduleTime).toISOString(),
+                            }],
+                          }),
+                        });
+                        if (!res.ok) throw new Error("Errore");
+                        toast.success("Post social programmato!");
+                        setSocialScheduleTime("");
+                        setSocialTargetLabel("");
+                        setShowSocialSchedule(false);
+                      } catch {
+                        toast.error("Errore programmazione social");
+                      } finally {
+                        setSchedulingSocial(false);
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50"
+                    style={{ background: "var(--c-accent)" }}
+                  >
+                    <CalendarClock className="w-4 h-4" />
+                    {schedulingSocial ? "Programmazione..." : "Programma invio"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* SEO */}
           <div className="rounded-lg p-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>

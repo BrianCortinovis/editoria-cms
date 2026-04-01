@@ -154,9 +154,9 @@ async function postToLinkedin(
   }
 }
 
-type PlatformPoster = (ch: SocialChannelConfig, payload: SocialPostPayload) => Promise<SocialPostResult>;
+export type PlatformPoster = (ch: SocialChannelConfig, payload: SocialPostPayload) => Promise<SocialPostResult>;
 
-const PLATFORM_POSTERS: Partial<Record<SocialPlatformKey, PlatformPoster>> = {
+export const PLATFORM_POSTERS: Partial<Record<SocialPlatformKey, PlatformPoster>> = {
   telegram: postToTelegram,
   facebook: postToFacebook,
   x: postToTwitter,
