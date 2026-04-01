@@ -2,7 +2,7 @@ export type UserRole = "admin" | "chief_editor" | "editor" | "contributor" | "ad
 
 export type ArticleStatus = "draft" | "in_review" | "approved" | "published" | "archived";
 
-export type BannerPosition = "header" | "sidebar" | "in_article" | "footer" | "interstitial";
+export type BannerPosition = "header" | "sidebar" | "sidebar-left" | "sidebar-right" | "in_article" | "footer" | "interstitial";
 
 export type PageType = "homepage" | "article" | "category" | "tag" | "author" | "search" | "contact" | "about" | "events" | "custom";
 

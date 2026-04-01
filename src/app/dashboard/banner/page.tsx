@@ -66,7 +66,9 @@ interface CategoryOption {
 
 const positions = [
   { value: "header", label: "Header" },
-  { value: "sidebar", label: "Sidebar" },
+  { value: "sidebar", label: "Sidebar (entrambe)" },
+  { value: "sidebar-left", label: "Sidebar Sinistra" },
+  { value: "sidebar-right", label: "Sidebar Destra" },
   { value: "in_article", label: "In-Article" },
   { value: "footer", label: "Footer" },
   { value: "interstitial", label: "Interstitial" },
@@ -463,10 +465,42 @@ export default function BannerPage() {
             </div>
             {type === "image" && (
               <div className="sm:col-span-2 lg:col-span-3">
-                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>URL Immagine</label>
-                <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..."
-                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                  style={{ border: "1px solid var(--c-border)" }} />
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Immagine Banner</label>
+                {imageUrl ? (
+                  <div className="mt-1 relative inline-block">
+                    <img src={imageUrl} alt="Preview" className="max-h-32 rounded-lg border" style={{ borderColor: "var(--c-border)" }} />
+                    <button type="button" onClick={() => setImageUrl("")}
+                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:bg-red-600">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="mt-1 flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition hover:bg-[var(--c-bg-2)]"
+                    style={{ border: "1px dashed var(--c-border)" }}>
+                    <ImageIcon className="w-5 h-5" style={{ color: "var(--c-text-3)" }} />
+                    <span className="text-sm" style={{ color: "var(--c-text-2)" }}>Carica immagine banner (JPG, PNG, WebP)</span>
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file || !currentTenant) return;
+                        const formData = new FormData();
+                        formData.append("file", file);
+                        formData.append("tenant_id", currentTenant.id);
+                        formData.append("tenant_slug", currentTenant.slug);
+                        try {
+                          const res = await fetch("/api/cms/media/upload", { method: "POST", body: formData, credentials: "same-origin" });
+                          const data = await res.json().catch(() => null);
+                          if (!res.ok) { toast.error(data?.error || "Errore upload"); return; }
+                          if (data?.media?.url) { setImageUrl(data.media.url); toast.success("Immagine caricata"); }
+                        } catch { toast.error("Errore upload"); }
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                )}
+                <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="oppure incolla URL..."
+                  className="w-full mt-2 px-3 py-2 rounded-lg text-xs focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)", color: "var(--c-text-2)" }} />
               </div>
             )}
             {type === "html" && (
@@ -610,6 +644,62 @@ export default function BannerPage() {
               onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salva
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sidebar Columns Preview */}
+      {!loading && banners.filter(b => b.position === "sidebar" || b.position === "sidebar-left" || b.position === "sidebar-right").length > 0 && (
+        <div className="rounded-lg p-5 mb-6" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+          <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--c-text-0)" }}>Anteprima Colonne Sidebar</h3>
+          <p className="text-xs mb-4" style={{ color: "var(--c-text-2)" }}>
+            I banner &quot;Sidebar&quot; appaiono in entrambe le colonne (divisi automaticamente). Usa &quot;Sidebar Sinistra&quot; o &quot;Sidebar Destra&quot; per forzare la colonna.
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Left column */}
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--c-text-2)" }}>Colonna Sinistra</p>
+              <div className="space-y-2 p-3 rounded-lg min-h-[200px]" style={{ background: "var(--c-bg-2)", border: "1px solid var(--c-border)" }}>
+                {(() => {
+                  const sidebarAll = banners.filter(b => b.is_active && b.position === "sidebar");
+                  const leftOnly = banners.filter(b => b.is_active && b.position === "sidebar-left");
+                  const autoLeft = sidebarAll.filter((_, i) => i % 2 === 0);
+                  const allLeft = [...leftOnly, ...autoLeft];
+                  return allLeft.length === 0
+                    ? <p className="text-xs text-center py-4" style={{ color: "var(--c-text-3)" }}>Nessun banner</p>
+                    : allLeft.map((b) => (
+                      <div key={b.id} className="rounded overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
+                        {b.image_url
+                          ? <img src={b.image_url} alt={b.name} className="w-full h-auto" style={{ maxHeight: "80px", objectFit: "cover" }} />
+                          : <div className="h-12 flex items-center justify-center text-[10px]" style={{ background: "var(--c-bg-1)", color: "var(--c-text-3)" }}>{b.name}</div>
+                        }
+                      </div>
+                    ));
+                })()}
+              </div>
+            </div>
+            {/* Right column */}
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--c-text-2)" }}>Colonna Destra</p>
+              <div className="space-y-2 p-3 rounded-lg min-h-[200px]" style={{ background: "var(--c-bg-2)", border: "1px solid var(--c-border)" }}>
+                {(() => {
+                  const sidebarAll = banners.filter(b => b.is_active && b.position === "sidebar");
+                  const rightOnly = banners.filter(b => b.is_active && b.position === "sidebar-right");
+                  const autoRight = sidebarAll.filter((_, i) => i % 2 !== 0);
+                  const allRight = [...rightOnly, ...autoRight];
+                  return allRight.length === 0
+                    ? <p className="text-xs text-center py-4" style={{ color: "var(--c-text-3)" }}>Nessun banner</p>
+                    : allRight.map((b) => (
+                      <div key={b.id} className="rounded overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
+                        {b.image_url
+                          ? <img src={b.image_url} alt={b.name} className="w-full h-auto" style={{ maxHeight: "80px", objectFit: "cover" }} />
+                          : <div className="h-12 flex items-center justify-center text-[10px]" style={{ background: "var(--c-bg-1)", color: "var(--c-text-3)" }}>{b.name}</div>
+                        }
+                      </div>
+                    ));
+                })()}
+              </div>
+            </div>
           </div>
         </div>
       )}
