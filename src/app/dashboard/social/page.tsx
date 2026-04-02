@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { createClient } from '@/lib/supabase/client';
 import { requestPublishTrigger } from '@/lib/publish/client';
 import { useAuthStore } from '@/lib/store';
 import {
@@ -13,7 +12,7 @@ import {
   type SocialPlatformKey,
   type SocialAutoConfig,
 } from '@/lib/social/platforms';
-import { CheckCircle2, CircleHelp, ExternalLink, Link2, Save, Send, Share2, ShieldCheck, Sparkles } from 'lucide-react';
+import { CheckCircle2, CircleHelp, ExternalLink, Link2, MessageCircleMore, Save, Send, Share2, ShieldCheck, Sparkles } from 'lucide-react';
 import AIButton from '@/components/ai/AIButton';
 import ScheduledPostsManager from '@/components/social/ScheduledPostsManager';
 
@@ -28,7 +27,8 @@ export default function SocialPage() {
   );
   const [composerUrl, setComposerUrl] = useState('https://esempio.it/articolo/progetto-green-val-brembana');
   const [helperOpenFor, setHelperOpenFor] = useState<SocialPlatformKey | null>(null);
-  const canManageSocial = currentRole === 'admin';
+  const canManageSocial =
+    currentRole === 'admin' || currentRole === 'chief_editor' || currentRole === 'editor';
 
   useEffect(() => {
     if (!canManageSocial) return;
@@ -36,28 +36,23 @@ export default function SocialPage() {
     const tenantId = currentTenant.id;
 
     async function load() {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('tenants')
-        .select('settings')
-        .eq('id', tenantId)
-        .single();
+      try {
+        const response = await fetch(`/api/cms/social/channels?tenant_id=${encodeURIComponent(tenantId)}`, {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Errore caricamento configurazione social');
+        }
 
-      if (error) {
+        setConfig(normalizeSocialAutoConfig(payload?.config));
+      } catch (error) {
         console.error(error);
-        toast.error('Errore caricamento configurazione social');
+        toast.error(error instanceof Error ? error.message : 'Errore caricamento configurazione social');
+      } finally {
         setLoading(false);
-        return;
       }
-
-      const settings = (data?.settings || {}) as Record<string, unknown>;
-      const moduleConfig =
-        settings.module_config && typeof settings.module_config === 'object'
-          ? (settings.module_config as Record<string, unknown>)
-          : {};
-
-      setConfig(normalizeSocialAutoConfig(moduleConfig.social_auto));
-      setLoading(false);
     }
 
     void load();
@@ -107,55 +102,30 @@ export default function SocialPage() {
   const handleSave = async () => {
     if (!currentTenant || !config) return;
     setSaving(true);
-    const supabase = createClient();
-
-    const { data: tenantData, error: loadError } = await supabase
-      .from('tenants')
-      .select('settings')
-      .eq('id', currentTenant.id)
-      .single();
-
-    if (loadError) {
-      console.error(loadError);
-      toast.error('Errore lettura tenant');
-      setSaving(false);
-      return;
-    }
-
-    const currentSettings = (tenantData?.settings || {}) as Record<string, unknown>;
-    const currentModuleConfig =
-      currentSettings.module_config && typeof currentSettings.module_config === 'object'
-        ? (currentSettings.module_config as Record<string, unknown>)
-        : {};
-
-    const { error } = await supabase
-      .from('tenants')
-      .update({
-        settings: {
-          ...currentSettings,
-          module_config: {
-            ...currentModuleConfig,
-            social_auto: config,
-          },
-        },
-      })
-      .eq('id', currentTenant.id);
-
-    setSaving(false);
-    if (error) {
-      console.error(error);
-      toast.error('Salvataggio social non riuscito');
-      return;
-    }
-
     try {
-      await requestPublishTrigger(currentTenant.id, [{ type: 'settings' }]);
-    } catch (publishError) {
-      const publishMessage = publishError instanceof Error ? publishError.message : 'Publish non aggiornato';
-      toast.error(`Configurazione salvata, ma il publish non e' stato aggiornato: ${publishMessage}`);
-    }
+      const response = await fetch('/api/cms/social/channels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          tenant_id: currentTenant.id,
+          scope: 'operational',
+          config,
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Salvataggio social non riuscito');
+      }
 
-    toast.success('Compatibilità social salvata');
+      await requestPublishTrigger(currentTenant.id, [{ type: 'settings' }]);
+      toast.success('Canali social operativi salvati');
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : 'Salvataggio social non riuscito');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!canManageSocial) {
@@ -210,7 +180,8 @@ export default function SocialPage() {
           />
         </div>
         <p className="text-sm max-w-4xl" style={{ color: 'var(--c-text-2)' }}>
-          Qui dentro tieni solo la parte operativa: attivazione canali, composer, intent di condivisione e programmazione post. Le credenziali API, i token, gli handle e i settaggi iniziali si configurano nel profilo platform del tenant attivo.
+          Qui dentro tieni solo la parte operativa: canali attivi, composer, WhatsApp operativo e programmazione post.
+          Le credenziali API, i token, gli handle e i settaggi iniziali stanno solo nel profilo platform del tenant attivo.
         </p>
       </div>
 
@@ -224,7 +195,8 @@ export default function SocialPage() {
               </span>
             </div>
             <p className="text-sm" style={{ color: 'var(--c-text-2)' }}>
-              In questa schermata lavori sui canali già collegati e programmi i contenuti. Se devi impostare URL base, hashtag di default, token, webhook o credenziali dei social, fallo dal profilo platform.
+              In questa schermata lavori sui canali già collegati e programmi i contenuti. Se devi impostare URL base, hashtag di default,
+              token, webhook o credenziali dei social, fallo dal profilo platform.
             </p>
           </div>
           <a
@@ -323,6 +295,44 @@ export default function SocialPage() {
         </section>
       </div>
 
+      <section className="rounded-2xl p-4 space-y-4" style={{ background: 'var(--c-bg-1)', border: '1px solid var(--c-border)' }}>
+        <div className="flex items-center gap-2">
+          <MessageCircleMore size={16} style={{ color: 'var(--c-accent)' }} />
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
+            Canale WhatsApp operativo
+          </h3>
+        </div>
+        <p className="text-xs leading-5" style={{ color: 'var(--c-text-2)' }}>
+          Qui vedi il canale WhatsApp collegato nel profilo platform e decidi solo se tenerlo operativo nel CMS.
+        </p>
+        <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+          <div className="rounded-xl px-3 py-3" style={{ background: 'var(--c-bg-2)', border: '1px solid var(--c-border)' }}>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: 'var(--c-text-2)' }}>
+              Riferimento canale
+            </div>
+            <div className="mt-1 text-sm font-medium break-all" style={{ color: 'var(--c-text-0)' }}>
+              {config.channels.whatsapp.primaryValue || 'Non collegato nel profilo platform'}
+            </div>
+            {config.channels.whatsapp.secondaryValue ? (
+              <div className="mt-1 text-xs" style={{ color: 'var(--c-text-2)' }}>
+                ID tecnico: {config.channels.whatsapp.secondaryValue}
+              </div>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={() => updateChannel('whatsapp', { enabled: !config.channels.whatsapp.enabled })}
+            className="rounded-full px-3 py-1.5 text-xs font-semibold"
+            style={{
+              background: config.channels.whatsapp.enabled ? 'var(--c-accent-soft)' : 'var(--c-bg-2)',
+              color: config.channels.whatsapp.enabled ? 'var(--c-accent)' : 'var(--c-text-2)',
+            }}
+          >
+            {config.channels.whatsapp.enabled ? 'WhatsApp attivo' : 'WhatsApp disattivo'}
+          </button>
+        </div>
+      </section>
+
       <section className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -397,19 +407,15 @@ export default function SocialPage() {
                   </div>
                 ) : null}
 
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-1)' }}>
-                    {platform.supportsDirectApi ? 'Direct API' : 'Assistito'}
-                  </span>
-                  <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-1)' }}>
-                    {platform.supportsShareIntent ? 'Share Intent' : 'No share intent'}
-                  </span>
-                  <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-1)' }}>
-                    {platform.supportsWebhook ? 'Webhook' : 'No webhook'}
-                  </span>
-                  <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-1)' }}>
-                    {platform.requiresBusiness ? 'Business' : 'Standard'}
-                  </span>
+                <div className="rounded-xl px-3 py-3 text-xs leading-5" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-2)', border: '1px solid var(--c-border)' }}>
+                  <div>
+                    Riferimento collegato: <strong style={{ color: 'var(--c-text-0)' }}>{channel.primaryValue || 'non impostato'}</strong>
+                  </div>
+                  {channel.secondaryValue ? (
+                    <div className="mt-1">
+                      Dettaglio tecnico: <strong style={{ color: 'var(--c-text-0)' }}>{channel.secondaryValue}</strong>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="text-xs leading-5" style={{ color: 'var(--c-text-2)' }}>
                   Collegamento operativo salvato nel profilo platform. Da qui puoi solo attivare o disattivare il canale per la pubblicazione del CMS.

@@ -50,6 +50,7 @@ export const mainNav = [
   { href: "/dashboard/layout/content", label: "Regole Slot", icon: ScanLine },
   { href: "/dashboard/categorie", label: "Categorie", icon: FolderOpen },
   { href: "/dashboard/tag", label: "Tag", icon: Tag },
+  { href: "/dashboard/form", label: "Form", icon: FormInput },
   { href: "/dashboard/newsletter", label: "Newsletter", icon: Mail },
   { href: "/dashboard/commenti", label: "Commenti", icon: MessageSquare },
 ];
@@ -62,7 +63,6 @@ export const editorialNav = [
   { href: "/dashboard/social", label: "Social", icon: Share2 },
   { href: "/dashboard/breaking-news", label: "Breaking", icon: Zap },
   { href: "/dashboard/eventi", label: "Eventi", icon: Calendar },
-  { href: "/dashboard/form", label: "Form", icon: FormInput },
 ];
 
 export const advNav = [

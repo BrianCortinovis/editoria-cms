@@ -37,7 +37,9 @@ export async function GET(request: Request) {
 /**
  * POST /api/cms/social/channels
  * Save/update social auto-post configuration for a tenant.
- * Body: { tenant_id, config: SocialAutoConfig }
+ * Body:
+ * - platform scope: { tenant_id, config: SocialAutoConfig }
+ * - operational scope: { tenant_id, scope: "operational", config: { channels: { key: { enabled } } } }
  */
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -52,6 +54,7 @@ export async function POST(request: Request) {
 
   // Normalize the incoming config to ensure consistency
   const incomingConfig = normalizeSocialAutoConfig(body.config);
+  const scope = body.scope === "operational" ? "operational" : "platform";
 
   // Read current settings
   const { data: tenant, error: readError } = await access.sessionClient
@@ -66,13 +69,30 @@ export async function POST(request: Request) {
 
   const currentSettings = (tenant.settings ?? {}) as Record<string, unknown>;
   const currentModuleConfig = (currentSettings.module_config as Record<string, unknown>) ?? {};
+  const currentConfig = normalizeSocialAutoConfig(currentModuleConfig.social_auto);
+
+  const nextConfig =
+    scope === "operational"
+      ? {
+          ...currentConfig,
+          channels: Object.fromEntries(
+            Object.entries(currentConfig.channels).map(([key, channel]) => [
+              key,
+              {
+                ...channel,
+                enabled: incomingConfig.channels[key as keyof typeof incomingConfig.channels]?.enabled ?? channel.enabled,
+              },
+            ]),
+          ),
+        }
+      : incomingConfig;
 
   // Merge into settings
   const updatedSettings = {
     ...currentSettings,
     module_config: {
       ...currentModuleConfig,
-      social_auto: incomingConfig,
+      social_auto: nextConfig,
     },
   };
 
@@ -85,5 +105,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, config: incomingConfig });
+  return NextResponse.json({ ok: true, config: nextConfig, scope });
 }
