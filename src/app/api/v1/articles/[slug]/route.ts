@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createServiceRoleClientForTenant } from "@/lib/supabase/server";
 import { enrichArticlesWithCategories } from "@/lib/articles/taxonomy";
 import { readPublishedJson } from "@/lib/publish/storage";
 import { getPublicApiCorsHeaders } from "@/lib/security/cors";
 import type { PublishedManifest, PublishedArticleDocument } from "@/lib/publish/types";
+import { resolvePublicTenantRecord } from "@/lib/site/runtime";
 
 export async function GET(
   request: Request,
@@ -31,17 +32,12 @@ export async function GET(
     }
   }
 
-  const supabase = await createServiceRoleClient();
-
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("id")
-    .eq("slug", tenantSlug)
-    .single();
-
+  const tenant = await resolvePublicTenantRecord(tenantSlug);
   if (!tenant) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
+
+  const supabase = await createServiceRoleClientForTenant(tenant.id);
 
   const { data: article, error } = await supabase
     .from("articles")

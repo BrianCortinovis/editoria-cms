@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     .select("*")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(500);
 
   if (search) {
     query = query.ilike("original_filename", `%${search}%`);

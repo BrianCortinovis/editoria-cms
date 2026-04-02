@@ -48,6 +48,11 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 const ACTIVE_PLATFORMS = SOCIAL_PLATFORMS.filter((p) => p.supportsDirectApi);
 
+function getLocalDateTimeInputMin() {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
 export default function ScheduledPostsManager() {
   const { currentTenant } = useAuthStore();
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
@@ -269,7 +274,7 @@ export default function ScheduledPostsManager() {
                 value={scheduledAt}
                 onChange={(e) => setScheduledAt(e.target.value)}
                 className="input w-full text-sm"
-                min={new Date().toISOString().slice(0, 16)}
+                min={getLocalDateTimeInputMin()}
               />
             </label>
 

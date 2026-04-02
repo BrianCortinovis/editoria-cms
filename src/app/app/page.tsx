@@ -2,10 +2,16 @@ import Link from "next/link";
 import { ArrowRight, Globe, ShieldCheck, Sparkles, Activity, CheckCircle2, Bell, PlusCircle } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getPlatformSitesForUser, requirePlatformUser } from "@/lib/platform/server";
+import { isUserSuperAdmin } from "@/lib/superadmin/service";
 
 export default async function PlatformHomePage() {
   const { user, profile } = await requirePlatformUser();
+  const isSuperAdmin = await isUserSuperAdmin(user.id);
   const sites = await getPlatformSitesForUser(user.id);
+
+  if (isSuperAdmin && sites.length === 0) {
+    redirect("/admin");
+  }
 
   if (sites.length === 0) {
     redirect("/app/onboarding");

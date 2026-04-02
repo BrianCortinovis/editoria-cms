@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createServiceRoleClientForTenant } from "@/lib/supabase/server";
 import { enrichArticlesWithCategories, fetchArticleIdsForCategory, loadArticleCategoryIds } from "@/lib/articles/taxonomy";
 import { resolveProvider } from "@/lib/ai/resolver";
 import { callProvider } from "@/lib/ai/providers";
 import { isModuleActive, getModuleConfig } from "@/lib/modules";
 import { readPublishedJson } from "@/lib/publish/storage";
 import type { PublishedPostsDocument, PublishedSettingsDocument } from "@/lib/publish/types";
+import { resolvePublicTenantRecord } from "@/lib/site/runtime";
 
 import { getPublicApiCorsHeaders } from "@/lib/security/cors";
 
@@ -103,17 +104,17 @@ export async function GET(
     }
   }
 
-  const supabase = await createServiceRoleClient();
-
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("id, settings")
-    .eq("slug", tenantSlug)
-    .single();
-
+  const tenant = await resolvePublicTenantRecord(tenantSlug);
   if (!tenant) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404, headers: getPublicApiCorsHeaders(request) });
   }
+
+  const supabase = await createServiceRoleClientForTenant(tenant.id);
+  const { data: runtimeTenant } = await supabase
+    .from("tenants")
+    .select("settings")
+    .eq("id", tenant.id)
+    .maybeSingle();
 
   // Get the source article
   const { data: article } = await supabase
@@ -128,7 +129,7 @@ export async function GET(
     return NextResponse.json({ error: "Article not found" }, { status: 404, headers: getPublicApiCorsHeaders(request) });
   }
 
-  const settings = (tenant.settings ?? {}) as Record<string, unknown>;
+  const settings = ((runtimeTenant?.settings ?? tenant.settings) || {}) as Record<string, unknown>;
   const sourceCategoryIds = await loadArticleCategoryIds(
     supabase as never,
     article.id,

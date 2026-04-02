@@ -27,6 +27,39 @@ export interface SocialPlatformSpec {
   secondaryFieldPlaceholder: string;
 }
 
+export function getSocialConnectionHelp(platform: SocialPlatformSpec): string {
+  switch (platform.key) {
+    case 'facebook':
+      return 'Collega la pagina Facebook inserendo URL o Page ID, poi salva App Meta / Business ID e access token nel profilo platform del tenant.';
+    case 'instagram':
+      return 'Per Instagram usa un account business collegato a Meta: inserisci handle o account ID, poi completa App Meta e token nel profilo platform.';
+    case 'threads':
+      return 'Per Threads salva l’handle e le note operative. Le credenziali Meta e gli step API vanno gestiti nel profilo platform.';
+    case 'x':
+      return 'Inserisci handle X/Twitter e poi collega progetto o client API nel profilo platform, dove tieni anche i token del tenant.';
+    case 'telegram':
+      return 'Per Telegram inserisci @canale o chat_id e il bot username. Bot token e webhook vanno configurati nel profilo platform.';
+    case 'linkedin':
+      return 'Usa URL o organization ID della pagina LinkedIn. Client ID, secret e token applicativi restano nel profilo platform.';
+    case 'whatsapp':
+      return 'Inserisci numero business o link canale. Phone number ID, webhook e token WhatsApp Business si configurano nel profilo platform.';
+    case 'pinterest':
+      return 'Collega board o handle Pinterest qui a livello operativo. Eventuali board ID, token e note API stanno nel profilo platform.';
+    case 'reddit':
+      return 'Inserisci subreddit o community target nel CMS operativo. Client app, secret e token Reddit vanno nel profilo platform.';
+    case 'mastodon':
+      return 'Per Mastodon usa handle completo e base URL dell’istanza. Access token e dettagli applicativi vanno nel profilo platform.';
+    case 'bluesky':
+      return 'Inserisci l’handle Bluesky. DID, app password e parametri ATProto si gestiscono nel profilo platform.';
+    case 'youtube':
+      return 'Collega canale YouTube con URL o channel ID. Project Google, client e token restano nel profilo platform.';
+    case 'tiktok':
+      return 'Usa il profilo TikTok come riferimento operativo. Client key, token e credenziali creator/business si impostano nel profilo platform.';
+    default:
+      return 'I riferimenti del canale si collegano qui, mentre API, token e webhook vanno nel profilo platform del tenant.';
+  }
+}
+
 export interface SocialChannelConfig {
   enabled: boolean;
   primaryValue: string;

@@ -1,4 +1,25 @@
 export default function BillingPage() {
+  const plans = [
+    {
+      name: "Base",
+      price: "49€/mese",
+      desc: "Per singoli progetti o piccole redazioni che lavorano bene sul setup condiviso.",
+      points: ["CMS condiviso", "Storage piattaforma", "Setup rapido"],
+    },
+    {
+      name: "Pro",
+      price: "99€/mese",
+      desc: "Più spazio operativo, più team e più margine per redazioni in crescita.",
+      points: ["Team esteso", "Più siti e moduli", "Workflow più completi"],
+    },
+    {
+      name: "Enterprise",
+      price: "199€/mese",
+      desc: "Può restare sul setup condiviso oppure attivare isolamento dedicato per cliente.",
+      points: ["Shared o dedicated", "Vercel / Supabase / R2 dedicati", "Provider newsletter isolati"],
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <section className="border-b pb-4" style={{ borderColor: "var(--c-border)" }}>
@@ -6,27 +27,43 @@ export default function BillingPage() {
           Billing
         </h2>
         <p className="mt-2 text-sm leading-6" style={{ color: "var(--c-text-1)" }}>
-          La piattaforma e` pronta per collegare Stripe o un provider equivalente. Intanto il layer dati tiene traccia di piano attuale, limiti e trial.
+          Il piano commerciale resta separato dall&apos;infrastruttura tecnica: solo Enterprise puo`
+          attivare isolamento dedicato, ma puo` anche rimanere sul setup condiviso.
         </p>
       </section>
-      <section className="border-y" style={{ borderColor: "var(--c-border)" }}>
-        <div className="grid gap-0 md:grid-cols-2">
-          {[
-            { label: "Piano", value: "Free Trial" },
-            { label: "Siti inclusi", value: "1" },
-            { label: "Storage", value: "1 GB" },
-            { label: "Team", value: "3 membri" },
-          ].map((item) => (
-            <div key={item.label} className="border-b px-4 py-3 md:border-r even:md:border-r-0 [&:nth-last-child(-n+2)]:md:border-b-0" style={{ borderColor: "var(--c-border)" }}>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-2)" }}>
-                {item.label}
-              </p>
-              <p className="mt-2 text-lg font-semibold" style={{ color: "var(--c-text-0)" }}>
-                {item.value}
-              </p>
+      <section className="grid gap-4 lg:grid-cols-3">
+        {plans.map((plan) => (
+          <article
+            key={plan.name}
+            className="rounded-[2rem] border p-6"
+            style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)" }}
+          >
+            <p className="text-sm font-medium" style={{ color: "var(--c-text-2)" }}>
+              {plan.name}
+            </p>
+            <p className="mt-4 text-3xl font-semibold" style={{ color: "var(--c-text-0)" }}>
+              {plan.price}
+            </p>
+            <p className="mt-3 text-sm leading-7" style={{ color: "var(--c-text-1)" }}>
+              {plan.desc}
+            </p>
+            <div className="mt-5 space-y-2 text-sm" style={{ color: "var(--c-text-1)" }}>
+              {plan.points.map((point) => (
+                <p key={point}>• {point}</p>
+              ))}
             </div>
-          ))}
-        </div>
+          </article>
+        ))}
+      </section>
+      <section className="rounded-3xl border p-5" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)" }}>
+        <p className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>
+          Nota infrastruttura
+        </p>
+        <p className="mt-2 text-sm leading-6" style={{ color: "var(--c-text-1)" }}>
+          Se un cliente Enterprise attiva l&apos;isolamento dal profilo sito, la Platform UI apre i
+          box per Vercel, Supabase, Cloudflare R2 e provider newsletter dedicati. Se non lo attiva,
+          il tenant continua a lavorare sul runtime condiviso.
+        </p>
       </section>
     </div>
   );

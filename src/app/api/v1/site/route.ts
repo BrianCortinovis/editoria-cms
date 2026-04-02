@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createServiceRoleClient } from "@/lib/supabase/server";
 import { readPublishedJson } from "@/lib/publish/storage";
 import type { PublishedSettingsDocument } from "@/lib/publish/types";
+import { resolvePublicTenantContext } from "@/lib/site/runtime";
 
 import { getPublicApiCorsHeaders } from "@/lib/security/cors";
 
@@ -36,19 +36,14 @@ export async function GET(request: Request) {
     });
   }
 
-  const supabase = await createServiceRoleClient();
-
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("id, name, slug, domain, logo_url")
-    .eq("slug", tenantSlug)
-    .single();
-
-  if (!tenant) {
+  const context = await resolvePublicTenantContext(tenantSlug);
+  if (!context) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404, headers: getPublicApiCorsHeaders(request) });
   }
 
-  const { data: config } = await supabase
+  const { tenant, runtimeClient } = context;
+
+  const { data: config } = await runtimeClient
     .from("site_config")
     .select("theme, navigation, footer, favicon_url, og_defaults, global_css")
     .eq("tenant_id", tenant.id)

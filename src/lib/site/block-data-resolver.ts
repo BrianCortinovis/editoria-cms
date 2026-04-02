@@ -1,4 +1,4 @@
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import { enrichArticlesWithCategories, fetchArticleIdsForCategory } from '@/lib/articles/taxonomy';
 import type { DataSource } from '@/lib/types/block';
 import { getNavigationMenu, type SiteMenuKey } from '@/lib/site/navigation';
@@ -13,7 +13,7 @@ export async function resolveBlockData(
   tenantId: string,
   dataSource: DataSource
 ): Promise<unknown[]> {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(tenantId);
   const { endpoint, params = {} } = dataSource;
   const p = params as Record<string, string | undefined>;
 

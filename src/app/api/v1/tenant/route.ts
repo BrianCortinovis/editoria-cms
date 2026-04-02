@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createServiceRoleClient } from "@/lib/supabase/server";
 import { readPublishedJson } from "@/lib/publish/storage";
 import type { PublishedSettingsDocument } from "@/lib/publish/types";
+import { resolvePublicTenantContext } from "@/lib/site/runtime";
 
 function extractPublicActiveModules(themeConfig: Record<string, unknown> | null | undefined): string[] {
   if (!themeConfig || typeof themeConfig !== "object") {
@@ -53,28 +53,32 @@ export async function GET(request: Request) {
     });
   }
 
-  const supabase = await createServiceRoleClient();
+  const context = await resolvePublicTenantContext(tenantSlug);
+  if (!context) {
+    return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+  }
 
-  const { data: tenant, error } = await supabase
+  const { tenant, runtimeClient } = context;
+  const { data: runtimeTenant, error } = await runtimeClient
     .from("tenants")
     .select("name, slug, domain, logo_url, theme_config")
-    .eq("slug", tenantSlug)
+    .eq("id", tenant.id)
     .single();
 
-  if (error || !tenant) {
+  if (error || !runtimeTenant) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
   const activeModules = extractPublicActiveModules(
-    (tenant.theme_config as Record<string, unknown> | null | undefined) ?? null
+    (runtimeTenant.theme_config as Record<string, unknown> | null | undefined) ?? null
   );
 
   return NextResponse.json({ tenant: {
-    name: tenant.name,
-    slug: tenant.slug,
-    domain: tenant.domain,
-    logo_url: tenant.logo_url,
-    theme_config: tenant.theme_config,
+    name: runtimeTenant.name,
+    slug: runtimeTenant.slug,
+    domain: runtimeTenant.domain,
+    logo_url: runtimeTenant.logo_url,
+    theme_config: runtimeTenant.theme_config,
     active_modules: activeModules,
   } }, {
     headers: {

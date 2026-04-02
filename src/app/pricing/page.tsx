@@ -15,9 +15,9 @@ export default function PricingPage() {
 
         <div className="grid gap-4 lg:grid-cols-3">
           {[
-            { name: "Starter", price: "€0", desc: "1 sito, bootstrap rapido, domini custom." },
-            { name: "Growth", price: "€49", desc: "Più siti, team completo, maggiore storage." },
-            { name: "Scale", price: "Custom", desc: "Superadmin avanzato, SSO, supporto dedicato." },
+            { name: "Base", price: "€49", desc: "Setup condiviso, bootstrap rapido, domini custom e gestione editoriale completa." },
+            { name: "Pro", price: "€99", desc: "Più margine operativo per redazioni in crescita, più team e più spazio di lavoro." },
+            { name: "Enterprise", price: "€199", desc: "Può restare shared oppure attivare isolamento dedicato con Vercel, Supabase, R2 e servizi propri." },
           ].map((plan) => (
             <article key={plan.name} className="rounded-[2rem] border p-6" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)" }}>
               <p className="text-sm font-medium" style={{ color: "var(--c-text-2)" }}>{plan.name}</p>

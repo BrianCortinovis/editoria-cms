@@ -1,4 +1,4 @@
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import { getTenantFromRequest } from '@/lib/cache/tenant-context';
 import { getCacheHeadersWithSecurity } from '@/lib/cache/cache-headers';
 import { enrichArticlesWithCategories } from '@/lib/articles/taxonomy';
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const supabase = await createServiceRoleClient();
+    const supabase = await createServiceRoleClientForTenant(tenant.tenantId);
 
     let query = supabase
       .from('articles')

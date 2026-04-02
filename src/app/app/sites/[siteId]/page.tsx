@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Globe, ShieldCheck, Wand2, ExternalLink, Users, Settings } from "lucide-react";
+import { SiteInfrastructureSettings } from "@/components/platform/SiteInfrastructureSettings";
 import { getPlatformSiteDetailForUser, requirePlatformUser } from "@/lib/platform/server";
 
 export default async function SiteDetailPage({
@@ -15,6 +16,9 @@ export default async function SiteDetailPage({
   if (!site) {
     notFound();
   }
+
+  const canManageInfrastructure =
+    site.membershipRole === "owner" || site.membershipRole === "admin";
 
   return (
     <div className="space-y-5">
@@ -145,6 +149,13 @@ export default async function SiteDetailPage({
           </div>
         </Link>
       </section>
+
+      <SiteInfrastructureSettings
+        siteId={site.id}
+        infrastructure={site.infrastructure}
+        planCode={site.subscription?.plan_code}
+        canManage={canManageInfrastructure}
+      />
     </div>
   );
 }

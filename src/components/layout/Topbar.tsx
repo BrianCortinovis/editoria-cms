@@ -1,14 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Menu, Bell, ExternalLink, Search, Sparkles, ChevronDown, ChevronLeft, Undo2, Redo2 } from "lucide-react";
+import { Menu, Bell, ExternalLink, Search, Sparkles, ChevronDown, ChevronLeft, Undo2, Redo2, type LucideIcon } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { useAIStatus } from "@/lib/ai-status";
 import { useFieldContextStore } from "@/lib/stores/field-context-store";
 import { usePageStore } from "@/lib/stores/page-store";
 import { useAIConfigStore } from "@/lib/stores/ai-config-store";
 import type { Tables } from "@/types/database";
+import { advNav, systemNav } from "@/components/layout/Sidebar";
+import type { UserRole } from "@/types/database";
 
 type EditorPageOption = Pick<
   Tables<"site_pages">,
@@ -236,6 +239,35 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
   const canUndo = isEditorRoute ? editorCanUndo : hasEditableTarget;
   const canRedo = isEditorRoute ? editorCanRedo : hasEditableTarget;
 
+  const filterTopNavByRole = (
+    items: Array<{ href: string; label: string; icon: LucideIcon }>,
+    role: UserRole | null,
+    section: "adv" | "system"
+  ) => {
+    if (!role) return items;
+    if (role === "contributor") return [];
+    if (role === "advertiser") {
+      return section === "adv"
+        ? items.filter((item) => ["/dashboard/adv", "/dashboard/banner", "/dashboard/inserzionisti", "/dashboard/contabilita"].includes(item.href))
+        : [];
+    }
+    if (role === "editor") {
+      return section === "system"
+        ? items.filter((item) => ["/dashboard/seo", "/dashboard/activity-log"].includes(item.href))
+        : items;
+    }
+    if (role === "chief_editor") {
+      return section === "system"
+        ? items.filter((item) => ["/dashboard/seo", "/dashboard/redirect", "/dashboard/activity-log"].includes(item.href))
+        : items;
+    }
+    return items;
+  };
+
+  const topAdvNav = filterTopNavByRole(advNav, currentRole, "adv");
+  const topSystemNav = filterTopNavByRole(systemNav, currentRole, "system");
+  const hasSectionBar = topAdvNav.length > 0 || topSystemNav.length > 0;
+
   return (
     <header className="sticky top-0 z-[120] flex w-full min-w-0 max-w-full flex-col overflow-visible"
       style={{ background: "color-mix(in srgb, var(--c-bg-1) 80%, transparent)", backdropFilter: "blur(16px)" }}>
@@ -276,6 +308,38 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
               </span>
             )}
           </div>
+        </div>
+      )}
+
+      {hasSectionBar && (
+        <div
+          className="flex w-full min-w-0 items-center gap-1 overflow-x-auto px-2 py-2 lg:px-3"
+          style={{ borderBottom: "1px solid var(--c-border)", background: "var(--c-sidebar)" }}
+        >
+          {[...topAdvNav, ...topSystemNav].map((item, index) => {
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const Icon = item.icon;
+            const showDivider = topAdvNav.length > 0 && topSystemNav.length > 0 && index === topAdvNav.length;
+
+            return (
+              <div key={item.href} className="flex items-center gap-1">
+                {showDivider ? (
+                  <div className="mx-1 h-10 w-px shrink-0" style={{ background: "var(--c-border)" }} />
+                ) : null}
+                <Link
+                  href={item.href}
+                  className="flex min-w-[72px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 transition-all"
+                  style={{
+                    background: active ? "var(--c-accent-soft)" : "transparent",
+                    color: active ? "var(--c-accent)" : "var(--c-text-2)",
+                  }}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="text-[9px] font-medium leading-none tracking-wide">{item.label}</span>
+                </Link>
+              </div>
+            );
+          })}
         </div>
       )}
 

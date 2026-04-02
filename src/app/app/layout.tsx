@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { PlatformNav } from "@/components/platform/PlatformNav";
 import { getUnreadNotificationsCount, requirePlatformUser } from "@/lib/platform/server";
-import { isUserSuperAdmin } from "@/lib/superadmin/service";
 
 export default async function PlatformLayout({
   children,
@@ -11,7 +10,6 @@ export default async function PlatformLayout({
 }>) {
   const { user, profile } = await requirePlatformUser();
   const unreadCount = await getUnreadNotificationsCount(user.id);
-  const isSuperAdmin = await isUserSuperAdmin(user.id);
   const userName =
     profile?.first_name ||
     profile?.full_name?.split(" ")[0] ||
@@ -20,7 +18,7 @@ export default async function PlatformLayout({
 
   return (
     <div className="platform-shell min-h-screen lg:flex">
-      <PlatformNav userName={userName} unreadCount={unreadCount} isSuperAdmin={isSuperAdmin} />
+      <PlatformNav userName={userName} unreadCount={unreadCount} />
       <div className="flex-1">
         <div className="platform-topbar border-b px-6 py-4" style={{ borderColor: "var(--c-border)" }}>
           <div className="mx-auto flex max-w-7xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

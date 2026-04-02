@@ -1,4 +1,4 @@
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClientForTenant } from '@/lib/supabase/server';
 
 function normalizePath(path: string) {
   const trimmed = `/${path || ''}`.replace(/\/+/g, '/');
@@ -6,7 +6,7 @@ function normalizePath(path: string) {
 }
 
 export async function resolveRedirect(tenantId: string, path: string) {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(tenantId);
   const normalizedPath = normalizePath(path);
 
   try {

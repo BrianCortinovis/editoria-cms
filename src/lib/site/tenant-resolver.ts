@@ -1,5 +1,5 @@
-import { createServiceRoleClient } from '@/lib/supabase/server';
 import { readPublishedJson, readPublishedManifest } from '@/lib/publish/storage';
+import { resolvePublicTenantContext, resolvePublicTenantContextById } from '@/lib/site/runtime';
 import type { Block } from '@/lib/types/block';
 import type {
   PublishedArticleDocument,
@@ -61,17 +61,12 @@ export async function resolveTenant(tenantSlug: string): Promise<{
     };
   }
 
-  const supabase = await createServiceRoleClient();
+  const context = await resolvePublicTenantContext(tenantSlug);
+  if (!context) return null;
 
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('id, name, slug, domain, logo_url, settings')
-    .eq('slug', tenantSlug)
-    .single();
+  const { tenant, runtimeClient } = context;
 
-  if (!tenant) return null;
-
-  const { data: config } = await supabase
+  const { data: config } = await runtimeClient
     .from('site_config')
     .select('theme, navigation, footer, favicon_url, og_defaults, global_css')
     .eq('tenant_id', tenant.id)
@@ -94,12 +89,9 @@ export async function resolveTenant(tenantSlug: string): Promise<{
  * Fetch a published page by slug for a tenant.
  */
 export async function getPublishedPage(tenantId: string, slug: string) {
-  const supabase = await createServiceRoleClient();
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('slug')
-    .eq('id', tenantId)
-    .maybeSingle();
+  const context = await resolvePublicTenantContextById(tenantId);
+  const tenant = context?.tenant;
+  const supabase = context?.runtimeClient;
 
   if (tenant?.slug) {
     const manifest = await readPublishedManifest(tenant.slug);
@@ -127,6 +119,9 @@ export async function getPublishedPage(tenantId: string, slug: string) {
   }
 
   const normalizedSlug = slug.replace(/^\/+|\/+$/g, '');
+  if (!supabase) {
+    return null;
+  }
 
   if (!normalizedSlug) {
     const { data: homepage } = await supabase

@@ -8,11 +8,12 @@ import { useAuthStore } from '@/lib/store';
 import {
   SOCIAL_PLATFORMS,
   buildSocialShareUrl,
+  getSocialConnectionHelp,
   normalizeSocialAutoConfig,
   type SocialPlatformKey,
   type SocialAutoConfig,
 } from '@/lib/social/platforms';
-import { CheckCircle2, ExternalLink, Link2, Save, Send, Share2, ShieldCheck, Sparkles } from 'lucide-react';
+import { CheckCircle2, CircleHelp, ExternalLink, Link2, Save, Send, Share2, ShieldCheck, Sparkles } from 'lucide-react';
 import AIButton from '@/components/ai/AIButton';
 import ScheduledPostsManager from '@/components/social/ScheduledPostsManager';
 
@@ -26,6 +27,7 @@ export default function SocialPage() {
     'Scopri il nuovo progetto sul territorio e leggi l’articolo completo sul sito della testata.'
   );
   const [composerUrl, setComposerUrl] = useState('https://esempio.it/articolo/progetto-green-val-brembana');
+  const [helperOpenFor, setHelperOpenFor] = useState<SocialPlatformKey | null>(null);
   const canManageSocial = currentRole === 'admin';
 
   useEffect(() => {
@@ -82,10 +84,6 @@ export default function SocialPage() {
       }))
       .filter((item) => item.url);
   }, [composerText, composerTitle, composerUrl, config, enabledPlatforms]);
-
-  const updateGlobal = <K extends keyof SocialAutoConfig>(key: K, value: SocialAutoConfig[K]) => {
-    setConfig((prev) => (prev ? { ...prev, [key]: value } : prev));
-  };
 
   const updateChannel = (
     key: SocialPlatformKey,
@@ -212,7 +210,7 @@ export default function SocialPage() {
           />
         </div>
         <p className="text-sm max-w-4xl" style={{ color: 'var(--c-text-2)' }}>
-          Base unica per rendere il CMS compatibile con il maggior numero possibile di canali social. Qui prepari account, webhook, handle, token e comportamento di pubblicazione. I publish automatici veri richiedono poi credenziali e approvazioni delle singole piattaforme.
+          Qui dentro tieni solo la parte operativa: attivazione canali, composer, intent di condivisione e programmazione post. Le credenziali API, i token, gli handle e i settaggi iniziali si configurano nel profilo platform del tenant attivo.
         </p>
       </div>
 
@@ -222,94 +220,25 @@ export default function SocialPage() {
             <div className="flex items-center gap-2">
               <ShieldCheck size={16} style={{ color: 'var(--c-accent)' }} />
               <span className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
-                Compatibilità massima, pubblicazione reale a step
+                Operatività social nel CMS, setup nel profilo platform
               </span>
             </div>
             <p className="text-sm" style={{ color: 'var(--c-text-2)' }}>
-              Questo modulo prepara il CMS per Facebook, Instagram, Threads, X, Telegram, LinkedIn, WhatsApp, Pinterest, Reddit, Mastodon, Bluesky, YouTube e TikTok. Dove esiste solo share intent o dove l&apos;API è limitata, il sistema resta comunque pronto per copy, link, webhook o workflow misti.
+              In questa schermata lavori sui canali già collegati e programmi i contenuti. Se devi impostare URL base, hashtag di default, token, webhook o credenziali dei social, fallo dal profilo platform.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            style={{ background: 'var(--c-accent)' }}
+          <a
+            href="/app/profile/social"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
+            style={{ background: 'var(--c-accent-soft)', color: 'var(--c-accent)' }}
           >
-            <Save size={16} />
-            {saving ? 'Salvataggio...' : 'Salva configurazione'}
-          </button>
+            <ExternalLink size={16} />
+            Apri profilo platform
+          </a>
         </div>
       </section>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-4">
-        <section className="rounded-2xl p-4 space-y-4" style={{ background: 'var(--c-bg-1)', border: '1px solid var(--c-border)' }}>
-          <div>
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
-              Impostazioni globali
-            </h3>
-            <p className="text-xs mt-1" style={{ color: 'var(--c-text-2)' }}>
-              Questi valori aiutano il CMS a generare link, copy e workflow social coerenti.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <label className="space-y-1">
-              <span className="text-xs font-medium" style={{ color: 'var(--c-text-2)' }}>URL pubblico base</span>
-              <input
-                value={config.siteUrl}
-                onChange={(event) => updateGlobal('siteUrl', event.target.value)}
-                placeholder="https://testata.it"
-                className="input w-full text-sm"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-xs font-medium" style={{ color: 'var(--c-text-2)' }}>Hashtag di default</span>
-              <input
-                value={config.defaultHashtags}
-                onChange={(event) => updateGlobal('defaultHashtags', event.target.value)}
-                placeholder="#news #valbrembana #territorio"
-                className="input w-full text-sm"
-              />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {[
-              {
-                key: 'autoGenerateText',
-                label: 'Genera copy social con IA',
-              },
-              {
-                key: 'publishOnApproval',
-                label: 'Pubblica al passaggio approvato',
-              },
-              {
-                key: 'openShareAfterGenerate',
-                label: 'Apri share link dopo generazione',
-              },
-            ].map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => updateGlobal(item.key as keyof SocialAutoConfig, !config[item.key as keyof SocialAutoConfig] as never)}
-                className="rounded-2xl px-4 py-3 text-left transition"
-                style={{
-                  background: (config[item.key as keyof SocialAutoConfig] as boolean) ? 'var(--c-accent-soft)' : 'var(--c-bg-2)',
-                  border: '1px solid var(--c-border)',
-                }}
-              >
-                <div className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
-                  {item.label}
-                </div>
-                <div className="text-xs mt-1" style={{ color: 'var(--c-text-2)' }}>
-                  {(config[item.key as keyof SocialAutoConfig] as boolean) ? 'Attivo' : 'Disattivo'}
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
-
+      <div className="grid grid-cols-1 gap-4">
         <section className="rounded-2xl p-4 space-y-4" style={{ background: 'var(--c-bg-1)', border: '1px solid var(--c-border)' }}>
           <div>
             <div className="flex items-center gap-2">
@@ -395,19 +324,31 @@ export default function SocialPage() {
       </div>
 
       <section className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
-            Canali social supportati
-          </h3>
-          <p className="text-xs mt-1" style={{ color: 'var(--c-text-2)' }}>
-            Attiva i canali che vuoi preparare ora. Puoi già salvare handle, webhook, token e note tecniche anche se la pubblicazione diretta arriverà dopo.
-          </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
+              Canali social supportati
+            </h3>
+            <p className="text-xs mt-1" style={{ color: 'var(--c-text-2)' }}>
+              Qui scegli quali canali operativi restano attivi nel CMS. I dati di collegamento veri si gestiscono dal profilo platform.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            style={{ background: 'var(--c-accent)' }}
+          >
+            <Save size={16} />
+            {saving ? 'Salvataggio...' : 'Salva canali attivi'}
+          </button>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          {SOCIAL_PLATFORMS.map((platform) => {
-            const channel = config.channels[platform.key];
-            return (
+            {SOCIAL_PLATFORMS.map((platform) => {
+              const channel = config.channels[platform.key];
+              return (
               <div
                 key={platform.key}
                 className="rounded-2xl p-4 space-y-4"
@@ -425,18 +366,36 @@ export default function SocialPage() {
                       {platform.description}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => updateChannel(platform.key, { enabled: !channel.enabled })}
-                    className="rounded-full px-3 py-1 text-xs font-semibold"
-                    style={{
-                      background: channel.enabled ? 'var(--c-accent-soft)' : 'var(--c-bg-2)',
-                      color: channel.enabled ? 'var(--c-accent)' : 'var(--c-text-2)',
-                    }}
-                  >
-                    {channel.enabled ? 'Attivo' : 'Disattivo'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setHelperOpenFor((current) => (current === platform.key ? null : platform.key))}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full"
+                      style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-2)', border: '1px solid var(--c-border)' }}
+                      title={`Come collegare ${platform.label}`}
+                      aria-label={`Come collegare ${platform.label}`}
+                    >
+                      <CircleHelp size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateChannel(platform.key, { enabled: !channel.enabled })}
+                      className="rounded-full px-3 py-1 text-xs font-semibold"
+                      style={{
+                        background: channel.enabled ? 'var(--c-accent-soft)' : 'var(--c-bg-2)',
+                        color: channel.enabled ? 'var(--c-accent)' : 'var(--c-text-2)',
+                      }}
+                    >
+                      {channel.enabled ? 'Attivo' : 'Disattivo'}
+                    </button>
+                  </div>
                 </div>
+
+                {helperOpenFor === platform.key ? (
+                  <div className="rounded-xl px-3 py-3 text-xs leading-5" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-2)', border: '1px dashed var(--c-border)' }}>
+                    {getSocialConnectionHelp(platform)}
+                  </div>
+                ) : null}
 
                 <div className="flex flex-wrap gap-2">
                   <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-1)' }}>
@@ -452,53 +411,8 @@ export default function SocialPage() {
                     {platform.requiresBusiness ? 'Business' : 'Standard'}
                   </span>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium" style={{ color: 'var(--c-text-2)' }}>
-                      {platform.primaryFieldLabel}
-                    </span>
-                    <input
-                      value={channel.primaryValue}
-                      onChange={(event) => updateChannel(platform.key, { primaryValue: event.target.value.trim() })}
-                      placeholder={platform.primaryFieldPlaceholder}
-                      className="input w-full text-sm"
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium" style={{ color: 'var(--c-text-2)' }}>
-                      {platform.secondaryFieldLabel}
-                    </span>
-                    <input
-                      value={channel.secondaryValue}
-                      onChange={(event) => updateChannel(platform.key, { secondaryValue: event.target.value })}
-                      placeholder={platform.secondaryFieldPlaceholder}
-                      className="input w-full text-sm"
-                    />
-                  </label>
-                  <label className="space-y-1 md:col-span-2">
-                    <span className="text-xs font-medium" style={{ color: 'var(--c-text-2)' }}>
-                      Webhook / endpoint opzionale
-                    </span>
-                    <input
-                      value={channel.webhookUrl}
-                      onChange={(event) => updateChannel(platform.key, { webhookUrl: event.target.value.trim() })}
-                      placeholder="https://example.com/social-hook"
-                      className="input w-full text-sm"
-                    />
-                  </label>
-                  <label className="space-y-1 md:col-span-2">
-                    <span className="text-xs font-medium" style={{ color: 'var(--c-text-2)' }}>
-                      Token / credenziale applicativa
-                    </span>
-                    <input
-                      type="password"
-                      value={channel.accessToken}
-                      onChange={(event) => updateChannel(platform.key, { accessToken: event.target.value.trim() })}
-                      placeholder="Access token, app password o credential secret"
-                      className="input w-full text-sm"
-                    />
-                  </label>
+                <div className="text-xs leading-5" style={{ color: 'var(--c-text-2)' }}>
+                  Collegamento operativo salvato nel profilo platform. Da qui puoi solo attivare o disattivare il canale per la pubblicazione del CMS.
                 </div>
               </div>
             );

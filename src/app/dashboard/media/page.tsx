@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import Image from "next/image";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
@@ -34,6 +34,11 @@ interface MediaItem {
   created_at: string;
 }
 
+type MediaTypeFilter = "all" | "image" | "video" | "document";
+type MediaSizeFilter = "all" | "small" | "medium" | "large";
+type MediaOrientationFilter = "all" | "landscape" | "portrait" | "square";
+type MediaSortFilter = "recent" | "oldest" | "name_asc" | "name_desc" | "size_desc" | "size_asc";
+
 const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024;
 const ALLOWED_MEDIA_MIME_TYPES = new Set([
   "image/jpeg",
@@ -60,12 +65,37 @@ function getMediaIcon(mimeType: string) {
   return FileText;
 }
 
+function getMediaType(mimeType: string): Exclude<MediaTypeFilter, "all"> {
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("video/")) return "video";
+  return "document";
+}
+
+function getMediaOrientation(item: MediaItem): Exclude<MediaOrientationFilter, "all"> | null {
+  if (!item.width || !item.height) return null;
+  if (item.width === item.height) return "square";
+  return item.width > item.height ? "landscape" : "portrait";
+}
+
+function getMediaSizeBucket(sizeBytes: number): Exclude<MediaSizeFilter, "all"> {
+  if (sizeBytes < 1024 * 1024) return "small";
+  if (sizeBytes <= 10 * 1024 * 1024) return "medium";
+  return "large";
+}
+
 export default function MediaPage() {
   const { currentTenant, currentRole } = useAuthStore();
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<MediaTypeFilter>("all");
+  const [sizeFilter, setSizeFilter] = useState<MediaSizeFilter>("all");
+  const [orientationFilter, setOrientationFilter] = useState<MediaOrientationFilter>("all");
+  const [folderFilter, setFolderFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [sortBy, setSortBy] = useState<MediaSortFilter>("recent");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selected, setSelected] = useState<MediaItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,9 +109,6 @@ export default function MediaPage() {
     if (!currentTenant) return;
     setLoading(true);
     const params = new URLSearchParams({ tenant_id: currentTenant.id });
-    if (search.trim()) {
-      params.set("search", search.trim());
-    }
 
     const response = await fetch(`/api/cms/media?${params.toString()}`, {
       credentials: "same-origin",
@@ -97,7 +124,7 @@ export default function MediaPage() {
     const payload = (await response.json()) as { media?: MediaItem[] };
     setMedia(Array.isArray(payload.media) ? payload.media : []);
     setLoading(false);
-  }, [currentTenant, search, readErrorMessage]);
+  }, [currentTenant, readErrorMessage]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -106,6 +133,68 @@ export default function MediaPage() {
 
     return () => window.clearTimeout(timer);
   }, [loadMedia]);
+
+  const folderOptions = useMemo(() => {
+    return Array.from(
+      new Set(media.map((item) => (item.folder || "").trim()).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b, "it"));
+  }, [media]);
+
+  const filteredMedia = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    const filtered = media.filter((item) => {
+      if (normalizedSearch) {
+        const haystack = [
+          item.original_filename,
+          item.filename,
+          item.alt_text || "",
+          item.folder || "",
+          item.mime_type,
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(normalizedSearch)) return false;
+      }
+
+      if (typeFilter !== "all" && getMediaType(item.mime_type) !== typeFilter) return false;
+      if (sizeFilter !== "all" && getMediaSizeBucket(item.size_bytes) !== sizeFilter) return false;
+      if (orientationFilter !== "all" && getMediaOrientation(item) !== orientationFilter) return false;
+      if (folderFilter !== "all" && (item.folder || "") !== folderFilter) return false;
+
+      const createdAt = new Date(item.created_at);
+      if (dateFrom) {
+        const from = new Date(`${dateFrom}T00:00:00`);
+        if (createdAt < from) return false;
+      }
+      if (dateTo) {
+        const to = new Date(`${dateTo}T23:59:59`);
+        if (createdAt > to) return false;
+      }
+
+      return true;
+    });
+
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "oldest":
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case "name_asc":
+          return a.original_filename.localeCompare(b.original_filename, "it");
+        case "name_desc":
+          return b.original_filename.localeCompare(a.original_filename, "it");
+        case "size_asc":
+          return a.size_bytes - b.size_bytes;
+        case "size_desc":
+          return b.size_bytes - a.size_bytes;
+        case "recent":
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+
+    return filtered;
+  }, [media, search, typeFilter, sizeFilter, orientationFilter, folderFilter, dateFrom, dateTo, sortBy]);
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || !currentTenant) return;
@@ -177,12 +266,23 @@ export default function MediaPage() {
     toast.success("URL copiato!");
   };
 
+  const clearFilters = () => {
+    setSearch("");
+    setTypeFilter("all");
+    setSizeFilter("all");
+    setOrientationFilter("all");
+    setFolderFilter("all");
+    setDateFrom("");
+    setDateTo("");
+    setSortBy("recent");
+  };
+
   return (
     <div className="flex gap-6">
       <div className="flex-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <p className="text-sm" style={{ color: "var(--c-text-2)" }}>{media.length} file</p>
+            <p className="text-sm" style={{ color: "var(--c-text-2)" }}>{filteredMedia.length} / {media.length} file</p>
             <AIButton
               compact
               actions={[
@@ -247,11 +347,112 @@ export default function MediaPage() {
           </div>
         </div>
 
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--c-text-3)" }} />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca file..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
-            style={{ border: "1px solid var(--c-border)" }} />
+        <div className="mb-6 border-y" style={{ borderColor: "var(--c-border)" }}>
+          <div className="flex flex-wrap items-end gap-y-3 px-1 py-3 text-sm md:px-0">
+            <div className="min-w-[220px] flex-1 px-3 md:border-r" style={{ borderColor: "var(--c-border)" }}>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+                Cerca
+              </label>
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 shrink-0" style={{ color: "var(--c-text-3)" }} />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Nome file, alt, cartella, mime..."
+                  className="w-full bg-transparent text-sm outline-none"
+                  style={{ color: "var(--c-text-0)" }}
+                />
+              </div>
+            </div>
+
+            <div className="min-w-[140px] px-3 md:border-r" style={{ borderColor: "var(--c-border)" }}>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+                Tipo
+              </label>
+              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as MediaTypeFilter)} className="w-full bg-transparent text-sm outline-none" style={{ color: "var(--c-text-0)" }}>
+                <option value="all">Tutti</option>
+                <option value="image">Immagini</option>
+                <option value="video">Video</option>
+                <option value="document">Documenti</option>
+              </select>
+            </div>
+
+            <div className="min-w-[150px] px-3 md:border-r" style={{ borderColor: "var(--c-border)" }}>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+                Dimensione
+              </label>
+              <select value={sizeFilter} onChange={(e) => setSizeFilter(e.target.value as MediaSizeFilter)} className="w-full bg-transparent text-sm outline-none" style={{ color: "var(--c-text-0)" }}>
+                <option value="all">Qualsiasi</option>
+                <option value="small">Sotto 1 MB</option>
+                <option value="medium">1-10 MB</option>
+                <option value="large">Oltre 10 MB</option>
+              </select>
+            </div>
+
+            <div className="min-w-[140px] px-3 md:border-r" style={{ borderColor: "var(--c-border)" }}>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+                Formato
+              </label>
+              <select value={orientationFilter} onChange={(e) => setOrientationFilter(e.target.value as MediaOrientationFilter)} className="w-full bg-transparent text-sm outline-none" style={{ color: "var(--c-text-0)" }}>
+                <option value="all">Qualsiasi</option>
+                <option value="landscape">Orizzontale</option>
+                <option value="portrait">Verticale</option>
+                <option value="square">Quadrato</option>
+              </select>
+            </div>
+
+            <div className="min-w-[150px] px-3 md:border-r" style={{ borderColor: "var(--c-border)" }}>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+                Cartella
+              </label>
+              <select value={folderFilter} onChange={(e) => setFolderFilter(e.target.value)} className="w-full bg-transparent text-sm outline-none" style={{ color: "var(--c-text-0)" }}>
+                <option value="all">Tutte</option>
+                {folderOptions.map((folder) => (
+                  <option key={folder} value={folder}>{folder}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="min-w-[140px] px-3 md:border-r" style={{ borderColor: "var(--c-border)" }}>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+                Dal
+              </label>
+              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full bg-transparent text-sm outline-none" style={{ color: "var(--c-text-0)" }} />
+            </div>
+
+            <div className="min-w-[140px] px-3 md:border-r" style={{ borderColor: "var(--c-border)" }}>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+                Al
+              </label>
+              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full bg-transparent text-sm outline-none" style={{ color: "var(--c-text-0)" }} />
+            </div>
+
+            <div className="min-w-[160px] px-3 md:border-r" style={{ borderColor: "var(--c-border)" }}>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>
+                Ordina
+              </label>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as MediaSortFilter)} className="w-full bg-transparent text-sm outline-none" style={{ color: "var(--c-text-0)" }}>
+                <option value="recent">Più recenti</option>
+                <option value="oldest">Più vecchi</option>
+                <option value="name_asc">Nome A-Z</option>
+                <option value="name_desc">Nome Z-A</option>
+                <option value="size_desc">Peso maggiore</option>
+                <option value="size_asc">Peso minore</option>
+              </select>
+            </div>
+
+            <div className="px-3">
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-xs font-semibold uppercase tracking-[0.16em]"
+                style={{ color: "var(--c-accent)" }}
+              >
+                Pulisci filtri
+              </button>
+            </div>
+          </div>
         </div>
 
         <div
@@ -262,15 +463,19 @@ export default function MediaPage() {
             <div className="flex items-center justify-center py-20">
               <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--c-accent)" }} />
             </div>
-          ) : media.length === 0 ? (
+          ) : filteredMedia.length === 0 ? (
             <div className="border-2 border-dashed rounded-xl py-16 text-center" style={{ borderColor: "var(--c-border)" }}>
               <Upload className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--c-text-3)" }} />
-              <p className="text-sm mb-1" style={{ color: "var(--c-text-3)" }}>Trascina i file qui o clicca &quot;Carica file&quot;</p>
-              <p className="text-xs" style={{ color: "var(--c-text-3)" }}>JPG, PNG, WebP, PDF, MP4 — max 50MB</p>
+              <p className="text-sm mb-1" style={{ color: "var(--c-text-3)" }}>
+                {media.length === 0 ? "Trascina i file qui o clicca \"Carica file\"" : "Nessun media trovato con i filtri attuali"}
+              </p>
+              <p className="text-xs" style={{ color: "var(--c-text-3)" }}>
+                {media.length === 0 ? "JPG, PNG, WebP, PDF, MP4 — max 50MB" : "Prova a cambiare data, tipo, dimensione o ricerca"}
+              </p>
             </div>
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {media.map((item) => {
+              {filteredMedia.map((item) => {
                 const Icon = getMediaIcon(item.mime_type);
                 const isImage = item.mime_type.startsWith("image/");
                 return (
@@ -294,7 +499,7 @@ export default function MediaPage() {
             </div>
           ) : (
             <div className="rounded-lg divide-y" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)", borderColor: "var(--c-border)" }}>
-              {media.map((item) => {
+              {filteredMedia.map((item) => {
                 const Icon = getMediaIcon(item.mime_type);
                 return (
                   <div key={item.id} onClick={() => setSelected(item)}

@@ -1,12 +1,44 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getSiteStorageQuotaByTenantId } from "@/lib/superadmin/storage";
 
-interface R2Credentials {
+export interface R2Credentials {
   accountId: string;
   accessKeyId: string;
   secretAccessKey: string;
   bucketName: string;
   publicUrl: string;
+}
+
+interface PutObjectOptions {
+  cacheControl?: string;
+}
+
+function buildR2Hostname(accountId: string) {
+  return `${accountId}.eu.r2.cloudflarestorage.com`;
+}
+
+function buildR2ObjectUrl(credentials: R2Credentials, key: string) {
+  const hostname = buildR2Hostname(credentials.accountId);
+
+  return {
+    url: `https://${hostname}/${credentials.bucketName}/${key}`,
+    hostname,
+  };
+}
+
+async function createR2Signer(credentials: R2Credentials) {
+  const { SignatureV4 } = await import("@smithy/signature-v4");
+  const { Sha256 } = await import("@aws-crypto/sha256-js");
+
+  return new SignatureV4({
+    service: "s3",
+    region: "auto",
+    credentials: {
+      accessKeyId: credentials.accessKeyId,
+      secretAccessKey: credentials.secretAccessKey,
+    },
+    sha256: Sha256,
+  });
 }
 
 /**
@@ -70,33 +102,32 @@ export async function uploadToR2(
   body: Buffer,
   contentType: string,
 ): Promise<{ url: string }> {
-  const r2Host = `${credentials.accountId}.eu.r2.cloudflarestorage.com`;
-  const url = `https://${r2Host}/${credentials.bucketName}/${key}`;
-
-  // S3-compatible PUT with AWS Signature V4
-  const { SignatureV4 } = await import("@smithy/signature-v4");
-  const { Sha256 } = await import("@aws-crypto/sha256-js");
-
-  const signer = new SignatureV4({
-    service: "s3",
-    region: "auto",
-    credentials: {
-      accessKeyId: credentials.accessKeyId,
-      secretAccessKey: credentials.secretAccessKey,
-    },
-    sha256: Sha256,
+  return putObjectToR2(credentials, key, body, contentType, {
+    cacheControl: "public, max-age=31536000, immutable",
   });
+}
+
+export async function putObjectToR2(
+  credentials: R2Credentials,
+  key: string,
+  body: Buffer,
+  contentType: string,
+  options: PutObjectOptions = {},
+): Promise<{ url: string }> {
+  const { url, hostname } = buildR2ObjectUrl(credentials, key);
+  const signer = await createR2Signer(credentials);
+  const cacheControl = options.cacheControl || "public, max-age=31536000, immutable";
 
   const request = {
     method: "PUT",
     protocol: "https:",
-    hostname: `${credentials.accountId}.eu.r2.cloudflarestorage.com`,
+    hostname,
     path: `/${credentials.bucketName}/${key}`,
     headers: {
       "Content-Type": contentType,
       "Content-Length": String(body.length),
-      "Cache-Control": "public, max-age=31536000, immutable",
-      host: `${credentials.accountId}.eu.r2.cloudflarestorage.com`,
+      "Cache-Control": cacheControl,
+      host: hostname,
     },
     body,
   };
@@ -117,9 +148,47 @@ export async function uploadToR2(
   // Build public URL
   const publicUrl = credentials.publicUrl
     ? `${credentials.publicUrl.replace(/\/$/, "")}/${key}`
-    : `https://${r2Host}/${credentials.bucketName}/${key}`;
+    : `https://${hostname}/${credentials.bucketName}/${key}`;
 
   return { url: publicUrl };
+}
+
+export async function readJsonFromR2<T>(
+  credentials: R2Credentials,
+  key: string,
+): Promise<T | null> {
+  const { url, hostname } = buildR2ObjectUrl(credentials, key);
+  const signer = await createR2Signer(credentials);
+  const signed = await signer.sign({
+    method: "GET",
+    protocol: "https:",
+    hostname,
+    path: `/${credentials.bucketName}/${key}`,
+    headers: {
+      host: hostname,
+    },
+  });
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: signed.headers as Record<string, string>,
+    cache: "no-store",
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`R2 read failed (${response.status}): ${text}`);
+  }
+
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
 }
 
 /**

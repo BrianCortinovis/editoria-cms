@@ -1,10 +1,11 @@
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import { callProvider } from '@/lib/ai/providers';
 import { resolveProvider } from '@/lib/ai/resolver';
 import { getModuleConfig, isModuleActive } from '@/lib/modules';
 import { readPublishedJson } from '@/lib/publish/storage';
 import type { PublishedSearchDocument, PublishedSettingsDocument } from '@/lib/publish/types';
 import { buildTenantPublicUrl } from '@/lib/site/public-url';
+import { resolvePublicTenantContext } from '@/lib/site/runtime';
 
 type SearchMode = 'simple' | 'semantic';
 type SearchResultType = 'article' | 'page';
@@ -133,16 +134,10 @@ async function fetchTenant(tenantSlug: string) {
     };
   }
 
-  const supabase = await createServiceRoleClient();
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('id, slug, name, domain, settings')
-    .eq('slug', tenantSlug)
-    .single();
-
+  const context = await resolvePublicTenantContext(tenantSlug);
   return {
-    supabase,
-    tenant: (tenant || null) as SearchTenant | null,
+    supabase: context?.runtimeClient || null,
+    tenant: (context?.tenant || null) as SearchTenant | null,
   };
 }
 
@@ -279,7 +274,7 @@ async function runPublishedSearch(tenant: SearchTenant, tenantSlug: string, quer
 }
 
 async function runSimpleSearch(tenant: SearchTenant, query: string, limit: number) {
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(tenant.id);
   const escaped = query.replace(/[%_()&|]/g, '\\$&');
   const pattern = `%${escaped}%`;
 
@@ -318,7 +313,7 @@ async function runSemanticSearch(tenant: SearchTenant, query: string, limit: num
     };
   }
 
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(tenant.id);
   const [{ data: articles }, { data: pages }] = await Promise.all([
     supabase
       .from('articles')

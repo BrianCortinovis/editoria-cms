@@ -1425,6 +1425,8 @@ export interface Database {
           stack_kind: InfrastructureStackKind;
           supabase_project_ref: string | null;
           supabase_url: string | null;
+          supabase_service_role_key: string | null;
+          supabase_anon_key: string | null;
           deploy_target_kind: DeploymentTargetKind;
           deploy_target_label: string | null;
           public_base_url: string | null;
@@ -1441,6 +1443,8 @@ export interface Database {
           stack_kind?: InfrastructureStackKind;
           supabase_project_ref?: string | null;
           supabase_url?: string | null;
+          supabase_service_role_key?: string | null;
+          supabase_anon_key?: string | null;
           deploy_target_kind?: DeploymentTargetKind;
           deploy_target_label?: string | null;
           public_base_url?: string | null;
@@ -1455,6 +1459,8 @@ export interface Database {
           stack_kind?: InfrastructureStackKind;
           supabase_project_ref?: string | null;
           supabase_url?: string | null;
+          supabase_service_role_key?: string | null;
+          supabase_anon_key?: string | null;
           deploy_target_kind?: DeploymentTargetKind;
           deploy_target_label?: string | null;
           public_base_url?: string | null;

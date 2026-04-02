@@ -24,9 +24,12 @@ interface DashStats {
   articles: number;
   published: number;
   drafts: number;
+  inReview: number;
+  approved: number;
   media: number;
   events: number;
   banners: number;
+  activeBreaking: number;
 }
 
 interface RecentArticle {
@@ -41,7 +44,7 @@ interface RecentArticle {
 export default function DashboardPage() {
   const { currentTenant, profile } = useAuthStore();
   const [stats, setStats] = useState<DashStats>({
-    articles: 0, published: 0, drafts: 0, media: 0, events: 0, banners: 0,
+    articles: 0, published: 0, drafts: 0, inReview: 0, approved: 0, media: 0, events: 0, banners: 0, activeBreaking: 0,
   });
   const [recentArticles, setRecentArticles] = useState<RecentArticle[]>([]);
 
@@ -51,23 +54,29 @@ export default function DashboardPage() {
 
     async function loadDashboard() {
       const tenantId = currentTenant!.id;
-      const [articlesRes, publishedRes, draftsRes, mediaRes, eventsRes, bannersRes] =
+      const [articlesRes, publishedRes, draftsRes, inReviewRes, approvedRes, mediaRes, eventsRes, bannersRes, breakingRes] =
         await Promise.all([
           supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
           supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "published"),
           supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "draft"),
+          supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "in_review"),
+          supabase.from("articles").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "approved"),
           supabase.from("media").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
           supabase.from("events").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
           supabase.from("banners").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+          supabase.from("breaking_news").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("is_active", true),
         ]);
 
       setStats({
         articles: articlesRes.count ?? 0,
         published: publishedRes.count ?? 0,
         drafts: draftsRes.count ?? 0,
+        inReview: inReviewRes.count ?? 0,
+        approved: approvedRes.count ?? 0,
         media: mediaRes.count ?? 0,
         events: eventsRes.count ?? 0,
         banners: bannersRes.count ?? 0,
+        activeBreaking: breakingRes.count ?? 0,
       });
 
       const { data: recent } = await supabase
@@ -118,6 +127,9 @@ export default function DashboardPage() {
     { label: "Articoli", value: stats.articles, icon: FileText, accent: "accent" },
     { label: "Pubblicati", value: stats.published, icon: TrendingUp, accent: "text-emerald-400" },
     { label: "Bozze", value: stats.drafts, icon: FileText, accent: "text-yellow-400" },
+    { label: "In revisione", value: stats.inReview, icon: ScanLine, accent: "text-orange-400" },
+    { label: "Approvati", value: stats.approved, icon: ArrowRight, accent: "text-sky-400" },
+    { label: "Breaking attive", value: stats.activeBreaking, icon: Zap, accent: "text-red-400" },
     { label: "Media", value: stats.media, icon: ImageIcon, accent: "text-purple-400" },
     { label: "Eventi", value: stats.events, icon: Calendar, accent: "text-pink-400" },
     { label: "Banner", value: stats.banners, icon: Megaphone, accent: "text-orange-400" },
@@ -217,7 +229,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-3 mb-6">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
@@ -241,6 +253,48 @@ export default function DashboardPage() {
             </div>
           );
         })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div className="rounded-xl overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+          <div className="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ borderBottom: "1px solid var(--c-border)", color: "var(--c-text-2)" }}>
+            Priorità immediate
+          </div>
+          <div className="p-3 space-y-2">
+            <Link href="/dashboard/articoli" className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}>
+              <span className="text-sm font-medium">Bozze da chiudere</span>
+              <strong style={{ color: "var(--c-text-0)" }}>{stats.drafts}</strong>
+            </Link>
+            <Link href="/dashboard/redazione" className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}>
+              <span className="text-sm font-medium">Articoli in revisione</span>
+              <strong style={{ color: "var(--c-text-0)" }}>{stats.inReview}</strong>
+            </Link>
+            <Link href="/dashboard/breaking-news" className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}>
+              <span className="text-sm font-medium">Breaking attive</span>
+              <strong style={{ color: "var(--c-text-0)" }}>{stats.activeBreaking}</strong>
+            </Link>
+          </div>
+        </div>
+
+        <div className="rounded-xl overflow-hidden lg:col-span-2" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+          <div className="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ borderBottom: "1px solid var(--c-border)", color: "var(--c-text-2)" }}>
+            Sotto controllo
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3">
+            <Link href="/dashboard/social" className="rounded-lg px-3 py-3" style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}>
+              <div className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Social</div>
+              <div className="text-xs mt-1" style={{ color: "var(--c-text-2)" }}>Programmazione, canali attivi e rilanci.</div>
+            </Link>
+            <Link href="/dashboard/newsletter" className="rounded-lg px-3 py-3" style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}>
+              <div className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Newsletter</div>
+              <div className="text-xs mt-1" style={{ color: "var(--c-text-2)" }}>Invii, iscritti e funnel editoriali.</div>
+            </Link>
+            <Link href="/dashboard/tecnico" className="rounded-lg px-3 py-3" style={{ background: "var(--c-bg-2)", color: "var(--c-text-1)" }}>
+              <div className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Tecnico</div>
+              <div className="text-xs mt-1" style={{ color: "var(--c-text-2)" }}>Bridge, publish e stato runtime.</div>
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* Quick Actions + Recent */}

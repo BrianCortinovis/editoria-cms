@@ -14,9 +14,17 @@ const ALLOWED_MEDIA_MIME_TYPES = new Set([
   "image/gif",
   "video/mp4",
   "video/webm",
+  "video/quicktime",
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/mp4",
+  "audio/x-m4a",
+  "audio/wav",
+  "audio/webm",
+  "audio/ogg",
   "application/pdf",
 ]);
-const ALLOWED_MEDIA_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif", "mp4", "webm", "pdf"]);
+const ALLOWED_MEDIA_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif", "mp4", "webm", "mov", "mp3", "m4a", "wav", "ogg", "pdf"]);
 
 const MEDIA_TYPE_FOLDERS: Record<string, string> = {
   "image/jpeg": "images",
@@ -25,6 +33,14 @@ const MEDIA_TYPE_FOLDERS: Record<string, string> = {
   "image/gif": "images",
   "video/mp4": "video",
   "video/webm": "video",
+  "video/quicktime": "video",
+  "audio/mpeg": "audio",
+  "audio/mp3": "audio",
+  "audio/mp4": "audio",
+  "audio/x-m4a": "audio",
+  "audio/wav": "audio",
+  "audio/webm": "audio",
+  "audio/ogg": "audio",
   "application/pdf": "documents",
 };
 

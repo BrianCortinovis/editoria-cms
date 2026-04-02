@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { mapInfrastructureRowToDetail, type PlatformSiteInfrastructure } from "@/lib/platform/infrastructure-service";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import type { PlatformMembershipRole } from "@/lib/platform/types";
 import type { Tables, UserRole } from "@/types/database";
@@ -24,6 +25,7 @@ export interface PlatformSiteDetail extends PlatformSiteSummary {
   memberships: Tables<"tenant_memberships">[];
   subscription: Tables<"subscriptions"> | null;
   settings: Tables<"site_settings_platform"> | null;
+  infrastructure: PlatformSiteInfrastructure;
 }
 
 function isMissingPlatformRelation(error: { message?: string } | null | undefined) {
@@ -163,6 +165,7 @@ async function getLegacyPlatformSiteDetailForUser(
     ),
     subscription: null,
     settings: null,
+    infrastructure: mapInfrastructureRowToDetail(tenant.id, tenant.id, null),
   };
 }
 
@@ -300,7 +303,14 @@ export async function getPlatformSiteDetailForUser(
     return getLegacyPlatformSiteDetailForUser(userId, siteId);
   }
 
-  const [{ data: site }, { data: domains }, { data: memberships }, { data: subscription }, { data: settings }] =
+  const [
+    { data: site },
+    { data: domains },
+    { data: memberships },
+    { data: subscription },
+    { data: settings },
+    { data: infrastructure },
+  ] =
     await Promise.all([
       serviceSupabase.from("sites").select("*").eq("id", siteId).is("deleted_at", null).maybeSingle(),
       serviceSupabase
@@ -316,6 +326,7 @@ export async function getPlatformSiteDetailForUser(
         .order("created_at", { ascending: true }),
       serviceSupabase.from("subscriptions").select("*").eq("site_id", siteId).maybeSingle(),
       serviceSupabase.from("site_settings_platform").select("*").eq("site_id", siteId).maybeSingle(),
+      serviceSupabase.from("site_infrastructure").select("*").eq("site_id", siteId).maybeSingle(),
     ]);
 
   if (!site) {
@@ -345,5 +356,6 @@ export async function getPlatformSiteDetailForUser(
     memberships: memberships || [],
     subscription: subscription || null,
     settings: settings || null,
+    infrastructure: mapInfrastructureRowToDetail(site.id, site.tenant_id, infrastructure),
   };
 }

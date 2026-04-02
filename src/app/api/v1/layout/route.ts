@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { createServiceRoleClient } from "@/lib/supabase/server";
 import { fetchArticleIdsForCategory } from "@/lib/articles/taxonomy";
 import { getActiveExclusivePlacementArticleIds, isPlacementActive } from "@/lib/editorial/placements";
 import { readPublishedJson } from "@/lib/publish/storage";
 import { getPublicApiCorsHeaders } from "@/lib/security/cors";
 import type { PublishedLayoutDocument, PublishedManifest } from "@/lib/publish/types";
+import { resolvePublicTenantContext } from "@/lib/site/runtime";
 
 const VALID_PAGE_TYPES = new Set([
   "homepage",
@@ -90,17 +90,12 @@ export async function GET(request: Request) {
     }
   }
 
-  const supabase = await createServiceRoleClient();
-
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("id")
-    .eq("slug", tenantSlug)
-    .single();
-
-  if (!tenant) {
+  const context = await resolvePublicTenantContext(tenantSlug);
+  if (!context) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
+
+  const { tenant, runtimeClient: supabase } = context;
 
   const { data: siteConfig } = await supabase
     .from("site_config")

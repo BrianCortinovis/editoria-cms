@@ -5,7 +5,7 @@ import { buildTenantRedirectUrl, resolveRedirect } from '@/lib/site/redirects';
 import { SiteLayout } from '@/components/render/SiteLayout';
 import { enrichArticlesWithCategories, fetchArticleIdsForCategory } from '@/lib/articles/taxonomy';
 import { getActiveExclusivePlacementArticleIds } from '@/lib/editorial/placements';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import { buildTenantPublicUrl } from '@/lib/site/public-url';
 
 export const revalidate = 120;
@@ -64,7 +64,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   }
 
   if (!category) {
-    const supabase = await createServiceRoleClient();
+    const supabase = await createServiceRoleClientForTenant(tenant.id);
 
     const { data } = await supabase
       .from('categories')
@@ -285,7 +285,7 @@ export async function generateMetadata({ params }: Props) {
     : null;
 
   if (!category) {
-    const supabase = await createServiceRoleClient();
+    const supabase = await createServiceRoleClientForTenant(resolved.tenant.id);
     const { data } = await supabase
       .from('categories')
       .select('name, description')

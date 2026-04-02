@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
   try {
     const portalUrl = await createCustomerPortalSession(
       subscription.external_customer_id,
-      `${origin}/dashboard/impostazioni`,
+      `${origin}/app/profile/site`,
     );
 
     return NextResponse.json({ url: portalUrl });

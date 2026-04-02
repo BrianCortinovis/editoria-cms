@@ -9,13 +9,11 @@ import {
   Image,
   FolderOpen,
   Tag,
-  Users,
   Megaphone,
   Calendar,
   Zap,
   MessageSquare,
   FormInput,
-  Settings,
   LogOut,
   ChevronDown,
   Layers,
@@ -27,9 +25,7 @@ import {
   BarChart3,
   Receipt,
   Cpu,
-  Package,
   Globe,
-  Sparkles,
   Newspaper,
   BadgeDollarSign,
   Menu,
@@ -46,28 +42,26 @@ import { useThemeStore } from "@/lib/theme";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import type { UserRole } from "@/types/database";
-import { isModuleActive } from "@/lib/modules";
 
 export const mainNav = [
-  { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/dashboard/pagine", label: "Pagine", icon: FileText },
   { href: "/dashboard/menu", label: "Menu", icon: Menu },
   { href: "/dashboard/footer", label: "Footer", icon: PanelBottom },
   { href: "/dashboard/layout/content", label: "Regole Slot", icon: ScanLine },
-  { href: "/dashboard/articoli", label: "Articoli", icon: FileText },
-  { href: "/dashboard/media", label: "Media", icon: Image },
   { href: "/dashboard/categorie", label: "Categorie", icon: FolderOpen },
   { href: "/dashboard/tag", label: "Tag", icon: Tag },
+  { href: "/dashboard/newsletter", label: "Newsletter", icon: Mail },
+  { href: "/dashboard/commenti", label: "Commenti", icon: MessageSquare },
 ];
 
 export const editorialNav = [
   { href: "/dashboard/redazione", label: "Redazione", icon: Newspaper },
+  { href: "/dashboard/articoli", label: "Articoli", icon: FileText },
   { href: "/dashboard/desk", label: "Desk", icon: FileText },
+  { href: "/dashboard/media", label: "Media", icon: Image },
   { href: "/dashboard/social", label: "Social", icon: Share2 },
-  { href: "/dashboard/newsletter", label: "Newsletter", icon: Mail },
   { href: "/dashboard/breaking-news", label: "Breaking", icon: Zap },
   { href: "/dashboard/eventi", label: "Eventi", icon: Calendar },
-  { href: "/dashboard/commenti", label: "Commenti", icon: MessageSquare },
   { href: "/dashboard/form", label: "Form", icon: FormInput },
 ];
 
@@ -86,12 +80,8 @@ export const systemNav = [
   { href: "/dashboard/migrazioni", label: "Migraz.", icon: Download },
   { href: "/dashboard/seo", label: "SEO", icon: BarChart3 },
   { href: "/dashboard/redirect", label: "Redirect", icon: Globe },
-  { href: "/dashboard/ia", label: "IA", icon: Sparkles },
   { href: "/dashboard/gdpr", label: "GDPR", icon: Shield },
-  { href: "/dashboard/utenti", label: "Team", icon: Users },
-  { href: "/dashboard/moduli", label: "Moduli", icon: Package },
   { href: "/dashboard/activity-log", label: "Log", icon: Activity },
-  { href: "/dashboard/impostazioni", label: "Config", icon: Settings },
 ];
 
 function filterNavByRole(
@@ -104,9 +94,9 @@ function filterNavByRole(
   if (role === "contributor") {
     const contributorAllowed = new Set(
       section === "main"
-        ? ["/dashboard", "/dashboard/articoli", "/dashboard/media"]
+        ? []
         : section === "editorial"
-          ? ["/dashboard/desk"]
+          ? ["/dashboard/articoli", "/dashboard/desk", "/dashboard/media"]
           : []
     );
     return items.filter((item) => contributorAllowed.has(item.href));
@@ -115,12 +105,10 @@ function filterNavByRole(
   if (role === "advertiser") {
     const advertiserAllowed = new Set(
       section === "main"
-        ? ["/dashboard", "/dashboard/media"]
+        ? []
         : section === "adv"
           ? ["/dashboard/adv", "/dashboard/banner", "/dashboard/inserzionisti", "/dashboard/contabilita"]
-          : section === "system"
-            ? ["/dashboard/impostazioni"]
-            : []
+          : []
     );
     return items.filter((item) => advertiserAllowed.has(item.href));
   }
@@ -129,7 +117,6 @@ function filterNavByRole(
     if (section === "system") {
       const editorAllowed = new Set([
         "/dashboard/seo",
-        "/dashboard/ia",
         "/dashboard/activity-log",
       ]);
       return items.filter((item) => editorAllowed.has(item.href));
@@ -143,10 +130,7 @@ function filterNavByRole(
         "/dashboard/testata",
         "/dashboard/seo",
         "/dashboard/redirect",
-        "/dashboard/ia",
-        "/dashboard/utenti",
         "/dashboard/activity-log",
-        "/dashboard/impostazioni",
       ]);
       return items.filter((item) => chiefAllowed.has(item.href));
     }
@@ -205,7 +189,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const router = useRouter();
   const { currentTenant, currentRole, tenants, setCurrentTenant, reset, profile } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
-  const aiModuleEnabled = isModuleActive((currentTenant?.settings as Record<string, unknown>) || {}, "ai_assistant");
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -223,17 +206,12 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
   const visibleMainNav = filterNavByRole(mainNav, currentRole, "main");
   const visibleEditorialNav = filterNavByRole(editorialNav, currentRole, "editorial");
-  const visibleAdvNav = filterNavByRole(advNav, currentRole, "adv");
-  const visibleSystemNav = filterNavByRole(systemNav, currentRole, "system")
-    .filter((item) => item.href !== "/dashboard/ia" || aiModuleEnabled);
   const [collapsedSections, setCollapsedSections] = useState({
     main: false,
     editorial: false,
-    adv: false,
-    system: false,
   });
 
-  const toggleSection = (section: "main" | "editorial" | "adv" | "system") => {
+  const toggleSection = (section: "main" | "editorial") => {
     setCollapsedSections((prev) => ({
       ...prev,
       [section]: !prev[section],
@@ -254,9 +232,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       >
         {/* Logo */}
         <div className="flex items-center justify-center py-4">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg" style={{ background: "var(--c-accent)" }}>
+          <Link href="/dashboard" onClick={onClose} className="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg" style={{ background: "var(--c-accent)" }} title="Vai alla dashboard">
             <Layers className="w-5 h-5 text-white" />
-          </div>
+          </Link>
         </div>
 
         {/* Tenant */}
@@ -281,31 +259,18 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-1.5 py-1 space-y-0.5">
-          {visibleMainNav.length > 0 && (
-            <>
-              <SectionToggle label="CMS" isOpen={!collapsedSections.main} onToggle={() => toggleSection("main")} />
-              {!collapsedSections.main ? visibleMainNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
-            </>
-          )}
           {visibleEditorialNav.length > 0 && (
             <>
-              <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
               <SectionToggle label="Redazione" isOpen={!collapsedSections.editorial} onToggle={() => toggleSection("editorial")} />
               {!collapsedSections.editorial ? visibleEditorialNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
             </>
           )}
-          {visibleAdvNav.length > 0 && (
+
+          {visibleMainNav.length > 0 && (
             <>
               <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
-              <SectionToggle label="ADV" isOpen={!collapsedSections.adv} onToggle={() => toggleSection("adv")} />
-              {!collapsedSections.adv ? visibleAdvNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
-            </>
-          )}
-          {visibleSystemNav.length > 0 && (
-            <>
-              <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
-              <SectionToggle label="Sistema" isOpen={!collapsedSections.system} onToggle={() => toggleSection("system")} />
-              {!collapsedSections.system ? visibleSystemNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
+              <SectionToggle label="Sito" isOpen={!collapsedSections.main} onToggle={() => toggleSection("main")} />
+              {!collapsedSections.main ? visibleMainNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
             </>
           )}
         </nav>

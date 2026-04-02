@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { requireSuperAdmin } from "@/lib/superadmin/service";
 import SuperadminAiChat from "@/components/admin/SuperadminAiChat";
@@ -37,14 +36,6 @@ export default async function AdminLayout({
                 style={{ borderColor: "var(--c-border)", color: "var(--c-text-1)", background: "var(--c-bg-1)" }}
               >
                 Torna alla Platform
-              </Link>
-              <Link
-                href="/dashboard/cms"
-                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition"
-                style={{ background: "var(--c-danger)" }}
-              >
-                Apri CMS
-                <ArrowUpRight className="h-4 w-4" />
               </Link>
             </div>
           </div>

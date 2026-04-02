@@ -100,8 +100,8 @@ export async function POST(request: NextRequest) {
       userEmail: user.email || "",
       planCode,
       interval: billingInterval,
-      successUrl: `${origin}/dashboard/impostazioni?billing=success`,
-      cancelUrl: `${origin}/dashboard/impostazioni?billing=cancel`,
+      successUrl: `${origin}/app/profile/site?billing=success`,
+      cancelUrl: `${origin}/app/profile/site?billing=cancel`,
     });
 
     return NextResponse.json({ url: checkoutUrl });

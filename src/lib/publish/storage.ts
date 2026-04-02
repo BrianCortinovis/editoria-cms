@@ -1,7 +1,13 @@
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import type { PublishedManifest } from '@/lib/publish/types';
+import { putObjectToR2, readJsonFromR2, type R2Credentials } from '@/lib/storage/r2-client';
 
 const PUBLISHED_BUCKET = 'published';
+const storageTargetCache = new Map<string, { target: PublishedStorageTarget; expiresAt: number }>();
+
+type PublishedStorageTarget =
+  | { kind: 'shared-supabase' }
+  | { kind: 'dedicated-r2'; credentials: R2Credentials };
 
 function encodePathSegment(value: string) {
   return value
@@ -58,6 +64,104 @@ export function buildPublishedPath(
   }
 }
 
+function decodePathSegment(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function getTenantSlugFromPublishedPath(path: string) {
+  const normalized = String(path || '').replace(/^\/+/, '');
+  const [root, tenantSlug] = normalized.split('/');
+
+  if (root !== 'sites' || !tenantSlug) {
+    return null;
+  }
+
+  return decodePathSegment(tenantSlug);
+}
+
+function asObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+}
+
+function asString(value: unknown) {
+  return value === null || value === undefined ? '' : String(value).trim();
+}
+
+function resolveDedicatedR2Credentials(config: Record<string, unknown>): R2Credentials | null {
+  const nested = asObject(config.r2);
+  const accountId = asString(nested.accountId || config.r2_account_id);
+  const accessKeyId = asString(nested.accessKeyId || config.r2_access_key_id);
+  const secretAccessKey = asString(nested.secretAccessKey || config.r2_secret_access_key);
+  const bucketName = asString(nested.bucketName || config.r2_bucket_name);
+  const publicUrl = asString(nested.publicUrl || config.r2_public_url);
+
+  if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
+    return null;
+  }
+
+  return {
+    accountId,
+    accessKeyId,
+    secretAccessKey,
+    bucketName,
+    publicUrl,
+  };
+}
+
+async function resolvePublishedStorageTarget(path: string): Promise<PublishedStorageTarget> {
+  const tenantSlug = getTenantSlugFromPublishedPath(path);
+  if (!tenantSlug) {
+    return { kind: 'shared-supabase' };
+  }
+
+  const cached = storageTargetCache.get(tenantSlug);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.target;
+  }
+
+  const supabase = await createServiceRoleClient();
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('slug', tenantSlug)
+    .maybeSingle();
+
+  if (!tenant?.id) {
+    const target: PublishedStorageTarget = { kind: 'shared-supabase' };
+    storageTargetCache.set(tenantSlug, {
+      target,
+      expiresAt: Date.now() + 60_000,
+    });
+    return target;
+  }
+
+  const { data: infrastructure } = await supabase
+    .from('site_infrastructure')
+    .select('stack_kind, config')
+    .eq('tenant_id', tenant.id)
+    .maybeSingle();
+
+  const dedicatedCredentials =
+    infrastructure?.stack_kind === 'dedicated'
+      ? resolveDedicatedR2Credentials(asObject(infrastructure.config))
+      : null;
+
+  const target: PublishedStorageTarget = dedicatedCredentials
+    ? { kind: 'dedicated-r2', credentials: dedicatedCredentials }
+    : { kind: 'shared-supabase' };
+
+  storageTargetCache.set(tenantSlug, {
+    target,
+    expiresAt: Date.now() + 60_000,
+  });
+
+  return target;
+}
+
 async function ensurePublishedBucket() {
   const supabase = await createServiceRoleClient();
   const { data: bucket } = await supabase.storage.getBucket(PUBLISHED_BUCKET);
@@ -72,9 +176,18 @@ async function ensurePublishedBucket() {
 }
 
 export async function writePublishedJson(path: string, payload: unknown, cacheControl = 'public, max-age=30, stale-while-revalidate=120') {
+  const body = JSON.stringify(payload, null, 2);
+  const target = await resolvePublishedStorageTarget(path);
+
+  if (target.kind === 'dedicated-r2') {
+    await putObjectToR2(target.credentials, path, Buffer.from(body), 'application/json', {
+      cacheControl,
+    });
+    return;
+  }
+
   await ensurePublishedBucket();
   const supabase = await createServiceRoleClient();
-  const body = JSON.stringify(payload, null, 2);
 
   const { error } = await supabase.storage.from(PUBLISHED_BUCKET).upload(path, body, {
     contentType: 'application/json',
@@ -88,6 +201,19 @@ export async function writePublishedJson(path: string, payload: unknown, cacheCo
 }
 
 export async function readPublishedJson<T>(path: string): Promise<T | null> {
+  const target = await resolvePublishedStorageTarget(path);
+
+  if (target.kind === 'dedicated-r2') {
+    try {
+      const document = await readJsonFromR2<T>(target.credentials, path);
+      if (document) {
+        return document;
+      }
+    } catch {
+      // Fall through to shared published storage to keep older releases readable.
+    }
+  }
+
   const supabase = await createServiceRoleClient();
   const { data, error } = await supabase.storage.from(PUBLISHED_BUCKET).download(path);
 

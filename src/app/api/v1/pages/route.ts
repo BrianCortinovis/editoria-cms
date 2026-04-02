@@ -1,10 +1,11 @@
-import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import { assertTrustedMutationRequest } from '@/lib/security/request';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildDefaultPageMeta, slugifyPageTitle } from '@/lib/pages/page-seo';
 import { readPublishedJson } from '@/lib/publish/storage';
 import type { PublishedManifest, PublishedPageDocument } from '@/lib/publish/types';
 import { z } from 'zod';
+import { resolvePublicTenantRecord } from '@/lib/site/runtime';
 
 const pageCreateUpdateSchema = z.object({
   id: z.string().uuid().optional(),
@@ -20,7 +21,6 @@ const PAGE_EDITOR_ROLES = new Set(['admin', 'chief_editor', 'editor']);
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createServiceRoleClient();
     const tenant = request.nextUrl.searchParams.get('tenant');
 
     if (!tenant) {
@@ -55,14 +55,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const { data: tenantData } = await supabase
-      .from('tenants').select('id').eq('slug', tenant).single();
-
+    const tenantData = await resolvePublicTenantRecord(tenant);
     if (!tenantData) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
-    const { data: pages, error } = await supabase
+    const runtimeClient = await createServiceRoleClientForTenant(tenantData.id);
+    const { data: pages, error } = await runtimeClient
       .from('site_pages')
       .select('id, title, slug, is_published, created_at, updated_at, blocks, meta')
       .eq('tenant_id', tenantData.id)

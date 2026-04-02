@@ -38,14 +38,21 @@ export async function processScheduledSocialPosts() {
 
   for (const post of pendingPosts) {
     // Marca come "sending" (optimistic lock)
-    const { count } = await supabase
+    const { count, error: lockError } = await supabase
       .from("scheduled_social_posts")
-      .update({ status: "sending", updated_at: new Date().toISOString() })
+      .update(
+        { status: "sending", updated_at: new Date().toISOString() },
+        { count: "exact" },
+      )
       .eq("id", post.id)
       .eq("status", "pending");
 
+    if (lockError) {
+      throw new Error(`Lock scheduled post failed: ${lockError.message}`);
+    }
+
     // Se count === 0, un altro worker l'ha gia' preso
-    if (count === 0) continue;
+    if (count !== 1) continue;
 
     const article = post.articles as {
       id: string;

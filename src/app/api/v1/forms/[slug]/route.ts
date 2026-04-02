@@ -1,10 +1,11 @@
 import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 import { verifyTurnstileToken } from '@/lib/security/turnstile';
 import { sendEmailAsync } from '@/lib/email/service';
 import { formSubmission } from '@/lib/email/templates';
+import { resolvePublicTenantContext } from '@/lib/site/runtime';
 
 import { getPublicApiCorsHeadersWithPost } from '@/lib/security/cors';
 
@@ -14,8 +15,8 @@ function hashValue(value: string) {
   return crypto.createHmac('sha256', _processIpSalt).update(value).digest('hex');
 }
 
-async function supportsFormsTables() {
-  const supabase = await createServiceRoleClient();
+async function supportsFormsTables(tenantId: string) {
+  const supabase = await createServiceRoleClientForTenant(tenantId);
   const { error } = await supabase.from('site_forms').select('id').limit(1);
   return !error;
 }
@@ -35,17 +36,18 @@ export async function GET(
     return NextResponse.json({ error: 'tenant parameter required' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
-  if (!(await supportsFormsTables())) {
-    return NextResponse.json({ formsEnabled: false }, { headers: getPublicApiCorsHeadersWithPost(request) });
-  }
-
-  const supabase = await createServiceRoleClient();
-  const { data: tenant } = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single();
-  if (!tenant) {
+  const context = await resolvePublicTenantContext(tenantSlug);
+  if (!context) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
-  const { data: form } = await supabase
+  if (!(await supportsFormsTables(context.tenant.id))) {
+    return NextResponse.json({ formsEnabled: false }, { headers: getPublicApiCorsHeadersWithPost(request) });
+  }
+
+  const { tenant, runtimeClient } = context;
+
+  const { data: form } = await runtimeClient
     .from('site_forms')
     .select('name, slug, description, fields, success_message')
     .eq('tenant_id', tenant.id)
@@ -65,11 +67,6 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-
-  if (!(await supportsFormsTables())) {
-    return NextResponse.json({ error: 'Forms module not initialized' }, { status: 503, headers: getPublicApiCorsHeadersWithPost(request) });
-  }
-
   const body = await request.json();
   const tenantSlug = String(body.tenant || '');
   const payload = (body.payload || {}) as Record<string, unknown>;
@@ -78,6 +75,15 @@ export async function POST(
 
   if (!tenantSlug) {
     return NextResponse.json({ error: 'tenant required' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
+  }
+
+  const context = await resolvePublicTenantContext(tenantSlug);
+  if (!context) {
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
+  }
+
+  if (!(await supportsFormsTables(context.tenant.id))) {
+    return NextResponse.json({ error: 'Forms module not initialized' }, { status: 503, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   if (honeypot) {
@@ -102,13 +108,9 @@ export async function POST(
     return NextResponse.json({ error: 'Bot protection check failed' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
-  const supabase = await createServiceRoleClient();
-  const { data: tenant } = await supabase.from('tenants').select('id, name').eq('slug', tenantSlug).single();
-  if (!tenant) {
-    return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
-  }
+  const { tenant, runtimeClient } = context;
 
-  const { data: form } = await supabase
+  const { data: form } = await runtimeClient
     .from('site_forms')
     .select('id, name, fields, recipient_emails, success_message')
     .eq('tenant_id', tenant.id)
@@ -133,7 +135,7 @@ export async function POST(
     return NextResponse.json({ error: `Campi obbligatori mancanti: ${missing.join(', ')}` }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
-  const { error } = await supabase.from('form_submissions').insert({
+  const { error } = await runtimeClient.from('form_submissions').insert({
     tenant_id: tenant.id,
     form_id: form.id,
     submitter_name: typeof payload.name === 'string' ? payload.name : null,

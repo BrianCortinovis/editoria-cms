@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { buildSiteBridgePack } from "@/lib/editorial/site-bridge-pack";
+import { createServiceRoleClientForTenant } from "@/lib/supabase/server";
+import { resolvePublicTenantRecord } from "@/lib/site/runtime";
 
 const EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
 
@@ -40,18 +42,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
   }
 
-  const supabase = await createServiceRoleClient();
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("id, name, slug, domain")
-    .eq("slug", tenantSlug)
-    .single();
-
+  const platformClient = await createServiceRoleClient();
+  const tenant = await resolvePublicTenantRecord(tenantSlug);
   if (!tenant) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404, headers: corsHeaders });
   }
 
-  const { data: membership } = await supabase
+  const { data: membership } = await platformClient
     .from("user_tenants")
     .select("role")
     .eq("tenant_id", tenant.id)
@@ -61,6 +58,8 @@ export async function GET(request: NextRequest) {
   if (!membership || !EDITOR_ROLES.has(membership.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: corsHeaders });
   }
+
+  const supabase = await createServiceRoleClientForTenant(tenant.id);
 
   const [{ data: siteConfig }, { data: pages }, { data: categories }, { data: slots }] = await Promise.all([
     supabase

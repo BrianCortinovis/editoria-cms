@@ -55,6 +55,11 @@ interface SiteConfigThemeRow {
   theme: Record<string, unknown> | null;
 }
 
+function getLocalDateTimeInputMin() {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
 function CoverImageUpload({ coverImageUrl, onUrlChange, tenantId, tenantSlug }: {
   coverImageUrl: string;
   onUrlChange: (url: string) => void;
@@ -1070,7 +1075,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                     type="datetime-local"
                     value={socialScheduleTime}
                     onChange={(e) => setSocialScheduleTime(e.target.value)}
-                    min={new Date().toISOString().slice(0, 16)}
+                    min={getLocalDateTimeInputMin()}
                     className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
                     style={{ border: "1px solid var(--c-border)" }}
                   />

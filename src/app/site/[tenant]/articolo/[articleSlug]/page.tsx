@@ -6,7 +6,7 @@ import { SiteLayout } from '@/components/render/SiteLayout';
 import { ArticleComments } from '@/components/site/ArticleComments';
 import { LanguageSwitcher } from '@/components/render/LanguageSwitcher';
 import { enrichArticlesWithCategories } from '@/lib/articles/taxonomy';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import { buildTenantPublicUrl } from '@/lib/site/public-url';
 import { sanitizeHtml } from '@/lib/security/html';
 import { getArticleTranslations, buildHreflangEntries } from '@/lib/multilingual/service';
@@ -48,7 +48,7 @@ export default async function ArticlePage({ params }: Props) {
   let article = publishedArticle as SiteArticleRecord | null;
 
   if (!article) {
-    const supabase = await createServiceRoleClient();
+    const supabase = await createServiceRoleClientForTenant(tenant.id);
     const { data } = await supabase
       .from('articles')
       .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, language, category_id, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color)')
@@ -70,7 +70,7 @@ export default async function ArticlePage({ params }: Props) {
   const enrichedArticle = 'all_categories' in article
     ? (article as SiteArticleRecord & { all_categories?: Array<{ name: string; slug: string; color: string | null }> })
     : await (async () => {
-        const supabase = await createServiceRoleClient();
+        const supabase = await createServiceRoleClientForTenant(tenant.id);
         const [enriched] = await enrichArticlesWithCategories(
           supabase as never,
           tenant.id,
@@ -84,7 +84,7 @@ export default async function ArticlePage({ params }: Props) {
   const canonicalUrl = buildTenantPublicUrl(tenant, `/articolo/${articleSlug}`);
 
   // Fetch translations for language switcher
-  const supabaseForTranslations = await createServiceRoleClient();
+  const supabaseForTranslations = await createServiceRoleClientForTenant(tenant.id);
   const translations = await getArticleTranslations(supabaseForTranslations, article.id);
   const articleLang = (enrichedArticle as SiteArticleRecord).language || 'it';
   const translationLinks = translations.map((t) => ({
@@ -173,7 +173,15 @@ export default async function ArticlePage({ params }: Props) {
             </div>
           )}
           {enrichedArticle.published_at && (
-            <time>{new Date(enrichedArticle.published_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}</time>
+            <time dateTime={enrichedArticle.published_at}>
+              Pubblicato il {new Date(enrichedArticle.published_at).toLocaleString('it-IT', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </time>
           )}
           <span>{enrichedArticle.reading_time_minutes} min di lettura</span>
         </div>
@@ -193,10 +201,79 @@ export default async function ArticlePage({ params }: Props) {
 
         {/* Body */}
         <div
-          className="prose prose-lg max-w-none"
+          className="article-body prose prose-lg max-w-none"
           style={{ marginTop: '32px', lineHeight: 1.8, fontSize: '18px' }}
           dangerouslySetInnerHTML={{ __html: sanitizeHtml(enrichedArticle.body) }}
         />
+        <style>{`
+          .article-body iframe,
+          .article-body video {
+            width: 100%;
+            max-width: 100%;
+            border: 0;
+            border-radius: 12px;
+          }
+
+          .article-body iframe {
+            aspect-ratio: 16 / 9;
+          }
+
+          .article-body audio {
+            width: 100%;
+            margin: 12px 0;
+          }
+
+          .article-body figure {
+            margin: 24px 0;
+          }
+
+          .article-body figcaption {
+            margin-top: 8px;
+            font-size: 14px;
+            color: var(--e-color-textSecondary);
+          }
+
+          .article-body [data-media-gallery="grid"] {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin: 28px 0;
+          }
+
+          .article-body [data-media-gallery="grid"] .desk-gallery-item {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 12px;
+            border-radius: 16px;
+            background: color-mix(in srgb, var(--e-color-surface, #f8fafc) 84%, white 16%);
+          }
+
+          .article-body [data-media-gallery="grid"] img,
+          .article-body [data-media-gallery="grid"] video {
+            width: 100%;
+            height: auto;
+            border-radius: 12px;
+            object-fit: cover;
+          }
+
+          .article-body [data-media-gallery="grid"] audio {
+            width: 100%;
+          }
+
+          @media (max-width: 640px) {
+            .article-body [data-media-gallery="grid"] {
+              grid-template-columns: 1fr;
+            }
+          }
+
+          .article-body::after {
+            content: "";
+            display: table;
+            clear: both;
+          }
+        `}</style>
 
         {/* Author bio */}
         {author?.bio && (
@@ -241,7 +318,7 @@ export async function generateMetadata({ params }: Props) {
     : null;
 
   if (!article) {
-    const supabase = await createServiceRoleClient();
+    const supabase = await createServiceRoleClientForTenant(resolved.tenant.id);
     const { data } = await supabase
       .from('articles')
       .select('id, title, meta_title, meta_description, og_image_url, cover_image_url, language')
@@ -256,7 +333,7 @@ export async function generateMetadata({ params }: Props) {
   const canonical = buildTenantPublicUrl(resolved.tenant, `/articolo/${articleSlug}`);
 
   // Fetch translations for hreflang tags
-  const supabase = await createServiceRoleClient();
+  const supabase = await createServiceRoleClientForTenant(resolved.tenant.id);
   const translations = await getArticleTranslations(supabase, article.id);
   const hreflangEntries = translations.length > 0
     ? buildHreflangEntries(

@@ -22,7 +22,7 @@ export const PLAN_PRICES: Record<
     yearlyPriceId: process.env.STRIPE_PRICE_BASE_YEARLY || null,
   },
   medium: {
-    name: "Medium",
+    name: "Pro",
     monthlyPriceId: process.env.STRIPE_PRICE_MEDIUM_MONTHLY || null,
     yearlyPriceId: process.env.STRIPE_PRICE_MEDIUM_YEARLY || null,
   },

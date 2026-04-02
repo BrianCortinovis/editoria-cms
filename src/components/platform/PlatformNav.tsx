@@ -4,30 +4,52 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
+  Bot,
   CreditCard,
+  Globe,
   LayoutDashboard,
   Lock,
   PlusCircle,
-  Settings2,
-  Sparkles,
-  Globe,
-  Users,
   ChevronRight,
-  Shield,
+  Puzzle,
+  Share2,
+  Sparkles,
+  UserCircle2,
+  Users,
 } from "lucide-react";
 
-const navItems = [
-  { href: "/app", label: "Overview", icon: LayoutDashboard },
-  { href: "/app/sites", label: "Siti", icon: Globe },
-  { href: "/app/sites/new", label: "Nuovo Sito", icon: PlusCircle },
-  { href: "/app/profile", label: "Profilo", icon: Settings2 },
-  { href: "/app/security", label: "Sicurezza", icon: Lock },
-  { href: "/app/notifications", label: "Notifiche", icon: Bell },
-  { href: "/app/billing", label: "Billing", icon: CreditCard },
+const navGroups = [
+  {
+    label: "Workspace",
+    items: [
+      { href: "/app", label: "Overview", icon: LayoutDashboard },
+      { href: "/app/sites", label: "Siti", icon: Globe },
+      { href: "/app/sites/new", label: "Nuovo Sito", icon: PlusCircle },
+    ],
+  },
+  {
+    label: "Profilo",
+    items: [
+      { href: "/app/profile", label: "Account", icon: UserCircle2 },
+      { href: "/app/profile/site", label: "Sito & SEO", icon: Globe },
+      { href: "/app/profile/social", label: "Social & API", icon: Share2 },
+      { href: "/app/profile/ai", label: "IA & API", icon: Bot },
+      { href: "/app/profile/modules", label: "Moduli", icon: Puzzle },
+      { href: "/app/profile/team", label: "Team", icon: Users },
+    ],
+  },
+  {
+    label: "Sistema",
+    items: [
+      { href: "/app/security", label: "Sicurezza", icon: Lock },
+      { href: "/app/notifications", label: "Notifiche", icon: Bell },
+      { href: "/app/billing", label: "Billing", icon: CreditCard },
+    ],
+  },
 ];
 
 function isActiveNavItem(pathname: string, href: string) {
-  if (href === "/app" || href === "/admin") {
+  if (href === "/app") {
     return pathname === href;
   }
 
@@ -37,16 +59,11 @@ function isActiveNavItem(pathname: string, href: string) {
 export function PlatformNav({
   userName,
   unreadCount,
-  isSuperAdmin = false,
 }: {
   userName: string;
   unreadCount: number;
-  isSuperAdmin?: boolean;
 }) {
   const pathname = usePathname();
-  const resolvedNavItems = isSuperAdmin
-    ? [...navItems, { href: "/admin", label: "Control Panel", icon: Shield }]
-    : navItems;
 
   return (
     <aside
@@ -96,34 +113,37 @@ export function PlatformNav({
         </div>
       </div>
 
-      <div className="px-6 pb-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: "var(--c-text-2)" }}>
-          Workspace
-        </p>
-      </div>
-
       <nav className="px-4 pb-6">
-        {resolvedNavItems.map((item) => {
-          const active = isActiveNavItem(pathname, item.href);
-          const Icon = item.icon;
+        {navGroups.map((group) => (
+          <div key={group.label} className="mb-5">
+            <div className="px-2 pb-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: "var(--c-text-2)" }}>
+                {group.label}
+              </p>
+            </div>
+            {group.items.map((item) => {
+              const active = isActiveNavItem(pathname, item.href);
+              const Icon = item.icon;
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="mb-1.5 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition"
-              style={{
-                background: active ? "var(--c-bg-2)" : "transparent",
-                color: active ? "var(--c-text-0)" : "var(--c-text-1)",
-                border: active ? "1px solid var(--c-border-light)" : "1px solid transparent",
-              }}
-            >
-              <Icon className="h-4 w-4" style={{ color: active ? "var(--c-accent-hover)" : "var(--c-text-2)" }} />
-              <span className="flex-1">{item.label}</span>
-              {active ? <ChevronRight className="h-4 w-4" style={{ color: "var(--c-text-2)" }} /> : null}
-            </Link>
-          );
-        })}
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="mb-1.5 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition"
+                  style={{
+                    background: active ? "var(--c-bg-2)" : "transparent",
+                    color: active ? "var(--c-text-0)" : "var(--c-text-1)",
+                    border: active ? "1px solid var(--c-border-light)" : "1px solid transparent",
+                  }}
+                >
+                  <Icon className="h-4 w-4" style={{ color: active ? "var(--c-accent-hover)" : "var(--c-text-2)" }} />
+                  <span className="flex-1">{item.label}</span>
+                  {active ? <ChevronRight className="h-4 w-4" style={{ color: "var(--c-text-2)" }} /> : null}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
     </aside>
   );

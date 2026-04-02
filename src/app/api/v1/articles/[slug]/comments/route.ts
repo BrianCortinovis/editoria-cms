@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
-import { createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import { sanitizeExternalUrl } from '@/lib/security/html';
 import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
 import { verifyTurnstileToken } from '@/lib/security/turnstile';
+import { resolvePublicTenantContext } from '@/lib/site/runtime';
 
 import { getPublicApiCorsHeadersWithPost } from '@/lib/security/cors';
 
@@ -11,8 +12,8 @@ function hashValue(value: string) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-async function supportsCommentsTable() {
-  const supabase = await createServiceRoleClient();
+async function supportsCommentsTable(tenantId: string) {
+  const supabase = await createServiceRoleClientForTenant(tenantId);
   const { error } = await supabase.from('article_comments').select('id').limit(1);
   return !error;
 }
@@ -32,17 +33,18 @@ export async function GET(
     return NextResponse.json({ error: 'tenant parameter required' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
-  if (!(await supportsCommentsTable())) {
-    return NextResponse.json({ commentsEnabled: false, comments: [] }, { headers: getPublicApiCorsHeadersWithPost(request) });
-  }
-
-  const supabase = await createServiceRoleClient();
-  const { data: tenant } = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single();
-  if (!tenant) {
+  const context = await resolvePublicTenantContext(tenantSlug);
+  if (!context) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
-  const { data: article } = await supabase
+  if (!(await supportsCommentsTable(context.tenant.id))) {
+    return NextResponse.json({ commentsEnabled: false, comments: [] }, { headers: getPublicApiCorsHeadersWithPost(request) });
+  }
+
+  const { tenant, runtimeClient } = context;
+
+  const { data: article } = await runtimeClient
     .from('articles')
     .select('id')
     .eq('tenant_id', tenant.id)
@@ -54,7 +56,7 @@ export async function GET(
     return NextResponse.json({ error: 'Article not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
-  const { data: comments } = await supabase
+  const { data: comments } = await runtimeClient
     .from('article_comments')
     .select('id, parent_id, author_name, author_url, body, created_at')
     .eq('tenant_id', tenant.id)
@@ -70,11 +72,6 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-
-  if (!(await supportsCommentsTable())) {
-    return NextResponse.json({ error: 'Comments module not initialized' }, { status: 503, headers: getPublicApiCorsHeadersWithPost(request) });
-  }
-
   const body = await request.json();
   const tenantSlug = String(body.tenant || '');
   const authorName = String(body.author_name || '').trim();
@@ -86,6 +83,15 @@ export async function POST(
 
   if (!tenantSlug || !authorName || !authorEmail || !commentBody) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
+  }
+
+  const context = await resolvePublicTenantContext(tenantSlug);
+  if (!context) {
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
+  }
+
+  if (!(await supportsCommentsTable(context.tenant.id))) {
+    return NextResponse.json({ error: 'Comments module not initialized' }, { status: 503, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
   if (honeypot) {
@@ -115,13 +121,9 @@ export async function POST(
     return NextResponse.json({ error: 'Bot protection check failed' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
-  const supabase = await createServiceRoleClient();
-  const { data: tenant } = await supabase.from('tenants').select('id').eq('slug', tenantSlug).single();
-  if (!tenant) {
-    return NextResponse.json({ error: 'Tenant not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
-  }
+  const { tenant, runtimeClient } = context;
 
-  const { data: article } = await supabase
+  const { data: article } = await runtimeClient
     .from('articles')
     .select('id')
     .eq('tenant_id', tenant.id)
@@ -133,7 +135,7 @@ export async function POST(
     return NextResponse.json({ error: 'Article not found' }, { status: 404, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
-  const { error } = await supabase.from('article_comments').insert({
+  const { error } = await runtimeClient.from('article_comments').insert({
     tenant_id: tenant.id,
     article_id: article.id,
     parent_id: parentId,
