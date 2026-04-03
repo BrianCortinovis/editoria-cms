@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { CookieConsentManager } from '@/components/render/CookieConsentManager';
 import { initializeAnimations } from '@/lib/runtime/animations';
 import { buildCssGradient } from '@/lib/shapes/gradients';
 import type { AdvancedGradient } from '@/lib/types';
@@ -51,7 +52,31 @@ function initializeScrollGradients() {
   return () => window.removeEventListener('scroll', onScroll);
 }
 
-export function PublicSiteRuntime() {
+interface Props {
+  tenantSlug?: string;
+  siteName?: string;
+  analyticsId?: string;
+  tagManagerId?: string;
+  adsenseId?: string;
+  privacyPolicyUrl?: string;
+  cookiePolicyUrl?: string;
+  customMarketingScriptUrl?: string;
+  customMarketingInlineScript?: string;
+  forceCookieBanner?: boolean;
+}
+
+export function PublicSiteRuntime({
+  tenantSlug = '',
+  siteName = '',
+  analyticsId = '',
+  tagManagerId = '',
+  adsenseId = '',
+  privacyPolicyUrl = '',
+  cookiePolicyUrl = '',
+  customMarketingScriptUrl = '',
+  customMarketingInlineScript = '',
+  forceCookieBanner = false,
+}: Props) {
   useEffect(() => {
     const cleanupAnimations = initializeAnimations() || (() => {});
     const cleanupGradients = initializeScrollGradients();
@@ -62,5 +87,28 @@ export function PublicSiteRuntime() {
     };
   }, []);
 
-  return null;
+  return (
+    <>
+      <div
+        hidden
+        data-editoria-runtime="public-site"
+        data-cookie-consent-managed="true"
+        data-ga-configured={analyticsId ? "true" : "false"}
+        data-gtm-configured={tagManagerId ? "true" : "false"}
+        data-adsense-configured={adsenseId ? "true" : "false"}
+      />
+      <CookieConsentManager
+        tenantSlug={tenantSlug}
+        siteName={siteName}
+        analyticsId={analyticsId}
+        tagManagerId={tagManagerId}
+        adsenseId={adsenseId}
+        privacyPolicyUrl={privacyPolicyUrl}
+        cookiePolicyUrl={cookiePolicyUrl}
+        customMarketingScriptUrl={customMarketingScriptUrl}
+        customMarketingInlineScript={customMarketingInlineScript}
+        forceBanner={forceCookieBanner}
+      />
+    </>
+  );
 }

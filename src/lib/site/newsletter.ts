@@ -10,6 +10,22 @@ export interface SiteNewsletterProviderConfig {
   doubleOptIn: boolean;
 }
 
+export interface SiteNewsletterSubscriptionFieldOption {
+  label: string;
+  value: string;
+}
+
+export interface SiteNewsletterSubscriptionField {
+  name: string;
+  label: string;
+  type: 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox';
+  required: boolean;
+  placeholder: string;
+  helpText: string;
+  width: 'full' | 'half';
+  options: SiteNewsletterSubscriptionFieldOption[];
+}
+
 export interface SiteNewsletterDigestConfig {
   enabled: boolean;
   frequency: 'daily' | 'weekly' | 'custom';
@@ -52,6 +68,7 @@ export interface SiteNewsletterConfig {
   placements: SiteNewsletterPlacementConfig;
   leadMagnet: SiteNewsletterLeadMagnetConfig;
   segments: Array<{ label: string; value: string }>;
+  subscriptionFields: SiteNewsletterSubscriptionField[];
 }
 
 const defaultNewsletterConfig: SiteNewsletterConfig = {
@@ -100,6 +117,28 @@ const defaultNewsletterConfig: SiteNewsletterConfig = {
     description: '',
   },
   segments: [],
+  subscriptionFields: [
+    {
+      name: 'email',
+      label: 'Email',
+      type: 'email',
+      required: true,
+      placeholder: 'Inserisci la tua email',
+      helpText: '',
+      width: 'full',
+      options: [],
+    },
+    {
+      name: 'privacy_consent',
+      label: 'Accetto informativa privacy e comunicazioni editoriali della testata.',
+      type: 'checkbox',
+      required: true,
+      placeholder: '',
+      helpText: '',
+      width: 'full',
+      options: [],
+    },
+  ],
 };
 
 function asObject(input: unknown) {
@@ -136,6 +175,77 @@ function normalizeSegments(input: unknown) {
       };
     })
     .filter((entry): entry is { label: string; value: string } => entry !== null);
+}
+
+function normalizeSubscriptionFieldOptions(input: unknown) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+
+      const record = entry as Record<string, unknown>;
+      const label = asString(record.label).trim();
+      const value = asString(record.value).trim();
+      if (!label && !value) {
+        return null;
+      }
+
+      return {
+        label: label || value,
+        value: value || label,
+      };
+    })
+    .filter((entry): entry is SiteNewsletterSubscriptionFieldOption => entry !== null);
+}
+
+function normalizeSubscriptionFields(input: unknown) {
+  if (!Array.isArray(input)) {
+    return defaultNewsletterConfig.subscriptionFields;
+  }
+
+  const supportedTypes = new Set(['text', 'email', 'tel', 'textarea', 'select', 'checkbox']);
+  const supportedWidths = new Set(['full', 'half']);
+
+  const fields = input
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+
+      const record = entry as Record<string, unknown>;
+      const rawName = asString(record.name).trim().toLowerCase();
+      const safeName = rawName.replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '');
+      if (!safeName) {
+        return null;
+      }
+
+      const rawType = asString(record.type, 'text');
+      const type = supportedTypes.has(rawType) ? (rawType as SiteNewsletterSubscriptionField['type']) : 'text';
+      const widthValue = asString(record.width, 'full');
+
+      return {
+        name: safeName,
+        label: asString(record.label, safeName),
+        type,
+        required: asBoolean(record.required, safeName === 'email'),
+        placeholder: asString(record.placeholder),
+        helpText: asString(record.helpText),
+        width: supportedWidths.has(widthValue) ? (widthValue as SiteNewsletterSubscriptionField['width']) : 'full',
+        options: normalizeSubscriptionFieldOptions(record.options),
+      };
+    })
+    .filter((entry): entry is SiteNewsletterSubscriptionField => entry !== null);
+
+  if (!fields.some((field) => field.name === 'email' && field.type === 'email')) {
+    return defaultNewsletterConfig.subscriptionFields;
+  }
+
+  return fields;
 }
 
 export function normalizeNewsletterConfig(input: unknown): SiteNewsletterConfig {
@@ -193,6 +303,7 @@ export function normalizeNewsletterConfig(input: unknown): SiteNewsletterConfig 
       description: asString(leadMagnet.description, defaultNewsletterConfig.leadMagnet.description),
     },
     segments: normalizeSegments(settings.segments),
+    subscriptionFields: normalizeSubscriptionFields(settings.subscriptionFields),
   };
 }
 

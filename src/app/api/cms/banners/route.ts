@@ -41,9 +41,9 @@ export async function GET(request: Request) {
   }
 
   const [bannersRes, advertisersRes, categoriesRes] = await Promise.all([
-    access.sessionClient.from("banners").select("*").eq("tenant_id", tenantId).order("created_at", { ascending: false }),
-    access.sessionClient.from("advertisers").select("id, name").eq("tenant_id", tenantId).order("name"),
-    access.sessionClient.from("categories").select("id, name, slug").eq("tenant_id", tenantId).order("sort_order"),
+    access.tenantClient.from("banners").select("*").eq("tenant_id", tenantId).order("created_at", { ascending: false }),
+    access.tenantClient.from("advertisers").select("id, name").eq("tenant_id", tenantId).order("name"),
+    access.tenantClient.from("categories").select("id, name, slug").eq("tenant_id", tenantId).order("sort_order"),
   ]);
 
   if (bannersRes.error || advertisersRes.error || categoriesRes.error) {
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
     is_active: parsed.data.is_active,
   };
 
-  const { data, error } = await access.sessionClient.from("banners").insert(payload).select("*").single();
+  const { data, error } = await access.tenantClient.from("banners").insert(payload).select("*").single();
   if (error || !data) {
     console.error("banner.create failed:", error?.message);
     return NextResponse.json({ error: "Unable to create banner" }, { status: 500 });

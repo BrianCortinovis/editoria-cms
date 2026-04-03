@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     return access.error;
   }
 
-  const formsRes = await access.sessionClient
+  const formsRes = await access.tenantClient
     .from("site_forms")
     .select("id, name, slug, description, fields, recipient_emails, success_message, is_active")
     .eq("tenant_id", tenantId)
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
 
   let submissions: unknown[] = [];
   if (formId) {
-    const submissionsRes = await access.sessionClient
+    const submissionsRes = await access.tenantClient
       .from("form_submissions")
       .select("id, submitter_name, submitter_email, status, created_at")
       .eq("form_id", formId)
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
     is_active: parsed.data.is_active,
   };
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("site_forms")
     .insert(payload)
     .select("id, name, slug, description, fields, recipient_emails, success_message, is_active")

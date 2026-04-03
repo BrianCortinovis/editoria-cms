@@ -178,7 +178,7 @@ function LayoutRenderedBlock({
       content = <RenderNavigation block={block} data={emptyData} style={style} />;
       break;
     case "footer":
-      content = <RenderFooter block={block} data={emptyData} style={style} />;
+      content = <RenderFooter block={block} data={emptyData} style={style} tenantSlug={tenantSlug} />;
       break;
     case "search-bar":
       content = <RenderSearchBar block={block} style={style} tenantSlug={tenantSlug} />;

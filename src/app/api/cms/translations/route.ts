@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { assertTrustedMutationRequest } from "@/lib/security/request";
 import {
   CMS_VIEW_ROLES,
   CMS_EDITOR_ROLES,
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
 
   try {
     const translations = await getArticleTranslations(
-      access.sessionClient,
+      access.tenantClient,
       articleId,
     );
     return NextResponse.json({ translations });
@@ -50,6 +51,11 @@ export async function GET(request: Request) {
  * Links two articles as translations of each other.
  */
 export async function POST(request: Request) {
+  const trustedOriginError = assertTrustedMutationRequest(request);
+  if (trustedOriginError) {
+    return trustedOriginError;
+  }
+
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -103,6 +109,11 @@ export async function POST(request: Request) {
  * Removes an article from its translation group.
  */
 export async function DELETE(request: Request) {
+  const trustedOriginError = assertTrustedMutationRequest(request);
+  if (trustedOriginError) {
+    return trustedOriginError;
+  }
+
   const { searchParams } = new URL(request.url);
   const tenantId = searchParams.get("tenant_id");
   const articleId = searchParams.get("article_id");

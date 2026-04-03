@@ -110,7 +110,7 @@ export default function GdprPage() {
           <ComplianceItem status="ok" title="Ruoli e permessi granulari"
             desc="5 livelli di accesso con permessi definiti a livello database. Principio del minimo privilegio." />
           <ComplianceItem status="warn" title="Cookie banner per il sito frontend"
-            desc="Il CMS non imposta cookie di tracciamento. Per il sito pubblico, usa il tuo modulo GDPR per il cookie banner." />
+            desc="Il sito pubblico usa il banner cookie nativo della piattaforma. Verifica comunque testi, terze parti attive e configurazione del tenant." />
           <ComplianceItem status="warn" title="Data Processing Agreement (DPA)"
             desc="Verifica di avere i DPA firmati con Supabase e Vercel (disponibili nei rispettivi portali)." />
           <ComplianceItem status="warn" title="Privacy Policy del CMS"
@@ -239,8 +239,7 @@ export default function GdprPage() {
             <div>
               <p className="text-xs font-medium" style={{ color: "var(--c-text-0)" }}>Nessun cookie di tracciamento</p>
               <p className="text-[11px]" style={{ color: "var(--c-text-2)" }}>
-                Il CMS utilizza solo cookie tecnici e di preferenza. Nessun cookie di marketing o profilazione.
-                Per il sito pubblico, gestisci il cookie banner con il tuo modulo GDPR dedicato.
+                Il CMS utilizza solo cookie tecnici e di preferenza. Sul sito pubblico i tracker opzionali vengono bloccati fino al consenso tramite banner cookie nativo.
               </p>
             </div>
           </div>

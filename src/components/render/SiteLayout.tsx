@@ -2,9 +2,12 @@ import type { ResolvedTenant, SiteConfig, TenantSettings } from '@/lib/site/tena
 import { themeToCSS } from '@/lib/site/theme-injector';
 import { getNavigationMenu, normalizeNavigationConfig } from '@/lib/site/navigation';
 import { normalizeFooterConfig } from '@/lib/site/footer';
+import { normalizeNewsletterConfig } from '@/lib/site/newsletter';
 import { sanitizeCss } from '@/lib/security/html';
+import { getComplianceFooterLinks, getResolvedCompliancePages } from '@/lib/legal/public-compliance';
 import { PublicSiteRuntime } from './PublicSiteRuntime';
 import { buildTenantPublicUrl } from '@/lib/site/public-url';
+import { NewsletterSignupCard } from '@/components/render/blocks/NewsletterSignupModule';
 
 interface Props {
   tenant: ResolvedTenant;
@@ -26,6 +29,15 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
   const primaryMenu = getNavigationMenu(navigationConfig, 'primary');
   const footerMenu = getNavigationMenu(navigationConfig, 'footer');
   const footerConfig = normalizeFooterConfig(config?.footer || {});
+  const newsletterConfig = normalizeNewsletterConfig(config?.footer || {});
+  const compliancePages = getResolvedCompliancePages(tenant, tenantSettings || {}).pages;
+  const complianceLinks = getComplianceFooterLinks(tenant, tenantSettings || {});
+  const footerLinks = [...footerConfig.links];
+  for (const complianceLink of complianceLinks) {
+    if (!footerLinks.some((link) => link.url === complianceLink.url)) {
+      footerLinks.push(complianceLink);
+    }
+  }
   const chromePreset = typeof themeConfig.layoutPreset === 'string' ? themeConfig.layoutPreset : 'default';
   const isNewspaperChrome = chromePreset === 'newspaper';
   const mastheadNote = typeof themeConfig.mastheadNote === 'string' ? themeConfig.mastheadNote : '';
@@ -36,6 +48,19 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
   const adsenseId = getStringSetting(tenantSettings, 'google_adsense');
   const searchConsoleVerification = getStringSetting(tenantSettings, 'google_search_console_verification');
   const googleNewsPublicationName = getStringSetting(tenantSettings, 'google_news_publication_name');
+  const complianceSettings =
+    tenantSettings?.compliance && typeof tenantSettings.compliance === 'object'
+      ? (tenantSettings.compliance as Record<string, unknown>)
+      : {};
+  const cookieBanner =
+    complianceSettings.cookieBanner && typeof complianceSettings.cookieBanner === 'object'
+      ? (complianceSettings.cookieBanner as Record<string, unknown>)
+      : {};
+  const cookieBannerEnabled = Boolean(cookieBanner.enabled);
+  const cookieBannerScriptUrl = typeof cookieBanner.scriptUrl === 'string' ? cookieBanner.scriptUrl.trim() : '';
+  const cookieBannerInlineScript = typeof cookieBanner.inlineScript === 'string' ? cookieBanner.inlineScript.trim() : '';
+  const privacyPolicyUrl = compliancePages.find((page) => page.key === 'privacy')?.path || '/privacy-policy';
+  const cookiePolicyUrl = compliancePages.find((page) => page.key === 'cookie')?.path || '/cookie-policy';
   const publicBaseUrl = buildTenantPublicUrl(tenant, '/');
   const organizationSchema = {
     '@context': 'https://schema.org',
@@ -62,41 +87,6 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
         {searchConsoleVerification ? <meta name="google-site-verification" content={searchConsoleVerification} /> : null}
         {config?.favicon_url && <link rel="icon" href={config.favicon_url} />}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
-        {gtmId ? (
-          <>
-            <script async src={`https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(gtmId)}`} />
-            <script
-              dangerouslySetInnerHTML={{
-                __html: `
-                  window.dataLayer = window.dataLayer || [];
-                  window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
-                `,
-              }}
-            />
-          </>
-        ) : gaId ? (
-          <>
-            <script async src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`} />
-            <script
-              dangerouslySetInnerHTML={{
-                __html: `
-                  window.dataLayer = window.dataLayer || [];
-                  function gtag(){dataLayer.push(arguments);}
-                  gtag('js', new Date());
-                  gtag('config', '${gaId}');
-                `,
-              }}
-            />
-          </>
-        ) : null}
-        {adsenseId ? (
-          <script
-            async
-            crossOrigin="anonymous"
-            data-ad-client={adsenseId}
-            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"
-          />
-        ) : null}
         {themeCSS && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(themeCSS) }} />}
         {config?.global_css && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(config.global_css) }} />}
         <style dangerouslySetInnerHTML={{ __html: `
@@ -114,17 +104,18 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
         `}} />
       </head>
       <body>
-        {gtmId ? (
-          <noscript>
-            <iframe
-              src={`https://www.googletagmanager.com/ns.html?id=${encodeURIComponent(gtmId)}`}
-              height="0"
-              width="0"
-              style={{ display: 'none', visibility: 'hidden' }}
-            />
-          </noscript>
-        ) : null}
-        <PublicSiteRuntime />
+        <PublicSiteRuntime
+          tenantSlug={tenant.slug}
+          siteName={tenant.name}
+          analyticsId={gaId}
+          tagManagerId={gtmId}
+          adsenseId={adsenseId}
+          privacyPolicyUrl={buildTenantPublicUrl(tenant, privacyPolicyUrl)}
+          cookiePolicyUrl={buildTenantPublicUrl(tenant, cookiePolicyUrl)}
+          customMarketingScriptUrl={cookieBannerScriptUrl}
+          customMarketingInlineScript={cookieBannerInlineScript}
+          forceCookieBanner={cookieBannerEnabled}
+        />
         {topbarMenu.length > 0 && (
           <div
             style={{
@@ -309,21 +300,28 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
                 ))}
               </div>
             )}
-            {footerConfig.links.length ? (
+            {footerLinks.length ? (
               <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap', marginBottom: '16px' }}>
-                {footerConfig.links.map((item, index) => (
+                {footerLinks.map((item, index) => (
                   <a key={`${item.url}-${index}`} href={item.url} target={item.target || '_self'} rel={item.target === '_blank' ? 'noreferrer' : undefined} style={{ color: 'var(--e-color-textSecondary)', textDecoration: 'none', fontSize: '14px' }}>
                     {item.label}
                   </a>
                 ))}
               </div>
             ) : null}
-            {footerConfig.newsletter.enabled && footerConfig.newsletter.title && (
-              <div style={{ marginBottom: '16px', fontSize: '14px' }}>
-                <strong>{footerConfig.newsletter.title}</strong>
-                {footerConfig.newsletter.description ? ` · ${footerConfig.newsletter.description}` : ''}
+            {footerConfig.newsletter.enabled && newsletterConfig.enabled ? (
+              <div style={{ marginBottom: '16px' }}>
+                <NewsletterSignupCard
+                  config={{
+                    ...newsletterConfig,
+                    compact: true,
+                  }}
+                  tenantSlug={tenant.slug}
+                  style={{}}
+                  compactDefault
+                />
               </div>
-            )}
+            ) : null}
             {footerConfig.copyright || `© ${new Date().getFullYear()} ${tenant.name}. Tutti i diritti riservati.`}
           </div>
         </footer>

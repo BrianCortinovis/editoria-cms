@@ -2,8 +2,8 @@ import { notFound } from 'next/navigation';
 import { resolveTenant, getPublishedPage } from '@/lib/site/tenant-resolver';
 import { SiteLayout } from '@/components/render/SiteLayout';
 import { BlockRenderer } from '@/components/render/BlockRenderer';
-import { buildTenantPublicUrl } from '@/lib/site/public-url';
 import { PageBackgroundFrame } from '@/components/render/PageBackgroundFrame';
+import { buildBreadcrumbSchema, buildPageSchema, resolveCanonicalUrl } from '@/lib/seo/runtime';
 
 export const revalidate = 60;
 
@@ -22,11 +22,34 @@ export default async function TenantHomePage({ params }: Props) {
   // Try homepage slug, then "/"
   const page = await getPublishedPage(tenant.id, 'homepage')
     || await getPublishedPage(tenant.id, '/');
+  const meta = (page?.meta || {}) as Record<string, unknown>;
+  const canonical = resolveCanonicalUrl(tenant, meta.canonicalPath, '/');
+  const pageSchema = buildPageSchema({
+    schemaType: meta.schemaType,
+    title: typeof meta.title === 'string' && meta.title.trim() ? meta.title : tenant.name,
+    description:
+      typeof meta.description === 'string' && meta.description.trim()
+        ? meta.description
+        : `${tenant.name} - Testata giornalistica`,
+    url: canonical,
+    siteName: tenant.name,
+    imageUrl: tenant.logo_url || null,
+  });
+  const breadcrumbSchema = buildBreadcrumbSchema({
+    tenant,
+    items: [{ name: 'Home', path: '/' }],
+  });
 
   return (
     <SiteLayout tenant={tenant} config={config} tenantSettings={tenantSettings}>
       {page ? (
         <PageBackgroundFrame meta={page.meta as Record<string, unknown>} scopeId={`public-home-${page.id}`}>
+          {pageSchema ? (
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(pageSchema) }} />
+          ) : null}
+          {breadcrumbSchema ? (
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+          ) : null}
           <BlockRenderer
             blocks={page.blocks as import('@/lib/types/block').Block[]}
             tenantId={tenant.id}
@@ -53,9 +76,10 @@ export async function generateMetadata({ params }: Props) {
   const page = await getPublishedPage(resolved.tenant.id, 'homepage')
     || await getPublishedPage(resolved.tenant.id, '/');
   const meta = (page?.meta || {}) as Record<string, unknown>;
-  const canonical = buildTenantPublicUrl(
+  const canonical = resolveCanonicalUrl(
     resolved.tenant,
-    typeof meta.canonicalPath === 'string' && meta.canonicalPath.trim() ? meta.canonicalPath : '/'
+    meta.canonicalPath,
+    '/'
   );
   return {
     title: typeof meta.title === 'string' && meta.title.trim() ? meta.title : resolved.tenant.name,

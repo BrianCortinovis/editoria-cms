@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import { checkRateLimit, getClientIp } from '@/lib/security/rate-limit';
-import { verifyTurnstileToken } from '@/lib/security/turnstile';
+import { isTurnstileVerificationEnabled, verifyTurnstileToken } from '@/lib/security/turnstile';
 import { sendEmailAsync } from '@/lib/email/service';
 import { formSubmission } from '@/lib/email/templates';
 import { resolvePublicTenantContext } from '@/lib/site/runtime';
@@ -103,7 +103,9 @@ export async function POST(
     return NextResponse.json({ error: 'Payload too large' }, { status: 413, headers: getPublicApiCorsHeadersWithPost(request) });
   }
 
-  const isHuman = await verifyTurnstileToken(String(body.turnstile_token || ''), clientIp);
+  const isHuman = isTurnstileVerificationEnabled()
+    ? await verifyTurnstileToken(String(body.turnstile_token || ''), clientIp)
+    : true;
   if (!isHuman) {
     return NextResponse.json({ error: 'Bot protection check failed' }, { status: 400, headers: getPublicApiCorsHeadersWithPost(request) });
   }

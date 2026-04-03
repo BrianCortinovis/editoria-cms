@@ -24,7 +24,11 @@ import {
   type NewsletterPreviewResult,
 } from "@/lib/newsletter/module";
 import { getNewsletterProviderDescriptor } from "@/lib/newsletter/provider";
-import { normalizeNewsletterConfig, type SiteNewsletterConfig } from "@/lib/site/newsletter";
+import {
+  normalizeNewsletterConfig,
+  type SiteNewsletterConfig,
+  type SiteNewsletterSubscriptionField,
+} from "@/lib/site/newsletter";
 
 interface FormOption {
   id: string;
@@ -54,6 +58,48 @@ interface PreviewState {
 }
 
 const defaultConfig = normalizeNewsletterConfig({});
+
+function makeSubscriptionField(
+  preset: "text" | "email" | "tel" | "textarea" | "select" | "checkbox" = "text",
+): SiteNewsletterSubscriptionField {
+  const timestamp = Date.now();
+  if (preset === "email") {
+    return {
+      name: "email",
+      label: "Email",
+      type: "email",
+      required: true,
+      placeholder: "Inserisci la tua email",
+      helpText: "",
+      width: "full",
+      options: [],
+    };
+  }
+
+  if (preset === "checkbox") {
+    return {
+      name: `consenso_${timestamp}`,
+      label: "Accetto il trattamento dati",
+      type: "checkbox",
+      required: false,
+      placeholder: "",
+      helpText: "",
+      width: "full",
+      options: [],
+    };
+  }
+
+  return {
+    name: `campo_${timestamp}`,
+    label: "Nuovo campo",
+    type: preset,
+    required: false,
+    placeholder: "",
+    helpText: "",
+    width: preset === "textarea" ? "full" : "half",
+    options: preset === "select" ? [{ label: "Opzione 1", value: "opzione_1" }] : [],
+  };
+}
 
 function makeCampaign(): NewsletterCampaignRecord {
   const now = new Date().toISOString();
@@ -154,6 +200,36 @@ export default function NewsletterPage() {
 
   const updateConfig = <K extends keyof SiteNewsletterConfig>(key: K, value: SiteNewsletterConfig[K]) => {
     setConfig((current) => ({ ...current, [key]: value }));
+  };
+
+  const patchSubscriptionField = (
+    index: number,
+    patch: Partial<SiteNewsletterSubscriptionField>,
+  ) => {
+    updateConfig(
+      "subscriptionFields",
+      config.subscriptionFields.map((field, fieldIndex) =>
+        fieldIndex === index ? { ...field, ...patch } : field,
+      ),
+    );
+  };
+
+  const addSubscriptionField = (preset?: Parameters<typeof makeSubscriptionField>[0]) => {
+    const nextField = makeSubscriptionField(preset);
+    if (nextField.type === "email" && config.subscriptionFields.some((field) => field.name === "email")) {
+      toast.error("Il campo email esiste gia`.");
+      return;
+    }
+    updateConfig("subscriptionFields", [...config.subscriptionFields, nextField]);
+  };
+
+  const removeSubscriptionField = (index: number) => {
+    const target = config.subscriptionFields[index];
+    if (target?.name === "email") {
+      toast.error("Il campo email e` obbligatorio.");
+      return;
+    }
+    updateConfig("subscriptionFields", config.subscriptionFields.filter((_, fieldIndex) => fieldIndex !== index));
   };
 
   const patchCampaign = (patch: Partial<NewsletterCampaignRecord>) => {
@@ -457,15 +533,10 @@ export default function NewsletterPage() {
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <select value={config.mode} onChange={(event) => updateConfig("mode", event.target.value as SiteNewsletterConfig["mode"])} className="rounded-xl px-3 py-2 text-sm" style={{ border: "1px solid var(--c-border)", background: "transparent" }}>
-                    <option value="form">Usa form CMS</option>
+                    <option value="form">Usa form iscrizione nativo</option>
                     <option value="provider">Usa provider esterno</option>
                   </select>
-                  <select value={config.formSlug} onChange={(event) => updateConfig("formSlug", event.target.value)} className="rounded-xl px-3 py-2 text-sm" style={{ border: "1px solid var(--c-border)", background: "transparent" }}>
-                    <option value="">Seleziona form CMS</option>
-                    {forms.map((form) => (
-                      <option key={form.id} value={form.slug}>{form.name}</option>
-                    ))}
-                  </select>
+                  <input value={config.successMessage} onChange={(event) => updateConfig("successMessage", event.target.value)} placeholder="Messaggio successo iscrizione" className="rounded-xl px-3 py-2 text-sm" style={{ border: "1px solid var(--c-border)", background: "transparent" }} />
                 </div>
 
                 <input value={config.title} onChange={(event) => updateConfig("title", event.target.value)} placeholder="Titolo signup" className="w-full rounded-xl px-3 py-2 text-sm" style={{ border: "1px solid var(--c-border)", background: "transparent" }} />
@@ -475,6 +546,89 @@ export default function NewsletterPage() {
                   <input value={config.buttonText} onChange={(event) => updateConfig("buttonText", event.target.value)} placeholder="Label bottone" className="rounded-xl px-3 py-2 text-sm" style={{ border: "1px solid var(--c-border)", background: "transparent" }} />
                 </div>
                 <textarea value={config.privacyText} onChange={(event) => updateConfig("privacyText", event.target.value)} rows={3} placeholder="Privacy e consenso" className="w-full rounded-xl px-3 py-2 text-sm" style={{ border: "1px solid var(--c-border)", background: "transparent" }} />
+
+                {config.mode === "form" ? (
+                  <div className="rounded-2xl border px-4 py-4 space-y-4" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-2)" }}>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--c-text-3)" }}>Campi raccolti</div>
+                        <p className="mt-2 text-sm leading-7" style={{ color: "var(--c-text-2)" }}>
+                          Decidi quali dati raccogliere nel form iscritti del sito. Email resta obbligatoria, gli altri campi sono liberi per ogni cliente.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => addSubscriptionField("text")} className="rounded-full px-3 py-2 text-xs font-semibold" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>Aggiungi testo</button>
+                        <button type="button" onClick={() => addSubscriptionField("tel")} className="rounded-full px-3 py-2 text-xs font-semibold" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>Telefono</button>
+                        <button type="button" onClick={() => addSubscriptionField("textarea")} className="rounded-full px-3 py-2 text-xs font-semibold" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>Textarea</button>
+                        <button type="button" onClick={() => addSubscriptionField("select")} className="rounded-full px-3 py-2 text-xs font-semibold" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>Select</button>
+                        <button type="button" onClick={() => addSubscriptionField("checkbox")} className="rounded-full px-3 py-2 text-xs font-semibold" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>Consenso</button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {config.subscriptionFields.map((field, index) => (
+                        <div key={`${field.name}-${index}`} className="rounded-2xl border px-4 py-4 space-y-3" style={{ borderColor: "var(--c-border)", background: "var(--c-bg-1)" }}>
+                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                            <input value={field.label} onChange={(event) => patchSubscriptionField(index, { label: event.target.value })} placeholder="Label campo" className="rounded-xl px-3 py-2 text-sm" style={{ border: "1px solid var(--c-border)", background: "transparent" }} />
+                            <input value={field.name} onChange={(event) => patchSubscriptionField(index, { name: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_") })} placeholder="Chiave interna" className="rounded-xl px-3 py-2 text-sm" style={{ border: "1px solid var(--c-border)", background: "transparent" }} disabled={field.name === "email"} />
+                            <select value={field.type} onChange={(event) => patchSubscriptionField(index, { type: event.target.value as SiteNewsletterSubscriptionField["type"] })} className="rounded-xl px-3 py-2 text-sm" style={{ border: "1px solid var(--c-border)", background: "transparent" }} disabled={field.name === "email"}>
+                              <option value="text">Testo</option>
+                              <option value="email">Email</option>
+                              <option value="tel">Telefono</option>
+                              <option value="textarea">Textarea</option>
+                              <option value="select">Select</option>
+                              <option value="checkbox">Checkbox</option>
+                            </select>
+                            <select value={field.width} onChange={(event) => patchSubscriptionField(index, { width: event.target.value as SiteNewsletterSubscriptionField["width"] })} className="rounded-xl px-3 py-2 text-sm" style={{ border: "1px solid var(--c-border)", background: "transparent" }}>
+                              <option value="full">Larghezza piena</option>
+                              <option value="half">Meta` riga</option>
+                            </select>
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-[1fr,1fr,auto,auto]">
+                            <input value={field.placeholder} onChange={(event) => patchSubscriptionField(index, { placeholder: event.target.value })} placeholder="Placeholder" className="rounded-xl px-3 py-2 text-sm" style={{ border: "1px solid var(--c-border)", background: "transparent" }} />
+                            <input value={field.helpText} onChange={(event) => patchSubscriptionField(index, { helpText: event.target.value })} placeholder="Testo aiuto" className="rounded-xl px-3 py-2 text-sm" style={{ border: "1px solid var(--c-border)", background: "transparent" }} />
+                            <label className="flex items-center gap-2 text-sm" style={{ color: "var(--c-text-1)" }}>
+                              <input type="checkbox" checked={field.required} onChange={(event) => patchSubscriptionField(index, { required: event.target.checked })} />
+                              Obbligatorio
+                            </label>
+                            <button type="button" onClick={() => removeSubscriptionField(index)} className="rounded-full px-3 py-2 text-xs font-semibold" style={{ background: "rgba(220,38,38,0.08)", color: "#dc2626" }}>
+                              Rimuovi
+                            </button>
+                          </div>
+                          {field.type === "select" ? (
+                            <textarea
+                              value={field.options.map((option) => `${option.label}:${option.value}`).join("\n")}
+                              onChange={(event) => patchSubscriptionField(index, {
+                                options: event.target.value
+                                  .split("\n")
+                                  .map((row) => row.trim())
+                                  .filter(Boolean)
+                                  .map((row) => {
+                                    const [label, value] = row.split(":");
+                                    return {
+                                      label: (label || value || "").trim(),
+                                      value: (value || label || "").trim(),
+                                    };
+                                  })
+                                  .filter((option) => option.label && option.value),
+                              })}
+                              rows={4}
+                              placeholder={"Scrivi una opzione per riga nel formato Label:valore"}
+                              className="w-full rounded-xl px-3 py-2 text-sm"
+                              style={{ border: "1px solid var(--c-border)", background: "transparent" }}
+                            />
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+
+                    {forms.length > 0 ? (
+                      <p className="text-xs" style={{ color: "var(--c-text-3)" }}>
+                        I vecchi form CMS restano disponibili come fallback storico, ma il modulo iscritti ora usa il form newsletter nativo configurabile.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               <div className="space-y-4">

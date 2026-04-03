@@ -33,7 +33,7 @@ export async function PATCH(
   if ("expires_at" in (body || {})) patch.expires_at = typeof body?.expires_at === "string" && body.expires_at ? body.expires_at : null;
   if (body?.is_active !== undefined) patch.is_active = Boolean(body.is_active);
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("breaking_news")
     .update(patch)
     .eq("tenant_id", tenantId)
@@ -80,7 +80,7 @@ export async function DELETE(
     return access.error;
   }
 
-  const { error } = await access.sessionClient
+  const { error } = await access.tenantClient
     .from("breaking_news")
     .delete()
     .eq("tenant_id", tenantId)

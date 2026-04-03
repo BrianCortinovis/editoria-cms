@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     return access.error;
   }
 
-  let query = access.sessionClient
+  let query = access.tenantClient
     .from("media")
     .select("*")
     .eq("tenant_id", tenantId)

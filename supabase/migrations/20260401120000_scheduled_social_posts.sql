@@ -1,15 +1,24 @@
 -- Scheduled social posts: programmazione oraria multi-piattaforma
 -- Un articolo puo' avere N post programmati su piattaforme/target diversi
 
-CREATE TYPE scheduled_social_post_status AS ENUM (
-  'pending',    -- in attesa di invio
-  'sending',    -- cron lo sta processando
-  'sent',       -- inviato con successo
-  'failed',     -- invio fallito
-  'canceled'    -- annullato dall'utente
-);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type
+    WHERE typname = 'scheduled_social_post_status'
+  ) THEN
+    CREATE TYPE scheduled_social_post_status AS ENUM (
+      'pending',    -- in attesa di invio
+      'sending',    -- cron lo sta processando
+      'sent',       -- inviato con successo
+      'failed',     -- invio fallito
+      'canceled'    -- annullato dall'utente
+    );
+  END IF;
+END $$;
 
-CREATE TABLE scheduled_social_posts (
+CREATE TABLE IF NOT EXISTS scheduled_social_posts (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   article_id    UUID NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
@@ -34,23 +43,25 @@ CREATE TABLE scheduled_social_posts (
 );
 
 -- Indici per query cron (post pendenti da inviare)
-CREATE INDEX idx_ssp_pending_scheduled
+CREATE INDEX IF NOT EXISTS idx_ssp_pending_scheduled
   ON scheduled_social_posts (scheduled_at)
   WHERE status = 'pending';
 
-CREATE INDEX idx_ssp_tenant_article
+CREATE INDEX IF NOT EXISTS idx_ssp_tenant_article
   ON scheduled_social_posts (tenant_id, article_id);
 
-CREATE INDEX idx_ssp_status
+CREATE INDEX IF NOT EXISTS idx_ssp_status
   ON scheduled_social_posts (status);
 
 -- RLS
 ALTER TABLE scheduled_social_posts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "ssp_tenant_select" ON scheduled_social_posts;
 CREATE POLICY "ssp_tenant_select"
   ON scheduled_social_posts FOR SELECT
   USING (tenant_id IN (SELECT tenant_id FROM user_tenants WHERE user_id = auth.uid()));
 
+DROP POLICY IF EXISTS "ssp_tenant_insert" ON scheduled_social_posts;
 CREATE POLICY "ssp_tenant_insert"
   ON scheduled_social_posts FOR INSERT
   WITH CHECK (tenant_id IN (
@@ -58,6 +69,7 @@ CREATE POLICY "ssp_tenant_insert"
     WHERE user_id = auth.uid() AND role IN ('admin', 'chief_editor', 'editor')
   ));
 
+DROP POLICY IF EXISTS "ssp_tenant_update" ON scheduled_social_posts;
 CREATE POLICY "ssp_tenant_update"
   ON scheduled_social_posts FOR UPDATE
   USING (tenant_id IN (
@@ -65,6 +77,7 @@ CREATE POLICY "ssp_tenant_update"
     WHERE user_id = auth.uid() AND role IN ('admin', 'chief_editor', 'editor')
   ));
 
+DROP POLICY IF EXISTS "ssp_tenant_delete" ON scheduled_social_posts;
 CREATE POLICY "ssp_tenant_delete"
   ON scheduled_social_posts FOR DELETE
   USING (tenant_id IN (

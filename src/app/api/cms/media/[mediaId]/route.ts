@@ -41,7 +41,7 @@ export async function PATCH(
     patch.folder = folder;
   }
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("media")
     .update(patch)
     .eq("tenant_id", tenantId)
@@ -94,7 +94,7 @@ export async function DELETE(
     return access.error;
   }
 
-  const { data: media, error: mediaError } = await access.sessionClient
+  const { data: media, error: mediaError } = await access.tenantClient
     .from("media")
     .select("id, filename, original_filename")
     .eq("tenant_id", tenantId)
@@ -108,12 +108,12 @@ export async function DELETE(
 
   // Only remove from Supabase Storage if tenant uses it (not VPS-hosted media)
   const { getSiteStorageQuotaByTenantId } = await import("@/lib/superadmin/storage");
-  const quota = await getSiteStorageQuotaByTenantId(tenantId, access.serviceClient);
+  const quota = await getSiteStorageQuotaByTenantId(tenantId, access.platformServiceClient);
   if (!quota || quota.mediaProvider !== "customer_vps_local") {
-    await access.serviceClient.storage.from("media").remove([String(media.filename)]);
+    await access.tenantClient.storage.from("media").remove([String(media.filename)]);
   }
 
-  const { error } = await access.sessionClient
+  const { error } = await access.tenantClient
     .from("media")
     .delete()
     .eq("tenant_id", tenantId)

@@ -1,14 +1,22 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Block } from '@/lib/types/block';
-import type { SiteNewsletterConfig } from '@/lib/site/newsletter';
+import type { SiteNewsletterConfig, SiteNewsletterSubscriptionField } from '@/lib/site/newsletter';
+import { isTurnstileWidgetConfigured, TurnstileWidget } from '@/components/public/TurnstileWidget';
 
 interface Props {
   block: Block;
   data: unknown[];
   style: React.CSSProperties;
   tenantSlug?: string;
+  compactDefault?: boolean;
+}
+
+interface CardProps {
+  config: SiteNewsletterConfig;
+  tenantSlug?: string;
+  style: React.CSSProperties;
   compactDefault?: boolean;
 }
 
@@ -59,27 +67,165 @@ function resolveCustomConfig(block: Block): SiteNewsletterConfig {
       description: '',
     },
     segments: [],
+    subscriptionFields: [
+      {
+        name: 'email',
+        label: 'Email',
+        type: 'email',
+        required: true,
+        placeholder: String(block.props.placeholder || 'La tua email'),
+        helpText: '',
+        width: 'full',
+        options: [],
+      },
+      {
+        name: 'privacy_consent',
+        label: String(block.props.privacyText || 'Accetto informativa privacy e comunicazioni editoriali della testata.'),
+        type: 'checkbox',
+        required: true,
+        placeholder: '',
+        helpText: '',
+        width: 'full',
+        options: [],
+      },
+    ],
   };
 }
 
-export function NewsletterSignupModule({ block, data, style, tenantSlug, compactDefault = false }: Props) {
-  const [email, setEmail] = useState('');
+function getInitialValues(fields: SiteNewsletterSubscriptionField[]) {
+  return Object.fromEntries(
+    fields.map((field) => [field.name, field.type === 'checkbox' ? false : '']),
+  ) as Record<string, string | boolean>;
+}
+
+function renderField(
+  field: SiteNewsletterSubscriptionField,
+  values: Record<string, string | boolean>,
+  setValues: React.Dispatch<React.SetStateAction<Record<string, string | boolean>>>,
+  compact: boolean,
+  mutedColor: string,
+  borderColor: string,
+) {
+  const fieldStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '0.85rem 1rem',
+    borderRadius: '12px',
+    border: `1px solid ${borderColor}`,
+    background: '#fff',
+    color: '#0f172a',
+    fontSize: '0.95rem',
+  };
+
+  const label = (
+    <span style={{ fontSize: compact ? '0.82rem' : '0.85rem', fontWeight: 600 }}>
+      {field.label}
+      {field.required ? ' *' : ''}
+    </span>
+  );
+
+  const help = field.helpText ? (
+    <span style={{ fontSize: '0.75rem', color: mutedColor }}>{field.helpText}</span>
+  ) : null;
+
+  const updateValue = (nextValue: string | boolean) => {
+    setValues((current) => ({ ...current, [field.name]: nextValue }));
+  };
+
+  const wrapperStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.45rem',
+    gridColumn: field.width === 'half' && !compact ? 'span 1' : '1 / -1',
+  };
+
+  if (field.type === 'checkbox') {
+    return (
+      <label key={field.name} style={{ ...wrapperStyle, flexDirection: 'row', alignItems: 'flex-start', gap: '0.7rem' }}>
+        <input
+          type="checkbox"
+          checked={Boolean(values[field.name])}
+          onChange={(event) => updateValue(event.target.checked)}
+          style={{ marginTop: '0.25rem' }}
+        />
+        <span style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          {label}
+          {help}
+        </span>
+      </label>
+    );
+  }
+
+  if (field.type === 'textarea') {
+    return (
+      <label key={field.name} style={wrapperStyle}>
+        {label}
+        <textarea
+          name={field.name}
+          required={field.required}
+          value={String(values[field.name] || '')}
+          onChange={(event) => updateValue(event.target.value)}
+          placeholder={field.placeholder || ''}
+          rows={4}
+          style={{ ...fieldStyle, resize: 'vertical', minHeight: '120px' }}
+        />
+        {help}
+      </label>
+    );
+  }
+
+  if (field.type === 'select') {
+    return (
+      <label key={field.name} style={wrapperStyle}>
+        {label}
+        <select
+          name={field.name}
+          required={field.required}
+          value={String(values[field.name] || '')}
+          onChange={(event) => updateValue(event.target.value)}
+          style={fieldStyle}
+        >
+          <option value="">Seleziona</option>
+          {field.options.map((option) => (
+            <option key={`${field.name}-${option.value}`} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {help}
+      </label>
+    );
+  }
+
+  return (
+    <label key={field.name} style={wrapperStyle}>
+      {label}
+      <input
+        type={field.type}
+        name={field.name}
+        required={field.required}
+        value={String(values[field.name] || '')}
+        onChange={(event) => updateValue(event.target.value)}
+        placeholder={field.placeholder || ''}
+        style={fieldStyle}
+      />
+      {help}
+    </label>
+  );
+}
+
+export function NewsletterSignupCard({ config, tenantSlug, style, compactDefault = false }: CardProps) {
+  const fields = config.subscriptionFields.length > 0 ? config.subscriptionFields : resolveCustomConfig({ props: {} } as Block).subscriptionFields;
+  const [values, setValues] = useState<Record<string, string | boolean>>(() => getInitialValues(fields));
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
-
-  const mode = String(block.props.mode || 'global');
-  const globalConfig = (data[0] && typeof data[0] === 'object') ? (data[0] as SiteNewsletterConfig) : null;
-  const config = useMemo(() => {
-    if (mode === 'global' && globalConfig) {
-      return globalConfig;
-    }
-    return resolveCustomConfig(block);
-  }, [block, globalConfig, mode]);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileReady, setTurnstileReady] = useState(false);
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
 
   const compact = compactDefault || config.compact;
-  const buttonPaddingX = Number(block.props.buttonPaddingX || 20);
-  const buttonPaddingY = Number(block.props.buttonPaddingY || 14);
-  const buttonRadius = Number(block.props.buttonRadius || 12);
+  const buttonPaddingX = 20;
+  const buttonPaddingY = 14;
+  const buttonRadius = 12;
   const themeStyles = config.theme === 'dark'
     ? { background: '#0f172a', foreground: '#e2e8f0', muted: '#94a3b8', border: '#1e293b' }
     : config.theme === 'accent'
@@ -87,7 +233,10 @@ export function NewsletterSignupModule({ block, data, style, tenantSlug, compact
       : { background: 'var(--e-color-surface, #f8fafc)', foreground: 'var(--e-color-text, #111827)', muted: 'var(--e-color-textSecondary, #64748b)', border: 'var(--e-color-border, #dbe2ea)' };
 
   const externalAction = config.mode === 'provider' ? config.provider.formAction : '';
-  const localFormSlug = config.formSlug;
+
+  useEffect(() => {
+    setValues(getInitialValues(fields));
+  }, [fields]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     if (externalAction) {
@@ -95,9 +244,15 @@ export function NewsletterSignupModule({ block, data, style, tenantSlug, compact
     }
 
     event.preventDefault();
-    if (!tenantSlug || !localFormSlug) {
+    if (!tenantSlug) {
       setStatus('error');
-      setMessage('Modulo newsletter non collegato a un form CMS o provider esterno.');
+      setMessage('Tenant non disponibile per l’iscrizione.');
+      return;
+    }
+
+    if (isTurnstileWidgetConfigured() && process.env.NODE_ENV === 'production' && !turnstileReady) {
+      setStatus('error');
+      setMessage('Protezione anti-bot non pronta. Riprova tra qualche secondo.');
       return;
     }
 
@@ -105,13 +260,14 @@ export function NewsletterSignupModule({ block, data, style, tenantSlug, compact
     setMessage('');
 
     try {
-      const response = await fetch(`/api/v1/forms/${localFormSlug}`, {
+      const response = await fetch('/api/v1/newsletter/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tenant: tenantSlug,
-          payload: { email, source: 'newsletter' },
+          payload: values,
           source_page: typeof window !== 'undefined' ? window.location.pathname : null,
+          turnstile_token: turnstileToken,
         }),
       });
       const payload = await response.json();
@@ -121,10 +277,12 @@ export function NewsletterSignupModule({ block, data, style, tenantSlug, compact
 
       setStatus('success');
       setMessage(payload.message || config.successMessage);
-      setEmail('');
+      setValues(getInitialValues(fields));
+      setTurnstileResetSignal((current) => current + 1);
     } catch (error) {
       setStatus('error');
       setMessage(error instanceof Error ? error.message : 'Errore iscrizione newsletter');
+      setTurnstileResetSignal((current) => current + 1);
     }
   };
 
@@ -168,50 +326,51 @@ export function NewsletterSignupModule({ block, data, style, tenantSlug, compact
         action={externalAction || undefined}
         method={externalAction ? 'post' : undefined}
         style={{
-          display: 'flex',
-          flexDirection: compact ? 'row' : 'row',
-          gap: '0.65rem',
-          maxWidth: compact ? 'none' : '560px',
+          display: 'grid',
+          gap: '0.75rem',
+          gridTemplateColumns: compact ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+          maxWidth: compact ? 'none' : '720px',
           margin: compact ? '0' : '0 auto',
-          flexWrap: 'wrap',
-          justifyContent: compact ? 'flex-start' : 'center',
         }}
       >
-        <input
-          type="email"
-          name="email"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder={config.placeholder}
-          style={{
-            flex: '1 1 260px',
-            padding: '0.85rem 1rem',
-            borderRadius: '12px',
-            border: `1px solid ${themeStyles.border}`,
-            background: '#fff',
-            color: '#0f172a',
-          }}
-        />
-        <button
-          type="submit"
-          disabled={status === 'submitting'}
-          style={{
-            padding: `${buttonPaddingY}px ${buttonPaddingX}px`,
-            borderRadius: `${buttonRadius}px`,
-            border: 'none',
-            background: 'var(--e-color-primary, #8B0000)',
-            color: '#fff',
-            fontWeight: 700,
-            cursor: 'pointer',
-            opacity: status === 'submitting' ? 0.72 : 1,
-          }}
-        >
-          {status === 'submitting' ? 'Invio...' : config.buttonText}
-        </button>
+        {fields.map((field) => renderField(field, values, setValues, compact, themeStyles.muted, themeStyles.border))}
+        <input type="text" name="website" value="" onChange={() => undefined} tabIndex={-1} autoComplete="off" style={{ display: 'none' }} />
+        {!externalAction && isTurnstileWidgetConfigured() ? (
+          <div style={{ gridColumn: '1 / -1' }}>
+            <TurnstileWidget
+              onTokenChange={setTurnstileToken}
+              onReadyStateChange={setTurnstileReady}
+              resetSignal={turnstileResetSignal}
+              theme={config.theme === 'dark' ? 'dark' : 'light'}
+            />
+          </div>
+        ) : null}
+        <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: compact ? 'stretch' : 'center' }}>
+          <button
+            type="submit"
+            disabled={status === 'submitting'}
+            style={{
+              padding: `${buttonPaddingY}px ${buttonPaddingX}px`,
+              borderRadius: `${buttonRadius}px`,
+              border: 'none',
+              background: 'var(--e-color-primary, #8B0000)',
+              color: '#fff',
+              fontWeight: 700,
+              cursor: 'pointer',
+              opacity: status === 'submitting' ? 0.72 : 1,
+            }}
+          >
+            {status === 'submitting' ? 'Invio...' : config.buttonText}
+          </button>
+          {message ? (
+            <div style={{ fontSize: '0.9rem', color: status === 'error' ? '#dc2626' : '#059669', textAlign: compact ? 'left' : 'center' }}>
+              {message}
+            </div>
+          ) : null}
+        </div>
       </form>
 
-      {config.privacyText && (
+      {config.privacyText && !fields.some((field) => field.name === 'privacy_consent') && (
         <p style={{ marginTop: '0.8rem', fontSize: '0.82rem', color: themeStyles.muted, textAlign: compact ? 'left' : 'center' }}>
           {config.privacyText}
         </p>
@@ -235,12 +394,26 @@ export function NewsletterSignupModule({ block, data, style, tenantSlug, compact
           ))}
         </div>
       )}
-
-      {message && (
-        <div style={{ marginTop: '0.9rem', fontSize: '0.9rem', color: status === 'error' ? '#dc2626' : '#059669', textAlign: compact ? 'left' : 'center' }}>
-          {message}
-        </div>
-      )}
     </section>
+  );
+}
+
+export function NewsletterSignupModule({ block, data, style, tenantSlug, compactDefault = false }: Props) {
+  const mode = String(block.props.mode || 'global');
+  const globalConfig = (data[0] && typeof data[0] === 'object') ? (data[0] as SiteNewsletterConfig) : null;
+  const config = useMemo(() => {
+    if (mode === 'global' && globalConfig) {
+      return globalConfig;
+    }
+    return resolveCustomConfig(block);
+  }, [block, globalConfig, mode]);
+
+  return (
+    <NewsletterSignupCard
+      config={config}
+      tenantSlug={tenantSlug}
+      style={style}
+      compactDefault={compactDefault}
+    />
   );
 }

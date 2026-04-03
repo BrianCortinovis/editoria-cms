@@ -6,9 +6,11 @@ import {
   Activity,
   ChevronRight,
   Database,
+  FileText,
   Globe,
   HardDrive,
   LayoutDashboard,
+  Search,
   TimerReset,
   Shield,
   Users,
@@ -21,6 +23,8 @@ const navItems = [
   { href: "/admin/storage", label: "Storage", icon: HardDrive },
   { href: "/admin/domains", label: "Domini", icon: Globe },
   { href: "/admin/publish", label: "Publish", icon: Activity },
+  { href: "/admin/seo", label: "SEO", icon: Search },
+  { href: "/admin/compliance", label: "Compliance", icon: FileText },
   { href: "/admin/cron", label: "Cron", icon: TimerReset },
 ];
 

@@ -10,6 +10,7 @@ import { createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import { buildTenantPublicUrl } from '@/lib/site/public-url';
 import { sanitizeHtml } from '@/lib/security/html';
 import { getArticleTranslations, buildHreflangEntries } from '@/lib/multilingual/service';
+import { buildBreadcrumbSchema, resolveCanonicalUrl } from '@/lib/seo/runtime';
 
 export const revalidate = 300;
 
@@ -30,6 +31,14 @@ interface SiteArticleRecord {
   meta_title: string | null;
   meta_description: string | null;
   og_image_url: string | null;
+  canonical_url?: string | null;
+  robots_index?: boolean;
+  robots_follow?: boolean;
+  og_title?: string | null;
+  og_description?: string | null;
+  seo_schema_type?: string | null;
+  focus_keyword?: string | null;
+  cover_image_alt?: string | null;
   language?: string | null;
   category_id?: string | null;
   profiles?: { full_name: string; avatar_url: string | null; bio: string | null } | null;
@@ -51,7 +60,7 @@ export default async function ArticlePage({ params }: Props) {
     const supabase = await createServiceRoleClientForTenant(tenant.id);
     const { data } = await supabase
       .from('articles')
-      .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, language, category_id, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color)')
+      .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, canonical_url, robots_index, robots_follow, og_title, og_description, seo_schema_type, focus_keyword, cover_image_alt, language, category_id, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color)')
       .eq('tenant_id', tenant.id)
       .eq('slug', articleSlug)
       .eq('status', 'published')
@@ -81,7 +90,18 @@ export default async function ArticlePage({ params }: Props) {
 
   const author = enrichedArticle.profiles as unknown as { full_name: string; avatar_url: string | null; bio: string | null } | null;
   const categories = (enrichedArticle.all_categories as Array<{ name: string; slug: string; color: string | null }> | undefined) || [];
-  const canonicalUrl = buildTenantPublicUrl(tenant, `/articolo/${articleSlug}`);
+  const canonicalUrl = resolveCanonicalUrl(tenant, enrichedArticle.canonical_url, `/articolo/${articleSlug}`);
+  const breadcrumbSchema = buildBreadcrumbSchema({
+    tenant,
+    items: [
+      { name: 'Home', path: '/' },
+      ...categories.slice(0, 1).map((category) => ({
+        name: category.name,
+        path: `/categoria/${category.slug}`,
+      })),
+      { name: enrichedArticle.title, path: `/articolo/${articleSlug}` },
+    ],
+  });
 
   // Fetch translations for language switcher
   const supabaseForTranslations = await createServiceRoleClientForTenant(tenant.id);
@@ -95,13 +115,14 @@ export default async function ArticlePage({ params }: Props) {
 
   const articleSchema = {
     '@context': 'https://schema.org',
-    '@type': 'NewsArticle',
+    '@type': enrichedArticle.seo_schema_type || 'NewsArticle',
     headline: enrichedArticle.meta_title || enrichedArticle.title,
     description: enrichedArticle.meta_description || enrichedArticle.summary || '',
     image: [enrichedArticle.og_image_url || enrichedArticle.cover_image_url].filter(Boolean),
     datePublished: enrichedArticle.published_at,
     dateModified: enrichedArticle.published_at,
     mainEntityOfPage: canonicalUrl,
+    keywords: enrichedArticle.focus_keyword || undefined,
     author: author?.full_name ? [{ '@type': 'Person', name: author.full_name }] : undefined,
     publisher: {
       '@type': 'Organization',
@@ -114,6 +135,9 @@ export default async function ArticlePage({ params }: Props) {
     <SiteLayout tenant={tenant} config={config} tenantSettings={tenantSettings}>
       <article style={{ maxWidth: '800px', margin: '0 auto', padding: 'var(--e-section-gap, 48px) 0' }}>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
+        {breadcrumbSchema ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+        ) : null}
         {/* Category */}
         {categories.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
@@ -190,7 +214,7 @@ export default async function ArticlePage({ params }: Props) {
         {enrichedArticle.cover_image_url && (
           <Image
             src={enrichedArticle.cover_image_url}
-            alt={enrichedArticle.title}
+            alt={enrichedArticle.cover_image_alt || enrichedArticle.title}
             width={800}
             height={450}
             priority
@@ -306,31 +330,37 @@ export async function generateMetadata({ params }: Props) {
 
   const publishedArticle = await getPublishedArticleBySlug(resolved.tenant.slug, articleSlug);
   let article = publishedArticle
-    ? {
-        id: publishedArticle.id,
-        title: publishedArticle.title,
-        meta_title: publishedArticle.meta_title,
-        meta_description: publishedArticle.meta_description,
-        og_image_url: publishedArticle.og_image_url,
-        cover_image_url: publishedArticle.cover_image_url,
-        language: publishedArticle.language ?? null,
-      }
+      ? {
+          id: publishedArticle.id,
+          title: publishedArticle.title,
+          summary: publishedArticle.summary ?? null,
+          meta_title: publishedArticle.meta_title,
+          meta_description: publishedArticle.meta_description,
+          og_image_url: publishedArticle.og_image_url,
+          cover_image_url: publishedArticle.cover_image_url,
+          canonical_url: publishedArticle.canonical_url ?? null,
+          robots_index: publishedArticle.robots_index ?? true,
+          robots_follow: publishedArticle.robots_follow ?? true,
+          og_title: publishedArticle.og_title ?? null,
+          og_description: publishedArticle.og_description ?? null,
+          language: publishedArticle.language ?? null,
+        }
     : null;
 
   if (!article) {
     const supabase = await createServiceRoleClientForTenant(resolved.tenant.id);
-    const { data } = await supabase
-      .from('articles')
-      .select('id, title, meta_title, meta_description, og_image_url, cover_image_url, language')
-      .eq('tenant_id', resolved.tenant.id)
-      .eq('slug', articleSlug)
-      .eq('status', 'published')
+      const { data } = await supabase
+        .from('articles')
+        .select('id, title, summary, meta_title, meta_description, og_image_url, cover_image_url, canonical_url, robots_index, robots_follow, og_title, og_description, language')
+        .eq('tenant_id', resolved.tenant.id)
+        .eq('slug', articleSlug)
+        .eq('status', 'published')
       .single();
     article = data;
   }
 
   if (!article) return {};
-  const canonical = buildTenantPublicUrl(resolved.tenant, `/articolo/${articleSlug}`);
+  const canonical = resolveCanonicalUrl(resolved.tenant, article.canonical_url, `/articolo/${articleSlug}`);
 
   // Fetch translations for hreflang tags
   const supabase = await createServiceRoleClientForTenant(resolved.tenant.id);
@@ -346,7 +376,7 @@ export async function generateMetadata({ params }: Props) {
 
   return {
     title: article.meta_title || article.title,
-    description: article.meta_description || '',
+    description: article.meta_description || article.summary || '',
     alternates: {
       canonical,
       ...(hreflangEntries ? {
@@ -355,17 +385,21 @@ export async function generateMetadata({ params }: Props) {
         ),
       } : {}),
     },
+    robots: {
+      index: article.robots_index ?? true,
+      follow: article.robots_follow ?? true,
+    },
     openGraph: {
-      title: article.meta_title || article.title,
-      description: article.meta_description || '',
+      title: article.og_title || article.meta_title || article.title,
+      description: article.og_description || article.meta_description || article.summary || '',
       type: 'article',
       url: canonical,
       images: article.og_image_url || article.cover_image_url ? [{ url: article.og_image_url || article.cover_image_url }] : [],
     },
     twitter: {
       card: 'summary_large_image',
-      title: article.meta_title || article.title,
-      description: article.meta_description || '',
+      title: article.og_title || article.meta_title || article.title,
+      description: article.og_description || article.meta_description || article.summary || '',
       images: article.og_image_url || article.cover_image_url ? [article.og_image_url || article.cover_image_url] : [],
     },
   };

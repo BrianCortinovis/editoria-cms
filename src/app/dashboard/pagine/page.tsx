@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/lib/store';
 import { buildCanonicalPathFromSlug, buildDefaultPageMeta, derivePageDescription, slugifyPageTitle } from '@/lib/pages/page-seo';
+import { SeoSerpPreview } from '@/components/seo/SeoSerpPreview';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import {
@@ -38,6 +39,44 @@ interface SitePage {
   created_at: string;
   updated_at: string;
   children?: SitePage[];
+}
+
+interface PageSeoModalState {
+  pageId: string;
+  pageTitle: string;
+  pagePath: string;
+  metaTitle: string;
+  metaDescription: string;
+  canonicalPath: string;
+  focusKeyword: string;
+  ogTitle: string;
+  ogDescription: string;
+  schemaType: string;
+  noindex: boolean;
+  nofollow: boolean;
+}
+
+function createPageSeoModalState(page: SitePage, meta: Record<string, unknown> = {}): PageSeoModalState {
+  const normalizedMeta = buildDefaultPageMeta({
+    title: page.title,
+    slug: page.slug,
+    currentMeta: meta,
+  });
+
+  return {
+    pageId: page.id,
+    pageTitle: page.title,
+    pagePath: page.path,
+    metaTitle: typeof normalizedMeta.title === 'string' ? normalizedMeta.title : page.title,
+    metaDescription: typeof normalizedMeta.description === 'string' ? normalizedMeta.description : '',
+    canonicalPath: typeof normalizedMeta.canonicalPath === 'string' ? normalizedMeta.canonicalPath : page.path,
+    focusKeyword: typeof normalizedMeta.focusKeyword === 'string' ? normalizedMeta.focusKeyword : page.title,
+    ogTitle: typeof normalizedMeta.ogTitle === 'string' ? normalizedMeta.ogTitle : page.title,
+    ogDescription: typeof normalizedMeta.ogDescription === 'string' ? normalizedMeta.ogDescription : '',
+    schemaType: typeof normalizedMeta.schemaType === 'string' ? normalizedMeta.schemaType : 'WebPage',
+    noindex: Boolean(normalizedMeta.noindex),
+    nofollow: Boolean(normalizedMeta.nofollow),
+  };
 }
 
 function buildPageTree(flatPages: SitePage[]): SitePage[] {
@@ -98,8 +137,13 @@ export default function PaginePage() {
   const [newPageParentId, setNewPageParentId] = useState<string | null>(null);
   const [newPageMetaTitle, setNewPageMetaTitle] = useState('');
   const [newPageMetaDescription, setNewPageMetaDescription] = useState('');
+  const [newPageCanonicalPath, setNewPageCanonicalPath] = useState('');
+  const [newPageFocusKeyword, setNewPageFocusKeyword] = useState('');
   const [newPageOgTitle, setNewPageOgTitle] = useState('');
   const [newPageOgDescription, setNewPageOgDescription] = useState('');
+  const [newPageSchemaType, setNewPageSchemaType] = useState('WebPage');
+  const [newPageNoindex, setNewPageNoindex] = useState(false);
+  const [newPageNofollow, setNewPageNofollow] = useState(false);
   const [slugManual, setSlugManual] = useState(false);
   const [metaTitleManual, setMetaTitleManual] = useState(false);
   const [metaDescriptionManual, setMetaDescriptionManual] = useState(false);
@@ -110,6 +154,8 @@ export default function PaginePage() {
   const [deletingPageId, setDeletingPageId] = useState<string | null>(null);
   const [previewingPageId, setPreviewingPageId] = useState<string | null>(null);
   const [duplicatingPageId, setDuplicatingPageId] = useState<string | null>(null);
+  const [pageSeoModal, setPageSeoModal] = useState<PageSeoModalState | null>(null);
+  const [savingSeoPageId, setSavingSeoPageId] = useState<string | null>(null);
 
   const loadPages = useCallback(async () => {
     if (!currentTenant) {
@@ -172,6 +218,7 @@ export default function PaginePage() {
 
     if (!slugManual) {
       setNewPageSlug(suggestedSlug);
+      setNewPageCanonicalPath(buildCanonicalPathFromSlug(suggestedSlug));
     }
     if (!metaTitleManual) {
       setNewPageMetaTitle(title);
@@ -185,9 +232,13 @@ export default function PaginePage() {
     if (!ogDescriptionManual) {
       setNewPageOgDescription(suggestedDescription);
     }
+    if (!newPageFocusKeyword.trim()) {
+      setNewPageFocusKeyword(title);
+    }
   }, [
     metaDescriptionManual,
     metaTitleManual,
+    newPageFocusKeyword,
     newPageTitle,
     ogDescriptionManual,
     ogTitleManual,
@@ -206,10 +257,13 @@ export default function PaginePage() {
       currentMeta: {
         title: newPageMetaTitle,
         description: newPageMetaDescription,
-        canonicalPath: buildCanonicalPathFromSlug(newPageSlug),
-        focusKeyword: newPageTitle.trim(),
+        canonicalPath: newPageCanonicalPath || buildCanonicalPathFromSlug(newPageSlug),
+        focusKeyword: newPageFocusKeyword.trim() || newPageTitle.trim(),
         ogTitle: newPageOgTitle,
         ogDescription: newPageOgDescription,
+        schemaType: newPageSchemaType,
+        noindex: newPageNoindex,
+        nofollow: newPageNofollow,
       },
     });
 
@@ -237,8 +291,13 @@ export default function PaginePage() {
       setNewPageParentId(null);
       setNewPageMetaTitle('');
       setNewPageMetaDescription('');
+      setNewPageCanonicalPath('');
+      setNewPageFocusKeyword('');
       setNewPageOgTitle('');
       setNewPageOgDescription('');
+      setNewPageSchemaType('WebPage');
+      setNewPageNoindex(false);
+      setNewPageNofollow(false);
       setSlugManual(false);
       setMetaTitleManual(false);
       setMetaDescriptionManual(false);
@@ -305,11 +364,11 @@ export default function PaginePage() {
     return `${base}-${index}`;
   }, [pages]);
 
-  const getPublicPagePath = useCallback((page: Pick<SitePage, 'slug'>) => {
+  const getPublicPagePath = useCallback((page: Pick<SitePage, 'slug' | 'path'>) => {
     const tenantSlug = currentTenant?.slug || 'slug';
     return page.slug === 'homepage'
       ? `/site/${tenantSlug}`
-      : `/site/${tenantSlug}/${page.slug}`;
+      : `/site/${tenantSlug}${page.path.startsWith('/') ? page.path : `/${page.path}`}`;
   }, [currentTenant?.slug]);
 
   const handlePreviewPage = useCallback(async (page: SitePage) => {
@@ -419,6 +478,65 @@ export default function PaginePage() {
     }
   }, [buildDuplicateSlug, currentTenant, loadPages]);
 
+  const openPageSeoModal = useCallback(async (page: SitePage) => {
+    const supabase = createClient();
+
+    try {
+      const { data, error } = await supabase
+        .from('site_pages')
+        .select('meta')
+        .eq('id', page.id)
+        .single();
+
+      if (error) {
+        throw new Error(error.message || 'SEO pagina non disponibile');
+      }
+
+      setPageSeoModal(createPageSeoModalState(page, (data?.meta || {}) as Record<string, unknown>));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Errore apertura SEO pagina');
+    }
+  }, []);
+
+  const handleSavePageSeo = useCallback(async () => {
+    if (!pageSeoModal) {
+      return;
+    }
+
+    setSavingSeoPageId(pageSeoModal.pageId);
+    try {
+      const response = await fetch(`/api/builder/pages/${pageSeoModal.pageId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          meta: {
+            title: pageSeoModal.metaTitle.trim(),
+            description: pageSeoModal.metaDescription.trim(),
+            canonicalPath: pageSeoModal.canonicalPath.trim() || pageSeoModal.pagePath,
+            focusKeyword: pageSeoModal.focusKeyword.trim(),
+            ogTitle: pageSeoModal.ogTitle.trim(),
+            ogDescription: pageSeoModal.ogDescription.trim(),
+            schemaType: pageSeoModal.schemaType.trim() || 'WebPage',
+            noindex: pageSeoModal.noindex,
+            nofollow: pageSeoModal.nofollow,
+          },
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Salvataggio SEO non riuscito');
+      }
+
+      toast.success('SEO pagina aggiornata');
+      setPageSeoModal(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Errore salvataggio SEO pagina');
+    } finally {
+      setSavingSeoPageId(null);
+    }
+  }, [pageSeoModal]);
+
   const statusColors = {
     draft: { bg: 'rgba(107,114,128,0.15)', text: '#6b7280' },
     published: { bg: 'rgba(16,185,129,0.15)', text: '#10b981' },
@@ -523,7 +641,9 @@ export default function PaginePage() {
                   value={newPageSlug}
                   onChange={(e) => {
                     setSlugManual(true);
-                    setNewPageSlug(slugifyPageTitle(e.target.value));
+                    const nextSlug = slugifyPageTitle(e.target.value);
+                    setNewPageSlug(nextSlug);
+                    setNewPageCanonicalPath(buildCanonicalPathFromSlug(nextSlug));
                   }}
                   placeholder="es: chi-siamo, team, contatti..."
                   className="w-full px-3 py-2 rounded-lg border transition focus:outline-none"
@@ -652,6 +772,81 @@ export default function PaginePage() {
                     }}
                   />
                 </div>
+
+                <div>
+                  <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>
+                    Canonical Path
+                  </label>
+                  <input
+                    type="text"
+                    value={newPageCanonicalPath}
+                    onChange={(e) => setNewPageCanonicalPath(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border transition focus:outline-none"
+                    style={{
+                      background: 'var(--c-bg-1)',
+                      borderColor: 'var(--c-border)',
+                      color: 'var(--c-text-0)',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>
+                    Focus Keyword
+                  </label>
+                  <input
+                    type="text"
+                    value={newPageFocusKeyword}
+                    onChange={(e) => setNewPageFocusKeyword(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border transition focus:outline-none"
+                    style={{
+                      background: 'var(--c-bg-1)',
+                      borderColor: 'var(--c-border)',
+                      color: 'var(--c-text-0)',
+                    }}
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>
+                      Schema Type
+                    </label>
+                    <select
+                      value={newPageSchemaType}
+                      onChange={(e) => setNewPageSchemaType(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border transition focus:outline-none"
+                      style={{
+                        background: 'var(--c-bg-1)',
+                        borderColor: 'var(--c-border)',
+                        color: 'var(--c-text-0)',
+                      }}
+                    >
+                      <option value="WebPage">WebPage</option>
+                      <option value="CollectionPage">CollectionPage</option>
+                      <option value="AboutPage">AboutPage</option>
+                      <option value="ContactPage">ContactPage</option>
+                      <option value="NewsMediaOrganization">NewsMediaOrganization</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-end gap-3 pb-1">
+                    <label className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--c-text-1)' }}>
+                      <input type="checkbox" checked={newPageNoindex} onChange={(e) => setNewPageNoindex(e.target.checked)} />
+                      Noindex
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--c-text-1)' }}>
+                      <input type="checkbox" checked={newPageNofollow} onChange={(e) => setNewPageNofollow(e.target.checked)} />
+                      Nofollow
+                    </label>
+                  </div>
+                </div>
+
+                <SeoSerpPreview
+                  title={newPageMetaTitle || newPageTitle || 'Titolo pagina'}
+                  description={newPageMetaDescription}
+                  url={newPageCanonicalPath || pagePreviewPath}
+                />
               </div>
 
             </div>
@@ -700,6 +895,157 @@ export default function PaginePage() {
           </div>
         )}
       </div>
+
+      {pageSeoModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-8">
+          <div
+            className="w-full max-w-3xl rounded-3xl border p-5 shadow-2xl"
+            style={{ background: 'var(--c-bg-1)', borderColor: 'var(--c-border)' }}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: 'var(--c-text-2)' }}>
+                  SEO Pagina
+                </p>
+                <h3 className="mt-2 text-lg font-semibold" style={{ color: 'var(--c-text-0)' }}>
+                  {pageSeoModal.pageTitle}
+                </h3>
+                <p className="mt-1 text-xs font-mono" style={{ color: 'var(--c-text-3)' }}>
+                  {pageSeoModal.pagePath}
+                </p>
+              </div>
+              <button
+                onClick={() => setPageSeoModal(null)}
+                className="rounded-full px-3 py-1.5 text-sm"
+                style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-1)' }}
+              >
+                Chiudi
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>Meta Title</label>
+                <input
+                  type="text"
+                  value={pageSeoModal.metaTitle}
+                  onChange={(e) => setPageSeoModal((current) => current ? { ...current, metaTitle: e.target.value } : current)}
+                  className="w-full px-3 py-2 rounded-lg border"
+                  style={{ borderColor: 'var(--c-border)' }}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>Canonical Path</label>
+                <input
+                  type="text"
+                  value={pageSeoModal.canonicalPath}
+                  onChange={(e) => setPageSeoModal((current) => current ? { ...current, canonicalPath: e.target.value } : current)}
+                  className="w-full px-3 py-2 rounded-lg border"
+                  style={{ borderColor: 'var(--c-border)' }}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>Meta Description</label>
+                <textarea
+                  value={pageSeoModal.metaDescription}
+                  onChange={(e) => setPageSeoModal((current) => current ? { ...current, metaDescription: e.target.value } : current)}
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-lg border resize-none"
+                  style={{ borderColor: 'var(--c-border)' }}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>Focus Keyword</label>
+                <input
+                  type="text"
+                  value={pageSeoModal.focusKeyword}
+                  onChange={(e) => setPageSeoModal((current) => current ? { ...current, focusKeyword: e.target.value } : current)}
+                  className="w-full px-3 py-2 rounded-lg border"
+                  style={{ borderColor: 'var(--c-border)' }}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>Schema Type</label>
+                <select
+                  value={pageSeoModal.schemaType}
+                  onChange={(e) => setPageSeoModal((current) => current ? { ...current, schemaType: e.target.value } : current)}
+                  className="w-full px-3 py-2 rounded-lg border"
+                  style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}
+                >
+                  <option value="WebPage">WebPage</option>
+                  <option value="CollectionPage">CollectionPage</option>
+                  <option value="AboutPage">AboutPage</option>
+                  <option value="ContactPage">ContactPage</option>
+                  <option value="NewsMediaOrganization">NewsMediaOrganization</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>Open Graph Title</label>
+                <input
+                  type="text"
+                  value={pageSeoModal.ogTitle}
+                  onChange={(e) => setPageSeoModal((current) => current ? { ...current, ogTitle: e.target.value } : current)}
+                  className="w-full px-3 py-2 rounded-lg border"
+                  style={{ borderColor: 'var(--c-border)' }}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium block mb-1" style={{ color: 'var(--c-text-1)' }}>Open Graph Description</label>
+                <textarea
+                  value={pageSeoModal.ogDescription}
+                  onChange={(e) => setPageSeoModal((current) => current ? { ...current, ogDescription: e.target.value } : current)}
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-lg border resize-none"
+                  style={{ borderColor: 'var(--c-border)' }}
+                />
+              </div>
+              <div className="md:col-span-2 flex flex-wrap gap-4">
+                <label className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--c-text-1)' }}>
+                  <input
+                    type="checkbox"
+                    checked={pageSeoModal.noindex}
+                    onChange={(e) => setPageSeoModal((current) => current ? { ...current, noindex: e.target.checked } : current)}
+                  />
+                  Noindex
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--c-text-1)' }}>
+                  <input
+                    type="checkbox"
+                    checked={pageSeoModal.nofollow}
+                    onChange={(e) => setPageSeoModal((current) => current ? { ...current, nofollow: e.target.checked } : current)}
+                  />
+                  Nofollow
+                </label>
+              </div>
+              <div className="md:col-span-2">
+                <SeoSerpPreview
+                  title={pageSeoModal.metaTitle || pageSeoModal.pageTitle}
+                  description={pageSeoModal.metaDescription}
+                  url={pageSeoModal.canonicalPath || pageSeoModal.pagePath}
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setPageSeoModal(null)}
+                className="rounded-xl px-4 py-2 text-sm"
+                style={{ border: '1px solid var(--c-border)', color: 'var(--c-text-1)' }}
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => void handleSavePageSeo()}
+                disabled={savingSeoPageId === pageSeoModal.pageId}
+                className="rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                style={{ background: 'var(--c-accent)' }}
+              >
+                {savingSeoPageId === pageSeoModal.pageId ? 'Salvataggio...' : 'Salva SEO'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 
@@ -831,8 +1177,8 @@ export default function PaginePage() {
                   >
                     <LayoutTemplate className="w-4 h-4" />
                   </Link>
-                  <Link
-                    href="/dashboard/seo"
+                  <button
+                    onClick={() => void openPageSeoModal(page)}
                     className="p-2 rounded-lg transition"
                     style={{ color: 'var(--c-text-2)', background: 'transparent' }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'var(--c-bg-2)'}
@@ -840,7 +1186,7 @@ export default function PaginePage() {
                     title="SEO"
                   >
                     <Search className="w-4 h-4" />
-                  </Link>
+                  </button>
                   <button
                     onClick={() => void handleCopyPageUrl(page)}
                     className="p-2 rounded-lg transition"

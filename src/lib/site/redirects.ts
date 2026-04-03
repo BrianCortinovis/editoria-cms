@@ -1,13 +1,13 @@
 import { createServiceRoleClientForTenant } from '@/lib/supabase/server';
 
-function normalizePath(path: string) {
+export function normalizeRedirectPath(path: string) {
   const trimmed = `/${path || ''}`.replace(/\/+/g, '/');
   return trimmed === '/' ? '/' : trimmed.replace(/\/+$/g, '');
 }
 
 export async function resolveRedirect(tenantId: string, path: string) {
   const supabase = await createServiceRoleClientForTenant(tenantId);
-  const normalizedPath = normalizePath(path);
+  const normalizedPath = normalizeRedirectPath(path);
 
   try {
     const { data, error } = await supabase
@@ -23,7 +23,7 @@ export async function resolveRedirect(tenantId: string, path: string) {
     }
 
     return {
-      targetPath: normalizePath(data.target_path),
+      targetPath: normalizeRedirectPath(data.target_path),
       statusCode: data.status_code || 301,
     };
   } catch {
@@ -32,7 +32,7 @@ export async function resolveRedirect(tenantId: string, path: string) {
 }
 
 export function buildTenantRedirectUrl(tenantSlug: string, targetPath: string) {
-  const normalizedPath = normalizePath(targetPath);
+  const normalizedPath = normalizeRedirectPath(targetPath);
   if (normalizedPath.startsWith('/site/')) {
     return normalizedPath;
   }
@@ -40,4 +40,36 @@ export function buildTenantRedirectUrl(tenantSlug: string, targetPath: string) {
   return normalizedPath === '/'
     ? `/site/${tenantSlug}`
     : `/site/${tenantSlug}${normalizedPath}`;
+}
+
+export async function upsertRedirectRule(input: {
+  tenantId: string;
+  sourcePath: string;
+  targetPath: string;
+  statusCode?: number;
+}) {
+  const supabase = await createServiceRoleClientForTenant(input.tenantId);
+  const sourcePath = normalizeRedirectPath(input.sourcePath);
+  const targetPath = normalizeRedirectPath(input.targetPath);
+
+  if (!sourcePath || !targetPath || sourcePath === targetPath) {
+    return { ok: false as const, skipped: true as const };
+  }
+
+  const { error } = await supabase.from('redirects').upsert(
+    {
+      tenant_id: input.tenantId,
+      source_path: sourcePath,
+      target_path: targetPath,
+      status_code: input.statusCode || 301,
+      is_active: true,
+    },
+    { onConflict: 'tenant_id,source_path' }
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  return { ok: true as const, skipped: false as const };
 }

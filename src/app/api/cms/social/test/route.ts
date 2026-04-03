@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { CMS_EDITOR_ROLES, requireTenantAccess } from "@/lib/cms/tenant-access";
+import { assertTrustedMutationRequest } from "@/lib/security/request";
+import { CMS_CONFIG_ROLES, requireTenantAccess } from "@/lib/cms/tenant-access";
 import { testSocialChannel } from "@/lib/social/post-service";
 import { SOCIAL_PLATFORMS, type SocialPlatformKey, type SocialChannelConfig } from "@/lib/social/platforms";
 
@@ -13,6 +14,11 @@ const VALID_PLATFORMS = new Set(SOCIAL_PLATFORMS.map((p) => p.key));
  * Returns: SocialPostResult
  */
 export async function POST(request: Request) {
+  const trustedOriginError = assertTrustedMutationRequest(request);
+  if (trustedOriginError) {
+    return trustedOriginError;
+  }
+
   const body = await request.json().catch(() => null);
   if (!body || !body.tenant_id || !body.platform) {
     return NextResponse.json(
@@ -31,8 +37,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // Only editors+ can test social channels
-  const access = await requireTenantAccess(tenantId, CMS_EDITOR_ROLES);
+  const access = await requireTenantAccess(tenantId, CMS_CONFIG_ROLES);
   if ("error" in access) return access.error;
 
   // Build channel config from body

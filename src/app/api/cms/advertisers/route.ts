@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     return access.error;
   }
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("advertisers")
     .select("*")
     .eq("tenant_id", tenantId)
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     notes: typeof body.notes === "string" && body.notes ? body.notes : null,
   };
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("advertisers")
     .insert(payload)
     .select("*")

@@ -2,6 +2,8 @@ import { createServerSupabaseClient, createServiceRoleClientForTenant } from '@/
 import { assertTrustedMutationRequest } from '@/lib/security/request';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildDefaultPageMeta, slugifyPageTitle } from '@/lib/pages/page-seo';
+import { resolvePagePublicPathById } from '@/lib/pages/page-paths';
+import { upsertRedirectRule } from '@/lib/site/redirects';
 import { readPublishedJson } from '@/lib/publish/storage';
 import type { PublishedManifest, PublishedPageDocument } from '@/lib/publish/types';
 import { z } from 'zod';
@@ -120,6 +122,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (id) {
+      const previousPublicPath = await resolvePagePublicPathById(supabase, id);
       const { data: page, error } = await supabase
         .from('site_pages')
         .update({
@@ -141,6 +144,19 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) throw error;
+      const nextPublicPath = await resolvePagePublicPathById(supabase, id);
+      if (previousPublicPath && nextPublicPath && previousPublicPath !== nextPublicPath) {
+        try {
+          await upsertRedirectRule({
+            tenantId: tenant_id,
+            sourcePath: previousPublicPath,
+            targetPath: nextPublicPath,
+            statusCode: 301,
+          });
+        } catch (redirectError) {
+          console.warn('[seo] automatic page redirect creation failed', redirectError);
+        }
+      }
       return NextResponse.json(page);
     } else {
       const { data: page, error } = await supabase

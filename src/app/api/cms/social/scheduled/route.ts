@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { CMS_EDITOR_ROLES, requireTenantAccess } from "@/lib/cms/tenant-access";
 import { SOCIAL_PLATFORMS } from "@/lib/social/platforms";
 
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
 
   const articleId = searchParams.get("article_id");
 
-  let query = access.serviceClient
+  let query = access.tenantClient
     .from("scheduled_social_posts")
     .select("*, articles!inner(title, slug, cover_image_url)")
     .eq("tenant_id", tenantId)
@@ -69,6 +70,11 @@ export async function GET(request: Request) {
  * Body: { tenant_id, posts: [{ article_id, platform, target_label?, channel_config?, custom_text?, scheduled_at }] }
  */
 export async function POST(request: Request) {
+  const trustedOriginError = assertTrustedMutationRequest(request);
+  if (trustedOriginError) {
+    return trustedOriginError;
+  }
+
   const body = await request.json().catch(() => null);
   if (!body?.tenant_id || !Array.isArray(body.posts) || body.posts.length === 0) {
     return NextResponse.json(
@@ -109,7 +115,7 @@ export async function POST(request: Request) {
   }
 
   const articleIds = [...new Set(normalizedPosts.map((post) => post.articleId))];
-  const { data: articles, error: articlesError } = await access.serviceClient
+  const { data: articles, error: articlesError } = await access.tenantClient
     .from("articles")
     .select("id")
     .eq("tenant_id", tenantId)
@@ -139,7 +145,7 @@ export async function POST(request: Request) {
     created_by: access.user.id,
   }));
 
-  const { data, error } = await access.serviceClient
+  const { data, error } = await access.tenantClient
     .from("scheduled_social_posts")
     .insert(rows)
     .select();
@@ -157,6 +163,11 @@ export async function POST(request: Request) {
  * Body: { tenant_id, id, ...updates }
  */
 export async function PUT(request: Request) {
+  const trustedOriginError = assertTrustedMutationRequest(request);
+  if (trustedOriginError) {
+    return trustedOriginError;
+  }
+
   const body = await request.json().catch(() => null);
   if (!body?.tenant_id || !body?.id) {
     return NextResponse.json({ error: "tenant_id and id required" }, { status: 400 });
@@ -186,7 +197,7 @@ export async function PUT(request: Request) {
   if (body.status === "canceled") allowedFields.status = "canceled";
   allowedFields.updated_at = new Date().toISOString();
 
-  const { data, error } = await access.serviceClient
+  const { data, error } = await access.tenantClient
     .from("scheduled_social_posts")
     .update(allowedFields)
     .eq("id", body.id)
@@ -208,6 +219,11 @@ export async function PUT(request: Request) {
  * Body: { tenant_id, id }
  */
 export async function DELETE(request: Request) {
+  const trustedOriginError = assertTrustedMutationRequest(request);
+  if (trustedOriginError) {
+    return trustedOriginError;
+  }
+
   const body = await request.json().catch(() => null);
   if (!body?.tenant_id || !body?.id) {
     return NextResponse.json({ error: "tenant_id and id required" }, { status: 400 });
@@ -217,7 +233,7 @@ export async function DELETE(request: Request) {
   const access = await requireTenantAccess(tenantId, CMS_EDITOR_ROLES);
   if ("error" in access) return access.error;
 
-  const { error } = await access.serviceClient
+  const { error } = await access.tenantClient
     .from("scheduled_social_posts")
     .delete()
     .eq("id", body.id)

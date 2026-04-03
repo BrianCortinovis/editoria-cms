@@ -31,7 +31,7 @@ export async function PATCH(
   if ("phone" in (body || {})) patch.phone = typeof body?.phone === "string" && body.phone ? body.phone : null;
   if ("notes" in (body || {})) patch.notes = typeof body?.notes === "string" && body.notes ? body.notes : null;
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("advertisers")
     .update(patch)
     .eq("tenant_id", tenantId)
@@ -78,7 +78,7 @@ export async function DELETE(
     return access.error;
   }
 
-  const { error } = await access.sessionClient
+  const { error } = await access.tenantClient
     .from("advertisers")
     .delete()
     .eq("tenant_id", tenantId)

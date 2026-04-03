@@ -39,7 +39,7 @@ export async function PATCH(
   if (body?.is_recurring !== undefined) patch.is_recurring = Boolean(body.is_recurring);
   if ("recurrence_rule" in (body || {})) patch.recurrence_rule = typeof body?.recurrence_rule === "string" && body.recurrence_rule ? body.recurrence_rule : null;
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("events")
     .update(patch)
     .eq("tenant_id", tenantId)
@@ -85,7 +85,7 @@ export async function DELETE(
     return access.error;
   }
 
-  const { error } = await access.sessionClient.from("events").delete().eq("tenant_id", tenantId).eq("id", eventId);
+  const { error } = await access.tenantClient.from("events").delete().eq("tenant_id", tenantId).eq("id", eventId);
   if (error) {
     console.error("event.delete failed:", error.message);
     return NextResponse.json({ error: "Unable to delete event" }, { status: 500 });

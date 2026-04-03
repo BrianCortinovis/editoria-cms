@@ -10,6 +10,7 @@ interface RelatedItem {
   date?: string;
   slug?: string;
   cover_image_url?: string | null;
+  cover_image_alt?: string | null;
   summary?: string | null;
 }
 
@@ -53,7 +54,7 @@ export function RenderRelatedContent({ block, data, style, tenantSlug }: Props) 
             >
               {showImage && image && (
                 <div style={{ aspectRatio: '16/9', overflow: 'hidden' }}>
-                  <img src={image} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                  <img src={image} alt={item.cover_image_alt || item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                 </div>
               )}
               <div style={{ padding: '1rem' }}>

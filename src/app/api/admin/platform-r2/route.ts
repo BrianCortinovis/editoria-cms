@@ -1,43 +1,20 @@
 import { NextResponse } from "next/server";
 import { assertTrustedMutationRequest } from "@/lib/security/request";
+import {
+  normalizePlatformR2Config,
+  PLATFORM_R2_AUDIT_ACTION,
+  readLatestPlatformR2Config,
+  serializePlatformR2Config,
+} from "@/lib/storage/platform-r2-config";
 import { requireSuperAdminApi } from "@/lib/superadmin/api";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-
-const AUDIT_ACTION = "platform.r2.config";
-
-interface R2Config {
-  accountId: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  bucketName: string;
-  publicUrl: string;
-}
-
-function normalizeConfig(input: unknown): R2Config {
-  const r = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
-  return {
-    accountId: typeof r.accountId === "string" ? r.accountId : "",
-    accessKeyId: typeof r.accessKeyId === "string" ? r.accessKeyId : "",
-    secretAccessKey: typeof r.secretAccessKey === "string" ? r.secretAccessKey : "",
-    bucketName: typeof r.bucketName === "string" ? r.bucketName : "",
-    publicUrl: typeof r.publicUrl === "string" ? r.publicUrl : "",
-  };
-}
 
 export async function GET() {
   const access = await requireSuperAdminApi();
   if ("error" in access) return access.error;
 
   const client = await createServiceRoleClient();
-  const { data } = await client
-    .from("audit_logs")
-    .select("metadata")
-    .eq("action", AUDIT_ACTION)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const config = normalizeConfig(data?.metadata);
+  const config = (await readLatestPlatformR2Config(client)) ?? normalizePlatformR2Config(null);
   // Mask secret for read
   const masked = {
     ...config,
@@ -59,19 +36,12 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Missing config" }, { status: 400 });
   }
 
-  const incoming = normalizeConfig(body.config);
+  const incoming = normalizePlatformR2Config(body.config);
 
   // If secret is masked, keep the existing one
   if (incoming.secretAccessKey === "••••••••") {
     const client = await createServiceRoleClient();
-    const { data: existing } = await client
-      .from("audit_logs")
-      .select("metadata")
-      .eq("action", AUDIT_ACTION)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const prev = normalizeConfig(existing?.metadata);
+    const prev = (await readLatestPlatformR2Config(client)) ?? normalizePlatformR2Config(null);
     incoming.secretAccessKey = prev.secretAccessKey;
   }
 
@@ -80,10 +50,10 @@ export async function PUT(request: Request) {
     actor_user_id: access.user.id,
     tenant_id: null,
     site_id: null,
-    action: AUDIT_ACTION,
+    action: PLATFORM_R2_AUDIT_ACTION,
     resource_type: "platform_runtime",
     resource_id: null,
-    metadata: incoming,
+    metadata: serializePlatformR2Config(incoming),
   });
 
   if (error) {

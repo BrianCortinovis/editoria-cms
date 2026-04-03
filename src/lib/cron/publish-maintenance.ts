@@ -1,6 +1,7 @@
 import { triggerPublish } from "@/lib/publish/runner";
 import { getPlatformCronSettings } from "@/lib/cron/platform-settings";
 import { getCronSettingsForTenant, getCronSettingsMap } from "@/lib/cron/settings";
+import { syncGlobalCompliancePackToTenants } from "@/lib/legal/compliance-pack";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { autoPostToSocial, buildArticleUrl } from "@/lib/social/post-service";
 import { normalizeSocialAutoConfig } from "@/lib/social/platforms";
@@ -11,6 +12,8 @@ interface MaintenanceRunSummary {
   breakingNewsExpired: number;
   bannersExpired: number;
   slotAssignmentsExpired: number;
+  complianceTenantSyncCount: number;
+  compliancePackVersion: string | null;
   tenantIdsRepublished: string[];
   publishResults: Array<{
     tenantId: string;
@@ -27,6 +30,7 @@ export async function runPublishMaintenance(): Promise<MaintenanceRunSummary> {
   const supabase = await createServiceRoleClient();
   const now = new Date().toISOString();
   const tenantIdsNeedingPublish: string[] = [];
+  const publishResults: MaintenanceRunSummary["publishResults"] = [];
   const platformSettings = await getPlatformCronSettings();
 
   if (!platformSettings.publishMaintenanceEnabled) {
@@ -49,6 +53,8 @@ export async function runPublishMaintenance(): Promise<MaintenanceRunSummary> {
       breakingNewsExpired: 0,
       bannersExpired: 0,
       slotAssignmentsExpired: 0,
+      complianceTenantSyncCount: 0,
+      compliancePackVersion: null,
       tenantIdsRepublished: [],
       publishResults: [],
     };
@@ -230,8 +236,21 @@ export async function runPublishMaintenance(): Promise<MaintenanceRunSummary> {
     }
   }
 
+  let complianceTenantSyncCount = 0;
+  let compliancePackVersion: string | null = null;
+
+  if (platformSettings.complianceSyncEnabled) {
+    const complianceSync = await syncGlobalCompliancePackToTenants({
+      actorUserId: null,
+      republish: false,
+    });
+
+    complianceTenantSyncCount = complianceSync.changedTenantIds.length;
+    compliancePackVersion = complianceSync.packVersion;
+    tenantIdsNeedingPublish.push(...complianceSync.changedTenantIds);
+  }
+
   const tenantIds = uniqueTenantIds(tenantIdsNeedingPublish);
-  const publishResults: MaintenanceRunSummary["publishResults"] = [];
   const siteByTenantId = new Map<string, string>();
 
   if (tenantIds.length > 0) {
@@ -276,6 +295,8 @@ export async function runPublishMaintenance(): Promise<MaintenanceRunSummary> {
       breakingNewsExpired,
       bannersExpired,
       slotAssignmentsExpired,
+      complianceTenantSyncCount,
+      compliancePackVersion,
       tenantIdsRepublished: tenantIds,
       publishResults,
     },
@@ -314,6 +335,8 @@ export async function runPublishMaintenance(): Promise<MaintenanceRunSummary> {
     breakingNewsExpired,
     bannersExpired,
     slotAssignmentsExpired,
+    complianceTenantSyncCount,
+    compliancePackVersion,
     tenantIdsRepublished: tenantIds,
     publishResults,
   };

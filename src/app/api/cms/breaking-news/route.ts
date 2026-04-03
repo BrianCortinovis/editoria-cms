@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     return access.error;
   }
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("breaking_news")
     .select("*")
     .eq("tenant_id", tenantId)
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     is_active: body?.is_active === undefined ? true : Boolean(body.is_active),
   };
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("breaking_news")
     .insert(payload)
     .select("*")

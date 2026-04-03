@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { callAI } from '@/lib/ai/providers';
 import { resolveProvider } from '@/lib/ai/resolver';
@@ -75,7 +75,11 @@ function validateJsonResponse(content: string): { valid: boolean; actionCount?: 
   return { valid: true, actionCount: parsed.length, types: Array.from(types) };
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   try {
     const supabase = await createServerSupabaseClient();
 
@@ -111,7 +115,7 @@ export async function POST(request: NextRequest) {
     let resolvedProvider;
     try {
       resolvedProvider = resolveProvider(aiConfig, 'chatbot');
-    } catch (e) {
+    } catch {
       return NextResponse.json(
         { error: 'Provider not configured', status: 'error' },
         { status: 400 }

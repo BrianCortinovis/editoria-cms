@@ -7,6 +7,7 @@ import { enrichArticlesWithCategories, fetchArticleIdsForCategory } from '@/lib/
 import { getActiveExclusivePlacementArticleIds } from '@/lib/editorial/placements';
 import { createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import { buildTenantPublicUrl } from '@/lib/site/public-url';
+import { buildBreadcrumbSchema, buildPageSchema } from '@/lib/seo/runtime';
 
 export const revalidate = 120;
 
@@ -23,6 +24,7 @@ interface CategoryPageArticleRecord {
   slug: string;
   summary: string | null;
   cover_image_url: string | null;
+  cover_image_alt?: string | null;
   published_at: string | null;
   reading_time_minutes: number;
   category_id?: string | null;
@@ -85,7 +87,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       const createArticleQuery = () =>
         supabase
           .from('articles')
-          .select('id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, category_id, profiles!articles_author_id_fkey(full_name), categories:categories!articles_category_id_fkey(id, name, slug, color)', { count: 'exact' })
+          .select('id, title, slug, summary, cover_image_url, cover_image_alt, published_at, reading_time_minutes, category_id, profiles!articles_author_id_fkey(full_name), categories:categories!articles_category_id_fkey(id, name, slug, color)', { count: 'exact' })
           .eq('tenant_id', tenant.id)
           .eq('status', 'published')
           .order('published_at', { ascending: false })
@@ -136,10 +138,32 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   }>;
   const totalPages = Math.ceil(totalArticleCount / ARTICLES_PER_PAGE);
   const basePath = `/site/${tenantSlug}/categoria/${categorySlug}`;
+  const canonical = buildTenantPublicUrl(tenant, `/categoria/${categorySlug}`);
+  const categoryPageSchema = buildPageSchema({
+    schemaType: 'CollectionPage',
+    title: `${category.name} - ${tenant.name}`,
+    description: category.description || `Articoli nella categoria ${category.name}`,
+    url: canonical,
+    siteName: tenant.name,
+    imageUrl: articles[0]?.cover_image_url || tenant.logo_url || null,
+  });
+  const breadcrumbSchema = buildBreadcrumbSchema({
+    tenant,
+    items: [
+      { name: 'Home', path: '/' },
+      { name: category.name, path: `/categoria/${categorySlug}` },
+    ],
+  });
 
   return (
     <SiteLayout tenant={tenant} config={config} tenantSettings={tenantSettings}>
       <div style={{ padding: 'var(--e-section-gap, 48px) 0' }}>
+        {categoryPageSchema ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(categoryPageSchema) }} />
+        ) : null}
+        {breadcrumbSchema ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+        ) : null}
         {/* Category header */}
         <div style={{ marginBottom: '32px' }}>
           <h1 style={{
@@ -180,7 +204,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
               }}
             >
               {article.cover_image_url && (
-                <Image src={article.cover_image_url} alt={article.title} width={300} height={169} sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 800px" loading="lazy" style={{ width: '100%', height: 'auto', aspectRatio: '16/9', objectFit: 'cover' }} />
+                <Image src={article.cover_image_url} alt={article.cover_image_alt || article.title} width={300} height={169} sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 800px" loading="lazy" style={{ width: '100%', height: 'auto', aspectRatio: '16/9', objectFit: 'cover' }} />
               )}
               <div style={{ padding: '16px' }}>
                 <h3 style={{ fontFamily: 'var(--e-font-heading)', fontWeight: 700, fontSize: '18px', color: 'var(--e-color-text)' }}>
@@ -302,6 +326,12 @@ export async function generateMetadata({ params }: Props) {
     description: category.description || `Articoli nella categoria ${category.name}`,
     alternates: {
       canonical,
+    },
+    openGraph: {
+      title: `${category.name} - ${resolved.tenant.name}`,
+      description: category.description || `Articoli nella categoria ${category.name}`,
+      url: canonical,
+      type: 'website',
     },
     twitter: {
       card: 'summary',

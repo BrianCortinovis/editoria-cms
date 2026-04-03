@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     return access.error;
   }
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("article_comments")
     .select("id, author_name, author_email, body, status, created_at, articles(title, slug)")
     .eq("tenant_id", tenantId)

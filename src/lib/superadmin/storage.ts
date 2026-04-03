@@ -91,10 +91,12 @@ export async function getObservedTenantMediaUsageBytes(
 export async function assertSiteUploadAllowed(
   tenantId: string,
   incomingBytes: number,
-  serviceClient?: ServiceClient,
+  quotaServiceClient?: ServiceClient,
+  usageServiceClient?: ServiceClient,
 ) {
-  const client = serviceClient || (await createServiceRoleClient());
-  const quota = await getSiteStorageQuotaByTenantId(tenantId, client);
+  const quotaClient = quotaServiceClient || (await createServiceRoleClient());
+  const usageClient = usageServiceClient || quotaClient;
+  const quota = await getSiteStorageQuotaByTenantId(tenantId, quotaClient);
   if (!quota) {
     return {
       allowed: true,
@@ -103,7 +105,7 @@ export async function assertSiteUploadAllowed(
     };
   }
 
-  const observed = await getObservedTenantMediaUsageBytes(tenantId, client);
+  const observed = await getObservedTenantMediaUsageBytes(tenantId, usageClient);
   const nextBytes = observed.bytes + incomingBytes;
   const exceedsHard = quota.hardLimitBytes > 0 && nextBytes > quota.hardLimitBytes;
 

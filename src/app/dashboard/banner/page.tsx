@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Fragment, useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { useAuthStore } from "@/lib/store";
 import toast from "react-hot-toast";
@@ -364,6 +364,317 @@ export default function BannerPage() {
     );
   };
 
+  const renderBannerForm = (mode: "create" | "edit") => (
+    <div className="rounded-lg p-5" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>
+          {mode === "edit" ? "Modifica Banner" : "Nuovo Banner"}
+        </h3>
+        <button type="button" onClick={resetForm} className="rounded p-1">
+          <X className="w-4 h-4" style={{ color: "var(--c-text-3)" }} />
+        </button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="sm:col-span-2 lg:col-span-3">
+          <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Nome campagna *</label>
+          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Es: Banner primavera Hotel Stella"
+            className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
+            style={{ border: "1px solid var(--c-border)" }} />
+        </div>
+        <div>
+          <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Posizione</label>
+          <select value={position} onChange={e => setPosition(e.target.value)}
+            className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+            style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            {positions.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Tipo</label>
+          <select value={type} onChange={e => setType(e.target.value)}
+            className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+            style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            {bannerTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Dispositivo</label>
+          <select value={targetDevice} onChange={e => setTargetDevice(e.target.value)}
+            className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+            style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            <option value="all">Tutti</option>
+            <option value="desktop">Solo Desktop</option>
+            <option value="mobile">Solo Mobile</option>
+          </select>
+        </div>
+        <div className="sm:col-span-2 lg:col-span-3">
+          <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Categorie / gruppi banner</label>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {categories.length === 0 ? (
+              <span className="text-xs" style={{ color: "var(--c-text-3)" }}>Nessuna categoria disponibile.</span>
+            ) : (
+              categories.map((category) => {
+                const active = targetCategories.includes(category.slug);
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => toggleTargetCategory(category.slug)}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium transition"
+                    style={active
+                      ? { background: "var(--c-accent-soft)", color: "var(--c-accent)" }
+                      : { background: "var(--c-bg-2)", color: "var(--c-text-2)" }}
+                  >
+                    {category.name}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+        {type === "image" && (
+          <div className="sm:col-span-2 lg:col-span-3">
+            <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Immagine Banner</label>
+            {imageUrl ? (
+              <div className="mt-1 relative inline-block">
+                <img src={imageUrl} alt="Preview" className="max-h-32 rounded-lg border" style={{ borderColor: "var(--c-border)" }} />
+                <button type="button" onClick={() => setImageUrl("")}
+                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:bg-red-600">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <label className="mt-1 flex items-center gap-3 px-4 py-3 rounded-lg transition hover:bg-[var(--c-bg-2)]"
+                style={{ border: "1px dashed var(--c-border)" }}>
+                <ImageIcon className="w-5 h-5" style={{ color: "var(--c-text-3)" }} />
+                <span className="text-sm" style={{ color: "var(--c-text-2)" }}>Carica immagine banner (JPG, PNG, WebP)</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !currentTenant) return;
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    formData.append("tenant_id", currentTenant.id);
+                    formData.append("tenant_slug", currentTenant.slug);
+                    try {
+                      const res = await fetch("/api/cms/media/upload", { method: "POST", body: formData, credentials: "same-origin" });
+                      const data = await res.json().catch(() => null);
+                      if (!res.ok) { toast.error(data?.error || "Errore upload"); return; }
+                      if (data?.media?.url) { setImageUrl(data.media.url); toast.success("Immagine caricata"); }
+                    } catch { toast.error("Errore upload"); }
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+            <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="oppure incolla URL..."
+              className="w-full mt-2 px-3 py-2 rounded-lg text-xs focus:outline-none focus:ring-1"
+              style={{ border: "1px solid var(--c-border)", color: "var(--c-text-2)" }} />
+          </div>
+        )}
+        {type === "html" && (
+          <div className="sm:col-span-2 lg:col-span-3">
+            <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Codice HTML</label>
+            <textarea value={htmlContent} onChange={e => setHtmlContent(e.target.value)} rows={4} placeholder="<div>...</div>"
+              className="w-full mt-1 px-3 py-2 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 resize-none"
+              style={{ border: "1px solid var(--c-border)" }} />
+          </div>
+        )}
+        <div>
+          <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Link destinazione</label>
+          <input type="url" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder="https://..."
+            className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+            style={{ border: "1px solid var(--c-border)" }} />
+        </div>
+        <div>
+          <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Peso (rotazione)</label>
+          <input type="number" value={weight} onChange={e => setWeight(Number(e.target.value))} min={1} max={100}
+            className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+            style={{ border: "1px solid var(--c-border)" }} />
+        </div>
+        <div>
+          <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Inserzionista</label>
+          <select value={advertiserId} onChange={e => setAdvertiserId(e.target.value)}
+            className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+            style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+            <option value="">Nessuno</option>
+            {advertisers.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Data inizio</label>
+          <input type="datetime-local" value={startsAt} onChange={e => setStartsAt(e.target.value)}
+            className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+            style={{ border: "1px solid var(--c-border)" }} />
+        </div>
+        <div>
+          <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Data fine</label>
+          <input type="datetime-local" value={endsAt} onChange={e => setEndsAt(e.target.value)}
+            className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+            style={{ border: "1px solid var(--c-border)" }} />
+        </div>
+        {type === "image" && position === "interstitial" && (
+          <div className="sm:col-span-2 lg:col-span-3 rounded-lg p-4" style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-2)" }}>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Overlay su notizia</p>
+                <p className="text-xs" style={{ color: "var(--c-text-2)" }}>Mostra il banner sopra card specifiche del sito e richiede la chiusura per aprire l&apos;articolo.</p>
+              </div>
+              <label className="flex items-center gap-2 text-sm" style={{ color: "var(--c-text-1)" }}>
+                <input type="checkbox" checked={overlayEnabled} onChange={e => setOverlayEnabled(e.target.checked)} className="w-4 h-4 rounded" />
+                Attivo
+              </label>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Secondi prima della comparsa</label>
+                <input type="number" min={0} step="0.1" value={overlayDelaySeconds} onChange={e => setOverlayDelaySeconds(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }} />
+              </div>
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>CTA banner</label>
+                <input type="text" value={overlayCtaLabel} onChange={e => setOverlayCtaLabel(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Slug articoli target</label>
+                <input type="text" value={overlayTargetSlugs} onChange={e => setOverlayTargetSlugs(e.target.value)}
+                  placeholder="slug-uno, slug-due, slug-tre"
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }} />
+              </div>
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Titolo overlay</label>
+                <input type="text" value={overlayTitle} onChange={e => setOverlayTitle(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }} />
+              </div>
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>URL CTA overlay</label>
+                <input type="url" value={overlayCtaUrl} onChange={e => setOverlayCtaUrl(e.target.value)} placeholder="https://..."
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Testo breve overlay</label>
+                <textarea value={overlayDescription} onChange={e => setOverlayDescription(e.target.value)} rows={3}
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 resize-none"
+                  style={{ border: "1px solid var(--c-border)" }} />
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="sm:col-span-2 lg:col-span-3 border-t pt-4 mt-2" style={{ borderColor: "var(--c-border)" }}>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--c-text-2)" }}>Impostazioni avanzate</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Rotazione</label>
+              <select value={rotationMode} onChange={e => setRotationMode(e.target.value as typeof rotationMode)}
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+                <option value="sequential">Sequenziale (stesso ordine)</option>
+                <option value="random">Casuale (ogni caricamento)</option>
+                <option value="weighted">Per peso (priorita&apos;)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Intervallo rotazione (ms)</label>
+              <input type="number" min={1000} step={500} value={rotationIntervalMs} onChange={e => setRotationIntervalMs(e.target.value)}
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ border: "1px solid var(--c-border)" }} />
+              <p className="text-[10px] mt-1" style={{ color: "var(--c-text-3)" }}>{(parseInt(rotationIntervalMs) / 1000) || 5}s tra un banner e l&apos;altro</p>
+            </div>
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Dimensionamento</label>
+              <select value={sizingMode} onChange={e => setSizingMode(e.target.value as typeof sizingMode)}
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+                <option value="cover">Riempi spazio (taglia bordi)</option>
+                <option value="contain">Adatta (mostra tutto)</option>
+                <option value="stretch">Allarga (deforma)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Peso / Priorita&apos;</label>
+              <input type="number" min={1} max={100} value={weight} onChange={e => setWeight(Number(e.target.value) || 1)}
+                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                style={{ border: "1px solid var(--c-border)" }} />
+              <p className="text-[10px] mt-1" style={{ color: "var(--c-text-3)" }}>Piu&apos; alto = piu&apos; visibilita&apos;</p>
+            </div>
+          </div>
+        </div>
+        <div className="sm:col-span-2 lg:col-span-3 border-t pt-4 mt-2" style={{ borderColor: "var(--c-border)" }}>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--c-text-2)" }}>Banner overlay su articoli</p>
+              <p className="text-[11px] mt-1" style={{ color: "var(--c-text-3)" }}>Mostra il banner sopra le card articoli. L&apos;utente deve chiuderlo per accedere al contenuto.</p>
+            </div>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={advOverlayEnabled} onChange={e => setAdvOverlayEnabled(e.target.checked)} className="w-4 h-4 rounded" />
+              <span className="text-xs font-medium" style={{ color: "var(--c-text-1)" }}>Attivo</span>
+            </label>
+          </div>
+          {advOverlayEnabled && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Trigger</label>
+                <select value={advOverlayTrigger} onChange={e => setAdvOverlayTrigger(e.target.value as typeof advOverlayTrigger)}
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+                  <option value="hover">Al passaggio del mouse</option>
+                  <option value="click">Al click</option>
+                  <option value="auto">Automatico (con ritardo)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Ritardo (ms)</label>
+                <input type="number" min={0} step={100} value={advOverlayDelayMs} onChange={e => setAdvOverlayDelayMs(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }} />
+                <p className="text-[10px] mt-1" style={{ color: "var(--c-text-3)" }}>Solo per trigger automatico</p>
+              </div>
+              <div>
+                <label className="flex items-center gap-2 mt-6">
+                  <input type="checkbox" checked={advOverlayCloseRequired} onChange={e => setAdvOverlayCloseRequired(e.target.checked)} className="w-4 h-4 rounded" />
+                  <span className="text-xs" style={{ color: "var(--c-text-1)" }}>Chiusura obbligatoria</span>
+                </label>
+              </div>
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Pagine target</label>
+                <input type="text" value={advOverlayTargetPages} onChange={e => setAdvOverlayTargetPages(e.target.value)}
+                  placeholder="homepage, cronaca, sport (vuoto = tutte)"
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-xs focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }} />
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center">
+          <label className="flex items-center gap-2 mt-5">
+            <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)}
+              className="w-4 h-4 rounded" />
+            <span className="text-sm" style={{ color: "var(--c-text-1)" }}>Attivo</span>
+          </label>
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 mt-4">
+        <button onClick={resetForm} className="px-4 py-2 text-sm font-medium rounded-lg transition"
+          style={{ color: "var(--c-text-2)" }}
+          onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>Annulla</button>
+        <button onClick={handleSave} disabled={saving}
+          className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50"
+          style={{ background: "var(--c-accent)" }}
+          onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salva
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       {/* Stats */}
@@ -430,343 +741,11 @@ export default function BannerPage() {
         </div>
       </div>
 
-      {showForm && (
-        <div className="rounded-lg p-5 mb-6" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>{editingId ? "Modifica" : "Nuovo"} Banner</h3>
-            <button onClick={resetForm}><X className="w-4 h-4" style={{ color: "var(--c-text-3)" }} /></button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="sm:col-span-2 lg:col-span-3">
-              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Nome campagna *</label>
-              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Es: Banner primavera Hotel Stella"
-                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2"
-                style={{ border: "1px solid var(--c-border)" }} />
-            </div>
-            <div>
-              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Posizione</label>
-              <select value={position} onChange={e => setPosition(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-                {positions.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Tipo</label>
-              <select value={type} onChange={e => setType(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-                {bannerTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Dispositivo</label>
-              <select value={targetDevice} onChange={e => setTargetDevice(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-                <option value="all">Tutti</option>
-                <option value="desktop">Solo Desktop</option>
-                <option value="mobile">Solo Mobile</option>
-              </select>
-            </div>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Categorie / gruppi banner</label>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {categories.length === 0 ? (
-                  <span className="text-xs" style={{ color: "var(--c-text-3)" }}>Nessuna categoria disponibile.</span>
-                ) : (
-                  categories.map((category) => {
-                    const active = targetCategories.includes(category.slug);
-                    return (
-                      <button
-                        key={category.id}
-                        type="button"
-                        onClick={() => toggleTargetCategory(category.slug)}
-                        className="px-3 py-1.5 rounded-full text-xs font-medium transition"
-                        style={active
-                          ? { background: "var(--c-accent-soft)", color: "var(--c-accent)" }
-                          : { background: "var(--c-bg-2)", color: "var(--c-text-2)" }}
-                      >
-                        {category.name}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-            {type === "image" && (
-              <div className="sm:col-span-2 lg:col-span-3">
-                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Immagine Banner</label>
-                {imageUrl ? (
-                  <div className="mt-1 relative inline-block">
-                    <img src={imageUrl} alt="Preview" className="max-h-32 rounded-lg border" style={{ borderColor: "var(--c-border)" }} />
-                    <button type="button" onClick={() => setImageUrl("")}
-                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:bg-red-600">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="mt-1 flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition hover:bg-[var(--c-bg-2)]"
-                    style={{ border: "1px dashed var(--c-border)" }}>
-                    <ImageIcon className="w-5 h-5" style={{ color: "var(--c-text-3)" }} />
-                    <span className="text-sm" style={{ color: "var(--c-text-2)" }}>Carica immagine banner (JPG, PNG, WebP)</span>
-                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file || !currentTenant) return;
-                        const formData = new FormData();
-                        formData.append("file", file);
-                        formData.append("tenant_id", currentTenant.id);
-                        formData.append("tenant_slug", currentTenant.slug);
-                        try {
-                          const res = await fetch("/api/cms/media/upload", { method: "POST", body: formData, credentials: "same-origin" });
-                          const data = await res.json().catch(() => null);
-                          if (!res.ok) { toast.error(data?.error || "Errore upload"); return; }
-                          if (data?.media?.url) { setImageUrl(data.media.url); toast.success("Immagine caricata"); }
-                        } catch { toast.error("Errore upload"); }
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                )}
-                <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="oppure incolla URL..."
-                  className="w-full mt-2 px-3 py-2 rounded-lg text-xs focus:outline-none focus:ring-1"
-                  style={{ border: "1px solid var(--c-border)", color: "var(--c-text-2)" }} />
-              </div>
-            )}
-            {type === "html" && (
-              <div className="sm:col-span-2 lg:col-span-3">
-                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Codice HTML</label>
-                <textarea value={htmlContent} onChange={e => setHtmlContent(e.target.value)} rows={4} placeholder="<div>...</div>"
-                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 resize-none"
-                  style={{ border: "1px solid var(--c-border)" }} />
-              </div>
-            )}
-            <div>
-              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Link destinazione</label>
-              <input type="url" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder="https://..."
-                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                style={{ border: "1px solid var(--c-border)" }} />
-            </div>
-            <div>
-              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Peso (rotazione)</label>
-              <input type="number" value={weight} onChange={e => setWeight(Number(e.target.value))} min={1} max={100}
-                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                style={{ border: "1px solid var(--c-border)" }} />
-            </div>
-            <div>
-              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Inserzionista</label>
-              <select value={advertiserId} onChange={e => setAdvertiserId(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-                <option value="">Nessuno</option>
-                {advertisers.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Data inizio</label>
-              <input type="datetime-local" value={startsAt} onChange={e => setStartsAt(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                style={{ border: "1px solid var(--c-border)" }} />
-            </div>
-            <div>
-              <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Data fine</label>
-              <input type="datetime-local" value={endsAt} onChange={e => setEndsAt(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                style={{ border: "1px solid var(--c-border)" }} />
-            </div>
-            {type === "image" && position === "interstitial" && (
-              <div className="sm:col-span-2 lg:col-span-3 rounded-lg p-4" style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-2)" }}>
-                <div className="flex items-center justify-between gap-3 mb-4">
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>Overlay su notizia</p>
-                    <p className="text-xs" style={{ color: "var(--c-text-2)" }}>Mostra il banner sopra card specifiche del sito e richiede la chiusura per aprire l&apos;articolo.</p>
-                  </div>
-                  <label className="flex items-center gap-2 text-sm" style={{ color: "var(--c-text-1)" }}>
-                    <input type="checkbox" checked={overlayEnabled} onChange={e => setOverlayEnabled(e.target.checked)} className="w-4 h-4 rounded" />
-                    Attivo
-                  </label>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Secondi prima della comparsa</label>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.1"
-                      value={overlayDelaySeconds}
-                      onChange={e => setOverlayDelaySeconds(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                      style={{ border: "1px solid var(--c-border)" }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>CTA banner</label>
-                    <input
-                      type="text"
-                      value={overlayCtaLabel}
-                      onChange={e => setOverlayCtaLabel(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                      style={{ border: "1px solid var(--c-border)" }}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Slug articoli target</label>
-                    <input
-                      type="text"
-                      value={overlayTargetSlugs}
-                      onChange={e => setOverlayTargetSlugs(e.target.value)}
-                      placeholder="slug-uno, slug-due, slug-tre"
-                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                      style={{ border: "1px solid var(--c-border)" }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Titolo overlay</label>
-                    <input
-                      type="text"
-                      value={overlayTitle}
-                      onChange={e => setOverlayTitle(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                      style={{ border: "1px solid var(--c-border)" }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>URL CTA overlay</label>
-                    <input
-                      type="url"
-                      value={overlayCtaUrl}
-                      onChange={e => setOverlayCtaUrl(e.target.value)}
-                      placeholder="https://..."
-                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                      style={{ border: "1px solid var(--c-border)" }}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Testo breve overlay</label>
-                    <textarea
-                      value={overlayDescription}
-                      onChange={e => setOverlayDescription(e.target.value)}
-                      rows={3}
-                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 resize-none"
-                      style={{ border: "1px solid var(--c-border)" }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-            {/* Advanced Settings */}
-            <div className="sm:col-span-2 lg:col-span-3 border-t pt-4 mt-2" style={{ borderColor: "var(--c-border)" }}>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--c-text-2)" }}>Impostazioni avanzate</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Rotazione</label>
-                  <select value={rotationMode} onChange={e => setRotationMode(e.target.value as typeof rotationMode)}
-                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                    style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-                    <option value="sequential">Sequenziale (stesso ordine)</option>
-                    <option value="random">Casuale (ogni caricamento)</option>
-                    <option value="weighted">Per peso (priorita')</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Intervallo rotazione (ms)</label>
-                  <input type="number" min={1000} step={500} value={rotationIntervalMs} onChange={e => setRotationIntervalMs(e.target.value)}
-                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                    style={{ border: "1px solid var(--c-border)" }} />
-                  <p className="text-[10px] mt-1" style={{ color: "var(--c-text-3)" }}>{(parseInt(rotationIntervalMs) / 1000) || 5}s tra un banner e l&apos;altro</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Dimensionamento</label>
-                  <select value={sizingMode} onChange={e => setSizingMode(e.target.value as typeof sizingMode)}
-                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                    style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-                    <option value="cover">Riempi spazio (taglia bordi)</option>
-                    <option value="contain">Adatta (mostra tutto)</option>
-                    <option value="stretch">Allarga (deforma)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Peso / Priorita'</label>
-                  <input type="number" min={1} max={100} value={weight} onChange={e => setWeight(Number(e.target.value) || 1)}
-                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                    style={{ border: "1px solid var(--c-border)" }} />
-                  <p className="text-[10px] mt-1" style={{ color: "var(--c-text-3)" }}>Piu' alto = piu' visibilita'</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Overlay on articles */}
-            <div className="sm:col-span-2 lg:col-span-3 border-t pt-4 mt-2" style={{ borderColor: "var(--c-border)" }}>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--c-text-2)" }}>Banner overlay su articoli</p>
-                  <p className="text-[11px] mt-1" style={{ color: "var(--c-text-3)" }}>Mostra il banner sopra le card articoli. L&apos;utente deve chiuderlo per accedere al contenuto.</p>
-                </div>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={advOverlayEnabled} onChange={e => setAdvOverlayEnabled(e.target.checked)} className="w-4 h-4 rounded" />
-                  <span className="text-xs font-medium" style={{ color: "var(--c-text-1)" }}>Attivo</span>
-                </label>
-              </div>
-              {advOverlayEnabled && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Trigger</label>
-                    <select value={advOverlayTrigger} onChange={e => setAdvOverlayTrigger(e.target.value as typeof advOverlayTrigger)}
-                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                      style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-                      <option value="hover">Al passaggio del mouse</option>
-                      <option value="click">Al click</option>
-                      <option value="auto">Automatico (con ritardo)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Ritardo (ms)</label>
-                    <input type="number" min={0} step={100} value={advOverlayDelayMs} onChange={e => setAdvOverlayDelayMs(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
-                      style={{ border: "1px solid var(--c-border)" }} />
-                    <p className="text-[10px] mt-1" style={{ color: "var(--c-text-3)" }}>Solo per trigger automatico</p>
-                  </div>
-                  <div>
-                    <label className="flex items-center gap-2 mt-6">
-                      <input type="checkbox" checked={advOverlayCloseRequired} onChange={e => setAdvOverlayCloseRequired(e.target.checked)} className="w-4 h-4 rounded" />
-                      <span className="text-xs" style={{ color: "var(--c-text-1)" }}>Chiusura obbligatoria</span>
-                    </label>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Pagine target</label>
-                    <input type="text" value={advOverlayTargetPages} onChange={e => setAdvOverlayTargetPages(e.target.value)}
-                      placeholder="homepage, cronaca, sport (vuoto = tutte)"
-                      className="w-full mt-1 px-3 py-2 rounded-lg text-xs focus:outline-none focus:ring-1"
-                      style={{ border: "1px solid var(--c-border)" }} />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center">
-              <label className="flex items-center gap-2 cursor-pointer mt-5">
-                <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)}
-                  className="w-4 h-4 rounded" />
-                <span className="text-sm" style={{ color: "var(--c-text-1)" }}>Attivo</span>
-              </label>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <button onClick={resetForm} className="px-4 py-2 text-sm font-medium rounded-lg transition"
-              style={{ color: "var(--c-text-2)" }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>Annulla</button>
-            <button onClick={handleSave} disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50"
-              style={{ background: "var(--c-accent)" }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-accent-hover)"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "var(--c-accent)"}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salva
-            </button>
-          </div>
+      {showForm && !editingId ? (
+        <div className="mb-6">
+          {renderBannerForm("create")}
         </div>
-      )}
+      ) : null}
 
       {/* Sidebar Columns Preview */}
       {!loading && banners.filter(b => b.position === "sidebar" || b.position === "sidebar-left" || b.position === "sidebar-right").length > 0 && (
@@ -850,10 +829,11 @@ export default function BannerPage() {
               </thead>
               <tbody className="divide-y" style={{ borderColor: "var(--c-border)" }}>
                 {banners.map(b => (
-                  <tr key={b.id} className={`transition ${!b.is_active ? "opacity-50" : ""}`}
-                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
-                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                    <td className="px-4 py-3">
+                  <Fragment key={b.id}>
+                    <tr key={b.id} className={`transition ${!b.is_active ? "opacity-50" : ""}`}
+                      onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                      <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {b.image_url ? (
                           <div className="relative w-12 h-8">
@@ -909,21 +889,29 @@ export default function BannerPage() {
                         <Power className="w-3 h-3" />{b.is_active ? "ON" : "OFF"}
                       </button>
                     </td>
-                    <td className="px-2 py-3">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => startEdit(b)} className="w-7 h-7 flex items-center justify-center rounded transition"
+                      <td className="px-2 py-3">
+                        <div className="flex items-center gap-1">
+                          <button type="button" onClick={() => startEdit(b)} className="w-7 h-7 flex items-center justify-center rounded transition"
                           onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
                           onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                          <Pencil className="w-3.5 h-3.5" style={{ color: "var(--c-text-3)" }} />
-                        </button>
-                        <button onClick={() => handleDelete(b.id)} className="w-7 h-7 flex items-center justify-center rounded transition"
+                            <Pencil className="w-3.5 h-3.5" style={{ color: "var(--c-text-3)" }} />
+                          </button>
+                          <button type="button" onClick={() => handleDelete(b.id)} className="w-7 h-7 flex items-center justify-center rounded transition"
                           onMouseEnter={(e) => e.currentTarget.style.background = "var(--c-bg-2)"}
                           onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {showForm && editingId === b.id ? (
+                      <tr style={{ background: "var(--c-bg-2)" }}>
+                        <td colSpan={8} className="px-4 py-4">
+                          {renderBannerForm("edit")}
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

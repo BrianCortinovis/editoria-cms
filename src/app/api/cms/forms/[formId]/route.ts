@@ -58,7 +58,7 @@ export async function PATCH(
   if ("success_message" in parsed.data) patch.success_message = parsed.data.success_message || null;
   if (parsed.data.is_active !== undefined) patch.is_active = parsed.data.is_active;
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("site_forms")
     .update(patch)
     .eq("tenant_id", tenantId)

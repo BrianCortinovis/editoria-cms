@@ -2,7 +2,14 @@ import type { MetadataRoute } from 'next';
 import { buildTenantPublicUrl } from '@/lib/site/public-url';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { readPublishedJson } from '@/lib/publish/storage';
-import type { PublishedManifest, PublishedSettingsDocument } from '@/lib/publish/types';
+import type {
+  PublishedArticleDocument,
+  PublishedCategoryDocument,
+  PublishedManifest,
+  PublishedPageDocument,
+  PublishedSettingsDocument,
+} from '@/lib/publish/types';
+import { isNoindexMeta } from '@/lib/seo/runtime';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
@@ -45,38 +52,92 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
 
       const tenant = settings.tenant;
-      pushEntry({
-        url: buildTenantPublicUrl(tenant, '/'),
-        lastModified: new Date(),
-        changeFrequency: 'daily',
-        priority: 1,
-      });
-
-      for (const articleSlug of Object.keys(manifest.articles || {})) {
+      const homepagePath = manifest.documents.homepage;
+      if (homepagePath) {
+        const homepageDocument = await readPublishedJson<PublishedPageDocument>(homepagePath);
+        const homepageMeta = (homepageDocument?.page?.meta || {}) as Record<string, unknown>;
+        if (!isNoindexMeta(homepageMeta)) {
+          pushEntry({
+            url: buildTenantPublicUrl(tenant, '/'),
+            lastModified: homepageDocument?.page?.updatedAt || homepageDocument?.generatedAt || manifest.generatedAt,
+            changeFrequency: 'daily',
+            priority: 1,
+          });
+        }
+      } else {
         pushEntry({
-          url: buildTenantPublicUrl(tenant, `/articolo/${articleSlug}`),
+          url: buildTenantPublicUrl(tenant, '/'),
           lastModified: manifest.generatedAt || new Date(),
-          changeFrequency: 'weekly',
-          priority: 0.8,
+          changeFrequency: 'daily',
+          priority: 1,
         });
       }
 
-      for (const pageSlug of Object.keys(manifest.pages || {})) {
-        pushEntry({
-          url: buildTenantPublicUrl(tenant, `/${String(pageSlug || '').replace(/^\/+/, '')}`),
-          lastModified: manifest.generatedAt || new Date(),
-          changeFrequency: 'weekly',
-          priority: 0.7,
-        });
+      const pageDocuments = await Promise.all(
+        Object.entries(manifest.pages || {}).map(async ([pageSlug, path]) => {
+          const document = await readPublishedJson<PublishedPageDocument>(path);
+          const meta = (document?.page?.meta || {}) as Record<string, unknown>;
+          if (!document?.page || isNoindexMeta(meta)) {
+            return null;
+          }
+
+          return {
+            url: buildTenantPublicUrl(tenant, `/${String(pageSlug || '').replace(/^\/+/, '')}`),
+            lastModified: document.page.updatedAt || document.generatedAt || manifest.generatedAt,
+            changeFrequency: 'weekly' as const,
+            priority: 0.7,
+          };
+        })
+      );
+
+      for (const entry of pageDocuments) {
+        if (entry) {
+          pushEntry(entry);
+        }
       }
 
-      for (const categorySlug of Object.keys(manifest.categories || {})) {
-        pushEntry({
-          url: buildTenantPublicUrl(tenant, `/categoria/${categorySlug}`),
-          lastModified: manifest.generatedAt || new Date(),
-          changeFrequency: 'weekly',
-          priority: 0.6,
-        });
+      const articleDocuments = await Promise.all(
+        Object.entries(manifest.articles || {}).map(async ([articleSlug, path]) => {
+          const document = await readPublishedJson<PublishedArticleDocument>(path);
+          if (!document?.article || document.article.robots_index === false) {
+            return null;
+          }
+
+          return {
+            url: buildTenantPublicUrl(tenant, `/articolo/${articleSlug}`),
+            lastModified: document.article.published_at || document.generatedAt || manifest.generatedAt,
+            changeFrequency: 'weekly' as const,
+            priority: 0.8,
+          };
+        })
+      );
+
+      for (const entry of articleDocuments) {
+        if (entry) {
+          pushEntry(entry);
+        }
+      }
+
+      const categoryDocuments = await Promise.all(
+        Object.entries(manifest.categories || {}).map(async ([categorySlug, path]) => {
+          const document = await readPublishedJson<PublishedCategoryDocument>(path);
+          if (!document?.category) {
+            return null;
+          }
+
+          return {
+            url: buildTenantPublicUrl(tenant, `/categoria/${categorySlug}`),
+            lastModified: document.category.updatedAt || document.generatedAt || manifest.generatedAt,
+            changeFrequency: 'weekly' as const,
+            priority: 0.6,
+          };
+        })
+      );
+
+      for (const entry of categoryDocuments) {
+        if (entry) {
+          pushEntry(entry);
+        }
       }
     }
 

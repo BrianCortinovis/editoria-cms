@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
+import {
+  createServerSupabaseClient,
+  createServiceRoleClient,
+  createServiceRoleClientForTenant,
+} from "@/lib/supabase/server";
 import { getClientIp, checkRateLimit } from "@/lib/security/rate-limit";
 import { hasCmsRole } from "@/lib/cms/roles";
 
@@ -7,6 +11,7 @@ export const CMS_VIEW_ROLES = new Set(["admin", "super_admin", "chief_editor", "
 export const CMS_EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
 export const CMS_BANNER_ROLES = new Set(["admin", "super_admin", "chief_editor", "advertiser"]);
 export const CMS_MEDIA_DELETE_ROLES = new Set(["admin", "super_admin", "chief_editor"]);
+export const CMS_CONFIG_ROLES = new Set(["admin", "super_admin", "chief_editor"]);
 
 export async function requireTenantAccess(
   tenantId: string,
@@ -32,9 +37,14 @@ export async function requireTenantAccess(
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
+  const platformServiceClient = await createServiceRoleClient();
+  const tenantClient = await createServiceRoleClientForTenant(tenantId);
+
   return {
     sessionClient,
-    serviceClient: await createServiceRoleClient(),
+    serviceClient: tenantClient,
+    tenantClient,
+    platformServiceClient,
     user,
     role: membership.role,
   };

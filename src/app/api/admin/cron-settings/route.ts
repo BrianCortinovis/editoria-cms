@@ -4,6 +4,7 @@ import { runPublishMaintenance } from "@/lib/cron/publish-maintenance";
 import { runSeoAnalysisCron } from "@/lib/cron/seo-analysis";
 import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { getPlatformCronSettings, savePlatformCronSettings } from "@/lib/cron/platform-settings";
+import { syncGlobalCompliancePackToTenants } from "@/lib/legal/compliance-pack";
 import { requireSuperAdminApi } from "@/lib/superadmin/api";
 
 export async function GET() {
@@ -26,16 +27,17 @@ export async function PUT(request: Request) {
   const body = await request.json().catch(() => null);
   const publishMaintenanceEnabled = typeof body?.publishMaintenanceEnabled === "boolean" ? body.publishMaintenanceEnabled : null;
   const seoAnalysisEnabled = typeof body?.seoAnalysisEnabled === "boolean" ? body.seoAnalysisEnabled : null;
+  const complianceSyncEnabled = typeof body?.complianceSyncEnabled === "boolean" ? body.complianceSyncEnabled : null;
 
-  if (publishMaintenanceEnabled === null || seoAnalysisEnabled === null) {
+  if (publishMaintenanceEnabled === null || seoAnalysisEnabled === null || complianceSyncEnabled === null) {
     return NextResponse.json(
-      { error: "publishMaintenanceEnabled e seoAnalysisEnabled obbligatori" },
+      { error: "publishMaintenanceEnabled, seoAnalysisEnabled e complianceSyncEnabled obbligatori" },
       { status: 400 }
     );
   }
 
   const settings = await savePlatformCronSettings(
-    { publishMaintenanceEnabled, seoAnalysisEnabled },
+    { publishMaintenanceEnabled, seoAnalysisEnabled, complianceSyncEnabled },
     access.user.id
   );
 
@@ -44,6 +46,7 @@ export async function PUT(request: Request) {
 
 export async function POST(request: Request) {
   const authError = authorizeCronRequest(request);
+  const isCronRequest = !authError;
   if (authError) {
     const trustedOriginError = assertTrustedMutationRequest(request);
     if (trustedOriginError) {
@@ -51,8 +54,8 @@ export async function POST(request: Request) {
     }
   }
 
-  const access = await requireSuperAdminApi();
-  if ("error" in access) return access.error;
+  const access = isCronRequest ? null : await requireSuperAdminApi();
+  if (access && "error" in access) return access.error;
 
   const body = await request.json().catch(() => null);
   const job = typeof body?.job === "string" ? body.job : null;
@@ -65,6 +68,14 @@ export async function POST(request: Request) {
 
     if (job === "seo-analysis") {
       const result = await runSeoAnalysisCron();
+      return NextResponse.json({ ok: true, job, result });
+    }
+
+    if (job === "compliance-sync") {
+      const result = await syncGlobalCompliancePackToTenants({
+        actorUserId: access?.user.id ?? null,
+        republish: true,
+      });
       return NextResponse.json({ ok: true, job, result });
     }
 

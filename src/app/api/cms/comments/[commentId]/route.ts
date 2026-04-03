@@ -25,7 +25,7 @@ export async function PATCH(
     return access.error;
   }
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("article_comments")
     .update({
       status,

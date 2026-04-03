@@ -205,7 +205,7 @@ async function RenderBlock({
       content = <RenderNavigation block={block} data={data} style={style} />;
       break;
     case 'footer':
-      content = <RenderFooter block={block} data={data} style={style} />;
+      content = <RenderFooter block={block} data={data} style={style} tenantSlug={tenantSlug} />;
       break;
     case 'search-bar':
       content = <RenderSearchBar block={block} style={style} tenantSlug={tenantSlug} />;

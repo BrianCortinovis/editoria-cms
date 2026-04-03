@@ -1,13 +1,8 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { readLatestPlatformR2Config, type PlatformR2Config } from "@/lib/storage/platform-r2-config";
 import { getSiteStorageQuotaByTenantId } from "@/lib/superadmin/storage";
 
-export interface R2Credentials {
-  accountId: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  bucketName: string;
-  publicUrl: string;
-}
+export type R2Credentials = PlatformR2Config;
 
 interface PutObjectOptions {
   cacheControl?: string;
@@ -41,30 +36,9 @@ async function createR2Signer(credentials: R2Credentials) {
   });
 }
 
-/**
- * Load platform-level R2 config from audit_logs
- */
 async function getPlatformR2Config(): Promise<R2Credentials | null> {
   const client = await createServiceRoleClient();
-  const { data } = await client
-    .from("audit_logs")
-    .select("metadata")
-    .eq("action", "platform.r2.config")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!data?.metadata) return null;
-  const m = data.metadata as Record<string, unknown>;
-  if (!m.accountId || !m.accessKeyId || !m.secretAccessKey || !m.bucketName) return null;
-
-  return {
-    accountId: String(m.accountId),
-    accessKeyId: String(m.accessKeyId),
-    secretAccessKey: String(m.secretAccessKey),
-    bucketName: String(m.bucketName),
-    publicUrl: String(m.publicUrl || ""),
-  };
+  return readLatestPlatformR2Config(client);
 }
 
 /**

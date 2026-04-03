@@ -23,7 +23,7 @@ export async function resolveBlockData(
       const offset = p.offset ? parseInt(p.offset, 10) : 0;
       const safeLimit = limit !== undefined ? limit : 20;
       const articleSelect =
-        'id, title, slug, summary, cover_image_url, published_at, reading_time_minutes, is_featured, category_id, profiles!articles_author_id_fkey(full_name, avatar_url), categories:categories!articles_category_id_fkey(id, name, slug, color)';
+        'id, title, slug, summary, cover_image_url, cover_image_alt, published_at, reading_time_minutes, is_featured, category_id, profiles!articles_author_id_fkey(full_name, avatar_url), categories:categories!articles_category_id_fkey(id, name, slug, color)';
       const manualIds = (p.ids || '')
         .split(',')
         .map((value) => value.trim())

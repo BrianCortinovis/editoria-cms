@@ -50,6 +50,14 @@ interface ArticleRow {
   meta_title: string | null;
   meta_description: string | null;
   og_image_url: string | null;
+  canonical_url?: string | null;
+  robots_index?: boolean;
+  robots_follow?: boolean;
+  og_title?: string | null;
+  og_description?: string | null;
+  seo_schema_type?: string | null;
+  focus_keyword?: string | null;
+  cover_image_alt?: string | null;
   language?: string | null;
   category_id?: string | null;
   is_featured: boolean;
@@ -152,6 +160,14 @@ function normalizeArticleSummary(article: ArticleRow & { all_categories?: Array<
     meta_title: article.meta_title,
     meta_description: article.meta_description,
     og_image_url: article.og_image_url,
+    canonical_url: article.canonical_url || null,
+    robots_index: article.robots_index ?? true,
+    robots_follow: article.robots_follow ?? true,
+    og_title: article.og_title || null,
+    og_description: article.og_description || null,
+    seo_schema_type: article.seo_schema_type || "NewsArticle",
+    focus_keyword: article.focus_keyword || null,
+    cover_image_alt: article.cover_image_alt || null,
     language: article.language || null,
     is_featured: article.is_featured,
     is_breaking: article.is_breaking,
@@ -347,7 +363,7 @@ export async function buildPublishedArticleDocument(context: PublishSiteContext,
   const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const { data } = await supabase
     .from('articles')
-    .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, language, category_id, is_featured, is_breaking, is_premium, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color, description)')
+    .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, canonical_url, robots_index, robots_follow, og_title, og_description, seo_schema_type, focus_keyword, cover_image_alt, language, category_id, is_featured, is_breaking, is_premium, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color, description)')
     .eq('tenant_id', context.tenantId)
     .eq('id', articleId)
     .eq('status', 'published')
@@ -400,7 +416,7 @@ export async function buildPublishedCategoryDocument(context: PublishSiteContext
   const relatedArticleIds = await fetchArticleIdsForCategory(supabase as never, category.id);
   let query = supabase
     .from('articles')
-    .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, category_id, is_featured, is_breaking, is_premium, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color, description)')
+    .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, canonical_url, robots_index, robots_follow, og_title, og_description, seo_schema_type, focus_keyword, cover_image_alt, category_id, is_featured, is_breaking, is_premium, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color, description)')
     .eq('tenant_id', context.tenantId)
     .eq('status', 'published')
     .order('published_at', { ascending: false })
@@ -440,7 +456,7 @@ export async function buildPublishedPostsDocument(context: PublishSiteContext): 
   const supabase = await createServiceRoleClientForTenant(context.tenantId);
   const { data } = await supabase
     .from('articles')
-    .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, category_id, is_featured, is_breaking, is_premium, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color, description)')
+    .select('id, title, subtitle, slug, summary, body, cover_image_url, published_at, reading_time_minutes, meta_title, meta_description, og_image_url, canonical_url, robots_index, robots_follow, og_title, og_description, seo_schema_type, focus_keyword, cover_image_alt, category_id, is_featured, is_breaking, is_premium, profiles!articles_author_id_fkey(full_name, avatar_url, bio), categories:categories!articles_category_id_fkey(id, name, slug, color, description)')
     .eq('tenant_id', context.tenantId)
     .eq('status', 'published')
     .order('published_at', { ascending: false })

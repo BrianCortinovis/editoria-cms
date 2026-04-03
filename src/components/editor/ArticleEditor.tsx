@@ -12,6 +12,7 @@ import { requestPublishTrigger } from "@/lib/publish/client";
 import TiptapEditor from "./TiptapEditor";
 import AIPanel from "./AIPanel";
 import AIFieldHelper from "@/components/ai/AIFieldHelper";
+import { SeoSerpPreview } from "@/components/seo/SeoSerpPreview";
 import slugify from "slugify";
 import toast from "react-hot-toast";
 import {
@@ -86,7 +87,7 @@ function CoverImageUpload({ coverImageUrl, onUrlChange, tenantId, tenantSlug }: 
         onUrlChange(data.media.url);
         toast.success("Immagine caricata su R2");
       }
-    } catch (err) {
+    } catch {
       toast.error("Errore upload immagine");
     } finally {
       setUploading(false);
@@ -164,6 +165,14 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
   const [isPremium, setIsPremium] = useState(false);
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
+  const [canonicalUrl, setCanonicalUrl] = useState("");
+  const [robotsIndex, setRobotsIndex] = useState(true);
+  const [robotsFollow, setRobotsFollow] = useState(true);
+  const [ogTitle, setOgTitle] = useState("");
+  const [ogDescription, setOgDescription] = useState("");
+  const [focusKeyword, setFocusKeyword] = useState("");
+  const [seoSchemaType, setSeoSchemaType] = useState("NewsArticle");
+  const [coverImageAlt, setCoverImageAlt] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -203,6 +212,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
   const [slotDisplayMode, setSlotDisplayMode] = useState<PlacementDisplayMode>("duplicate");
   const [slotAssignmentExpiresAt, setSlotAssignmentExpiresAt] = useState<string | null>(null);
   const [slugManual, setSlugManual] = useState(false);
+  const [initialSlug, setInitialSlug] = useState("");
 
   // Load categories, tags, and available slots
   useEffect(() => {
@@ -277,12 +287,21 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
         setIsPremium(data.is_premium);
         setMetaTitle(data.meta_title ?? "");
         setMetaDescription(data.meta_description ?? "");
+        setCanonicalUrl(data.canonical_url ?? "");
+        setRobotsIndex(data.robots_index ?? true);
+        setRobotsFollow(data.robots_follow ?? true);
+        setOgTitle(data.og_title ?? "");
+        setOgDescription(data.og_description ?? "");
+        setFocusKeyword(data.focus_keyword ?? "");
+        setSeoSchemaType(data.seo_schema_type ?? "NewsArticle");
+        setCoverImageAlt(data.cover_image_alt ?? "");
         setScheduledAt(data.scheduled_at ?? "");
         setPublishedAt(data.published_at ?? null);
         setSelectedTags(
           (data.article_tags as { tag_id: string }[]).map((t) => t.tag_id)
         );
         setSlugManual(true);
+        setInitialSlug(data.slug);
 
         // Load existing slot assignment
         const assignmentResponse = await fetch(`/api/v1/assignments/articles/${articleId}`);
@@ -333,6 +352,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           summary: summary.trim() || null,
           body,
           cover_image_url: coverImageUrl || null,
+          cover_image_alt: coverImageAlt.trim() || null,
           category_id: categoryId || null,
           author_id: user.id,
           status: finalStatus,
@@ -341,10 +361,18 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           is_premium: isPremium,
           meta_title: metaTitle || null,
           meta_description: metaDescription || null,
+          canonical_url: canonicalUrl.trim() || null,
+          robots_index: robotsIndex,
+          robots_follow: robotsFollow,
+          og_title: ogTitle.trim() || null,
+          og_description: ogDescription.trim() || null,
           og_image_url: coverImageUrl || null,
+          focus_keyword: focusKeyword.trim() || null,
+          seo_schema_type: seoSchemaType || "NewsArticle",
           published_at: nextPublishedAt,
           scheduled_at: nextScheduledAt,
         };
+        const nextSlug = articleData.slug;
 
         let savedId = articleId;
 
@@ -435,6 +463,23 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
             setSlotAssignmentExpiresAt(null);
           }
 
+          if (!isNew && initialSlug && initialSlug !== nextSlug) {
+            try {
+              await supabase.from("redirects").upsert(
+                {
+                  tenant_id: currentTenant.id,
+                  source_path: `/articolo/${initialSlug}`,
+                  target_path: `/articolo/${nextSlug}`,
+                  status_code: 301,
+                  is_active: true,
+                },
+                { onConflict: "tenant_id,source_path" }
+              );
+            } catch (redirectError) {
+              console.warn("[seo] automatic article redirect creation failed", redirectError);
+            }
+          }
+
           try {
             await requestPublishTrigger(currentTenant.id, [
               { type: "article", articleId: savedId },
@@ -464,6 +509,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
         setStatus(finalStatus);
         setPublishedAt(nextPublishedAt);
         setScheduledAt(nextScheduledAt || "");
+        setInitialSlug(nextSlug);
         toast.success(
           isNew ? "Articolo creato!" : "Articolo aggiornato!"
         );
@@ -481,7 +527,9 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
     [
       currentTenant, user, title, subtitle, slug, summary, body,
       coverImageUrl, categoryId, status, isFeatured, isBreaking,
-      isPremium, metaTitle, metaDescription, scheduledAt, publishedAt,
+      isPremium, metaTitle, metaDescription, canonicalUrl, robotsIndex, robotsFollow,
+      ogTitle, ogDescription, focusKeyword, seoSchemaType, coverImageAlt, scheduledAt, publishedAt,
+      initialSlug,
       selectedCategoryIds, selectedTags, slotId, slotDisplayMode, articleId, isNew, router,
     ]
   );
@@ -496,8 +544,21 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
         : status === "approved"
           ? "Salva approvazione"
           : status === "published"
-            ? "Salva articolo"
+          ? "Salva articolo"
             : "Salva archivio";
+  const effectiveSlug = slug || slugify(title || "articolo", { lower: true, strict: true, locale: "it" });
+  const articleBaseUrl = currentTenant
+    ? (
+        currentTenant.domain
+          ? `https://${currentTenant.domain.replace(/^https?:\/\//, "")}`
+          : `/site/${currentTenant.slug}`
+      )
+    : "";
+  const articlePublicUrl = currentTenant
+    ? `${articleBaseUrl}/articolo/${effectiveSlug}`
+    : "";
+  const serpTitle = metaTitle || title || "Titolo SEO articolo";
+  const serpDescription = metaDescription || summary || "";
 
   const handlePrimaryCategoryChange = (nextCategoryId: string) => {
     setCategoryId(nextCategoryId);
@@ -1124,7 +1185,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
           {/* SEO */}
           <div className="rounded-lg p-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
             <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--c-text-0)" }}>SEO</h3>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="relative group">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Meta Title</label>
@@ -1163,6 +1224,111 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
                   {(metaDescription || summary).length}/160
                 </p>
               </div>
+
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Focus Keyword</label>
+                <input
+                  type="text"
+                  value={focusKeyword}
+                  onChange={(e) => setFocusKeyword(e.target.value)}
+                  placeholder="keyword principale"
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Canonical URL</label>
+                <input
+                  type="text"
+                  value={canonicalUrl}
+                  onChange={(e) => setCanonicalUrl(e.target.value)}
+                  placeholder={articlePublicUrl || "https://www.example.com/articolo/slug"}
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }}
+                />
+                <p className="text-[11px] mt-1" style={{ color: "var(--c-text-3)" }}>
+                  Lascia vuoto per usare automaticamente l&apos;URL pubblico dell&apos;articolo.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Open Graph Title</label>
+                  <input
+                    type="text"
+                    value={ogTitle}
+                    onChange={(e) => setOgTitle(e.target.value)}
+                    placeholder={metaTitle || title || "Titolo social"}
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ border: "1px solid var(--c-border)" }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Schema.org Type</label>
+                  <select
+                    value={seoSchemaType}
+                    onChange={(e) => setSeoSchemaType(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                    style={{ border: "1px solid var(--c-border)", background: "var(--c-bg-1)" }}
+                  >
+                    <option value="NewsArticle">NewsArticle</option>
+                    <option value="Article">Article</option>
+                    <option value="ReportageNewsArticle">ReportageNewsArticle</option>
+                    <option value="AnalysisNewsArticle">AnalysisNewsArticle</option>
+                    <option value="BlogPosting">BlogPosting</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Open Graph Description</label>
+                <textarea
+                  value={ogDescription}
+                  onChange={(e) => setOgDescription(e.target.value)}
+                  placeholder={metaDescription || summary || "Descrizione social"}
+                  rows={2}
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 resize-none"
+                  style={{ border: "1px solid var(--c-border)" }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Alt testo immagine di copertina</label>
+                <input
+                  type="text"
+                  value={coverImageAlt}
+                  onChange={(e) => setCoverImageAlt(e.target.value)}
+                  placeholder={title || "Descrizione accessibile della copertina"}
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1"
+                  style={{ border: "1px solid var(--c-border)" }}
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm" style={{ background: "var(--c-bg-0)", color: "var(--c-text-1)" }}>
+                  <input
+                    type="checkbox"
+                    checked={robotsIndex}
+                    onChange={(e) => setRobotsIndex(e.target.checked)}
+                  />
+                  Indicizzabile
+                </label>
+                <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm" style={{ background: "var(--c-bg-0)", color: "var(--c-text-1)" }}>
+                  <input
+                    type="checkbox"
+                    checked={robotsFollow}
+                    onChange={(e) => setRobotsFollow(e.target.checked)}
+                  />
+                  Segui link
+                </label>
+              </div>
+
+              <SeoSerpPreview
+                title={serpTitle}
+                description={serpDescription}
+                url={canonicalUrl || articlePublicUrl}
+              />
             </div>
           </div>
 

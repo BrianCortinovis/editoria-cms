@@ -262,6 +262,14 @@ export interface PublishedArticleSummary {
   meta_title: string | null;
   meta_description: string | null;
   og_image_url: string | null;
+  canonical_url?: string | null;
+  robots_index?: boolean;
+  robots_follow?: boolean;
+  og_title?: string | null;
+  og_description?: string | null;
+  seo_schema_type?: string | null;
+  focus_keyword?: string | null;
+  cover_image_alt?: string | null;
   language?: string | null;
   is_featured?: boolean;
   is_breaking?: boolean;

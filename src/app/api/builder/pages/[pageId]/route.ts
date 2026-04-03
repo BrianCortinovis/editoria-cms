@@ -3,6 +3,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { assertTrustedMutationRequest } from "@/lib/security/request";
 import { writeActivityLog, writePageAuditLog } from "@/lib/security/audit";
 import { triggerPublish, type PublishTask } from "@/lib/publish/runner";
+import { resolvePagePublicPathById } from "@/lib/pages/page-paths";
+import { upsertRedirectRule } from "@/lib/site/redirects";
 
 const PAGE_EDITOR_ROLES = new Set(["admin", "super_admin", "chief_editor", "editor"]);
 
@@ -66,7 +68,7 @@ export async function PUT(
   // Get page and verify user access to page's tenant
   const { data: page, error: pageError } = await supabase
     .from("site_pages")
-    .select("tenant_id, blocks, meta")
+    .select("tenant_id, blocks, meta, slug, page_type")
     .eq("id", pageId)
     .single();
 
@@ -107,6 +109,8 @@ export async function PUT(
   if (is_published !== undefined) update.is_published = is_published;
   if (sort_order !== undefined) update.sort_order = sort_order;
 
+  const previousPublicPath = await resolvePagePublicPathById(supabase, pageId);
+
   const { data, error } = await supabase
     .from("site_pages")
     .update(update)
@@ -116,6 +120,26 @@ export async function PUT(
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const nextPublicPath = await resolvePagePublicPathById(supabase, pageId);
+  if (
+    typeof slug === "string" &&
+    slug.trim() &&
+    previousPublicPath &&
+    nextPublicPath &&
+    previousPublicPath !== nextPublicPath
+  ) {
+    try {
+      await upsertRedirectRule({
+        tenantId: page.tenant_id,
+        sourcePath: previousPublicPath,
+        targetPath: nextPublicPath,
+        statusCode: 301,
+      });
+    } catch (redirectError) {
+      console.warn("[seo] automatic page redirect creation failed", redirectError);
+    }
   }
 
   await Promise.all([

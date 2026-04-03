@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { getCronSettingsForTenant, getCronSettingsMap } from "@/lib/cron/settings";
+import { hasCmsRole } from "@/lib/cms/roles";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { getDomainProviderMode, getPlatformBaseDomain } from "@/lib/platform/constants";
 import { getObservedTenantMediaUsageBytes, getSiteStorageQuotaByTenantId } from "@/lib/superadmin/storage";
+
+const TECHNICAL_OVERVIEW_ROLES = new Set(["admin", "super_admin", "chief_editor"]);
 
 function getProjectRef() {
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -34,7 +37,7 @@ export async function GET(request: Request) {
     .eq("tenant_id", tenantId)
     .maybeSingle();
 
-  if (!membership) {
+  if (!membership || !hasCmsRole(membership.role, TECHNICAL_OVERVIEW_ROLES)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

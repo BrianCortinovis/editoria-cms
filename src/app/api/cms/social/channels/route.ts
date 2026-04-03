@@ -1,6 +1,44 @@
 import { NextResponse } from "next/server";
-import { CMS_EDITOR_ROLES, requireTenantAccess } from "@/lib/cms/tenant-access";
-import { normalizeSocialAutoConfig } from "@/lib/social/platforms";
+import { assertTrustedMutationRequest } from "@/lib/security/request";
+import { CMS_CONFIG_ROLES, requireTenantAccess } from "@/lib/cms/tenant-access";
+import { normalizeSocialAutoConfig, type SocialAutoConfig } from "@/lib/social/platforms";
+
+const MASKED_SECRET = "••••••••";
+
+function maskSocialConfigSecrets(config: SocialAutoConfig): SocialAutoConfig {
+  return {
+    ...config,
+    channels: Object.fromEntries(
+      Object.entries(config.channels).map(([key, channel]) => [
+        key,
+        {
+          ...channel,
+          webhookUrl: channel.webhookUrl ? MASKED_SECRET : "",
+          accessToken: channel.accessToken ? MASKED_SECRET : "",
+        },
+      ]),
+    ) as SocialAutoConfig["channels"],
+  };
+}
+
+function restoreMaskedSocialConfigSecrets(currentConfig: SocialAutoConfig, incomingConfig: SocialAutoConfig): SocialAutoConfig {
+  return {
+    ...incomingConfig,
+    channels: Object.fromEntries(
+      Object.entries(incomingConfig.channels).map(([key, channel]) => {
+        const currentChannel = currentConfig.channels[key as keyof typeof currentConfig.channels];
+        return [
+          key,
+          {
+            ...channel,
+            webhookUrl: channel.webhookUrl === MASKED_SECRET ? currentChannel?.webhookUrl ?? "" : channel.webhookUrl,
+            accessToken: channel.accessToken === MASKED_SECRET ? currentChannel?.accessToken ?? "" : channel.accessToken,
+          },
+        ];
+      }),
+    ) as SocialAutoConfig["channels"],
+  };
+}
 
 /**
  * GET /api/cms/social/channels?tenant_id=...
@@ -14,10 +52,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "tenant_id required" }, { status: 400 });
   }
 
-  const access = await requireTenantAccess(tenantId, CMS_EDITOR_ROLES);
+  const access = await requireTenantAccess(tenantId, CMS_CONFIG_ROLES);
   if ("error" in access) return access.error;
 
-  const { data: tenant, error } = await access.sessionClient
+  const { data: tenant, error } = await access.platformServiceClient
     .from("tenants")
     .select("settings")
     .eq("id", tenantId)
@@ -31,7 +69,7 @@ export async function GET(request: Request) {
   const moduleConfig = (settings.module_config as Record<string, unknown>) ?? {};
   const socialConfig = normalizeSocialAutoConfig(moduleConfig.social_auto);
 
-  return NextResponse.json({ config: socialConfig });
+  return NextResponse.json({ config: maskSocialConfigSecrets(socialConfig) });
 }
 
 /**
@@ -42,6 +80,11 @@ export async function GET(request: Request) {
  * - operational scope: { tenant_id, scope: "operational", config: { channels: { key: { enabled } } } }
  */
 export async function POST(request: Request) {
+  const trustedOriginError = assertTrustedMutationRequest(request);
+  if (trustedOriginError) {
+    return trustedOriginError;
+  }
+
   const body = await request.json().catch(() => null);
   if (!body || !body.tenant_id) {
     return NextResponse.json({ error: "tenant_id required" }, { status: 400 });
@@ -49,7 +92,7 @@ export async function POST(request: Request) {
 
   const tenantId = String(body.tenant_id);
 
-  const access = await requireTenantAccess(tenantId, CMS_EDITOR_ROLES);
+  const access = await requireTenantAccess(tenantId, CMS_CONFIG_ROLES);
   if ("error" in access) return access.error;
 
   // Normalize the incoming config to ensure consistency
@@ -57,7 +100,7 @@ export async function POST(request: Request) {
   const scope = body.scope === "operational" ? "operational" : "platform";
 
   // Read current settings
-  const { data: tenant, error: readError } = await access.sessionClient
+  const { data: tenant, error: readError } = await access.platformServiceClient
     .from("tenants")
     .select("settings")
     .eq("id", tenantId)
@@ -70,22 +113,23 @@ export async function POST(request: Request) {
   const currentSettings = (tenant.settings ?? {}) as Record<string, unknown>;
   const currentModuleConfig = (currentSettings.module_config as Record<string, unknown>) ?? {};
   const currentConfig = normalizeSocialAutoConfig(currentModuleConfig.social_auto);
+  const nextIncomingConfig = restoreMaskedSocialConfigSecrets(currentConfig, incomingConfig);
 
-  const nextConfig =
+  const nextConfig: SocialAutoConfig =
     scope === "operational"
-      ? {
+      ? normalizeSocialAutoConfig({
           ...currentConfig,
           channels: Object.fromEntries(
             Object.entries(currentConfig.channels).map(([key, channel]) => [
               key,
               {
                 ...channel,
-                enabled: incomingConfig.channels[key as keyof typeof incomingConfig.channels]?.enabled ?? channel.enabled,
+                enabled: nextIncomingConfig.channels[key as keyof typeof nextIncomingConfig.channels]?.enabled ?? channel.enabled,
               },
             ]),
           ),
-        }
-      : incomingConfig;
+        })
+      : nextIncomingConfig;
 
   // Merge into settings
   const updatedSettings = {
@@ -96,7 +140,7 @@ export async function POST(request: Request) {
     },
   };
 
-  const { error: updateError } = await access.sessionClient
+  const { error: updateError } = await access.platformServiceClient
     .from("tenants")
     .update({ settings: updatedSettings })
     .eq("id", tenantId);
@@ -105,5 +149,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, config: nextConfig, scope });
+  return NextResponse.json({ ok: true, config: maskSocialConfigSecrets(nextConfig), scope });
 }

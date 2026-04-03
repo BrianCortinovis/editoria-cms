@@ -3,11 +3,13 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 export interface PlatformCronSettings {
   publishMaintenanceEnabled: boolean;
   seoAnalysisEnabled: boolean;
+  complianceSyncEnabled: boolean;
 }
 
 const DEFAULT_PLATFORM_CRON_SETTINGS: PlatformCronSettings = {
   publishMaintenanceEnabled: true,
   seoAnalysisEnabled: true,
+  complianceSyncEnabled: true,
 };
 
 export function normalizePlatformCronSettings(input: unknown): PlatformCronSettings {
@@ -22,6 +24,10 @@ export function normalizePlatformCronSettings(input: unknown): PlatformCronSetti
       typeof record.seoAnalysisEnabled === "boolean"
         ? record.seoAnalysisEnabled
         : DEFAULT_PLATFORM_CRON_SETTINGS.seoAnalysisEnabled,
+    complianceSyncEnabled:
+      typeof record.complianceSyncEnabled === "boolean"
+        ? record.complianceSyncEnabled
+        : DEFAULT_PLATFORM_CRON_SETTINGS.complianceSyncEnabled,
   };
 }
 

@@ -17,6 +17,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import AIButton from "@/components/ai/AIButton";
+import { SeoGuideSheet } from "@/components/help/SeoGuideSheet";
 import toast from "react-hot-toast";
 
 interface ArticleSEO {
@@ -139,8 +140,10 @@ export default function SeoPage() {
       let searchConsoleVerificationPresent = false;
       let googleNewsPublicationRuntimePresent = false;
 
+      const tenantSitemapUrl = `/site/${tenantSlug}/sitemap.xml`;
+
       try {
-        const sitemapResponse = await fetch("/sitemap.xml", { cache: "no-store" });
+        const sitemapResponse = await fetch(tenantSitemapUrl, { cache: "no-store" });
         const sitemapBody = await sitemapResponse.text();
         sitemapReachable = sitemapResponse.ok && /<urlset|<sitemapindex/i.test(sitemapBody);
       } catch {
@@ -162,13 +165,13 @@ export default function SeoPage() {
             /property=["']og:description["']/i.test(articleHtml);
           analyticsRuntimePresent =
             articleResponse.ok &&
-            (/googletagmanager\.com\/gtag\/js/i.test(articleHtml) || /gtag\(/i.test(articleHtml));
+            /data-ga-configured=["']true["']/i.test(articleHtml);
           tagManagerRuntimePresent =
             articleResponse.ok &&
-            (/googletagmanager\.com\/gtm\.js/i.test(articleHtml) || /gtm\.start/i.test(articleHtml));
+            /data-gtm-configured=["']true["']/i.test(articleHtml);
           adsenseRuntimePresent =
             articleResponse.ok &&
-            /pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/i.test(articleHtml);
+            /data-adsense-configured=["']true["']/i.test(articleHtml);
           searchConsoleVerificationPresent =
             articleResponse.ok &&
             (siteSettings.google_search_console_verification
@@ -335,6 +338,8 @@ export default function SeoPage() {
 
   return (
     <div className="max-w-5xl space-y-6">
+      <SeoGuideSheet />
+
       {/* Score + KPI */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <div className="card p-5 flex items-center gap-5">
@@ -512,7 +517,8 @@ export default function SeoPage() {
           <div className="p-4 space-y-3">
             {[
               { label: "Articoli JSON", desc: "Endpoint pubblico dei contenuti pubblicati", icon: Rss, url: `/api/v1/articles?tenant=${currentTenant?.slug}&limit=20` },
-              { label: "Sitemap XML", desc: "Sitemap pubblica generata dal runtime", icon: Globe, url: `/sitemap.xml` },
+              { label: "Sitemap XML", desc: "Sitemap pubblica del tenant", icon: Globe, url: currentTenant?.domain ? `https://${String(currentTenant.domain).replace(/^https?:\/\//, "")}/sitemap.xml` : `/site/${currentTenant?.slug}/sitemap.xml` },
+              { label: "Robots.txt", desc: "Regole crawl pubbliche del tenant", icon: Search, url: currentTenant?.domain ? `https://${String(currentTenant.domain).replace(/^https?:\/\//, "")}/robots.txt` : `/site/${currentTenant?.slug}/robots.txt` },
               { label: "Breadcrumb JSON-LD", desc: "Schema breadcrumb dedicato per tenant e percorso", icon: BarChart3, url: `/api/seo/breadcrumb?tenant_slug=${currentTenant?.slug}&page_path=/` },
             ].map(r => (
               <div key={r.label} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "var(--c-bg-2)" }}>

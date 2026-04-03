@@ -6,6 +6,7 @@ interface Article {
   slug: string;
   summary: string | null;
   cover_image_url: string | null;
+  cover_image_alt?: string | null;
   published_at: string | null;
   reading_time_minutes: number;
   profiles: { full_name: string; avatar_url: string | null };
@@ -57,7 +58,7 @@ export function RenderArticleGrid({ block, data, style, tenantSlug }: Props) {
             <div className="overflow-hidden" style={{ aspectRatio: imageAspectRatio }}>
               <img
                 src={article.cover_image_url}
-                alt={article.title}
+                alt={article.cover_image_alt || article.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 loading="lazy"
               />

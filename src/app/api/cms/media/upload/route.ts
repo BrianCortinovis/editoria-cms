@@ -104,7 +104,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unsafe file format" }, { status: 400 });
   }
 
-  const quotaCheck = await assertSiteUploadAllowed(tenantId, file.size, access.serviceClient);
+  const quotaCheck = await assertSiteUploadAllowed(
+    tenantId,
+    file.size,
+    access.platformServiceClient,
+    access.tenantClient,
+  );
   if (!quotaCheck.allowed) {
     if (quotaCheck.quota?.uploadBlocked) {
       return NextResponse.json({ error: "Uploads blocked by superadmin policy for this site" }, { status: 403 });
@@ -144,7 +149,7 @@ export async function POST(request: Request) {
       }, { status: 500 });
     }
   } else {
-    const uploadResult = await access.serviceClient.storage
+    const uploadResult = await access.tenantClient.storage
       .from("media")
       .upload(storagePath, uploadBuffer, {
         contentType: file.type,
@@ -156,10 +161,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: uploadResult.error.message }, { status: 500 });
     }
 
-    const { data: urlData } = access.serviceClient.storage.from("media").getPublicUrl(storagePath);
+    const { data: urlData } = access.tenantClient.storage.from("media").getPublicUrl(storagePath);
     publicUrl = urlData.publicUrl;
   }
-  const { data: inserted, error: insertError } = await access.sessionClient
+  const { data: inserted, error: insertError } = await access.tenantClient
     .from("media")
     .insert({
       tenant_id: tenantId,
@@ -177,7 +182,7 @@ export async function POST(request: Request) {
     .single();
 
   if (insertError || !inserted) {
-    await access.serviceClient.storage.from("media").remove([storagePath]);
+    await access.tenantClient.storage.from("media").remove([storagePath]);
     return NextResponse.json({ error: insertError?.message || "Unable to persist media record" }, { status: 500 });
   }
 

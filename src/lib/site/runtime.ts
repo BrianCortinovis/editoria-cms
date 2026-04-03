@@ -19,6 +19,20 @@ function normalizeTenantSlug(rawSlug: string | null | undefined): string | null 
   return slug;
 }
 
+async function hasPubliclyAvailableSite(serviceClient: SupabaseClient, tenantId: string) {
+  const { data } = await serviceClient
+    .from("sites")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .is("archived_at", null)
+    .limit(1)
+    .maybeSingle();
+
+  return Boolean(data?.id);
+}
+
 export async function resolvePublicTenantRecord(tenantSlug: string): Promise<PublicTenantRecord | null> {
   const normalizedSlug = normalizeTenantSlug(tenantSlug);
   if (!normalizedSlug) return null;
@@ -36,6 +50,9 @@ export async function resolvePublicTenantRecord(tenantSlug: string): Promise<Pub
     .maybeSingle();
 
   if (!data) return null;
+  if (!(await hasPubliclyAvailableSite(supabase, data.id))) {
+    return null;
+  }
 
   const tenant = data as PublicTenantRecord;
   tenantRecordCache.set(normalizedSlug, {
@@ -70,6 +87,9 @@ export async function resolvePublicTenantContextById(tenantId: string): Promise<
     .maybeSingle();
 
   if (!data) return null;
+  if (!(await hasPubliclyAvailableSite(supabase, data.id))) {
+    return null;
+  }
 
   const tenant = data as PublicTenantRecord;
   tenantRecordCache.set(tenant.slug, {

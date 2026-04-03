@@ -2,18 +2,24 @@
 
 import type { Block } from '@/lib/types/block';
 import { normalizeFooterConfig } from '@/lib/site/footer';
+import { normalizeNewsletterConfig } from '@/lib/site/newsletter';
+import { NewsletterSignupCard } from './NewsletterSignupModule';
 
 interface Props {
   block: Block;
   data: unknown[];
   style: React.CSSProperties;
+  tenantSlug?: string;
 }
 
-export function RenderFooter({ block, data, style }: Props) {
+export function RenderFooter({ block, data, style, tenantSlug }: Props) {
   const mode = String(block.props.mode || 'global');
   const footerConfig = mode === 'global'
     ? normalizeFooterConfig((data as unknown[])[0] || {})
     : normalizeFooterConfig(block.props);
+  const newsletterConfig = mode === 'global'
+    ? normalizeNewsletterConfig((data as unknown[])[0] || {})
+    : normalizeNewsletterConfig(block.props);
   const variant = String(block.props.variant || 'columns');
   const columns = footerConfig.columns;
 
@@ -94,14 +100,19 @@ export function RenderFooter({ block, data, style }: Props) {
           </div>
         )}
 
-        {footerConfig.newsletter.enabled && (
-          <div style={{ marginTop: '2rem', padding: '1rem 1.25rem', borderRadius: '12px', background: 'rgba(255,255,255,0.06)' }}>
-            <div style={{ fontWeight: 700, color: '#fff', marginBottom: '0.35rem' }}>{footerConfig.newsletter.title || 'Newsletter'}</div>
-            {footerConfig.newsletter.description && (
-              <div style={{ fontSize: '0.875rem', opacity: 0.82 }}>{footerConfig.newsletter.description}</div>
-            )}
+        {footerConfig.newsletter.enabled && newsletterConfig.enabled ? (
+          <div style={{ marginTop: '2rem' }}>
+            <NewsletterSignupCard
+              config={{
+                ...newsletterConfig,
+                compact: true,
+              }}
+              tenantSlug={tenantSlug}
+              style={{}}
+              compactDefault
+            />
           </div>
-        )}
+        ) : null}
 
         {footerConfig.copyright && (
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '2rem', paddingTop: '1.5rem', textAlign: 'center', fontSize: '0.8rem', opacity: 0.6 }}>

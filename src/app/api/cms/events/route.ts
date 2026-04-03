@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     return access.error;
   }
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("events")
     .select("*")
     .eq("tenant_id", tenantId)
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     recurrence_rule: typeof body.recurrence_rule === "string" && body.recurrence_rule ? body.recurrence_rule : null,
   };
 
-  const { data, error } = await access.sessionClient.from("events").insert(payload).select("*").single();
+  const { data, error } = await access.tenantClient.from("events").insert(payload).select("*").single();
   if (error || !data) {
     console.error("event.create failed:", error?.message);
     return NextResponse.json({ error: "Unable to create event" }, { status: 500 });

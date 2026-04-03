@@ -204,14 +204,14 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
-  const visibleMainNav = filterNavByRole(mainNav, currentRole, "main");
   const visibleEditorialNav = filterNavByRole(editorialNav, currentRole, "editorial");
+  const visibleSystemNav = filterNavByRole(systemNav, currentRole, "system");
   const [collapsedSections, setCollapsedSections] = useState({
-    main: false,
     editorial: false,
+    system: false,
   });
 
-  const toggleSection = (section: "main" | "editorial") => {
+  const toggleSection = (section: "editorial" | "system") => {
     setCollapsedSections((prev) => ({
       ...prev,
       [section]: !prev[section],
@@ -266,11 +266,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             </>
           )}
 
-          {visibleMainNav.length > 0 && (
+          {visibleSystemNav.length > 0 && (
             <>
               <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
-              <SectionToggle label="Sito" isOpen={!collapsedSections.main} onToggle={() => toggleSection("main")} />
-              {!collapsedSections.main ? visibleMainNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
+              <SectionToggle label="Sistema" isOpen={!collapsedSections.system} onToggle={() => toggleSection("system")} />
+              {!collapsedSections.system ? visibleSystemNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
             </>
           )}
         </nav>

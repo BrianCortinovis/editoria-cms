@@ -77,7 +77,7 @@ export async function PATCH(
   if ("ends_at" in parsed.data) patch.ends_at = parsed.data.ends_at || null;
   if (parsed.data.is_active !== undefined) patch.is_active = parsed.data.is_active;
 
-  const { data, error } = await access.sessionClient
+  const { data, error } = await access.tenantClient
     .from("banners")
     .update(patch)
     .eq("tenant_id", tenantId)
@@ -123,7 +123,7 @@ export async function DELETE(
     return access.error;
   }
 
-  const { error } = await access.sessionClient.from("banners").delete().eq("tenant_id", tenantId).eq("id", bannerId);
+  const { error } = await access.tenantClient.from("banners").delete().eq("tenant_id", tenantId).eq("id", bannerId);
   if (error) {
     console.error("banner.delete failed:", error.message);
     return NextResponse.json({ error: "Unable to delete banner" }, { status: 500 });

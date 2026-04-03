@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { Block } from '@/lib/types/block';
+import { isTurnstileWidgetConfigured, TurnstileWidget } from '@/components/public/TurnstileWidget';
 
 interface CmsFormField {
   name: string;
@@ -150,6 +151,9 @@ export function RenderCmsForm({ block, data, style, tenantSlug }: Props) {
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileReady, setTurnstileReady] = useState(false);
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
 
   const forms = data as CmsFormData[];
   const configuredSlug = String(block.props.formSlug || '');
@@ -209,6 +213,12 @@ export function RenderCmsForm({ block, data, style, tenantSlug }: Props) {
     setError(null);
     setMessage(null);
 
+    if (isTurnstileWidgetConfigured() && process.env.NODE_ENV === 'production' && !turnstileReady) {
+      setSending(false);
+      setError('Protezione modulo non pronta. Riprova tra qualche secondo.');
+      return;
+    }
+
     try {
       const response = await fetch(`/api/v1/forms/${form.slug}`, {
         method: 'POST',
@@ -217,6 +227,7 @@ export function RenderCmsForm({ block, data, style, tenantSlug }: Props) {
           tenant: tenantSlug,
           payload: values,
           source_page: window.location.pathname,
+          turnstile_token: turnstileToken,
         }),
       });
 
@@ -227,8 +238,10 @@ export function RenderCmsForm({ block, data, style, tenantSlug }: Props) {
 
       setMessage(payload.message || form.success_message || 'Invio ricevuto correttamente.');
       setValues({});
+      setTurnstileResetSignal((current) => current + 1);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Invio non riuscito');
+      setTurnstileResetSignal((current) => current + 1);
     } finally {
       setSending(false);
     }
@@ -294,6 +307,14 @@ export function RenderCmsForm({ block, data, style, tenantSlug }: Props) {
           {form.fields.map((field) => renderField(field, values, handleChange, visualStyle))}
           <input type="text" name="website" value="" onChange={() => undefined} tabIndex={-1} autoComplete="off" style={{ display: 'none' }} />
           <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-start' }}>
+            {isTurnstileWidgetConfigured() ? (
+              <TurnstileWidget
+                onTokenChange={setTurnstileToken}
+                onReadyStateChange={setTurnstileReady}
+                resetSignal={turnstileResetSignal}
+                theme={isDark ? 'dark' : 'light'}
+              />
+            ) : null}
             <button type="submit" disabled={sending} style={submitStyle}>
               {sending ? 'Invio in corso...' : submitButtonText}
             </button>
