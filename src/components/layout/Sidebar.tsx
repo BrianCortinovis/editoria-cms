@@ -52,6 +52,7 @@ export const mainNav = [
   { href: "/dashboard/tag", label: "Tag", icon: Tag },
   { href: "/dashboard/form", label: "Form", icon: FormInput },
   { href: "/dashboard/newsletter", label: "Newsletter", icon: Mail },
+  { href: "/dashboard/email", label: "Email", icon: Mail },
   { href: "/dashboard/commenti", label: "Commenti", icon: MessageSquare },
 ];
 
@@ -114,6 +115,20 @@ function filterNavByRole(
   }
 
   if (role === "editor") {
+    if (section === "main") {
+      const editorAllowed = new Set([
+        "/dashboard/pagine",
+        "/dashboard/menu",
+        "/dashboard/footer",
+        "/dashboard/layout/content",
+        "/dashboard/categorie",
+        "/dashboard/tag",
+        "/dashboard/form",
+        "/dashboard/newsletter",
+        "/dashboard/commenti",
+      ]);
+      return items.filter((item) => editorAllowed.has(item.href));
+    }
     if (section === "system") {
       const editorAllowed = new Set([
         "/dashboard/seo",

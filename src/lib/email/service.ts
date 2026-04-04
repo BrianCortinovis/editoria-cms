@@ -56,6 +56,9 @@ export async function sendEmail(
   }
 
   if (mode === "resend") {
+    if (!process.env.RESEND_API_KEY) {
+      return { success: false, error: "RESEND_API_KEY mancante" };
+    }
     try {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -96,6 +99,58 @@ export async function sendEmail(
   } catch (e) {
     return { success: false, error: String(e) };
   }
+}
+
+export async function sendBulkEmail(
+  payload: EmailPayload & { to: string[] },
+  options?: { concurrency?: number },
+): Promise<{
+  total: number;
+  sent: number;
+  failed: number;
+  failures: Array<{ email: string; error: string }>;
+}> {
+  const uniqueRecipients = Array.from(
+    new Set(
+      payload.to
+        .map((email) => String(email || "").trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+  const concurrency = Math.max(1, Math.min(options?.concurrency || 5, 10));
+  const failures: Array<{ email: string; error: string }> = [];
+  let sent = 0;
+
+  for (let index = 0; index < uniqueRecipients.length; index += concurrency) {
+    const chunk = uniqueRecipients.slice(index, index + concurrency);
+    const results = await Promise.all(
+      chunk.map(async (email) => {
+        const result = await sendEmail({
+          ...payload,
+          to: email,
+        });
+        return { email, result };
+      }),
+    );
+
+    for (const item of results) {
+      if (item.result.success) {
+        sent += 1;
+      } else {
+        failures.push({
+          email: item.email,
+          error: item.result.error || "Send failed",
+        });
+      }
+    }
+  }
+
+  return {
+    total: uniqueRecipients.length,
+    sent,
+    failed: failures.length,
+    failures,
+  };
 }
 
 /**

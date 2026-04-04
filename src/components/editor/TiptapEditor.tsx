@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
@@ -15,13 +15,9 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "@/lib/store";
 import {
   Bold,
-  ChevronDown,
   Italic,
   Underline as UnderlineIcon,
   Strikethrough,
-  Heading1,
-  Heading2,
-  Heading3,
   List,
   ListOrdered,
   Quote,
@@ -38,7 +34,6 @@ import {
   Maximize,
   Loader2,
   Minus,
-  Type,
 } from "lucide-react";
 
 interface TiptapEditorProps {
@@ -54,7 +49,7 @@ export interface TiptapEditorHandle {
   focus: () => void;
 }
 
-type ToolbarPanelId = "text" | "blocks" | "align" | "insert" | "history" | null;
+type TextBlockStyle = "paragraph" | "h1" | "h2" | "h3";
 
 function imageStyleForAlign(align: "full" | "left" | "right" | "center") {
   const styleMap: Record<"full" | "left" | "right" | "center", string> = {
@@ -130,14 +125,30 @@ function ToolbarButton({
       onClick={onClick}
       title={title}
       disabled={disabled}
-      className={`flex items-center justify-center gap-1.5 rounded transition disabled:opacity-30 ${
-        label ? "h-8 px-2.5 text-[11px] font-medium whitespace-nowrap sm:text-xs" : "h-8 w-8 shrink-0"
+      className={`flex items-center justify-center gap-1.5 rounded-md border transition disabled:opacity-30 ${
+        label ? "h-9 px-3 text-[11px] font-medium whitespace-nowrap sm:text-xs" : "h-9 w-9 shrink-0"
       }`}
       style={active
-        ? { background: "var(--c-accent)", color: "#fff" }
-        : { color: "var(--c-text-2)" }}
-      onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--c-bg-2)"; }}
-      onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
+        ? {
+            background: "var(--c-accent-soft)",
+            color: "var(--c-accent)",
+            borderColor: "color-mix(in srgb, var(--c-accent) 28%, var(--c-border))",
+          }
+        : {
+            background: "var(--c-bg-1)",
+            color: "var(--c-text-1)",
+            borderColor: "var(--c-border)",
+          }}
+      onMouseEnter={(e) => {
+        if (!active) {
+          e.currentTarget.style.background = "var(--c-bg-2)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!active) {
+          e.currentTarget.style.background = "var(--c-bg-1)";
+        }
+      }}
     >
       {children}
       {label ? <span>{label}</span> : null}
@@ -145,37 +156,39 @@ function ToolbarButton({
   );
 }
 
-function ToolbarMenuTrigger({
-  label,
-  active,
-  onClick,
+function ToolbarDivider() {
+  return <div className="mx-1 h-7 w-px shrink-0" style={{ background: "var(--c-border)" }} />;
+}
+
+function ToolbarSelect({
+  value,
+  onChange,
+  title,
+  options,
 }: {
-  label: string;
-  active?: boolean;
-  onClick: () => void;
+  value: string;
+  onChange: (event: ChangeEvent<HTMLSelectElement>) => void;
+  title: string;
+  options: Array<{ value: string; label: string }>;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition"
-      style={
-        active
-          ? {
-              background: "var(--c-accent-soft)",
-              color: "var(--c-accent)",
-              border: "1px solid color-mix(in srgb, var(--c-accent) 18%, var(--c-border))",
-            }
-          : {
-              background: "var(--c-bg-1)",
-              color: "var(--c-text-1)",
-              border: "1px solid var(--c-border)",
-            }
-      }
+    <select
+      value={value}
+      onChange={onChange}
+      title={title}
+      className="h-9 rounded-md border px-3 text-xs font-medium outline-none transition"
+      style={{
+        background: "var(--c-bg-1)",
+        color: "var(--c-text-1)",
+        borderColor: "var(--c-border)",
+      }}
     >
-      <span>{label}</span>
-      <ChevronDown className="h-3.5 w-3.5" />
-    </button>
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -187,9 +200,7 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(function 
 }, ref) {
   const { currentTenant } = useAuthStore();
   const [uploading, setUploading] = useState(false);
-  const [openPanel, setOpenPanel] = useState<ToolbarPanelId>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const toolbarRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -242,18 +253,6 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(function 
       editor.commands.setContent(nextContent, { emitUpdate: false });
     }
   }, [content, editor]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (!toolbarRef.current) return;
-      if (event.target instanceof Node && !toolbarRef.current.contains(event.target)) {
-        setOpenPanel(null);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const insertUploadedMedia = useCallback((url: string, file: File) => {
     if (!editor) return;
@@ -365,21 +364,24 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(function 
   if (!editor) return null;
 
   const showExpandedLabels = toolbarMode === "expanded";
-  const triggerLabelText = showExpandedLabels
-    ? {
-        text: "Testo",
-        blocks: "Blocchi",
-        align: "Allinea",
-        insert: "Inserisci",
-        history: "Cronologia",
-      }
-    : {
-        text: "Testo",
-        blocks: "Blocchi",
-        align: "Allinea",
-        insert: "Inserisci",
-        history: "Storico",
-      };
+  const currentBlockStyle: TextBlockStyle = editor.isActive("heading", { level: 1 })
+    ? "h1"
+    : editor.isActive("heading", { level: 2 })
+      ? "h2"
+      : editor.isActive("heading", { level: 3 })
+        ? "h3"
+        : "paragraph";
+
+  const applyBlockStyle = (value: TextBlockStyle) => {
+    const chain = editor.chain().focus();
+    if (value === "paragraph") {
+      chain.setParagraph().run();
+      return;
+    }
+
+    const headingLevel = Number(value.slice(1)) as 1 | 2 | 3;
+    chain.setHeading({ level: headingLevel }).run();
+  };
 
   return (
     <div className="rounded-lg overflow-hidden" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
@@ -393,162 +395,99 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(function 
       />
 
       {/* Toolbar */}
-      <div ref={toolbarRef} className="relative" style={{ borderBottom: "1px solid var(--c-border)", background: "var(--c-bg-2)" }}>
+      <div style={{ borderBottom: "1px solid var(--c-border)", background: "var(--c-bg-2)" }}>
         <div className="overflow-x-auto overscroll-x-contain">
-          <div className="flex min-w-max items-center gap-2 px-3 py-2">
-            <ToolbarMenuTrigger
-              label={triggerLabelText.text}
-              active={openPanel === "text" || editor.isActive("bold") || editor.isActive("italic") || editor.isActive("underline") || editor.isActive("strike")}
-              onClick={() => setOpenPanel((current) => (current === "text" ? null : "text"))}
+          <div className="flex min-w-max items-center px-2 py-2">
+            <ToolbarSelect
+              value={currentBlockStyle}
+              onChange={(event) => applyBlockStyle(event.target.value as TextBlockStyle)}
+              title="Stile del paragrafo"
+              options={[
+                { value: "paragraph", label: "Paragrafo" },
+                { value: "h1", label: "Titolo 1" },
+                { value: "h2", label: "Titolo 2" },
+                { value: "h3", label: "Titolo 3" },
+              ]}
             />
-            <ToolbarMenuTrigger
-              label={triggerLabelText.blocks}
-              active={openPanel === "blocks" || editor.isActive("heading") || editor.isActive("bulletList") || editor.isActive("orderedList") || editor.isActive("blockquote") || editor.isActive("codeBlock")}
-              onClick={() => setOpenPanel((current) => (current === "blocks" ? null : "blocks"))}
-            />
-            <ToolbarMenuTrigger
-              label={triggerLabelText.align}
-              active={openPanel === "align" || editor.isActive({ textAlign: "center" }) || editor.isActive({ textAlign: "right" })}
-              onClick={() => setOpenPanel((current) => (current === "align" ? null : "align"))}
-            />
-            <ToolbarMenuTrigger
-              label={triggerLabelText.insert}
-              active={openPanel === "insert" || editor.isActive("link")}
-              onClick={() => setOpenPanel((current) => (current === "insert" ? null : "insert"))}
-            />
-            <ToolbarMenuTrigger
-              label={triggerLabelText.history}
-              active={openPanel === "history"}
-              onClick={() => setOpenPanel((current) => (current === "history" ? null : "history"))}
-            />
+
+            <ToolbarDivider />
+
+            <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Grassetto" label={showExpandedLabels ? "Grassetto" : undefined}>
+              <Bold className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="Corsivo" label={showExpandedLabels ? "Corsivo" : undefined}>
+              <Italic className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive("underline")} title="Sottolineato" label={showExpandedLabels ? "Sottolineato" : undefined}>
+              <UnderlineIcon className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive("strike")} title="Barrato" label={showExpandedLabels ? "Barrato" : undefined}>
+              <Strikethrough className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={addLink} active={editor.isActive("link")} title="Link" label={showExpandedLabels ? "Link" : undefined}>
+              <Link2 className="h-4 w-4" />
+            </ToolbarButton>
+
+            <ToolbarDivider />
+
+            <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive("bulletList")} title="Lista puntata" label={showExpandedLabels ? "Lista" : undefined}>
+              <List className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive("orderedList")} title="Lista numerata" label={showExpandedLabels ? "Lista num." : undefined}>
+              <ListOrdered className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")} title="Citazione" label={showExpandedLabels ? "Citazione" : undefined}>
+              <Quote className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive("codeBlock")} title="Codice" label={showExpandedLabels ? "Codice" : undefined}>
+              <Code className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Separatore" label={showExpandedLabels ? "Linea" : undefined}>
+              <Minus className="h-4 w-4" />
+            </ToolbarButton>
+
+            <ToolbarDivider />
+
+            <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("left").run()} active={editor.isActive({ textAlign: "left" })} title="Allinea a sinistra" label={showExpandedLabels ? "Sinistra" : undefined}>
+              <AlignLeft className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("center").run()} active={editor.isActive({ textAlign: "center" })} title="Allinea al centro" label={showExpandedLabels ? "Centro" : undefined}>
+              <AlignCenter className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("right").run()} active={editor.isActive({ textAlign: "right" })} title="Allinea a destra" label={showExpandedLabels ? "Destra" : undefined}>
+              <AlignRight className="h-4 w-4" />
+            </ToolbarButton>
+
+            <ToolbarDivider />
+
+            <ToolbarButton onClick={() => fileInputRef.current?.click()} disabled={uploading} title="Carica media" label={showExpandedLabels ? (uploading ? "Caricamento..." : "Media") : undefined}>
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+            </ToolbarButton>
+            <ToolbarButton onClick={insertImageUrl} title="Immagine da URL" label={showExpandedLabels ? "Img URL" : undefined}>
+              <ImagePlus className="h-4 w-4" style={{ opacity: 0.7 }} />
+            </ToolbarButton>
+            <ToolbarButton onClick={insertVideo} title="Video o YouTube" label={showExpandedLabels ? "Video" : undefined}>
+              <Video className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={insertHtml} title="Embed HTML" label={showExpandedLabels ? "Embed" : undefined}>
+              <FileCode className="h-4 w-4" />
+            </ToolbarButton>
+
+            <ToolbarDivider />
+
+            <ToolbarButton onClick={() => editor.chain().focus().undo().run()} title="Annulla" label={showExpandedLabels ? "Undo" : undefined}>
+              <Undo className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().redo().run()} title="Ripristina" label={showExpandedLabels ? "Redo" : undefined}>
+              <Redo className="h-4 w-4" />
+            </ToolbarButton>
           </div>
         </div>
-
-        {openPanel ? (
-          <div className="absolute left-3 right-3 top-[calc(100%-2px)] z-20 rounded-2xl p-3 shadow-2xl" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
-            {openPanel === "text" ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--c-text-2)" }}>
-                  <Type className="h-3.5 w-3.5" />
-                  Formatta testo
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Grassetto" label="Grassetto">
-                    <Bold className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="Corsivo" label="Corsivo">
-                    <Italic className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive("underline")} title="Sottolineato" label="Sottolineato">
-                    <UnderlineIcon className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive("strike")} title="Barrato" label="Barrato">
-                    <Strikethrough className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={addLink} active={editor.isActive("link")} title="Link" label="Link">
-                    <Link2 className="w-4 h-4" />
-                  </ToolbarButton>
-                </div>
-              </div>
-            ) : null}
-
-            {openPanel === "blocks" ? (
-              <div className="space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--c-text-2)" }}>
-                  Blocchi articolo
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive("heading", { level: 1 })} title="Titolo 1" label="Titolo 1">
-                    <Heading1 className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive("heading", { level: 2 })} title="Titolo 2" label="Titolo 2">
-                    <Heading2 className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive("heading", { level: 3 })} title="Titolo 3" label="Titolo 3">
-                    <Heading3 className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive("bulletList")} title="Lista puntata" label="Lista puntata">
-                    <List className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive("orderedList")} title="Lista numerata" label="Lista numerata">
-                    <ListOrdered className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")} title="Citazione" label="Citazione">
-                    <Quote className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive("codeBlock")} title="Codice" label="Codice">
-                    <Code className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Separatore" label="Separatore">
-                    <Minus className="w-4 h-4" />
-                  </ToolbarButton>
-                </div>
-              </div>
-            ) : null}
-
-            {openPanel === "align" ? (
-              <div className="space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--c-text-2)" }}>
-                  Allineamento
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("left").run()} active={editor.isActive({ textAlign: "left" })} title="Sinistra" label="Sinistra">
-                    <AlignLeft className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("center").run()} active={editor.isActive({ textAlign: "center" })} title="Centro" label="Centro">
-                    <AlignCenter className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("right").run()} active={editor.isActive({ textAlign: "right" })} title="Destra" label="Destra">
-                    <AlignRight className="w-4 h-4" />
-                  </ToolbarButton>
-                </div>
-              </div>
-            ) : null}
-
-            {openPanel === "insert" ? (
-              <div className="space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--c-text-2)" }}>
-                  Inserisci contenuti
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <ToolbarButton onClick={() => fileInputRef.current?.click()} disabled={uploading} title="Carica media" label={uploading ? "Caricamento..." : "Carica media"}>
-                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-                  </ToolbarButton>
-                  <ToolbarButton onClick={insertImageUrl} title="Immagine da URL" label="Immagine URL">
-                    <ImagePlus className="w-4 h-4" style={{ opacity: 0.7 }} />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={insertVideo} title="Video" label="Video / YouTube">
-                    <Video className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={insertHtml} title="Embed HTML" label="Embed HTML">
-                    <FileCode className="w-4 h-4" />
-                  </ToolbarButton>
-                </div>
-              </div>
-            ) : null}
-
-            {openPanel === "history" ? (
-              <div className="space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--c-text-2)" }}>
-                  Cronologia
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <ToolbarButton onClick={() => editor.chain().focus().undo().run()} title="Annulla" label="Annulla">
-                    <Undo className="w-4 h-4" />
-                  </ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().redo().run()} title="Ripristina" label="Ripristina">
-                    <Redo className="w-4 h-4" />
-                  </ToolbarButton>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
       </div>
 
       {showExpandedLabels ? (
         <div className="px-3 py-2 text-[11px] leading-5 sm:text-xs" style={{ borderBottom: "1px solid var(--c-border)", background: "var(--c-bg-1)", color: "var(--c-text-2)" }}>
-          Toolbar classica a menu: clicca un gruppo e scegli l&apos;azione dal box. Per le immagini, dopo l&apos;inserimento puoi selezionarle e usare il menu rapido di allineamento.
+          Barra classica dell&apos;editor: i comandi sono sempre visibili e separati per gruppi. Per le immagini, dopo l&apos;inserimento puoi selezionarle e usare il menu rapido di allineamento.
         </div>
       ) : null}
 

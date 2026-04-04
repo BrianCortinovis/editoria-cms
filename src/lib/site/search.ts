@@ -152,6 +152,32 @@ function normalizeSearchText(value: string) {
     .toLowerCase();
 }
 
+function mapPublishedSearchEntry(tenant: SearchTenant, entry: PublishedSearchDocument['entries'][number]): SiteSearchResult {
+  return {
+    id: entry.id,
+    type: entry.type,
+    title: entry.title,
+    slug: entry.slug,
+    excerpt: entry.excerpt,
+    url: buildTenantPublicUrl(tenant, entry.urlPath),
+    imageUrl: entry.imageUrl,
+    publishedAt: entry.publishedAt,
+    updatedAt: entry.updatedAt,
+    readingTimeMinutes: entry.readingTimeMinutes,
+  };
+}
+
+function runPublishedSearchFallback(tenant: SearchTenant, searchableEntries: Array<PublishedSearchDocument['entries'][number] & { haystack: string }>, normalizedQuery: string, limit: number): SearchSiteContentResponse {
+  return {
+    tenant: toPublicTenant(tenant),
+    results: searchableEntries
+      .filter((entry) => entry.haystack.includes(normalizedQuery))
+      .slice(0, limit)
+      .map((entry) => mapPublishedSearchEntry(tenant, entry)),
+    mode: 'fallback',
+  };
+}
+
 async function runPublishedSearch(tenant: SearchTenant, tenantSlug: string, query: string, limit: number, mode: SearchMode): Promise<SearchSiteContentResponse | null> {
   const searchDocument = await fetchPublishedSearchDocument(tenantSlug);
   if (!searchDocument) {
@@ -167,35 +193,17 @@ async function runPublishedSearch(tenant: SearchTenant, tenantSlug: string, quer
   if (mode === 'semantic') {
     const settings = (tenant.settings ?? {}) as Record<string, unknown>;
     if (!isModuleActive(settings, 'ai_assistant')) {
-      return {
-        tenant: toPublicTenant(tenant),
-        results: searchableEntries
-          .filter((entry) => entry.haystack.includes(normalizedQuery))
-          .slice(0, limit)
-          .map((entry) => ({
-            id: entry.id,
-            type: entry.type,
-            title: entry.title,
-            slug: entry.slug,
-            excerpt: entry.excerpt,
-            url: buildTenantPublicUrl(tenant, entry.urlPath),
-            imageUrl: entry.imageUrl,
-            publishedAt: entry.publishedAt,
-            updatedAt: entry.updatedAt,
-            readingTimeMinutes: entry.readingTimeMinutes,
-          })),
-        mode: 'fallback',
-      };
+      return runPublishedSearchFallback(tenant, searchableEntries, normalizedQuery, limit);
     }
 
-    const config = getModuleConfig(settings, 'ai_assistant');
-    const { provider, apiKey, model } = resolveProvider(config, 'search');
-    const catalogue = searchableEntries
-      .slice(0, 120)
-      .map((entry, index) => `${index}: [${entry.type}] ${entry.title} — ${entry.excerpt}`)
-      .join('\n');
-
     try {
+      const config = getModuleConfig(settings, 'ai_assistant');
+      const { provider, apiKey, model } = resolveProvider(config, 'search');
+      const catalogue = searchableEntries
+        .slice(0, 120)
+        .map((entry, index) => `${index}: [${entry.type}] ${entry.title} — ${entry.excerpt}`)
+        .join('\n');
+
       const response = await callProvider(provider, apiKey, {
         system: 'Sei il motore di ricerca di un CMS editoriale. Dato un catalogo di contenuti pubblicati e una query utente, restituisci SOLO un array JSON di indici ordinati per rilevanza, ad esempio [4,1,0].',
         prompt: `Query: "${query}"\n\nCatalogo:\n${catalogue}`,
@@ -228,43 +236,14 @@ async function runPublishedSearch(tenant: SearchTenant, tenantSlug: string, quer
         provider,
       };
     } catch {
-      return {
-        tenant: toPublicTenant(tenant),
-        results: searchableEntries
-          .filter((entry) => entry.haystack.includes(normalizedQuery))
-          .slice(0, limit)
-          .map((entry) => ({
-            id: entry.id,
-            type: entry.type,
-            title: entry.title,
-            slug: entry.slug,
-            excerpt: entry.excerpt,
-            url: buildTenantPublicUrl(tenant, entry.urlPath),
-            imageUrl: entry.imageUrl,
-            publishedAt: entry.publishedAt,
-            updatedAt: entry.updatedAt,
-            readingTimeMinutes: entry.readingTimeMinutes,
-          })),
-        mode: 'fallback',
-      };
+      return runPublishedSearchFallback(tenant, searchableEntries, normalizedQuery, limit);
     }
   }
 
   const simpleResults = searchableEntries
     .filter((entry) => entry.haystack.includes(normalizedQuery))
     .slice(0, limit)
-    .map((entry) => ({
-      id: entry.id,
-      type: entry.type,
-      title: entry.title,
-      slug: entry.slug,
-      excerpt: entry.excerpt,
-      url: buildTenantPublicUrl(tenant, entry.urlPath),
-      imageUrl: entry.imageUrl,
-      publishedAt: entry.publishedAt,
-      updatedAt: entry.updatedAt,
-      readingTimeMinutes: entry.readingTimeMinutes,
-    }));
+    .map((entry) => mapPublishedSearchEntry(tenant, entry));
 
   return {
     tenant: toPublicTenant(tenant),
@@ -344,16 +323,16 @@ async function runSemanticSearch(tenant: SearchTenant, query: string, limit: num
     };
   }
 
-  const config = getModuleConfig(settings, 'ai_assistant');
-  const { provider, apiKey, model } = resolveProvider(config, 'search');
-  const catalogue = combined.map((entry, index) => {
-    if (entry.type === 'article') {
-      return `${index}: [article] ${entry.item.title} — ${excerpt(entry.item.summary || entry.item.body, 140)}`;
-    }
-    return `${index}: [page] ${entry.item.title} — ${excerpt(String(entry.item.meta?.description || entry.item.title), 140)}`;
-  }).join('\n');
-
   try {
+    const config = getModuleConfig(settings, 'ai_assistant');
+    const { provider, apiKey, model } = resolveProvider(config, 'search');
+    const catalogue = combined.map((entry, index) => {
+      if (entry.type === 'article') {
+        return `${index}: [article] ${entry.item.title} — ${excerpt(entry.item.summary || entry.item.body, 140)}`;
+      }
+      return `${index}: [page] ${entry.item.title} — ${excerpt(String(entry.item.meta?.description || entry.item.title), 140)}`;
+    }).join('\n');
+
     const response = await callProvider(provider, apiKey, {
       system: 'Sei il motore di ricerca di un CMS editoriale. Dato un catalogo misto di articoli e pagine e una query utente, restituisci SOLO un array JSON di indici ordinati per rilevanza, ad esempio [4, 1, 0].',
       prompt: `Query: "${query}"\n\nCatalogo:\n${catalogue}`,
