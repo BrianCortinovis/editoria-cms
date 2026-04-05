@@ -40,6 +40,10 @@ import {
 import { useAuthStore } from "@/lib/store";
 import { useThemeStore } from "@/lib/theme";
 import { createClient } from "@/lib/supabase/client";
+import {
+  getCommercialDeskSettingsFromTenant,
+  getJournalistDeskSettingsFromTenant,
+} from "@/lib/desk/uix";
 import { useRouter } from "next/navigation";
 import type { UserRole } from "@/types/database";
 
@@ -219,14 +223,53 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
-  const visibleEditorialNav = filterNavByRole(editorialNav, currentRole, "editorial");
+  const journalistDeskSettings = getJournalistDeskSettingsFromTenant(currentTenant?.settings);
+  const commercialDeskSettings = getCommercialDeskSettingsFromTenant(currentTenant?.settings);
+  const editorialDeskVisible = (() => {
+    if (currentRole === "admin") return true;
+    if (currentRole === "chief_editor") return journalistDeskSettings.allowChiefEditorAccess;
+    if (currentRole === "editor") return journalistDeskSettings.allowEditorAccess;
+    if (currentRole === "contributor") return journalistDeskSettings.allowContributorAccess;
+    return false;
+  })();
+  const commercialDeskVisible = (() => {
+    if (currentRole === "admin") return commercialDeskSettings.allowAdminAccess;
+    if (currentRole === "chief_editor") return commercialDeskSettings.allowChiefEditorAccess;
+    if (currentRole === "editor") return commercialDeskSettings.allowEditorAccess;
+    if (currentRole === "advertiser") return commercialDeskSettings.allowAdvertiserAccess;
+    return false;
+  })();
+  const visibleEditorialNav = filterNavByRole(
+    editorialNav.filter((item) => {
+      if (item.href === "/dashboard/desk") return editorialDeskVisible;
+      if (item.href === "/dashboard/media") return journalistDeskSettings.showFieldKit;
+      if (item.href === "/dashboard/breaking-news") {
+        return journalistDeskSettings.allowBreakingNewsManagement && journalistDeskSettings.showBreakingDesk;
+      }
+      return true;
+    }),
+    currentRole,
+    "editorial"
+  );
+  const visibleAdvNav = filterNavByRole(
+    advNav.filter((item) => {
+      if (item.href === "/dashboard/adv") return commercialDeskVisible;
+      if (item.href === "/dashboard/banner") return commercialDeskSettings.allowBannerManagement;
+      if (item.href === "/dashboard/inserzionisti") return commercialDeskSettings.allowAdvertiserManagement;
+      if (item.href === "/dashboard/contabilita") return commercialDeskSettings.allowRevenueView;
+      return true;
+    }),
+    currentRole,
+    "adv"
+  );
   const visibleSystemNav = filterNavByRole(systemNav, currentRole, "system");
   const [collapsedSections, setCollapsedSections] = useState({
     editorial: false,
+    adv: false,
     system: false,
   });
 
-  const toggleSection = (section: "editorial" | "system") => {
+  const toggleSection = (section: "editorial" | "adv" | "system") => {
     setCollapsedSections((prev) => ({
       ...prev,
       [section]: !prev[section],
@@ -278,6 +321,14 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             <>
               <SectionToggle label="Redazione" isOpen={!collapsedSections.editorial} onToggle={() => toggleSection("editorial")} />
               {!collapsedSections.editorial ? visibleEditorialNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
+            </>
+          )}
+
+          {visibleAdvNav.length > 0 && (
+            <>
+              <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
+              <SectionToggle label="Commerciale" isOpen={!collapsedSections.adv} onToggle={() => toggleSection("adv")} />
+              {!collapsedSections.adv ? visibleAdvNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
             </>
           )}
 

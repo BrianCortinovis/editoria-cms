@@ -5,6 +5,14 @@ import Link from 'next/link';
 import slugify from 'slugify';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import {
+  DEFAULT_JOURNALIST_DESK_SETTINGS,
+  JOURNALIST_ACCESS_TOGGLES,
+  JOURNALIST_LAYOUT_TOGGLES,
+  JOURNALIST_TOOL_TOGGLES,
+  normalizeJournalistDeskSettings,
+  type JournalistDeskSettings,
+} from '@/lib/desk/uix';
 import { requestPublishTrigger } from '@/lib/publish/client';
 import { useAuthStore } from '@/lib/store';
 import { parseAIResponse } from '@/lib/utils/parse';
@@ -71,21 +79,6 @@ type AIArticlePayload = {
   body: string;
 };
 
-type JournalistDeskSettings = {
-  allowContributorAccess: boolean;
-  allowEditorAccess: boolean;
-  allowChiefEditorAccess: boolean;
-  allowClassicMode: boolean;
-  allowAiMode: boolean;
-  allowPhotoUpload: boolean;
-  allowVideoUpload: boolean;
-  allowAudioUpload: boolean;
-  allowCategorySelection: boolean;
-  allowCoverEdit: boolean;
-  allowSendToReview: boolean;
-  allowBreakingNewsManagement: boolean;
-};
-
 type BreakingItem = {
   id: string;
   text: string;
@@ -148,21 +141,6 @@ const ALLOWED_CAPTURE_EXTENSIONS = new Set([
 ]);
 
 const MAX_UPLOAD_SIZE_BYTES = 150 * 1024 * 1024;
-const DEFAULT_DESK_SETTINGS: JournalistDeskSettings = {
-  allowContributorAccess: true,
-  allowEditorAccess: true,
-  allowChiefEditorAccess: true,
-  allowClassicMode: true,
-  allowAiMode: true,
-  allowPhotoUpload: true,
-  allowVideoUpload: true,
-  allowAudioUpload: true,
-  allowCategorySelection: true,
-  allowCoverEdit: true,
-  allowSendToReview: true,
-  allowBreakingNewsManagement: true,
-};
-
 function extractDeskMedia(meta: Record<string, unknown> | null | undefined): MediaAttachment[] {
   const raw = meta?.desk_media;
   if (!Array.isArray(raw)) return [];
@@ -297,7 +275,7 @@ export default function JournalistDeskApp({
   const [mode, setMode] = useState<'classic' | 'ai'>('classic');
   const [mobileWorkspaceView, setMobileWorkspaceView] = useState<'editor' | 'preview'>('editor');
   const [showProjectsMobile, setShowProjectsMobile] = useState(false);
-  const [deskSettings, setDeskSettings] = useState<JournalistDeskSettings>(DEFAULT_DESK_SETTINGS);
+  const [deskSettings, setDeskSettings] = useState<JournalistDeskSettings>(DEFAULT_JOURNALIST_DESK_SETTINGS);
   const [savingDeskSettings, setSavingDeskSettings] = useState(false);
   const [deskPreviewDevice, setDeskPreviewDevice] = useState<'phone' | 'tablet' | 'desktop'>('phone');
 
@@ -340,12 +318,14 @@ export default function JournalistDeskApp({
     currentRole === 'admin' || currentRole === 'chief_editor' || currentRole === 'editor';
   const canManageBreaking =
     (currentRole === 'admin' || currentRole === 'chief_editor' || currentRole === 'editor') &&
-    deskSettings.allowBreakingNewsManagement;
+    deskSettings.allowBreakingNewsManagement &&
+    deskSettings.showBreakingDesk;
   const canUseDesk =
     currentRole === 'admin' ||
     (currentRole === 'chief_editor' && deskSettings.allowChiefEditorAccess) ||
     (currentRole === 'editor' && deskSettings.allowEditorAccess) ||
     (currentRole === 'contributor' && deskSettings.allowContributorAccess);
+  const showCompactProjectPicker = !deskSettings.showProjectsRail;
 
   const selectedArticle = articles.find((article) => article.id === selectedId) || null;
   const selectedGalleryItems = attachments.filter((item) => selectedAttachmentIds.includes(item.id));
@@ -456,21 +436,7 @@ export default function JournalistDeskApp({
         moduleConfig.journalist_desk && typeof moduleConfig.journalist_desk === 'object'
           ? (moduleConfig.journalist_desk as Record<string, unknown>)
           : {};
-
-      setDeskSettings({
-        allowContributorAccess: deskConfigRaw.allowContributorAccess !== false,
-        allowEditorAccess: deskConfigRaw.allowEditorAccess !== false,
-        allowChiefEditorAccess: deskConfigRaw.allowChiefEditorAccess !== false,
-        allowClassicMode: deskConfigRaw.allowClassicMode !== false,
-        allowAiMode: deskConfigRaw.allowAiMode !== false,
-        allowPhotoUpload: deskConfigRaw.allowPhotoUpload !== false,
-        allowVideoUpload: deskConfigRaw.allowVideoUpload !== false,
-        allowAudioUpload: deskConfigRaw.allowAudioUpload !== false,
-        allowCategorySelection: deskConfigRaw.allowCategorySelection !== false,
-        allowCoverEdit: deskConfigRaw.allowCoverEdit !== false,
-        allowSendToReview: deskConfigRaw.allowSendToReview !== false,
-        allowBreakingNewsManagement: deskConfigRaw.allowBreakingNewsManagement !== false,
-      });
+      setDeskSettings(normalizeJournalistDeskSettings(deskConfigRaw));
     }
 
     setLoading(false);
@@ -489,6 +455,12 @@ export default function JournalistDeskApp({
       setMode('classic');
     }
   }, [deskSettings]);
+
+  useEffect(() => {
+    if (!deskSettings.showPreviewPane) {
+      setMobileWorkspaceView('editor');
+    }
+  }, [deskSettings.showPreviewPane]);
 
   const saveDeskSettings = async () => {
     if (!currentTenant || !canConfigureDesk) return;
@@ -843,9 +815,33 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
   const photoCount = attachments.filter((item) => item.mimeType.startsWith('image/')).length;
   const primaryActionLabel = canPublish ? 'Pubblica' : 'Invia in revisione';
   const primaryActionStatus: ArticleStatus = canPublish ? 'published' : 'in_review';
-  const canShowPrimaryAction = canPublish || deskSettings.allowSendToReview;
   const previewUrl = selectedId ? `/giornalista/preview/${selectedId}?ts=${previewNonce}` : null;
+  const showModeSwitcher =
+    deskSettings.showModeSwitcher &&
+    ((deskSettings.allowClassicMode && deskSettings.allowAiMode) ||
+      (!deskSettings.allowClassicMode && deskSettings.allowAiMode));
+  const showPreviewPane = deskSettings.showPreviewPane && Boolean(previewUrl);
+  const showActionBar = deskSettings.showActionBar;
+  const canShowPrimaryAction =
+    showActionBar && (canPublish || deskSettings.allowSendToReview);
   const deskShellPreviewUrl = `/giornalista?frame=1&device=${deskPreviewDevice}&ts=${previewNonce}`;
+  const deskSettingGroups = [
+    {
+      title: 'Accessi',
+      description: 'Chi puo entrare nella UIX redazionale dedicata.',
+      items: JOURNALIST_ACCESS_TOGGLES,
+    },
+    {
+      title: 'Strumenti',
+      description: 'Quali capacita operative puo usare davvero il team editoriale.',
+      items: JOURNALIST_TOOL_TOGGLES,
+    },
+    {
+      title: 'Layout UIX',
+      description: 'Quali blocchi compongono il desk dedicato ai giornalisti.',
+      items: JOURNALIST_LAYOUT_TOGGLES,
+    },
+  ] as const;
   const insertAttachmentIntoBody = useCallback((media: MediaAttachment, align: 'full' | 'left' | 'right' | 'center' = 'center') => {
     const html = buildEmbeddedMediaHtml(media, align);
     if (bodyEditorRef.current) {
@@ -1037,7 +1033,7 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
             Questa shell simula l’app reale che vedranno i giornalisti nel formato selezionato dal CMS platform.
           </p>
         </div>
-      ) : (
+      ) : deskSettings.showDeskHeader ? (
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex flex-col gap-2">
             <h2 className="text-xl font-semibold" style={{ color: 'var(--c-text-0)' }}>
@@ -1048,7 +1044,7 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
             </p>
           </div>
         </div>
-      )}
+      ) : null}
 
       {showSettings && canConfigureDesk ? (
         <section className="rounded-2xl p-4 space-y-4" style={{ background: 'var(--c-bg-1)', border: '1px solid var(--c-border)' }}>
@@ -1086,41 +1082,59 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {[
-              ['allowContributorAccess', 'Accesso collaboratori'],
-              ['allowEditorAccess', 'Accesso editor'],
-              ['allowChiefEditorAccess', 'Accesso caporedattori'],
-              ['allowClassicMode', 'Scrittura classica'],
-              ['allowAiMode', 'Articolo con IA'],
-              ['allowPhotoUpload', 'Upload foto'],
-              ['allowVideoUpload', 'Upload video'],
-              ['allowAudioUpload', 'Upload audio'],
-              ['allowBreakingNewsManagement', 'Gestione breaking news'],
-              ['allowCategorySelection', 'Scelta categoria'],
-              ['allowCoverEdit', 'Modifica copertina'],
-              ['allowSendToReview', 'Invio in revisione'],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() =>
-                  setDeskSettings((prev) => ({
-                    ...prev,
-                    [key]: !prev[key as keyof JournalistDeskSettings],
-                  }))
-                }
-                className="rounded-2xl px-4 py-3 text-left transition"
-                style={{
-                  background: deskSettings[key as keyof JournalistDeskSettings] ? 'var(--c-accent-soft)' : 'var(--c-bg-2)',
-                  border: '1px solid var(--c-border)',
-                }}
+          <div className="grid gap-4 xl:grid-cols-3">
+            {deskSettingGroups.map((group) => (
+              <section
+                key={group.title}
+                className="rounded-[24px] border px-4 py-4"
+                style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)' }}
               >
-                <div className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>{label}</div>
-                <div className="text-xs mt-1" style={{ color: 'var(--c-text-2)' }}>
-                  {deskSettings[key as keyof JournalistDeskSettings] ? 'Attivo' : 'Disattivo'}
+                <div>
+                  <h4 className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
+                    {group.title}
+                  </h4>
+                  <p className="mt-1 text-xs leading-5" style={{ color: 'var(--c-text-2)' }}>
+                    {group.description}
+                  </p>
                 </div>
-              </button>
+
+                <div className="mt-4 space-y-3">
+                  {group.items.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() =>
+                        setDeskSettings((prev) => ({
+                          ...prev,
+                          [item.key]: !prev[item.key],
+                        }))
+                      }
+                      className="w-full rounded-2xl border px-4 py-3 text-left transition"
+                      style={{
+                        background: deskSettings[item.key] ? 'var(--c-accent-soft)' : 'var(--c-bg-1)',
+                        borderColor: 'var(--c-border)',
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
+                            {item.label}
+                          </div>
+                          <div className="text-xs mt-1 leading-5" style={{ color: 'var(--c-text-2)' }}>
+                            {item.description}
+                          </div>
+                        </div>
+                        <span
+                          className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                          style={{ background: deskSettings[item.key] ? 'rgba(14,165,233,0.14)' : 'var(--c-bg-2)', color: deskSettings[item.key] ? 'var(--c-accent)' : 'var(--c-text-2)' }}
+                        >
+                          {deskSettings[item.key] ? 'ON' : 'OFF'}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
 
@@ -1188,7 +1202,8 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
         className={`mx-auto transition-all duration-200 min-w-0 w-full ${embeddedPreview ? '' : standalone ? 'max-w-[1240px]' : 'max-w-[1180px]'}`}
         style={embeddedPreview ? { maxWidth: `${previewDeviceConfig.width}px` } : undefined}
       >
-      <div className="grid grid-cols-1 gap-4 min-w-0 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div className={`grid grid-cols-1 gap-4 min-w-0 ${deskSettings.showProjectsRail ? 'xl:grid-cols-[320px_minmax(0,1fr)]' : ''}`}>
+        {deskSettings.showProjectsRail ? (
         <section
           className="rounded-2xl p-4 space-y-4 self-start xl:sticky xl:top-4"
           style={{ background: 'var(--c-bg-1)', border: '1px solid var(--c-border)' }}
@@ -1262,16 +1277,65 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
           </div>
           </div>
         </section>
+        ) : null}
 
         <section className="rounded-2xl p-4 md:p-5 space-y-5 min-w-0" style={{ background: 'var(--c-bg-1)', border: '1px solid var(--c-border)' }}>
+          {showCompactProjectPicker ? (
+            <section className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--c-bg-0)', border: '1px solid var(--c-border)' }}>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <div className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
+                    Progetto articolo
+                  </div>
+                  <div className="text-xs mt-1" style={{ color: 'var(--c-text-2)' }}>
+                    Versione compatta della rail progetti per una UIX piu essenziale.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={createDraftProject}
+                  disabled={creating}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                  style={{ background: 'var(--c-accent)' }}
+                >
+                  {creating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                  Nuovo progetto articolo
+                </button>
+              </div>
+
+              <label className="space-y-1">
+                <span className="text-xs font-medium" style={{ color: 'var(--c-text-2)' }}>
+                  Bozze disponibili
+                </span>
+                <select
+                  value={selectedId || ''}
+                  onChange={(event) => {
+                    const nextArticle = articles.find((article) => article.id === event.target.value) || null;
+                    setSelectedId(nextArticle?.id || null);
+                    hydrateArticle(nextArticle);
+                  }}
+                  className="input w-full text-sm"
+                >
+                  <option value="">Seleziona un progetto</option>
+                  {articles.map((article) => (
+                    <option key={article.id} value={article.id}>
+                      {article.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </section>
+          ) : null}
+
           {!selectedId ? (
             <div className="rounded-2xl px-4 py-8 text-center text-sm" style={{ background: 'var(--c-bg-2)', color: 'var(--c-text-2)' }}>
               Crea o apri un progetto articolo per iniziare.
             </div>
           ) : (
             <>
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                {deskSettings.allowClassicMode ? (
+              {showModeSwitcher ? (
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                  {deskSettings.allowClassicMode ? (
                   <button
                     type="button"
                     onClick={() => setMode('classic')}
@@ -1292,10 +1356,12 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
                     <Wand2 size={13} className="inline mr-1" />
                     Articolo con IA
                   </button>
-                ) : null}
-              </div>
+                  ) : null}
+                </div>
+              ) : null}
 
-              <div className="grid grid-cols-2 gap-2 sm:hidden">
+              {showPreviewPane ? (
+                <div className="grid grid-cols-2 gap-2 sm:hidden">
                 <button
                   type="button"
                   onClick={() => setMobileWorkspaceView('editor')}
@@ -1320,7 +1386,8 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
                 >
                   Preview
                 </button>
-              </div>
+                </div>
+              ) : null}
 
               <div className={mobileWorkspaceView === 'preview' ? 'hidden sm:block' : 'block'}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1356,6 +1423,7 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
               </div>
               </div>
 
+              {deskSettings.showWorkflowStatus ? (
               <div className={mobileWorkspaceView === 'preview' ? 'hidden sm:block' : 'block'}>
               <div className="flex flex-wrap items-center gap-2">
                 <span
@@ -1372,6 +1440,7 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
                 </span>
               </div>
               </div>
+              ) : null}
 
               {canManageBreaking ? (
                 <div className={mobileWorkspaceView === 'preview' ? 'hidden sm:block' : 'block'}>
@@ -1606,6 +1675,7 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
                 </div>
               ) : null}
 
+              {deskSettings.showFieldKit ? (
               <div className={mobileWorkspaceView === 'preview' ? 'hidden sm:block' : 'block'}>
               <section className="rounded-2xl p-4 space-y-4" style={{ background: 'var(--c-bg-0)', border: '1px solid var(--c-border)' }}>
                 <div className="flex items-center justify-between gap-3">
@@ -1838,6 +1908,7 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
                 ) : null}
               </section>
               </div>
+              ) : null}
 
               <div className={mobileWorkspaceView === 'preview' ? 'hidden sm:block' : 'block'}>
               {mode === 'ai' && deskSettings.allowAiMode ? (
@@ -2014,7 +2085,7 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
               </section>
               </div>
 
-              {previewUrl ? (
+              {showPreviewPane ? (
                 <div className={mobileWorkspaceView === 'editor' ? 'hidden sm:block' : 'block'}>
                 <section className="space-y-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2037,7 +2108,7 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
                         Aggiorna preview
                       </button>
                       <a
-                        href={previewUrl}
+                        href={previewUrl || undefined}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold"
@@ -2062,7 +2133,7 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
                     </div>
                     <iframe
                       key={previewNonce}
-                      src={previewUrl}
+                      src={previewUrl || undefined}
                       title="Anteprima articolo"
                       className="block w-full border-0"
                       style={{ height: 'min(78vh, 980px)', background: '#fff' }}
@@ -2072,6 +2143,7 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
                 </div>
               ) : null}
 
+              {showActionBar ? (
               <div className="hidden sm:flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -2109,6 +2181,7 @@ Genera un articolo completo con titolo, sommario e corpo. Se le istruzioni utent
                   ) : null
                 )}
               </div>
+              ) : null}
 
               {canShowPrimaryAction ? (
                 <div

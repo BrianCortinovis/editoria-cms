@@ -4,6 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import {
+  COMMERCIAL_ACCESS_TOGGLES,
+  COMMERCIAL_LAYOUT_TOGGLES,
+  COMMERCIAL_TOOL_TOGGLES,
+  DEFAULT_COMMERCIAL_DESK_SETTINGS,
+  normalizeCommercialDeskSettings,
+  type CommercialDeskSettings,
+} from '@/lib/desk/uix';
 import { useAuthStore } from '@/lib/store';
 import {
   BadgeDollarSign,
@@ -42,28 +50,6 @@ type CommercialAdvertiser = {
   notes: string | null;
 };
 
-type CommercialDeskSettings = {
-  allowAdvertiserAccess: boolean;
-  allowAdminAccess: boolean;
-  allowChiefEditorAccess: boolean;
-  allowEditorAccess: boolean;
-  allowBannerManagement: boolean;
-  allowAdvertiserManagement: boolean;
-  allowRevenueView: boolean;
-  allowQuickLinksToCms: boolean;
-};
-
-const DEFAULT_SETTINGS: CommercialDeskSettings = {
-  allowAdvertiserAccess: true,
-  allowAdminAccess: true,
-  allowChiefEditorAccess: true,
-  allowEditorAccess: false,
-  allowBannerManagement: true,
-  allowAdvertiserManagement: true,
-  allowRevenueView: true,
-  allowQuickLinksToCms: true,
-};
-
 type CommercialDeskAppProps = {
   showSettings?: boolean;
   standalone?: boolean;
@@ -86,7 +72,7 @@ export default function CommercialDeskApp({
 
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
-  const [settings, setSettings] = useState<CommercialDeskSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<CommercialDeskSettings>(DEFAULT_COMMERCIAL_DESK_SETTINGS);
   const [banners, setBanners] = useState<CommercialBanner[]>([]);
   const [advertisers, setAdvertisers] = useState<CommercialAdvertiser[]>([]);
   const [query, setQuery] = useState('');
@@ -100,6 +86,9 @@ export default function CommercialDeskApp({
     (currentRole === 'admin' && settings.allowAdminAccess) ||
     (currentRole === 'chief_editor' && settings.allowChiefEditorAccess) ||
     (currentRole === 'editor' && settings.allowEditorAccess);
+  const showQuickLinks = settings.allowQuickLinksToCms && settings.showQuickLinksBar;
+  const showCampaignList = settings.showCampaignList && settings.allowBannerManagement;
+  const showClientList = settings.showClientList && settings.allowAdvertiserManagement;
 
   const previewClassName =
     previewDevice === 'phone'
@@ -146,17 +135,7 @@ export default function CommercialDeskApp({
       moduleConfig.commercial_desk && typeof moduleConfig.commercial_desk === 'object'
         ? (moduleConfig.commercial_desk as Record<string, unknown>)
         : {};
-
-    setSettings({
-      allowAdvertiserAccess: rawCommercial.allowAdvertiserAccess !== false,
-      allowAdminAccess: rawCommercial.allowAdminAccess !== false,
-      allowChiefEditorAccess: rawCommercial.allowChiefEditorAccess !== false,
-      allowEditorAccess: rawCommercial.allowEditorAccess === true,
-      allowBannerManagement: rawCommercial.allowBannerManagement !== false,
-      allowAdvertiserManagement: rawCommercial.allowAdvertiserManagement !== false,
-      allowRevenueView: rawCommercial.allowRevenueView !== false,
-      allowQuickLinksToCms: rawCommercial.allowQuickLinksToCms !== false,
-    });
+    setSettings(normalizeCommercialDeskSettings(rawCommercial));
 
     const normalizedBanners = ((bannersRes.data || []) as Array<Record<string, unknown>>).map((item) => ({
       id: String(item.id || ''),
@@ -269,6 +248,23 @@ export default function CommercialDeskApp({
     { href: '/dashboard/inserzionisti', label: 'Clienti', enabled: settings.allowAdvertiserManagement, icon: Building2 },
     { href: '/dashboard/contabilita', label: 'Conti', enabled: settings.allowRevenueView, icon: Receipt },
   ].filter((item) => item.enabled);
+  const commercialSettingGroups = [
+    {
+      title: 'Accessi',
+      description: 'Chi puo usare il desk commerciale del tenant.',
+      items: COMMERCIAL_ACCESS_TOGGLES,
+    },
+    {
+      title: 'Strumenti',
+      description: 'Quali funzioni operative sono disponibili nella shell commerciale.',
+      items: COMMERCIAL_TOOL_TOGGLES,
+    },
+    {
+      title: 'Layout UIX',
+      description: 'Quali blocchi compongono davvero l esperienza dedicata commerciale.',
+      items: COMMERCIAL_LAYOUT_TOGGLES,
+    },
+  ] as const;
 
   const commercialPreviewUrl = `/commerciale?frame=1&device=${commercialPreviewDevice}&preview=${previewNonce}`;
 
@@ -290,7 +286,8 @@ export default function CommercialDeskApp({
         standalone ? 'space-y-6 px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8' : 'space-y-6',
       ].join(' ')}
     >
-      <section className="rounded-[28px] border px-4 py-4 sm:px-5 sm:py-5" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+      {settings.showDeskHeader ? (
+        <section className="rounded-[28px] border px-4 py-4 sm:px-5 sm:py-5" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -352,7 +349,8 @@ export default function CommercialDeskApp({
             ))}
           </div>
         </div>
-      </section>
+        </section>
+      ) : null}
 
       {showSettings && canConfigure ? (
         <section className="rounded-[28px] border px-4 py-4 sm:px-5 sm:py-5" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
@@ -390,38 +388,57 @@ export default function CommercialDeskApp({
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {[
-              ['allowAdvertiserAccess', 'Accesso Commerciale'],
-              ['allowAdminAccess', 'Accesso Admin'],
-              ['allowChiefEditorAccess', 'Accesso Caporedattore'],
-              ['allowEditorAccess', 'Accesso Editor'],
-              ['allowBannerManagement', 'Gestione Banner'],
-              ['allowAdvertiserManagement', 'Gestione Clienti'],
-              ['allowRevenueView', 'Vista Conti'],
-              ['allowQuickLinksToCms', 'Link rapidi ai moduli'],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    [key]: !prev[key as keyof CommercialDeskSettings],
-                  }))
-                }
-                className="rounded-2xl px-4 py-3 text-left transition"
-                style={{
-                  background: settings[key as keyof CommercialDeskSettings] ? 'var(--c-accent-soft)' : 'var(--c-bg-2)',
-                  color: settings[key as keyof CommercialDeskSettings] ? 'var(--c-accent)' : 'var(--c-text-2)',
-                  border: '1px solid var(--c-border)',
-                }}
+          <div className="mt-5 grid gap-4 xl:grid-cols-3">
+            {commercialSettingGroups.map((group) => (
+              <section
+                key={group.title}
+                className="rounded-[24px] border px-4 py-4"
+                style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-0)' }}
               >
-                <div className="text-sm font-semibold">{label}</div>
-                <div className="mt-1 text-xs">
-                  {settings[key as keyof CommercialDeskSettings] ? 'Attivo' : 'Disattivo'}
+                <div>
+                  <h4 className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
+                    {group.title}
+                  </h4>
+                  <p className="mt-1 text-xs leading-5" style={{ color: 'var(--c-text-2)' }}>
+                    {group.description}
+                  </p>
                 </div>
-              </button>
+
+                <div className="mt-4 space-y-3">
+                  {group.items.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          [item.key]: !prev[item.key],
+                        }))
+                      }
+                      className="w-full rounded-2xl border px-4 py-3 text-left transition"
+                      style={{
+                        background: settings[item.key] ? 'var(--c-accent-soft)' : 'var(--c-bg-1)',
+                        color: settings[item.key] ? 'var(--c-accent)' : 'var(--c-text-2)',
+                        borderColor: 'var(--c-border)',
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
+                            {item.label}
+                          </div>
+                          <div className="mt-1 text-xs leading-5" style={{ color: 'var(--c-text-2)' }}>
+                            {item.description}
+                          </div>
+                        </div>
+                        <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: settings[item.key] ? 'rgba(14,165,233,0.14)' : 'var(--c-bg-2)', color: settings[item.key] ? 'var(--c-accent)' : 'var(--c-text-2)' }}>
+                          {settings[item.key] ? 'ON' : 'OFF'}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
 
@@ -501,7 +518,8 @@ export default function CommercialDeskApp({
         </section>
       ) : null}
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {settings.showKpiOverview ? (
+        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           { label: 'Banner', value: banners.length, icon: Megaphone },
           { label: 'Attivi', value: activeBanners, icon: Eye },
@@ -521,9 +539,10 @@ export default function CommercialDeskApp({
             </div>
           );
         })}
-      </section>
+        </section>
+      ) : null}
 
-      {settings.allowQuickLinksToCms ? (
+      {showQuickLinks ? (
         <section className="rounded-[28px] border px-4 py-4 sm:px-5 sm:py-5" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
           <div className="flex flex-wrap items-center gap-2">
             {quickLinks.map((item) => {
@@ -552,7 +571,8 @@ export default function CommercialDeskApp({
         </section>
       ) : null}
 
-      <section className="rounded-[28px] border px-4 py-4 sm:px-5 sm:py-5" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
+      {settings.showSearchBar ? (
+        <section className="rounded-[28px] border px-4 py-4 sm:px-5 sm:py-5" style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="text-sm font-semibold" style={{ color: 'var(--c-text-0)' }}>
@@ -569,10 +589,13 @@ export default function CommercialDeskApp({
             className="input w-full lg:max-w-sm text-sm"
           />
         </div>
-      </section>
+        </section>
+      ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <section
+      {showCampaignList || showClientList ? (
+        <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        {showCampaignList ? (
+          <section
           className={`rounded-[28px] border px-4 py-4 sm:px-5 sm:py-5 ${mobileSection === 'clients' ? 'hidden md:block' : ''}`}
           style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}
         >
@@ -636,9 +659,11 @@ export default function CommercialDeskApp({
                 })
               )}
             </div>
-        </section>
+          </section>
+        ) : null}
 
-        <section
+        {showClientList ? (
+          <section
           className={`rounded-[28px] border px-4 py-4 sm:px-5 sm:py-5 ${mobileSection === 'campaigns' ? 'hidden md:block' : ''}`}
           style={{ borderColor: 'var(--c-border)', background: 'var(--c-bg-1)' }}
         >
@@ -689,8 +714,10 @@ export default function CommercialDeskApp({
                 })
               )}
             </div>
-        </section>
-      </div>
+          </section>
+        ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

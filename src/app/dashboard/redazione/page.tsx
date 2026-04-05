@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { getJournalistDeskSettingsFromTenant } from "@/lib/desk/uix";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import {
@@ -62,6 +63,7 @@ const statusStyles: Record<string, React.CSSProperties> = {
 
 export default function RedazionePage() {
   const { currentTenant, currentRole } = useAuthStore();
+  const deskSettings = getJournalistDeskSettingsFromTenant(currentTenant?.settings);
   const aiEnabled = Array.isArray((currentTenant?.settings as Record<string, unknown> | undefined)?.active_modules)
     ? ((currentTenant?.settings as Record<string, unknown>).active_modules as string[]).includes("ai_assistant")
     : false;
@@ -197,22 +199,44 @@ export default function RedazionePage() {
     { href: "/dashboard/breaking-news", label: "Desk breaking", icon: Zap },
     { href: "/dashboard/eventi", label: "Agenda eventi", icon: CalendarClock },
     ...(aiEnabled ? [{ href: "/dashboard/ia", label: "Tool IA redazione", icon: Sparkles }] : []),
-  ];
+  ].filter((item) => {
+    if (item.href === "/dashboard/breaking-news") {
+      return deskSettings.allowBreakingNewsManagement && deskSettings.showBreakingDesk;
+    }
+    return true;
+  });
   const productionLinks = [
     { href: "/dashboard/desk", label: "Desk Giornalisti", note: "Bozze veloci, media dal campo, invio in revisione." },
     { href: "/dashboard/articoli", label: "Articoli", note: "Revisione completa, stati, opzioni editoriali, publish." },
     { href: "/dashboard/media", label: "Media", note: "Immagini, video e allegati del lavoro quotidiano." },
-  ];
+  ].filter((item) => {
+    if (item.href === "/dashboard/media") return deskSettings.showFieldKit;
+    return true;
+  });
   const controlLinks = [
     { href: "/dashboard/commenti", label: "Commenti", note: "Moderazione, spam, cestino e controlli rapidi." },
     { href: "/dashboard/breaking-news", label: "Breaking News", note: "Ticker, urgenze e contenuti caldi della giornata." },
     { href: "/dashboard/eventi", label: "Eventi", note: "Agenda redazionale e appuntamenti da presidiare." },
     { href: "/dashboard/form", label: "Form", note: "Segnalazioni, contatti e invii che arrivano in redazione." },
-  ];
+  ].filter((item) => {
+    if (item.href === "/dashboard/breaking-news") {
+      return deskSettings.allowBreakingNewsManagement && deskSettings.showBreakingDesk;
+    }
+    return true;
+  });
   const distributionLinks = [
     { href: "/dashboard/social", label: "Social", note: "Rilanci e adattamenti dei contenuti per i canali." },
     { href: "/dashboard/newsletter", label: "Newsletter", note: "Composizione, anteprima e uscite editoriali." },
     { href: "/dashboard/seo", label: "SEO", note: "Metadata, visibilita` e continuita` dei pezzi pubblicati." },
+  ];
+  const uixPills = [
+    { label: "Header desk", enabled: deskSettings.showDeskHeader },
+    { label: "Rail progetti", enabled: deskSettings.showProjectsRail },
+    { label: "Workflow", enabled: deskSettings.showWorkflowStatus },
+    { label: "Modalita IA", enabled: deskSettings.allowAiMode && deskSettings.showModeSwitcher },
+    { label: "Raccolta campo", enabled: deskSettings.showFieldKit },
+    { label: "Preview", enabled: deskSettings.showPreviewPane },
+    { label: "Breaking", enabled: deskSettings.allowBreakingNewsManagement && deskSettings.showBreakingDesk },
   ];
   const rolePlaybook = [
     {
@@ -317,6 +341,42 @@ export default function RedazionePage() {
               Aggiorna dati
             </button>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl px-4 py-4" style={{ background: "var(--c-bg-1)", border: "1px solid var(--c-border)" }}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="text-sm font-semibold" style={{ color: "var(--c-text-0)" }}>
+              UIX Desk Redazione attiva
+            </div>
+            <p className="mt-1 text-sm" style={{ color: "var(--c-text-2)" }}>
+              Questa panoramica ti dice subito quali blocchi della shell giornalisti sono attivi per il tenant corrente.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/desk"
+            className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold"
+            style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}
+          >
+            Configura desk giornalisti
+          </Link>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {uixPills.map((pill) => (
+            <span
+              key={pill.label}
+              className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+              style={
+                pill.enabled
+                  ? { background: "var(--c-accent-soft)", color: "var(--c-accent)" }
+                  : { background: "var(--c-bg-2)", color: "var(--c-text-2)", border: "1px solid var(--c-border)" }
+              }
+            >
+              {pill.label}: {pill.enabled ? "ON" : "OFF"}
+            </span>
+          ))}
         </div>
       </section>
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
