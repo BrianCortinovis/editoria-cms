@@ -3,6 +3,28 @@ interface TenantUrlLike {
   domain?: string | null;
 }
 
+function isLocalLikeHost(value: string) {
+  const normalized = value.trim().replace(/^https?:\/\//i, "").replace(/\/.*$/g, "").toLowerCase();
+  const hostname = normalized.split(":")[0] || normalized;
+
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) {
+    return true;
+  }
+
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) {
+    if (hostname.startsWith("127.") || hostname.startsWith("10.") || hostname.startsWith("192.168.")) {
+      return true;
+    }
+
+    const octets = hostname.split(".").map((part) => Number(part));
+    if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function getDefaultBaseUrl() {
   if (process.env.NEXT_PUBLIC_BASE_URL) {
     return process.env.NEXT_PUBLIC_BASE_URL;
@@ -25,24 +47,26 @@ function getDefaultBaseUrl() {
   return 'http://localhost:3000';
 }
 
-function normalizeBaseUrl(value?: string | null) {
+export function normalizePublicBaseUrl(value?: string | null) {
   const fallback = getDefaultBaseUrl();
   const raw = (value || fallback).trim();
   if (!raw) {
     return fallback;
   }
 
-  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  const withProtocol = /^https?:\/\//i.test(raw)
+    ? raw
+    : `${isLocalLikeHost(raw) ? "http" : "https"}://${raw}`;
   return withProtocol.replace(/\/+$/g, '');
 }
 
 export function getAppBaseUrl() {
-  return normalizeBaseUrl(getDefaultBaseUrl());
+  return normalizePublicBaseUrl(getDefaultBaseUrl());
 }
 
 export function getTenantPublicBaseUrl(tenant: TenantUrlLike) {
   if (tenant.domain) {
-    return normalizeBaseUrl(tenant.domain);
+    return normalizePublicBaseUrl(tenant.domain);
   }
 
   return `${getAppBaseUrl()}/site/${tenant.slug}`;

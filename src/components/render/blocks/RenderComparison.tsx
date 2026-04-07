@@ -19,12 +19,14 @@ export function RenderComparison({ block, style }: Props) {
     <div style={{ ...style, position: 'relative', overflow: 'hidden' }} data-block="comparison">
       <div style={{ position: 'relative', aspectRatio: '16/9', borderRadius: 'inherit', overflow: 'hidden', background: 'var(--e-color-surface, #f8fafc)' }}>
         {afterImage ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img src={afterImage} alt={afterLabel} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #cbd5e1, #94a3b8)' }} />
         )}
         <div style={{ position: 'absolute', inset: 0, width: `${position}%`, overflow: 'hidden' }}>
           {beforeImage ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
             <img src={beforeImage} alt={beforeLabel} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #0f172a, #334155)' }} />

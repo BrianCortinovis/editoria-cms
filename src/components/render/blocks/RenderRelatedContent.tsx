@@ -54,6 +54,7 @@ export function RenderRelatedContent({ block, data, style, tenantSlug }: Props) 
             >
               {showImage && image && (
                 <div style={{ aspectRatio: '16/9', overflow: 'hidden' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={image} alt={item.cover_image_alt || item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                 </div>
               )}

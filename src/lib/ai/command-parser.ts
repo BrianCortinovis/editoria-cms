@@ -243,8 +243,6 @@ export function buildGradientFromText(text: string): Partial<GradientCommand> {
 
   // Extract colors
   const colors: string[] = [];
-  let match;
-  const colorRegex = /[\w]+(?:\s+(?:e|o)\s+)?/g;
   const textLower = text.toLowerCase();
 
   // Try to find multiple color names

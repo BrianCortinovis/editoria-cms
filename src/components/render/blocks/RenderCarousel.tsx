@@ -86,6 +86,7 @@ export function RenderCarousel({ block, style }: Props) {
           >
             {item.image && (
               <div style={{ aspectRatio: '16/9', overflow: 'hidden' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={item.image} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
               </div>
             )}

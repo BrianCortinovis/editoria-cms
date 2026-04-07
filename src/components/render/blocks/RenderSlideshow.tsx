@@ -105,7 +105,10 @@ export function RenderSlideshow({ block, style }: Props) {
   return (
     <div style={{ ...style, position: 'relative', overflow: 'hidden', borderRadius: 'inherit', height }} data-block="slideshow">
       {current.image ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={current.image} alt={current.title || ''} style={{ width: '100%', height: '100%', objectFit }} />
+        </>
       ) : (
         <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #1d4ed8, #7c3aed)' }} />
       )}

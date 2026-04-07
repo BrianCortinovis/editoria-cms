@@ -21,9 +21,13 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     const focusedRef = useRef(false);
 
     useEffect(() => {
-      // Always sync draftValue with the prop value
-      // The textarea's onChange will handle user edits
-      setDraftValue(String(value ?? ''));
+      const nextValue = String(value ?? '');
+      const frame = window.requestAnimationFrame(() => {
+        setDraftValue(nextValue);
+      });
+      return () => {
+        window.cancelAnimationFrame(frame);
+      };
     }, [value]);
 
     useEffect(() => {

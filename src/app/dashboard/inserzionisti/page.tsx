@@ -332,7 +332,10 @@ export default function InserzionistiPage() {
                             {advBanners.map(b => (
                               <div key={b.id} className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border)", opacity: b.is_active ? 1 : 0.5 }}>
                                 {b.image_url ? (
+                                  <>
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img src={b.image_url} alt={b.name} className="w-full h-20 object-cover" />
+                                  </>
                                 ) : (
                                   <div className="w-full h-20 flex items-center justify-center" style={{ background: "var(--c-bg-2)" }}>
                                     <ImageIcon className="w-5 h-5" style={{ color: "var(--c-text-3)" }} />

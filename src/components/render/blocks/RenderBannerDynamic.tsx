@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Block } from '@/lib/types';
 
@@ -46,32 +46,16 @@ export function RenderBannerDynamic({ block, data }: RenderBannerDynamicProps) {
   const transitionType = props.transitionType ?? 'fade';
   const height = props.height ?? 400;
   const overlayOpacity = props.overlayOpacity ?? 0.3;
-  const overlayColor = props.overlayColor ?? '#000000';
   const showDots = props.showDots ?? true;
   const showArrows = props.showArrows ?? true;
   const loop = props.loop ?? true;
 
-  if (banners.length === 0) {
-    return (
-      <div style={{
-        height: `${height}px`,
-        background: '#f0f0f0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#999',
-      }}>
-        Nessun banner configurato
-      </div>
-    );
-  }
-
-  const goToSlide = (index: number) => {
+  const goToSlide = useCallback((index: number) => {
     if (isTransitioning) return;
     setIsTransitioning(true);
     setActiveIndex(index);
     setTimeout(() => setIsTransitioning(false), transitionDuration);
-  };
+  }, [isTransitioning, transitionDuration]);
 
   const nextSlide = () => {
     const next = activeIndex + 1;
@@ -93,10 +77,34 @@ export function RenderBannerDynamic({ block, data }: RenderBannerDynamicProps) {
 
   // Autoplay
   useEffect(() => {
-    if (!autoplay) return;
-    const interval = setInterval(nextSlide, autoplayInterval);
+    if (!autoplay || banners.length <= 1) return;
+    const interval = setInterval(() => {
+      const next = activeIndex + 1;
+      if (next >= banners.length) {
+        if (loop) {
+          goToSlide(0);
+        }
+        return;
+      }
+      goToSlide(next);
+    }, autoplayInterval);
     return () => clearInterval(interval);
-  }, [activeIndex, autoplay, autoplayInterval]);
+  }, [activeIndex, autoplay, autoplayInterval, banners.length, goToSlide, loop]);
+
+  if (banners.length === 0) {
+    return (
+      <div style={{
+        height: `${height}px`,
+        background: '#f0f0f0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#999',
+      }}>
+        Nessun banner configurato
+      </div>
+    );
+  }
 
   const activeBanner = banners[activeIndex];
 

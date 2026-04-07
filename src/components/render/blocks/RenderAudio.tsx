@@ -27,6 +27,7 @@ export function RenderAudio({ block, style }: Props) {
     >
       {coverImage && (
         <div style={{ width: '120px', aspectRatio: '1/1', borderRadius: '14px', overflow: 'hidden' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={coverImage} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
       )}

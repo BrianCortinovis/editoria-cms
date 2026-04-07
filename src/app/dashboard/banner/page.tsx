@@ -437,6 +437,7 @@ export default function BannerPage() {
             <label className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>Immagine Banner</label>
             {imageUrl ? (
               <div className="mt-1 relative inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={imageUrl} alt="Preview" className="max-h-32 rounded-lg border" style={{ borderColor: "var(--c-border)" }} />
                 <button type="button" onClick={() => setImageUrl("")}
                   className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:bg-red-600">
@@ -769,7 +770,12 @@ export default function BannerPage() {
                     : allLeft.map((b) => (
                       <div key={b.id} className="rounded overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
                         {b.image_url
-                          ? <img src={b.image_url} alt={b.name} className="w-full h-auto" style={{ maxHeight: "80px", objectFit: "cover" }} />
+                          ? (
+                            <>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={b.image_url} alt={b.name} className="w-full h-auto" style={{ maxHeight: "80px", objectFit: "cover" }} />
+                            </>
+                          )
                           : <div className="h-12 flex items-center justify-center text-[10px]" style={{ background: "var(--c-bg-1)", color: "var(--c-text-3)" }}>{b.name}</div>
                         }
                       </div>
@@ -791,7 +797,12 @@ export default function BannerPage() {
                     : allRight.map((b) => (
                       <div key={b.id} className="rounded overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
                         {b.image_url
-                          ? <img src={b.image_url} alt={b.name} className="w-full h-auto" style={{ maxHeight: "80px", objectFit: "cover" }} />
+                          ? (
+                            <>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={b.image_url} alt={b.name} className="w-full h-auto" style={{ maxHeight: "80px", objectFit: "cover" }} />
+                            </>
+                          )
                           : <div className="h-12 flex items-center justify-center text-[10px]" style={{ background: "var(--c-bg-1)", color: "var(--c-text-3)" }}>{b.name}</div>
                         }
                       </div>

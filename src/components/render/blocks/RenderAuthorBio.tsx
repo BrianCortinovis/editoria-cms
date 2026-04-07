@@ -31,6 +31,7 @@ export function RenderAuthorBio({ block, style }: Props) {
       data-block="author-bio"
     >
       {avatarUrl && (
+        /* eslint-disable-next-line @next/next/no-img-element */
         <img
           src={avatarUrl}
           alt={name}

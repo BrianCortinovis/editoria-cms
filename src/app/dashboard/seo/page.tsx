@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
+import { normalizePublicBaseUrl } from "@/lib/site/public-url";
 import {
   BarChart3,
   Globe,
@@ -517,8 +518,8 @@ export default function SeoPage() {
           <div className="p-4 space-y-3">
             {[
               { label: "Articoli JSON", desc: "Endpoint pubblico dei contenuti pubblicati", icon: Rss, url: `/api/v1/articles?tenant=${currentTenant?.slug}&limit=20` },
-              { label: "Sitemap XML", desc: "Sitemap pubblica del tenant", icon: Globe, url: currentTenant?.domain ? `https://${String(currentTenant.domain).replace(/^https?:\/\//, "")}/sitemap.xml` : `/site/${currentTenant?.slug}/sitemap.xml` },
-              { label: "Robots.txt", desc: "Regole crawl pubbliche del tenant", icon: Search, url: currentTenant?.domain ? `https://${String(currentTenant.domain).replace(/^https?:\/\//, "")}/robots.txt` : `/site/${currentTenant?.slug}/robots.txt` },
+              { label: "Sitemap XML", desc: "Sitemap pubblica del tenant", icon: Globe, url: currentTenant?.domain ? `${normalizePublicBaseUrl(String(currentTenant.domain))}/sitemap.xml` : `/site/${currentTenant?.slug}/sitemap.xml` },
+              { label: "Robots.txt", desc: "Regole crawl pubbliche del tenant", icon: Search, url: currentTenant?.domain ? `${normalizePublicBaseUrl(String(currentTenant.domain))}/robots.txt` : `/site/${currentTenant?.slug}/robots.txt` },
               { label: "Breadcrumb JSON-LD", desc: "Schema breadcrumb dedicato per tenant e percorso", icon: BarChart3, url: `/api/seo/breadcrumb?tenant_slug=${currentTenant?.slug}&page_path=/` },
             ].map(r => (
               <div key={r.label} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "var(--c-bg-2)" }}>

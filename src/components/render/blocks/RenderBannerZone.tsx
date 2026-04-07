@@ -46,12 +46,18 @@ function renderBannerContent(banner: Banner) {
     if (sanitizeExternalUrl(banner.link_url)) {
       return (
         <a href={sanitizeExternalUrl(banner.link_url)!} target="_blank" rel="noopener noreferrer sponsored" style={{ display: 'inline-flex', justifyContent: 'center', width: '100%' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={banner.image_url} alt={banner.name} className="max-w-full h-auto block" loading="lazy" style={{ width: '100%', height: 'auto', objectFit: 'contain' }} />
         </a>
       );
     }
 
-    return <img src={banner.image_url} alt={banner.name} className="max-w-full h-auto block" loading="lazy" style={{ width: '100%', height: 'auto', objectFit: 'contain' }} />;
+    return (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={banner.image_url} alt={banner.name} className="max-w-full h-auto block" loading="lazy" style={{ width: '100%', height: 'auto', objectFit: 'contain' }} />
+      </>
+    );
   }
 
   return null;

@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
  * GET /api/ai/settings
  * Fetch AI models, journalist profiles, and publication style
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();

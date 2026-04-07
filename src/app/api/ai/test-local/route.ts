@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callAI } from '@/lib/ai/providers';
-import { resolveProvider } from '@/lib/ai/resolver';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
 import type { AIMessage, AIProvider } from '@/lib/ai/providers';
 
 // SOLO PER TESTING LOCALE - Rimuovere in produzione

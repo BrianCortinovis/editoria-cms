@@ -8,7 +8,7 @@ export function safeParse<T = unknown>(value: string): T | string {
   }
   try {
     return JSON.parse(value) as T;
-  } catch (e) {
+  } catch {
     console.warn('Failed to parse JSON string', { value: value.slice(0, 100) });
     return value;
   }

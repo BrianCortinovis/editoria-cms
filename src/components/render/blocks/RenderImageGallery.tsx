@@ -49,6 +49,8 @@ export function RenderImageGallery({ block, style }: Props) {
     const overlay = img.overlay;
     const hasOverlay = Boolean(overlay?.enabled && (overlay?.title || overlay?.description || (Array.isArray(img.buttons) && img.buttons.length > 0)));
     const media = (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={img.url}
         alt={img.alt || ''}
@@ -63,6 +65,7 @@ export function RenderImageGallery({ block, style }: Props) {
         }}
         loading="lazy"
       />
+      </>
     );
 
     return (

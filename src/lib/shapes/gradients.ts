@@ -1,4 +1,4 @@
-import type { AdvancedGradient, GradientStop } from '@/lib/types';
+import type { AdvancedGradient } from '@/lib/types';
 
 /**
  * Build a CSS gradient string from AdvancedGradient structure

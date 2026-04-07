@@ -61,7 +61,7 @@ export function AiPanel() {
         },
       ]);
     }
-  }, [aiPanelOpen, currentTenant?.name]);
+  }, [aiPanelOpen, currentTenant?.name, messages.length]);
 
   const handleQuickAction = async (action: QuickAction) => {
     if (!currentTenant) return;

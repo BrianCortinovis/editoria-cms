@@ -53,9 +53,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const focusedRef = useRef(false);
 
     useEffect(() => {
-      // Always sync draftValue with the prop value
-      // The input's onChange will handle user edits
-      setDraftValue((value ?? '') as string | number);
+      const nextValue = (value ?? '') as string | number;
+      const frame = window.requestAnimationFrame(() => {
+        setDraftValue(nextValue);
+      });
+      return () => {
+        window.cancelAnimationFrame(frame);
+      };
     }, [value]);
 
     useEffect(() => {

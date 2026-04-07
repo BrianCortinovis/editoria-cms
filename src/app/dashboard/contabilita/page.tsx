@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store";
 import {
@@ -21,6 +21,29 @@ interface BannerRevenue {
   starts_at: string | null;
   ends_at: string | null;
   is_active: boolean;
+}
+
+interface MetricCardProps {
+  icon: typeof Receipt;
+  label: string;
+  value: string | number;
+  color: string;
+}
+
+function MetricCard({ icon: Icon, label, value, color }: MetricCardProps) {
+  return (
+    <div className="card p-4">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "var(--c-accent-soft)" }}>
+          <Icon className="w-5 h-5" style={{ color }} />
+        </div>
+        <div>
+          <p className="text-xl font-bold tabular-nums" style={{ color: "var(--c-text-0)" }}>{value}</p>
+          <p className="text-[11px]" style={{ color: "var(--c-text-2)" }}>{label}</p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ContabilitaPage() {
@@ -55,22 +78,6 @@ export default function ContabilitaPage() {
   const totalClicks = banners.reduce((s, b) => s + b.clicks, 0);
   const activeBanners = banners.filter(b => b.is_active).length;
   const avgCTR = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : "0";
-
-  const MetricCard = ({ icon: Icon, label, value, sub, color }: {
-    icon: typeof Receipt; label: string; value: string | number; sub?: string; color: string;
-  }) => (
-    <div className="card p-4">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "var(--c-accent-soft)" }}>
-          <Icon className="w-5 h-5" style={{ color }} />
-        </div>
-        <div>
-          <p className="text-xl font-bold tabular-nums" style={{ color: "var(--c-text-0)" }}>{value}</p>
-          <p className="text-[11px]" style={{ color: "var(--c-text-2)" }}>{label}</p>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="max-w-5xl space-y-6">

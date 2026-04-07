@@ -515,7 +515,12 @@ export function RenderNavigation({ block, data, style }: Props) {
         data-block="navigation"
       >
       <div style={{ display: 'flex', flexDirection: logoStacked ? 'column' : 'row', alignItems: logoStacked ? 'flex-start' : 'center', gap: '0.75rem' }}>
-        {logoUrl && <img src={logoUrl} alt={logoText || 'Logo'} style={{ height: '40px', objectFit: 'contain' }} />}
+        {logoUrl && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logoUrl} alt={logoText || 'Logo'} style={{ height: '40px', objectFit: 'contain' }} />
+          </>
+        )}
         {logoText && (
           <span style={{ fontFamily: 'var(--e-font-heading)', fontWeight: 'bold', fontSize: '1.25rem', color: 'var(--e-color-text)' }}>
             {logoText}

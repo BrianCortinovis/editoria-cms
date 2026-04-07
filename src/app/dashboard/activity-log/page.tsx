@@ -84,7 +84,20 @@ export default function ActivityLogPage() {
     setLoading(false);
   }, [currentTenant, page]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (cancelled) return;
+      await load();
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [load]);
 
   if (!isAdmin) {
     return (

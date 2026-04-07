@@ -387,7 +387,6 @@ function PostCard({
   const statusInfo = STATUS_LABELS[post.status] || { label: post.status, color: 'var(--c-text-2)' };
   const platformLabel = SOCIAL_PLATFORMS.find((p) => p.key === post.platform)?.label || post.platform;
   const scheduledDate = new Date(post.scheduled_at);
-  const isPast = scheduledDate < new Date();
 
   return (
     <div

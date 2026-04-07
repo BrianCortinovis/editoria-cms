@@ -12,6 +12,7 @@ import { useAIConfigStore } from "@/lib/stores/ai-config-store";
 import type { Tables } from "@/types/database";
 import { advNav, mainNav } from "@/components/layout/Sidebar";
 import type { UserRole } from "@/types/database";
+import { normalizePublicBaseUrl } from "@/lib/site/public-url";
 
 type EditorPageOption = Pick<
   Tables<"site_pages">,
@@ -766,7 +767,7 @@ export default function Topbar({ title, onMenuClick }: { title: string; onMenuCl
 
         {currentTenant && (
           <a
-            href={currentTenant.domain ? `https://${currentTenant.domain}` : `/site/${currentTenant.slug}`}
+            href={currentTenant.domain ? normalizePublicBaseUrl(currentTenant.domain) : `/site/${currentTenant.slug}`}
             target="_blank"
             rel="noopener noreferrer"
             className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg text-white transition shrink-0"

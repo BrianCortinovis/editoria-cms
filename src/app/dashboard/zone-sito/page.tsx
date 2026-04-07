@@ -17,9 +17,6 @@ import {
   Pencil,
   Check,
   X,
-  ChevronDown,
-  GripVertical,
-  Eye,
 } from "lucide-react";
 
 interface ContentZone {
@@ -103,7 +100,20 @@ export default function ZoneSitoPage() {
     setLoading(false);
   }, [currentTenant]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (cancelled) return;
+      await load();
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [load]);
 
   const resetForm = () => {
     setFormKey(""); setFormLabel(""); setFormType("slideshow"); setFormDesc("");

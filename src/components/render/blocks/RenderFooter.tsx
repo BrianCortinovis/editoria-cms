@@ -41,9 +41,14 @@ export function RenderFooter({ block, data, style, tenantSlug }: Props) {
             gap: '2rem',
             alignItems: 'start',
           }}
-        >
+          >
           <div>
-            {footerConfig.logoUrl && <img src={footerConfig.logoUrl} alt="" style={{ height: '40px', marginBottom: '1rem', objectFit: 'contain' }} />}
+            {footerConfig.logoUrl && (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={footerConfig.logoUrl} alt="" style={{ height: '40px', marginBottom: '1rem', objectFit: 'contain' }} />
+              </>
+            )}
             {footerConfig.description && <p style={{ fontSize: '0.875rem', lineHeight: '1.6', opacity: 0.8 }}>{footerConfig.description}</p>}
 
             {footerConfig.socialLinks.length > 0 && (

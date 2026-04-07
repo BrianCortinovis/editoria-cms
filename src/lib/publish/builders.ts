@@ -1,4 +1,4 @@
-import { createServiceRoleClient, createServiceRoleClientForTenant } from '@/lib/supabase/server';
+import { createServiceRoleClientForTenant } from '@/lib/supabase/server';
 import { enrichArticlesWithCategories, fetchArticleIdsForCategory } from '@/lib/articles/taxonomy';
 import { resolveBlockData } from '@/lib/site/block-data-resolver';
 import { getActiveExclusivePlacementArticleIds, isPlacementActive } from '@/lib/editorial/placements';
@@ -254,7 +254,7 @@ function collectModuleEntries(input: {
         dataSource: block.dataSource ? (block.dataSource as Record<string, unknown>) : null,
         resolvedData,
         assetRefs,
-        childIds: Array.isArray(block.children) ? block.children.map((child) => child.id) : [],
+        childIds: Array.isArray(block.children) ? block.children.map((child: Block) => child.id) : [],
         updatedAt: input.updatedAt,
       });
 

@@ -5,9 +5,7 @@
  */
 
 import {
-  extractColor,
   extractNumber,
-  extractDividerShape,
   extractAnimationEffect,
   buildDividerFromText,
   buildGradientFromText,

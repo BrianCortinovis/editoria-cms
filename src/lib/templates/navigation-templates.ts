@@ -1,5 +1,3 @@
-import type { Block } from '@/lib/types';
-
 export interface NavigationTemplate {
   id: string;
   name: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Bot, Send, Trash2, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Bot, Send, Trash2, ChevronDown, Loader2 } from "lucide-react";
 
 interface ChatMessage {
   role: "user" | "assistant";

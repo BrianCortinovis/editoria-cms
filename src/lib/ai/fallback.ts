@@ -1,4 +1,4 @@
-import { callAI, type AIMessage, type AIProvider, type AIResponse } from "@/lib/ai/providers";
+import { callAI, type AIMessage, type AIProvider } from "@/lib/ai/providers";
 import { resolveProvider, type AITask } from "@/lib/ai/resolver";
 
 type AIConfig = Record<string, string | undefined>;

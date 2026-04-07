@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     let resolvedProvider;
     try {
       resolvedProvider = resolveProvider(aiConfig, 'chatbot');
-    } catch (e) {
+    } catch {
       return NextResponse.json(
         { error: 'No AI provider configured' },
         { status: 400 }

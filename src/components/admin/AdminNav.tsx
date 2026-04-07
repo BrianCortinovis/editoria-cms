@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
   ChevronRight,
@@ -10,12 +10,15 @@ import {
   Globe,
   HardDrive,
   LayoutDashboard,
+  LogOut,
   Mail,
   Search,
   TimerReset,
   Shield,
   Users,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuthStore } from "@/lib/store";
 
 const navItems = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
@@ -40,6 +43,15 @@ function isActiveNavItem(pathname: string, href: string) {
 
 export function AdminNav({ userName }: { userName: string }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const reset = useAuthStore((state) => state.reset);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    reset();
+    router.push("/auth/login");
+  };
 
   return (
     <aside className="platform-sidebar w-full lg:w-[304px] lg:min-h-screen lg:sticky lg:top-0">
@@ -103,6 +115,20 @@ export function AdminNav({ userName }: { userName: string }) {
             </Link>
           );
         })}
+
+        <button
+          type="button"
+          onClick={() => void handleLogout()}
+          className="mt-4 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition"
+          style={{
+            background: "rgba(220, 38, 38, 0.08)",
+            color: "var(--c-danger)",
+            border: "1px solid rgba(220, 38, 38, 0.14)",
+          }}
+        >
+          <LogOut className="h-4 w-4" />
+          <span className="flex-1 text-left">Esci dall&apos;account</span>
+        </button>
       </nav>
     </aside>
   );

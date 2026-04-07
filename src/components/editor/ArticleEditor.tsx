@@ -9,6 +9,7 @@ import { normalizeEditorialAutomationConfig, resolveEditorialAutomationRule } fr
 import type { PlacementDisplayMode } from "@/lib/editorial/placements";
 import { useFieldContextStore } from "@/lib/stores/field-context-store";
 import { requestPublishTrigger } from "@/lib/publish/client";
+import { normalizePublicBaseUrl } from "@/lib/site/public-url";
 import TiptapEditor from "./TiptapEditor";
 import AIPanel from "./AIPanel";
 import AIFieldHelper from "@/components/ai/AIFieldHelper";
@@ -98,6 +99,8 @@ function CoverImageUpload({ coverImageUrl, onUrlChange, tenantId, tenantSlug }: 
     <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border, #e0e0e0)", background: "var(--c-bg-1, #fff)" }}>
       {coverImageUrl ? (
         <div className="relative">
+          {/* Dynamic preview URL can come from uploads or external storage hosts. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={coverImageUrl} alt="Copertina" className="w-full h-48 object-cover" />
           <button
             onClick={() => onUrlChange("")}
@@ -550,7 +553,7 @@ export default function ArticleEditor({ articleId }: ArticleEditorProps) {
   const articleBaseUrl = currentTenant
     ? (
         currentTenant.domain
-          ? `https://${currentTenant.domain.replace(/^https?:\/\//, "")}`
+          ? normalizePublicBaseUrl(currentTenant.domain)
           : `/site/${currentTenant.slug}`
       )
     : "";

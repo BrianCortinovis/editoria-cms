@@ -17,7 +17,7 @@
  * ```
  */
 
-import { createContext, useContext, useRef, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { createEditoria } from './client';
 import type {
   EditoriaClient,
@@ -43,12 +43,9 @@ interface ProviderProps extends Omit<EditoriaConfig, 'fetcher'> {
 }
 
 export function EditoriaProvider({ children, ...config }: ProviderProps) {
-  const clientRef = useRef<EditoriaClient | null>(null);
-  if (!clientRef.current) {
-    clientRef.current = createEditoria(config);
-  }
+  const client = useMemo(() => createEditoria(config), [config]);
   return (
-    <EditoriaContext.Provider value={clientRef.current}>
+    <EditoriaContext.Provider value={client}>
       {children}
     </EditoriaContext.Provider>
   );

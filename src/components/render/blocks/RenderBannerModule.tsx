@@ -16,6 +16,32 @@ interface Props {
   style: React.CSSProperties;
 }
 
+interface BannerImageProps {
+  aspectRatio: React.CSSProperties['aspectRatio'];
+  banner: BannerItem;
+}
+
+function BannerImage({ aspectRatio, banner }: BannerImageProps) {
+  return (
+    <div style={{ aspectRatio }} className="overflow-hidden rounded bg-gray-100 flex-shrink-0">
+      {banner.imageUrl ? (
+        <a href={banner.link || '#'} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={banner.imageUrl}
+            alt={banner.altText}
+            className="w-full h-full object-cover hover:opacity-90 transition-opacity cursor-pointer"
+          />
+        </a>
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
+          {banner.altText}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function RenderBannerModule({ block, style }: Props) {
   const {
     layout = 'single',
@@ -68,31 +94,13 @@ export function RenderBannerModule({ block, style }: Props) {
     }
   };
 
-  const BannerImage = ({ banner }: { banner: BannerItem }) => (
-    <div style={{ aspectRatio: aspectRatio as React.CSSProperties['aspectRatio'] }} className="overflow-hidden rounded bg-gray-100 flex-shrink-0">
-      {banner.imageUrl ? (
-        <a href={banner.link || '#'} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
-          <img
-            src={banner.imageUrl}
-            alt={banner.altText}
-            className="w-full h-full object-cover hover:opacity-90 transition-opacity cursor-pointer"
-          />
-        </a>
-      ) : (
-        <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
-          {banner.altText}
-        </div>
-      )}
-    </div>
-  );
-
   // Carousel view
   if (layout === 'carousel') {
     const current = (banners as BannerItem[])[currentIndex];
     return (
       <div style={style} className="relative w-full">
         <div style={{ aspectRatio: aspectRatio as React.CSSProperties['aspectRatio'] }} className="w-full">
-          <BannerImage banner={current} />
+          <BannerImage aspectRatio={aspectRatio as React.CSSProperties['aspectRatio']} banner={current} />
         </div>
         {(showControls as boolean) && (banners as BannerItem[]).length > 1 && (
           <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-2">
@@ -115,7 +123,7 @@ export function RenderBannerModule({ block, style }: Props) {
   return (
     <div style={style} className={getGridClass()}>
       {(banners as BannerItem[]).map((banner) => (
-        <BannerImage key={banner.id} banner={banner} />
+        <BannerImage key={banner.id} aspectRatio={aspectRatio as React.CSSProperties['aspectRatio']} banner={banner} />
       ))}
     </div>
   );

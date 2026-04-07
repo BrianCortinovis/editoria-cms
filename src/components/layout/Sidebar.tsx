@@ -61,13 +61,17 @@ export const mainNav = [
 ];
 
 export const editorialNav = [
-  { href: "/dashboard/redazione", label: "Redazione", icon: Newspaper },
   { href: "/dashboard/articoli", label: "Articoli", icon: FileText },
-  { href: "/dashboard/desk", label: "Desk", icon: FileText },
   { href: "/dashboard/media", label: "Media", icon: Image },
   { href: "/dashboard/social", label: "Social", icon: Share2 },
   { href: "/dashboard/breaking-news", label: "Breaking", icon: Zap },
   { href: "/dashboard/eventi", label: "Eventi", icon: Calendar },
+];
+
+export const appNav = [
+  { href: "/dashboard/desk", label: "Desk", icon: FileText },
+  { href: "/dashboard/redazione", label: "Redazione", icon: Newspaper },
+  { href: "/dashboard/adv", label: "Commerciale", icon: BadgeDollarSign },
 ];
 
 export const advNav = [
@@ -92,7 +96,7 @@ export const systemNav = [
 function filterNavByRole(
   items: Array<{ href: string; label: string; icon: typeof LayoutDashboard }>,
   role: UserRole | null,
-  section: "main" | "editorial" | "adv" | "system"
+  section: "main" | "editorial" | "adv" | "apps" | "system"
 ) {
   if (!role) return items;
 
@@ -100,8 +104,10 @@ function filterNavByRole(
     const contributorAllowed = new Set(
       section === "main"
         ? []
+        : section === "apps"
+          ? ["/dashboard/desk"]
         : section === "editorial"
-          ? ["/dashboard/articoli", "/dashboard/desk", "/dashboard/media"]
+          ? ["/dashboard/articoli", "/dashboard/media"]
           : []
     );
     return items.filter((item) => contributorAllowed.has(item.href));
@@ -111,6 +117,8 @@ function filterNavByRole(
     const advertiserAllowed = new Set(
       section === "main"
         ? []
+        : section === "apps"
+          ? ["/dashboard/adv"]
         : section === "adv"
           ? ["/dashboard/adv", "/dashboard/banner", "/dashboard/inserzionisti", "/dashboard/contabilita"]
           : []
@@ -239,9 +247,20 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     if (currentRole === "advertiser") return commercialDeskSettings.allowAdvertiserAccess;
     return false;
   })();
+  const visibleAppNav = filterNavByRole(
+    appNav.filter((item) => {
+      if (item.href === "/dashboard/desk") return editorialDeskVisible;
+      if (item.href === "/dashboard/redazione") {
+        return currentRole === "admin" || currentRole === "chief_editor" || currentRole === "editor";
+      }
+      if (item.href === "/dashboard/adv") return commercialDeskVisible;
+      return true;
+    }),
+    currentRole,
+    "apps"
+  );
   const visibleEditorialNav = filterNavByRole(
     editorialNav.filter((item) => {
-      if (item.href === "/dashboard/desk") return editorialDeskVisible;
       if (item.href === "/dashboard/media") return journalistDeskSettings.showFieldKit;
       if (item.href === "/dashboard/breaking-news") {
         return journalistDeskSettings.allowBreakingNewsManagement && journalistDeskSettings.showBreakingDesk;
@@ -251,25 +270,14 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     currentRole,
     "editorial"
   );
-  const visibleAdvNav = filterNavByRole(
-    advNav.filter((item) => {
-      if (item.href === "/dashboard/adv") return commercialDeskVisible;
-      if (item.href === "/dashboard/banner") return commercialDeskSettings.allowBannerManagement;
-      if (item.href === "/dashboard/inserzionisti") return commercialDeskSettings.allowAdvertiserManagement;
-      if (item.href === "/dashboard/contabilita") return commercialDeskSettings.allowRevenueView;
-      return true;
-    }),
-    currentRole,
-    "adv"
-  );
   const visibleSystemNav = filterNavByRole(systemNav, currentRole, "system");
   const [collapsedSections, setCollapsedSections] = useState({
+    apps: false,
     editorial: false,
-    adv: false,
     system: false,
   });
 
-  const toggleSection = (section: "editorial" | "adv" | "system") => {
+  const toggleSection = (section: "apps" | "editorial" | "system") => {
     setCollapsedSections((prev) => ({
       ...prev,
       [section]: !prev[section],
@@ -317,18 +325,18 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-1.5 py-1 space-y-0.5">
-          {visibleEditorialNav.length > 0 && (
+          {visibleAppNav.length > 0 && (
             <>
-              <SectionToggle label="Redazione" isOpen={!collapsedSections.editorial} onToggle={() => toggleSection("editorial")} />
-              {!collapsedSections.editorial ? visibleEditorialNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
+              <SectionToggle label="App" isOpen={!collapsedSections.apps} onToggle={() => toggleSection("apps")} />
+              {!collapsedSections.apps ? visibleAppNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
             </>
           )}
 
-          {visibleAdvNav.length > 0 && (
+          {visibleEditorialNav.length > 0 && (
             <>
               <div className="h-px mx-2 my-1.5" style={{ background: "var(--c-border)" }} />
-              <SectionToggle label="Commerciale" isOpen={!collapsedSections.adv} onToggle={() => toggleSection("adv")} />
-              {!collapsedSections.adv ? visibleAdvNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
+              <SectionToggle label="Redazione" isOpen={!collapsedSections.editorial} onToggle={() => toggleSection("editorial")} />
+              {!collapsedSections.editorial ? visibleEditorialNav.map(item => <NavItem key={item.href} {...item} isActive={isActive(item.href)} onClick={onClose} />) : null}
             </>
           )}
 

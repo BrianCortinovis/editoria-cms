@@ -34,6 +34,25 @@ interface AIPanelProps {
 
 type AIAction = "seo" | "titles" | "social" | "translate" | "summary";
 
+interface CopyBtnProps {
+  copied: string | null;
+  id: string;
+  text: string;
+  onCopy: (text: string, key: string) => void;
+}
+
+function CopyBtn({ copied, id, text, onCopy }: CopyBtnProps) {
+  return (
+    <button
+      onClick={() => onCopy(text, id)}
+      className="w-6 h-6 flex items-center justify-center rounded transition shrink-0"
+      style={{ color: copied === id ? "var(--c-success)" : "var(--c-text-3)" }}
+    >
+      {copied === id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+    </button>
+  );
+}
+
 export default function AIPanel({
   title,
   body,
@@ -42,7 +61,6 @@ export default function AIPanel({
   onApplyMetaDescription,
   onApplyTitle,
   onApplySummary,
-  onApplyTags,
 }: AIPanelProps) {
   const { currentTenant } = useAuthStore();
   const [loading, setLoading] = useState<AIAction | null>(null);
@@ -123,16 +141,6 @@ export default function AIPanel({
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const CopyBtn = ({ text, id }: { text: string; id: string }) => (
-    <button
-      onClick={() => copyText(text, id)}
-      className="w-6 h-6 flex items-center justify-center rounded transition shrink-0"
-      style={{ color: copied === id ? "var(--c-success)" : "var(--c-text-3)" }}
-    >
-      {copied === id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-    </button>
-  );
-
   const actions: { id: AIAction; label: string; icon: typeof Sparkles; desc: string }[] = [
     { id: "seo", label: "SEO", icon: Search, desc: "Meta title, description, tag" },
     { id: "titles", label: "Titoli", icon: Type, desc: "5 titoli alternativi" },
@@ -200,7 +208,7 @@ export default function AIPanel({
                     <p className="text-[10px]" style={{ color: "var(--c-text-3)" }}>Meta Title</p>
                     <p className="text-xs" style={{ color: "var(--c-text-0)" }}>{seoResult.meta_title as string}</p>
                   </div>
-                  <CopyBtn text={seoResult.meta_title as string} id="seo-title" />
+                  <CopyBtn copied={copied} text={seoResult.meta_title as string} id="seo-title" onCopy={copyText} />
                   {onApplyMetaTitle && (
                     <button onClick={() => onApplyMetaTitle(seoResult.meta_title as string)}
                       className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}>
@@ -215,7 +223,7 @@ export default function AIPanel({
                     <p className="text-[10px]" style={{ color: "var(--c-text-3)" }}>Meta Description</p>
                     <p className="text-xs" style={{ color: "var(--c-text-0)" }}>{seoResult.meta_description as string}</p>
                   </div>
-                  <CopyBtn text={seoResult.meta_description as string} id="seo-desc" />
+                  <CopyBtn copied={copied} text={seoResult.meta_description as string} id="seo-desc" onCopy={copyText} />
                   {onApplyMetaDescription && (
                     <button onClick={() => onApplyMetaDescription(seoResult.meta_description as string)}
                       className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: "var(--c-accent-soft)", color: "var(--c-accent)" }}>
@@ -267,7 +275,7 @@ export default function AIPanel({
                     <p className="text-[10px] capitalize" style={{ color: "var(--c-text-3)" }}>{platform}</p>
                     <p className="text-xs" style={{ color: "var(--c-text-0)" }}>{text}</p>
                   </div>
-                  <CopyBtn text={text} id={`social-${platform}`} />
+                  <CopyBtn copied={copied} text={text} id={`social-${platform}`} onCopy={copyText} />
                 </div>
               ))}
             </div>
@@ -283,7 +291,7 @@ export default function AIPanel({
                     <p className="text-[10px]" style={{ color: "var(--c-text-3)" }}>Title</p>
                     <p className="text-xs" style={{ color: "var(--c-text-0)" }}>{translateResult.title}</p>
                   </div>
-                  <CopyBtn text={translateResult.title} id="tr-title" />
+                  <CopyBtn copied={copied} text={translateResult.title} id="tr-title" onCopy={copyText} />
                 </div>
               )}
               {translateResult.summary && (
@@ -292,7 +300,7 @@ export default function AIPanel({
                     <p className="text-[10px]" style={{ color: "var(--c-text-3)" }}>Summary</p>
                     <p className="text-xs" style={{ color: "var(--c-text-0)" }}>{translateResult.summary}</p>
                   </div>
-                  <CopyBtn text={translateResult.summary} id="tr-summary" />
+                  <CopyBtn copied={copied} text={translateResult.summary} id="tr-summary" onCopy={copyText} />
                 </div>
               )}
             </div>

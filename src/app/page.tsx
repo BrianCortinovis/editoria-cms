@@ -42,6 +42,7 @@ export default function Home() {
         >
           <div className="min-w-0">
             <div className="flex items-center gap-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/alpsite-logo.svg" alt="ALPSite" className="h-14 w-14 shrink-0 rounded-2xl" />
               <div>
                 <div

@@ -35,6 +35,7 @@ export function RenderBannerAd({ block, style }: Props) {
         />
       ) : fallbackImage ? (
         <a href={fallbackUrl} target="_blank" rel="noopener noreferrer sponsored" style={{ display: 'inline-block' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={fallbackImage} alt={label} style={{ width: frameWidth, maxWidth: frameMaxWidth, height: `${height}px`, objectFit: 'cover', borderRadius: '12px' }} />
         </a>
       ) : (

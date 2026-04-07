@@ -94,7 +94,6 @@ function generateZigzagSmooth(width: number, height: number): string {
   let path = `M0 ${height}`;
 
   for (let i = 0; i < segments; i++) {
-    const x1 = segWidth * i;
     const x2 = segWidth * (i + 0.5);
     const x3 = segWidth * (i + 1);
     const y = i % 2 === 0 ? height * 0.3 : height * 0.7;
@@ -128,7 +127,6 @@ function generateCloud(width: number, height: number): string {
 
   for (let i = 0; i < bumps; i++) {
     const cx = bumpWidth * (i + 0.5);
-    const startX = bumpWidth * i;
     const endX = bumpWidth * (i + 1);
     path += ` Q${cx} 0, ${endX} ${height * 0.4}`;
   }

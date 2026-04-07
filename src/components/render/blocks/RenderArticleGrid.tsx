@@ -56,6 +56,7 @@ export function RenderArticleGrid({ block, data, style, tenantSlug }: Props) {
         >
           {showImage && article.cover_image_url && (
             <div className="overflow-hidden" style={{ aspectRatio: imageAspectRatio }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={article.cover_image_url}
                 alt={article.cover_image_alt || article.title}

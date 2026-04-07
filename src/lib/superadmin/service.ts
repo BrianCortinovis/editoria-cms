@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requirePlatformUser } from "@/lib/platform/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getMaxSitesForPlan } from "@/lib/platform/plan-limits";
+import { normalizePublicBaseUrl } from "@/lib/site/public-url";
 import type { Tables } from "@/types/database";
 
 function isMissingRelation(error: { message?: string } | null | undefined) {
@@ -235,11 +236,7 @@ export async function getSuperadminOverview(): Promise<SuperadminOverview> {
         stack_kind: "shared",
         deploy_target_kind: "vercel_managed",
         deploy_target_label: "Managed Vercel Runtime",
-        public_base_url: inferredDomain
-          ? inferredDomain.endsWith(".localhost") || inferredDomain === "localhost"
-            ? `http://${inferredDomain}`
-            : `https://${inferredDomain}`
-          : null,
+        public_base_url: inferredDomain ? normalizePublicBaseUrl(inferredDomain) : null,
         last_publish_at: null,
       };
       const subscription = subscriptionsBySiteId.get(site.id);

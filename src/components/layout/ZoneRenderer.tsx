@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { ZoomIn, ZoomOut, Maximize2, Move } from "lucide-react";
 
 interface SlotChild {

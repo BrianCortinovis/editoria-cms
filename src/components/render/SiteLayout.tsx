@@ -79,17 +79,16 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
   }).format(new Date());
 
   return (
-    <html lang={siteLang}>
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        {siteDescription ? <meta name="description" content={siteDescription} /> : null}
-        {searchConsoleVerification ? <meta name="google-site-verification" content={searchConsoleVerification} /> : null}
-        {config?.favicon_url && <link rel="icon" href={config.favicon_url} />}
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
-        {themeCSS && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(themeCSS) }} />}
-        {config?.global_css && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(config.global_css) }} />}
-        <style dangerouslySetInnerHTML={{ __html: `
+    <>
+      <meta charSet="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      {siteDescription ? <meta name="description" content={siteDescription} /> : null}
+      {searchConsoleVerification ? <meta name="google-site-verification" content={searchConsoleVerification} /> : null}
+      {config?.favicon_url && <link rel="icon" href={config.favicon_url} />}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
+      {themeCSS && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(themeCSS) }} />}
+      {config?.global_css && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(config.global_css) }} />}
+      <style dangerouslySetInnerHTML={{ __html: `
           @keyframes marquee {
             0% { transform: translateX(0); }
             100% { transform: translateX(-50%); }
@@ -102,59 +101,57 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
             margin: 0;
           }
         `}} />
-      </head>
-      <body>
-        <PublicSiteRuntime
-          tenantSlug={tenant.slug}
-          siteName={tenant.name}
-          analyticsId={gaId}
-          tagManagerId={gtmId}
-          adsenseId={adsenseId}
-          privacyPolicyUrl={buildTenantPublicUrl(tenant, privacyPolicyUrl)}
-          cookiePolicyUrl={buildTenantPublicUrl(tenant, cookiePolicyUrl)}
-          customMarketingScriptUrl={cookieBannerScriptUrl}
-          customMarketingInlineScript={cookieBannerInlineScript}
-          forceCookieBanner={cookieBannerEnabled}
-        />
-        {topbarMenu.length > 0 && (
+      <PublicSiteRuntime
+        tenantSlug={tenant.slug}
+        siteName={tenant.name}
+        analyticsId={gaId}
+        tagManagerId={gtmId}
+        adsenseId={adsenseId}
+        privacyPolicyUrl={buildTenantPublicUrl(tenant, privacyPolicyUrl)}
+        cookiePolicyUrl={buildTenantPublicUrl(tenant, cookiePolicyUrl)}
+        customMarketingScriptUrl={cookieBannerScriptUrl}
+        customMarketingInlineScript={cookieBannerInlineScript}
+        forceCookieBanner={cookieBannerEnabled}
+      />
+      {topbarMenu.length > 0 && (
+        <div
+          style={{
+            borderBottom: isNewspaperChrome ? '1px solid var(--e-color-accent, #c1121f)' : '1px solid var(--e-color-border, #dee2e6)',
+            backgroundColor: isNewspaperChrome ? 'var(--e-color-primary, #0b1f44)' : 'var(--e-color-background, #ffffff)',
+          }}
+        >
           <div
             style={{
-              borderBottom: isNewspaperChrome ? '1px solid var(--e-color-accent, #c1121f)' : '1px solid var(--e-color-border, #dee2e6)',
-              backgroundColor: isNewspaperChrome ? 'var(--e-color-primary, #0b1f44)' : 'var(--e-color-background, #ffffff)',
+              maxWidth: 'var(--e-container-max, 1200px)',
+              margin: '0 auto',
+              padding: isNewspaperChrome ? '10px 24px 8px' : '8px 24px',
+              display: 'flex',
+              gap: isNewspaperChrome ? '16px' : '18px',
+              flexWrap: 'wrap',
+              justifyContent: isNewspaperChrome ? 'center' : 'flex-start',
             }}
           >
-            <div
-              style={{
-                maxWidth: 'var(--e-container-max, 1200px)',
-                margin: '0 auto',
-                padding: isNewspaperChrome ? '10px 24px 8px' : '8px 24px',
-                display: 'flex',
-                gap: isNewspaperChrome ? '16px' : '18px',
-                flexWrap: 'wrap',
-                justifyContent: isNewspaperChrome ? 'center' : 'flex-start',
-              }}
-            >
-              {topbarMenu.map((item, index) => (
-                <a
-                  key={`${item.id || item.url}-${index}`}
-                  href={item.url}
-                  target={item.target || '_self'}
-                  rel={item.target === '_blank' ? 'noreferrer' : undefined}
-                  style={{
-                    color: isNewspaperChrome ? 'rgba(255,255,255,0.92)' : 'var(--e-color-textSecondary)',
-                    textDecoration: 'none',
-                    fontSize: isNewspaperChrome ? '11px' : '12px',
-                    fontWeight: isNewspaperChrome ? 700 : 500,
-                    letterSpacing: isNewspaperChrome ? '0.12em' : 'normal',
-                    textTransform: isNewspaperChrome ? 'uppercase' : 'none',
-                  }}
-                >
-                  {item.label}
-                </a>
-              ))}
-            </div>
+            {topbarMenu.map((item, index) => (
+              <a
+                key={`${item.id || item.url}-${index}`}
+                href={item.url}
+                target={item.target || '_self'}
+                rel={item.target === '_blank' ? 'noreferrer' : undefined}
+                style={{
+                  color: isNewspaperChrome ? 'rgba(255,255,255,0.92)' : 'var(--e-color-textSecondary)',
+                  textDecoration: 'none',
+                  fontSize: isNewspaperChrome ? '11px' : '12px',
+                  fontWeight: isNewspaperChrome ? 700 : 500,
+                  letterSpacing: isNewspaperChrome ? '0.12em' : 'normal',
+                  textTransform: isNewspaperChrome ? 'uppercase' : 'none',
+                }}
+              >
+                {item.label}
+              </a>
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
         {/* Header / Navigation */}
         <header
@@ -171,6 +168,7 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
                 </div>
                 <a href={`/site/${tenant.slug}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: tenant.logo_url ? '8px' : '0', textDecoration: 'none' }}>
                   {tenant.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={tenant.logo_url} alt={tenant.name} style={{ height: '42px', width: 'auto' }} />
                   ) : null}
                   <span style={{ fontFamily: 'var(--e-font-heading)', fontWeight: 700, fontSize: 'clamp(2rem, 5vw, 3.4rem)', lineHeight: 0.92, color: 'var(--e-color-text)', textAlign: 'center' }}>
@@ -203,6 +201,7 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
             <div style={{ maxWidth: 'var(--e-container-max, 1200px)', margin: '0 auto', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <a href={`/site/${tenant.slug}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
                 {tenant.logo_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={tenant.logo_url} alt={tenant.name} style={{ height: '40px', width: 'auto' }} />
                 )}
                 <span style={{ fontFamily: 'var(--e-font-heading)', fontWeight: 'bold', fontSize: '20px', color: 'var(--e-color-text)' }}>
@@ -234,14 +233,14 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
         </div>
 
         {/* Footer */}
-        <footer
-          style={{
-            marginTop: 'var(--e-section-gap, 48px)',
-            borderTop: '1px solid var(--e-color-border, #dee2e6)',
-            backgroundColor: 'var(--e-color-surface, #f8f9fa)',
-            padding: '32px 24px',
-          }}
-        >
+      <footer
+        style={{
+          marginTop: 'var(--e-section-gap, 48px)',
+          borderTop: '1px solid var(--e-color-border, #dee2e6)',
+          backgroundColor: 'var(--e-color-surface, #f8f9fa)',
+          padding: '32px 24px',
+        }}
+      >
           <div style={{ maxWidth: 'var(--e-container-max, 1200px)', margin: '0 auto', color: 'var(--e-color-textSecondary)', fontSize: '14px' }}>
             {(footerConfig.description || footerConfig.columns.length > 0 || footerConfig.socialLinks.length > 0) && (
               <div
@@ -254,7 +253,12 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
                 }}
               >
                 <div>
-                  {footerConfig.logoUrl ? <img src={footerConfig.logoUrl} alt="" style={{ height: '40px', width: 'auto', marginBottom: '12px' }} /> : null}
+                  {footerConfig.logoUrl ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={footerConfig.logoUrl} alt="" style={{ height: '40px', width: 'auto', marginBottom: '12px' }} />
+                    </>
+                  ) : null}
                   {footerConfig.description ? <p style={{ margin: 0, lineHeight: 1.6 }}>{footerConfig.description}</p> : null}
                   {footerConfig.socialLinks.length > 0 && (
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '12px' }}>
@@ -324,8 +328,7 @@ export function SiteLayout({ tenant, config, tenantSettings, children }: Props) 
             ) : null}
             {footerConfig.copyright || `© ${new Date().getFullYear()} ${tenant.name}. Tutti i diritti riservati.`}
           </div>
-        </footer>
-      </body>
-    </html>
+      </footer>
+    </>
   );
 }
